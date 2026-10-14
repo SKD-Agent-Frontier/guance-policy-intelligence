@@ -1,0 +1,81 @@
+{
+ "seed": 20260914,
+ "generated_for": "首届“人文薪火”智能体创新应用大赛 · 管策智研 赛题示例数据集",
+ "library_total_plans": 53161,
+ "method": "分层随机抽样（最大余数法配额 + 下限修正 + 省域扩散上限）",
+ "strata_dims": [
+  "行政层级 admin_level",
+  "规划期 era",
+  "规划类型 plantype"
+ ],
+ "targets": {
+  "corpus": 400,
+  "edge_cases": 100,
+  "internal_test_pool_reserved": 300
+ },
+ "achieved": {
+  "corpus": 400,
+  "edge_cases": 100,
+  "defect_cases": 6
+ },
+ "corpus_composition": {
+  "by_admin_level": {
+   "区县": 225,
+   "市": 125,
+   "省": 31,
+   "国家": 19
+  },
+  "by_era": {
+   "十四五": 192,
+   "政府工作报告": 93,
+   "十三五": 45,
+   "十二五": 27,
+   "十一五": 21,
+   "其他": 12,
+   "十五计划": 10
+  },
+  "by_plantype": {
+   "2": 333,
+   "1": 59,
+   "3": 8
+  },
+  "by_library_fileext": {
+   "pdf": 81,
+   "docx": 188,
+   "html": 131
+  },
+  "html_real": 308,
+  "html_stub": 78,
+  "no_html": 14
+ },
+ "library_reference_share": {
+  "by_admin_level": {
+   "国家": 422,
+   "省": 4590,
+   "市": 17230,
+   "区县": 30919
+  },
+  "by_library_fileext": {
+   "docx": 24237,
+   "html": 16650,
+   "pdf": 12009,
+   "doc": 265
+  }
+ },
+ "edge_case_rules": {
+  "E1-超长文档": 15,
+  "E2-HTML空壳取自PDF": 20,
+  "E3-图片密集": 15,
+  "E4-极短文档": 15,
+  "E5-早期规划期": 15,
+  "E6-超长HTML": 10,
+  "E7-仅有docx原文": 1,
+  "E8-补充": 9
+ },
+ "inclusion_rules": {
+  "L3_origin_pdf": "仅当该篇无真实 HTML 正文时收录；单文件 ≤ 15 MB",
+  "L3_origin_word": "单文件 ≤ 8 MB",
+  "L4_media": "单篇图片总量 ≤ 10 MB，按体积降序收录",
+  "vector_images": "emf/wmf 矢量图统一转换为 png"
+ }
+}
