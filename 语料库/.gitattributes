@@ -1,0 +1,3 @@
+# 本目录为 PlanDB 冻结样例数据，须逐字节保持原样
+# 系统 core.autocrlf=true 会把 CRLF 静默改成 LF，此处禁用所有行尾转换
+* -text
