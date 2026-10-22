@@ -1,0 +1,84 @@
+{
+  "observed_date": "2026-10-22",
+  "base_url": "http://10.27.66.12/v1",
+  "model_list_advertised_embedding_id": "qwen3-vl-embedding-8b",
+  "real_text_embedding_probe": {
+    "inputs": 2,
+    "dimensions": [
+      4096,
+      4096
+    ],
+    "norms": [
+      1.0000000806115588,
+      1.0000000050453852
+    ],
+    "server_prompt_tokens": 22,
+    "full_official_template_used_in_this_first_probe": false
+  },
+  "official_template_comparison": {
+    "local_tokens": 28,
+    "string_input_server_tokens": 29,
+    "token_id_input_server_tokens": 28,
+    "max_vector_element_difference_between_string_and_ids": 0.40139273926615715,
+    "selected_formal_text_transport": "explicit_token_ids"
+  },
+  "base64_probe": {
+    "decoded_bytes": 16384,
+    "dimensions": 4096,
+    "server_prompt_tokens": 16
+  },
+  "vision_recognition_probe": {
+    "model": "qwen3.8-27b",
+    "source_image": "corpus/23728/media/image1.png",
+    "task": "识别类型、标题及前两行；不是全图转录",
+    "recognized_type": "chart",
+    "recognized_text": "丽水教育信息化生态圈\n1.教育现代化发展水平\n2.教育基础数据",
+    "prompt_tokens": 2106,
+    "image_tokens": 2040,
+    "completion_tokens": 47,
+    "seconds": 2.16
+  },
+  "remote_tokenize_endpoint": "404_not_exposed",
+  "remote_weight_revision": null,
+  "multimodal_embedding_api_verified": true,
+  "all_assets_recognized": false,
+  "formal_vectors_generated": false,
+  "database_release_activated": false,
+  "credential_values_included": false,
+  "multimodal_embedding_probe": {
+    "status": "passed",
+    "asset_hash": "563775c2c9543942f304ab7b875b9fcc6c97d357322ae65c3446262a8ac88529",
+    "input_description": {
+      "type": "image_text",
+      "asset_hash": "563775c2c9543942f304ab7b875b9fcc6c97d357322ae65c3446262a8ac88529",
+      "bbox": [
+        0,
+        0,
+        1700,
+        2400
+      ],
+      "original_size": [
+        1700,
+        2400
+      ],
+      "resized_size": [
+        832,
+        1216
+      ],
+      "derived_image_hash": "c313d94e61d50b353cf02888692a25ce4ae550881188a2b06bd30471a75b3575",
+      "text": "文档图片向量输入校验。",
+      "expected_tokens": 1017,
+      "expected_visual_tokens": 988,
+      "preprocess": "qwen_smart_resize_v1"
+    },
+    "dimensions": 4096,
+    "usage": {
+      "prompt_tokens": 1017,
+      "total_tokens": 1017,
+      "completion_tokens": 0,
+      "prompt_tokens_details": null
+    },
+    "pixel_input_sent": true,
+    "api_contract": "messages + image_url; add_generation_prompt=true"
+  }
+}
