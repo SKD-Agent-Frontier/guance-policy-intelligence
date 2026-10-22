@@ -1,0 +1,10 @@
+{
+  "schema_version": "2.0.0",
+  "chunker_version": "2.0.0",
+  "model": "Qwen/Qwen3-VL-Embedding-8B",
+  "instruction": "Represent the user's input.",
+  "child_target_tokens": 768,
+  "parent_target_tokens": 3072,
+  "max_input_tokens": 8192,
+  "sample_planids": ["9888", "49151", "39706", "20962", "30740", "47152", "32697", "18307", "19251", "38520"]
+}

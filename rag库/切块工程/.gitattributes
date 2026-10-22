@@ -1,0 +1,9 @@
+# 规则指纹包含源码字节，防止 Windows checkout 的换行转换改变同一提交的块 ID。
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+.gitignore text eol=lf
+outputs/** -text
+.cache/** -text
+.venv/** -text
