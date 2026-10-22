@@ -1,4 +1,7 @@
 """用真实 Qwen tokenizer 验证边界；篡改测试验证校验器确实能抓住错误。"""
+# 本文件使用临时构造的“测试政策”和极小图片，不改写真实 506 篇输入。
+# 用例分三组：原文与结构边界、条件/表格/引用完整性、文件恢复与增量行为。
+# 反向篡改用例故意制造错误，证明校验器不仅会接受正确数据，也能拒绝对应错误。
 from copy import deepcopy
 from pathlib import Path
 import json
@@ -18,10 +21,12 @@ CONFIG = json.loads((PROJECT / "config.json").read_text(encoding="utf-8"))
 
 @pytest.fixture(scope="session")
 def counter():
+    # session 级 fixture 让普通用例共享真实 tokenizer；没有用字符数假装 token 数。
     return TokenCounter(PROJECT, CONFIG)
 
 
 def source(tmp_path, body, newline="\n", planid="1"):
+    # 在 pytest 临时目录创建最小合法输入；可切换 CRLF，并用 emoji 检查码点坐标。
     path = tmp_path / planid / f"{planid}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     text = f'---\nplanid: "{planid}"\ntitle: "测试政策"\narea_name: "测试地区"\nfyp_name: "十四五"\n---\n\n' + body
@@ -31,6 +36,7 @@ def source(tmp_path, body, newline="\n", planid="1"):
 
 
 def run(tmp_path, body, counter, newline="\n", **overrides):
+    # 小样例可降低目标/硬上限，主动触发表格与超限分支，无需构造几十万字的测试文件。
     s = source(tmp_path, body, newline)
     config = {**CONFIG, **overrides}
     return s, process(s, tmp_path, counter, config, stable_id("test", config)), config
@@ -103,6 +109,7 @@ def test_indivisible_oversize_is_not_truncated(tmp_path, counter):
 
 
 def test_explicit_reference_context_and_validator(tmp_path, counter):
+    # 先证明第一条被真实带回，再删除上下文，要求校验器报 required_context_not_provided。
     s, data, config = run(tmp_path, "第一条 适用范围\n\n本规定适用于本地企业。\n\n第二条 申请要求\n\n按照第一条执行。\n", counter)
     relation = next(r for r in data["relations"] if r["kind"] == "reference")
     assert relation["status"] == "resolved"
@@ -141,6 +148,7 @@ def test_sentence_splitting_keeps_quotes_and_decimals(tmp_path):
 
 @pytest.mark.parametrize("damage,expected", [("unit", "source_text_mismatch"), ("parent", "child_parent_containment"), ("tokens", "token_count_mismatch")])
 def test_validator_rejects_tampering(tmp_path, counter, damage, expected):
+    # 参数化形成3个测试：改字、破坏父块范围、伪造 token 数，各自必须被对应检查抓住。
     s, data, config = run(tmp_path, "# 总则\n\n真实政策正文不能改字。\n", counter)
     if damage == "unit":
         data["units"][-1]["text"] += "伪造"
@@ -187,6 +195,8 @@ def test_pipe_table_long_rows_keep_header_and_caption(tmp_path, counter):
 
 
 def test_batch_resume_corruption_incremental_and_assets(tmp_path):
+    # 这是端到端小批次测试：共享图片 -> 修复快照 -> 复用结果 -> 缓存损坏重算 -> 新来源版本。
+    # 各阶段同时检查统计和结果哈希，避免只看命令退出0就误以为恢复逻辑有效。
     from PIL import Image
     from policy_chunker.source import read_jsonl, sha
     root = tmp_path / "library"
@@ -255,6 +265,8 @@ def test_plain_title_only_is_not_evidence(tmp_path, counter):
 
 
 def test_failed_document_is_retried_on_resume(tmp_path, monkeypatch):
+    # monkeypatch 临时模拟处理故障，恢复原函数后再 resume；失败缓存必须重新执行，
+    # 不能因为已有分片和完成记录，就永远沿用 error 状态。
     import policy_chunker.pipeline as pipeline
     root = tmp_path / "library"
     source(root / "corpus", "暂时失败后应重新处理的政策正文。\n", planid="903")
