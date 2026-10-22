@@ -1,0 +1,32 @@
+{
+  "kind": "project_code_reuse_not_upstream_splitter",
+  "source_project": "../切块工程",
+  "unchanged_copy_hashes_at_start": {
+    "policy_chunker/source.py": "781a903f8d0eddd009c5c372f84c8c04fb528d6f178f683030ae38911df6da54",
+    "policy_chunker/structure.py": "ee2a1a11ff433360fd10fbfd194052cde26cdba200451fd8567b1d79c1afa270",
+    "policy_chunker/relations.py": "dbb04c1e78575f47c6af6534bad13e5f0015fa2f1ccdab90fd12aa36c8b1379c",
+    "policy_chunker/tokens.py": "cb7df8bf2890add75457a73376b2f44ed3246118e500b7a0b9457fc2b2789271",
+    "policy_chunker/media.py": "869ad5d8fc0655a2e1342bac0b5139137fe2c664ea2ce61e7ea1d7745679ccb7",
+    "policy_chunker/validation.py": "8d4e6ce96e6a8808cbc203f204ff1f58cbdb97055c16190aa716c14b149f49c8",
+    "policy_chunker/pipeline.py": "8a58780097f1850e835057f6fbc83602b4b9c882003c97d7e5b488fbb95a7c1c",
+    "policy_chunker/__init__.py": "0d9ef1b04a5acfe67f98819a6859ad4cff2e8a748cce3c8f40443f9fc49d9d97"
+  },
+  "extracted_utilities": [
+    "source_quality",
+    "sentence_ranges",
+    "TableGrid",
+    "table_groups"
+  ],
+  "excluded_core_functions": [
+    "make_parents",
+    "make_chunks"
+  ],
+  "notes": "通用流水线/定位/校验复用后按新版接口调整，切分核心由 LlamaIndex 提供。",
+  "implementation_note": "source/structure/relations/pipeline/validation 在复用后按新版接口、命名空间和校验约束修改；旧版 make_parents/make_chunks 未复制。protection.py 中句群函数只审核安全边界，核心候选由官方组件生成。",
+  "test_reuse": "原版23项（增加持久缓存测试隔离），结构/组件7项，Windows原子I/O重试1项；实际通过31项，以pytest XML为准。",
+  "other_reused_files": {
+    "chunk.py": "原工程命令行路由，调用新版包",
+    "model_profile.json": "原工程固定Qwen分词器修订及文件摘要",
+    "tests/test_chunker.py": "原工程23项真实tokenizer回归/集成测试"
+  }
+}

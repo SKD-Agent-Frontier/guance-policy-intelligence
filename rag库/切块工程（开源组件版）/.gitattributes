@@ -1,0 +1,7 @@
+# 指纹依据实际文件字节；Git不能在提交/检出时改写已验源码和固定配置。
+*.py -text
+*.json -text
+*.md text eol=lf
+*.txt -text
+outputs/** -text
+outputs/README.md text eol=lf

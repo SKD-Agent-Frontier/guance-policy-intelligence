@@ -1,0 +1,6 @@
+llama-index-core==0.14.25
+markdown-it-py==4.2.0
+PyYAML==6.0.3
+pillow==13.0.0
+transformers==4.57.6
+pytest==9.1.1

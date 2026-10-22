@@ -1,0 +1,161 @@
+{
+  "date": "2026-10-22",
+  "scope": "开源组件父子切块＋政策约束适配＋图片登记",
+  "run": "outputs/all-d99495e468-1d289c5d78",
+  "sample_run": "outputs/sample-d99495e468-1d289c5d78",
+  "validation_passed": true,
+  "pytest": {
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "source_unchanged": true,
+  "old_project_unchanged": true,
+  "old_project_files_verified": 25,
+  "input_files_verified": 1475,
+  "code_hash": "42e6ec0c6c0d7bf5dff99f20971a1f67c73efd510a98909ed03a5521b8bd6ab9",
+  "config_hash": "oss1_config_1fc5aee115e8f960cc12f6d99495e468",
+  "component_profile": {
+    "package": "llama-index-core",
+    "version": "0.14.25",
+    "license": "MIT",
+    "source_repository": "https://github.com/run-llama/llama_index",
+    "installed_source_files": {
+      "HierarchicalNodeParser": {
+        "package_path": "llama_index/core/node_parser/relational/hierarchical.py",
+        "sha256": "94a7da1a4f435ba725d9fe899a22e0b2e7a4858f269e3f080a96c900bc4c67c5"
+      },
+      "SentenceSplitter": {
+        "package_path": "llama_index/core/node_parser/text/sentence.py",
+        "sha256": "615770bdab3bff710d83a1a5be8a2b053f7ca3791725251e0e8c5b0b920db240"
+      }
+    },
+    "model_calls": false,
+    "embedding_computed": false
+  },
+  "tokenizer_revision": "2c4565515e0f265c6511776e7193b22c0968ddc7",
+  "counts": {
+    "documents": 506,
+    "media_assets": 490,
+    "units": 178052,
+    "structures": 20034,
+    "parents": 40209,
+    "chunks": 43542,
+    "relations": 1101,
+    "media_occurrences": 782,
+    "issues": 393,
+    "component_nodes": 84903,
+    "component_calls": 40207,
+    "document_status:ready": 463,
+    "unit_disposition:excluded": 95314,
+    "unit_disposition:represented": 77080,
+    "chunk_status:ready": 43460,
+    "chunk_generation:component": 41269,
+    "component_call:ordinary_input": 26900,
+    "component_call:protected_input": 13243,
+    "chunk_generation:preserved_complete_list_item": 1770,
+    "document_status:source_suspect": 1,
+    "unit_disposition:pending": 5658,
+    "issue:source_suspect": 1,
+    "issue:markdown_hint_skipped_fragmented_source": 3,
+    "chunk_generation:preserved_complete_unit": 489,
+    "issue:missing_media": 285,
+    "document_status:no_body": 13,
+    "issue:no_body": 13,
+    "document_status:partial": 27,
+    "chunk_status:pending": 82,
+    "chunk_generation:unresolved_list_scope_preserved": 3,
+    "chunk_reason:unresolved_list_scope": 3,
+    "issue:pending_chunk": 82,
+    "chunk_generation:unsafe_table_preserved": 11,
+    "chunk_reason:unsafe_oversize_table": 11,
+    "chunk_reason:input_over_limit": 23,
+    "component_call:parent_integrity_retry": 64,
+    "document_status:title_only": 1,
+    "issue:title_only": 1,
+    "chunk_reason:unresolved_required_dependency": 56,
+    "issue:unresolved_required_dependency": 7,
+    "document_status:media_only": 1,
+    "issue:media_only": 1,
+    "physical_media_files": 969
+  },
+  "max_ready_input_tokens": 8030,
+  "full_resume": {
+    "exit_code": 0,
+    "processed": 0,
+    "reused": 506,
+    "seconds": 74.03200000000288,
+    "same_jsonl_hashes": true,
+    "before": {
+      "chunks.jsonl": "852d4748b28867566177b502e6e327b2202fb354365ba5a2d2944d525b34b2fc",
+      "component_calls.jsonl": "45bb23e63ae3c45e75a7fdcaaa3b6bbf674e24275169aba947c82eb5c7f8b5a4",
+      "component_nodes.jsonl": "ec33d9581fe709370761687dc87533a763942cb4586f20d9bb5639b47409c064",
+      "documents.jsonl": "d7166b1e7fe4a8734235d83ab0abc00856953e6631de0bf004d8603c1610d87d",
+      "issues.jsonl": "4e6deff1468289dd8c184aa8bdae03af4830468f020aa25825c793e708fcb20a",
+      "media_assets.jsonl": "54b3e79da47e96ec8c98a93ce6e0ceee2b941c9de487d25a084515bbda46d90e",
+      "media_occurrences.jsonl": "d39a66d9e103806d8fcf8a86478ce93a43c4de22d5b53d462a8fe6e93458b7de",
+      "parents.jsonl": "027955f208e666e3ad95cdf75b5fe74717c04256a8bf4c83c6356ef9733aa23b",
+      "relations.jsonl": "60aaaefadb65216864ade22c44c627f3bd02d15818f722c508f9d2610895cee1",
+      "structures.jsonl": "2daea8826f4f33f65f05358614bfd23db5af68e312271b52cba6d3f33b3b76c3",
+      "units.jsonl": "cc57a818f37371ca146229d6fd0708fd91ef123fe90147f58afd635a7a918b89",
+      "usable_chunks.jsonl": "6d3c53db9fabd163a5d6c885d4d3cc7733649a13f8e3b786562201cc9a152ceb"
+    },
+    "after": {
+      "chunks.jsonl": "852d4748b28867566177b502e6e327b2202fb354365ba5a2d2944d525b34b2fc",
+      "component_calls.jsonl": "45bb23e63ae3c45e75a7fdcaaa3b6bbf674e24275169aba947c82eb5c7f8b5a4",
+      "component_nodes.jsonl": "ec33d9581fe709370761687dc87533a763942cb4586f20d9bb5639b47409c064",
+      "documents.jsonl": "d7166b1e7fe4a8734235d83ab0abc00856953e6631de0bf004d8603c1610d87d",
+      "issues.jsonl": "4e6deff1468289dd8c184aa8bdae03af4830468f020aa25825c793e708fcb20a",
+      "media_assets.jsonl": "54b3e79da47e96ec8c98a93ce6e0ceee2b941c9de487d25a084515bbda46d90e",
+      "media_occurrences.jsonl": "d39a66d9e103806d8fcf8a86478ce93a43c4de22d5b53d462a8fe6e93458b7de",
+      "parents.jsonl": "027955f208e666e3ad95cdf75b5fe74717c04256a8bf4c83c6356ef9733aa23b",
+      "relations.jsonl": "60aaaefadb65216864ade22c44c627f3bd02d15818f722c508f9d2610895cee1",
+      "structures.jsonl": "2daea8826f4f33f65f05358614bfd23db5af68e312271b52cba6d3f33b3b76c3",
+      "units.jsonl": "cc57a818f37371ca146229d6fd0708fd91ef123fe90147f58afd635a7a918b89",
+      "usable_chunks.jsonl": "6d3c53db9fabd163a5d6c885d4d3cc7733649a13f8e3b786562201cc9a152ceb"
+    },
+    "validation_passed": true,
+    "io_runner": {
+      "path": "safe_run.py",
+      "sha256": "7e18cb49fa768745bfcc206affffd8c127cc97667f80f5f52e633cccac28ca1a",
+      "purpose": "bounded atomic replace retry only"
+    }
+  },
+  "regressions": {
+    "34457": {
+      "inline_sections": 5,
+      "cross_topic_chunks": [],
+      "passed": true
+    },
+    "50143": {
+      "intro_parent_id": "oss1_parent_a7fe922ced7ff096bb8286b6db37fbfc",
+      "children": 1,
+      "five_items_same_parent": true,
+      "all_children_have_intro": true,
+      "passed": true
+    }
+  },
+  "artifact_hashes": {
+    "chunks.jsonl": "852d4748b28867566177b502e6e327b2202fb354365ba5a2d2944d525b34b2fc",
+    "component_calls.jsonl": "45bb23e63ae3c45e75a7fdcaaa3b6bbf674e24275169aba947c82eb5c7f8b5a4",
+    "component_nodes.jsonl": "ec33d9581fe709370761687dc87533a763942cb4586f20d9bb5639b47409c064",
+    "documents.jsonl": "d7166b1e7fe4a8734235d83ab0abc00856953e6631de0bf004d8603c1610d87d",
+    "issues.jsonl": "4e6deff1468289dd8c184aa8bdae03af4830468f020aa25825c793e708fcb20a",
+    "media_assets.jsonl": "54b3e79da47e96ec8c98a93ce6e0ceee2b941c9de487d25a084515bbda46d90e",
+    "media_occurrences.jsonl": "d39a66d9e103806d8fcf8a86478ce93a43c4de22d5b53d462a8fe6e93458b7de",
+    "parents.jsonl": "027955f208e666e3ad95cdf75b5fe74717c04256a8bf4c83c6356ef9733aa23b",
+    "relations.jsonl": "60aaaefadb65216864ade22c44c627f3bd02d15818f722c508f9d2610895cee1",
+    "structures.jsonl": "2daea8826f4f33f65f05358614bfd23db5af68e312271b52cba6d3f33b3b76c3",
+    "units.jsonl": "cc57a818f37371ca146229d6fd0708fd91ef123fe90147f58afd635a7a918b89",
+    "usable_chunks.jsonl": "6d3c53db9fabd163a5d6c885d4d3cc7733649a13f8e3b786562201cc9a152ceb"
+  },
+  "semantic_accuracy_evaluated": false,
+  "not_executed": [
+    "OCR",
+    "向量计算",
+    "数据库部署",
+    "检索问答评测",
+    "远端推送"
+  ]
+}

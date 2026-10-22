@@ -1,0 +1,28 @@
+{
+  "schema_version": "2.1.0",
+  "chunker_version": "oss-1.0.0",
+  "namespace": "oss1",
+  "engine": "llama-index-core.HierarchicalNodeParser+SentenceSplitter",
+  "model": "Qwen/Qwen3-VL-Embedding-8B",
+  "instruction": "Represent the user's input.",
+  "child_target_tokens": 768,
+  "parent_target_tokens": 3072,
+  "max_input_tokens": 8192,
+  "chunk_overlap": 0,
+  "sentence_pattern": "[^。！？；;\\r\\n]+[。！？；;]?[ \\t]*|[。！？；;\\r\\n]+",
+  "sample_planids": [
+    "9888",
+    "49151",
+    "39706",
+    "20962",
+    "30740",
+    "47152",
+    "32697",
+    "18307",
+    "19251",
+    "38520",
+    "34457",
+    "50143",
+    "38501"
+  ]
+}
