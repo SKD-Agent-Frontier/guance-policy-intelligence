@@ -208,8 +208,32 @@ def start():
     start_postgres();start_qdrant()
 
 
+def restart_qdrant():
+    """仅重启本工程登记且最终exe路径吻合的进程，用于Windows临时文件句柄错误。
+
+    不修改安全软件设置，不删除segment或数据目录。PID若被其他进程复用则拒绝操作。
+    """
+    info=json.loads((RUNTIME/'processes.local.json').read_text(encoding='utf-8'))
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.OpenProcess.restype=ctypes.c_void_p
+    kernel.QueryFullProcessImageNameW.argtypes=[ctypes.c_void_p,ctypes.c_uint32,ctypes.c_wchar_p,ctypes.POINTER(ctypes.c_uint32)]
+    kernel.TerminateProcess.argtypes=[ctypes.c_void_p,ctypes.c_uint32]
+    kernel.CloseHandle.argtypes=[ctypes.c_void_p]
+    handle=kernel.OpenProcess(0x1001,False,info['qdrant_pid'])
+    if not handle:raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        buffer=ctypes.create_unicode_buffer(32768);size=ctypes.c_uint32(len(buffer))
+        if not kernel.QueryFullProcessImageNameW(handle,0,buffer,ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        expected=next((RUNTIME/'qdrant-bin').rglob('qdrant.exe')).resolve()
+        if Path(buffer.value).resolve()!=expected:raise ValueError('PID executable is not this project Qdrant')
+        if not kernel.TerminateProcess(handle,0):raise ctypes.WinError(ctypes.get_last_error())
+    finally:kernel.CloseHandle(handle)
+    time.sleep(1);start_qdrant()
+
+
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=['install','install-postgres','start','start-postgres','start-qdrant'])
+    parser.add_argument('command',choices=['install','install-postgres','start','start-postgres','start-qdrant','restart-qdrant'])
     args=parser.parse_args()
     globals()[args.command.replace('-','_')]()

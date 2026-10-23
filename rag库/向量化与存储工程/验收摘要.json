@@ -1,0 +1,65 @@
+{
+  "updated_at": "2026-10-23T08:05:38+08:00",
+  "generation_id": "generation_531a951ba715b142282dfddd07116f0573c60171dd19ced503c8a7ed973f3799",
+  "activation_time": "2026-10-22T18:27:06.707154+00:00",
+  "partial": true,
+  "documents": 506,
+  "parents": 38972,
+  "native_children": 42516,
+  "native_included": 42459,
+  "native_excluded": 57,
+  "physical_images": 969,
+  "unique_images": 490,
+  "ocr_parsed_assets": 479,
+  "ocr_asset_status": {
+    "recognized": 460,
+    "pending": 19
+  },
+  "ocr_failed_assets": 11,
+  "visual_parents": 893,
+  "visual_children": 3562,
+  "uncertain_visual_children": 56,
+  "representations": {
+    "text_chunk/text": 42459,
+    "visual_chunk/text": 3506,
+    "image_occurrence/image": 885,
+    "visual_chunk/image": 249,
+    "visual_chunk/image_text": 177
+  },
+  "embedding": {
+    "unique_inputs": 45337,
+    "representations": 47276,
+    "cache_hits": 1449,
+    "new_input_vectors": 43888,
+    "embedding_requests": 2002,
+    "failed_inputs": 0,
+    "service_http_attempts_including_probes_and_retries": 2010
+  },
+  "point_set_and_vectors_verified": true,
+  "restored_points": 47276,
+  "backup_restore_verified": true,
+  "self_lookup_checks": 5,
+  "semantic_correctness_claimed": false,
+  "runtime_health": {
+    "checked_at": "2026-10-23T00:04:04.741986+00:00",
+    "generation_id": "generation_531a951ba715b142282dfddd07116f0573c60171dd19ced503c8a7ed973f3799",
+    "revision": 2,
+    "postgres_points": 47276,
+    "qdrant_points": 47276,
+    "collection_status": "green",
+    "optimizer_status": "ok",
+    "indexed_vectors": 46697,
+    "keyword_indexes": [
+      "area_code",
+      "source_type",
+      "period_key",
+      "area_name",
+      "planid",
+      "document_type",
+      "representation_type",
+      "document_version_id"
+    ],
+    "unfinished_tasks": 0,
+    "passed": true
+  }
+}

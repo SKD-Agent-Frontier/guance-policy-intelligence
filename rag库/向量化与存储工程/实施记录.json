@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-10-23T00:14:29.876600+08:00",
-  "status": "runtime_execution_in_progress",
+  "updated_at": "2026-10-23T08:05:38.867933+08:00",
+  "status": "active_release_validated",
   "variant": "legacy",
   "scope_confirmed": "两版文本+图片识别+语义切块+多模态向量化+PostgreSQL/Qdrant",
   "shared_code_hashes": {
     "__init__.py": "65129c0d2a48a1cb90a9ada673a48caea051014147532239ec916e16d2b1365e",
     "candidates.py": "b10b9f2008d786897fc06280999a8686106ec6465fed4268530c7dc4f32176b3",
-    "cli.py": "e08635e6bc4c9d11401688a8e5ab1fa553da21d8829a52d18ebf1418674f9764",
+    "cli.py": "8e3d9d8eb6640ebe6314d4323968654e56020ece9956797cd6dcf5fce5253667",
     "common.py": "c8d8b9f16cee6dd2cb73c723973bf59e80c8e1ceab343f80e281c3f814d2a191",
     "dedup.py": "387e272e7dcbfa150577c97ec795e3727cf42587ab715555220061ce8e9a472f",
     "embedding.py": "3a757787056bc17b6d0594e3cfd3ac44900eb939a8e6a00873bb16ba5587ce29",
     "importer.py": "66c2743d3245b3aaebc08c20c5ae5c78f9c9abd746a7ac4da3391c4abd10c70c",
-    "media.py": "446d412186551fef25b6d1cc96b722c75e5b20e1a0dfa72a58c9443c0c9bd8c8",
+    "media.py": "e45abee12e8ed679712e5c9acff30407b16252f9592c09fe9603ee37591624aa",
     "operations.py": "14af3bee55a5bee9912f84466b97fd52f0cde6b8d313cbca54462cde0e6ad395",
-    "pipeline.py": "cbe8178a4a1ae7c3d7e198b5eb6044fe49eeab8963b88f2d0c4bd0526e1b6883",
+    "pipeline.py": "9513237a8b3490ed1c3644d336be37946923e857c135a3e8ed5a80cbd09c07f9",
     "prepare.py": "6c7fb4380275b6f2f7ae38151f0a5d2881bde1f1b839d9c105c9141a980cd0cc",
     "probe.py": "9089dc19fdaf23fc852fb9ded1f40e68654e6257528f16febbda7b8b13277c5b",
     "storage.py": "c5ba2203d87cbd035bcb98966a064f301ff36144e99d0b76c44bf44617e4b6b5",
-    "validation.py": "448029ce8c9fc63d29896173aba83eaaece6180de65295372f5ec357aa35c3ec",
+    "validation.py": "1a915801cfbc04b70508d2ce39c954fb226ef14b2049e2c0cf90a71f4955e7bd",
     "schema.sql": "f7cfc60c9ed5489cab6e3538d4ad6005c23542ec1318195affde2ae0451d3568",
     "requirements.txt": "6090b9d8780cd216db0605d6e90dd5f734d4bebd42709b1b24a1e07dd9d892f7",
     "requirements.lock.txt": "fa6d84ae55d9e558af460bc87202ae79033604b63ca7ec79501dd1c74052e0dc"
@@ -25,70 +25,15 @@
   "dependencies_installed": true,
   "pip_check_passed": true,
   "offline_pytest": {
-    "tests": 23,
+    "tests": 25,
     "failures": 0,
     "errors": 0,
     "skipped": 0
   },
   "prepared_batches": [
     {
-      "directory": "prepared_16fe46ed646e95ba10040564920b5f40ddbd334d901eaad140ad521fdf2fceb3",
-      "created_at": "2026-10-22T15:48:30.509321+00:00",
-      "sample": false,
-      "documents": 506,
-      "text_included": 42459,
-      "text_excluded": 57,
-      "physical_media_files": 969,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": false,
-        "reason": "no completed validation record"
-      }
-    },
-    {
-      "directory": "prepared_18dd2b2007675d05564d795aa756d7536c264baa528e609f2482d2e6cbfad400",
-      "created_at": "2026-10-22T14:50:57.755654+00:00",
-      "sample": true,
-      "documents": 5,
-      "text_included": 1293,
-      "text_excluded": 5,
-      "physical_media_files": 34,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": true,
-        "errors": [],
-        "source_segments_checked": 2564,
-        "documents": 5
-      }
-    },
-    {
-      "directory": "prepared_35a7c8d4aed416000863d893dd25f109689667b8ebd4b54ca24c770bad206f56",
-      "created_at": "2026-10-22T14:51:25.901369+00:00",
-      "sample": false,
-      "documents": 506,
-      "text_included": 42459,
-      "text_excluded": 57,
-      "physical_media_files": 969,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": true,
-        "errors": [],
-        "source_segments_checked": 81706,
-        "documents": 506
-      },
-      "dedup": {
-        "exact_body_groups": 418,
-        "exact_group_members": 1487,
-        "near_pairs": 13464,
-        "candidate_lists_capped": 197,
-        "candidate_limit": 100,
-        "exhaustive_near_duplicate_detection": false,
-        "sources_removed": 0
-      }
-    },
-    {
-      "directory": "prepared_38b3d04ba33f461c47baf93dec487786b5836678cd6f125fafa71843945ebf06",
-      "created_at": "2026-10-22T16:12:37.933155+00:00",
+      "directory": "prepared_500de044fe2796840e48615ccca8b73ce42248df10f355b3e95786e3eb854867",
+      "created_at": "2026-10-22T16:59:00.479703+00:00",
       "sample": false,
       "documents": 506,
       "text_included": 42459,
@@ -100,11 +45,45 @@
         "errors": [],
         "source_segments_checked": 81706,
         "documents": 506
+      },
+      "dedup": {
+        "exact_body_groups": 418,
+        "exact_group_members": 1487,
+        "near_pairs": 13464,
+        "candidate_lists_capped": 197,
+        "candidate_limit": 100,
+        "exhaustive_near_duplicate_detection": false,
+        "sources_removed": 0
       }
     },
     {
-      "directory": "prepared_8f806756c91dad4459364250d8a820e8402b535691fe6170fa5ac3a06a5d7614",
-      "created_at": "2026-10-22T14:41:50.454257+00:00",
+      "directory": "prepared_974e54cf1fae7785c6a666faeb8cb444a62c4adc6b1245f990983e07e39feaf4",
+      "created_at": "2026-10-22T16:59:03.549854+00:00",
+      "sample": true,
+      "documents": 5,
+      "text_included": 1293,
+      "text_excluded": 5,
+      "physical_media_files": 34,
+      "same_current_code_and_config": true,
+      "validation": {
+        "passed": true,
+        "errors": [],
+        "source_segments_checked": 2564,
+        "documents": 5
+      },
+      "dedup": {
+        "exact_body_groups": 9,
+        "exact_group_members": 18,
+        "near_pairs": 9,
+        "candidate_lists_capped": 0,
+        "candidate_limit": 100,
+        "exhaustive_near_duplicate_detection": false,
+        "sources_removed": 0
+      }
+    },
+    {
+      "directory": "prepared_b0c1f2967768f8f55e4d8fbd34386fd05305f17bfa2dbf41ccf7caccf80f87f3",
+      "created_at": "2026-10-22T16:55:29.925310+00:00",
       "sample": true,
       "documents": 5,
       "text_included": 1293,
@@ -116,95 +95,94 @@
         "errors": [],
         "source_segments_checked": 2564,
         "documents": 5
-      }
-    },
-    {
-      "directory": "prepared_9e9cf29f030956a841f007d4a714a90aea32c23d396427efd3d8944799025bec",
-      "created_at": "2026-10-22T15:03:54.479075+00:00",
-      "sample": false,
-      "documents": 506,
-      "text_included": 42459,
-      "text_excluded": 57,
-      "physical_media_files": 969,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": true,
-        "errors": [],
-        "source_segments_checked": 81706,
-        "documents": 506
       },
       "dedup": {
-        "exact_body_groups": 418,
-        "exact_group_members": 1487,
-        "near_pairs": 13464,
-        "candidate_lists_capped": 197,
+        "exact_body_groups": 9,
+        "exact_group_members": 18,
+        "near_pairs": 9,
+        "candidate_lists_capped": 0,
         "candidate_limit": 100,
         "exhaustive_near_duplicate_detection": false,
         "sources_removed": 0
-      }
-    },
-    {
-      "directory": "prepared_c32b2e6dab7be13267f63a6b7aab7b95f1a18f59502e697cd86b8dc43dd34c21",
-      "created_at": "2026-10-22T14:42:16.349830+00:00",
-      "sample": false,
-      "documents": 506,
-      "text_included": 42459,
-      "text_excluded": 57,
-      "physical_media_files": 969,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": true,
-        "errors": [],
-        "source_segments_checked": 81706,
-        "documents": 506
-      },
-      "dedup": {
-        "exact_body_groups": 418,
-        "exact_group_members": 1487,
-        "near_pairs": 13464,
-        "candidate_lists_capped": 197,
-        "candidate_limit": 100,
-        "exhaustive_near_duplicate_detection": false,
-        "sources_removed": 0
-      }
-    },
-    {
-      "directory": "prepared_cf68e61ef8475c7526b232010dd20d1ee3571e8284ab33859572a49749003ad1",
-      "created_at": "2026-10-22T15:06:59.305887+00:00",
-      "sample": true,
-      "documents": 5,
-      "text_included": 1293,
-      "text_excluded": 5,
-      "physical_media_files": 34,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": false,
-        "reason": "no completed validation record"
-      }
-    },
-    {
-      "directory": "prepared_fa56d378766d44fb0762d18faeb12409e65b19bdd58f69cf28a04d84dc755c04",
-      "created_at": "2026-10-22T15:24:25.108409+00:00",
-      "sample": false,
-      "documents": 506,
-      "text_included": 42459,
-      "text_excluded": 57,
-      "physical_media_files": 969,
-      "same_current_code_and_config": false,
-      "validation": {
-        "passed": false,
-        "reason": "no completed validation record"
       }
     }
   ],
   "input_files_rechecked": 1475,
   "input_mismatches": [],
-  "formal_active_pointer": null,
-  "ocr_full_run_completed": false,
-  "ocr_all_assets_attempted": false,
+  "formal_active_pointer": {
+    "generation_id": "generation_531a951ba715b142282dfddd07116f0573c60171dd19ced503c8a7ed973f3799",
+    "run": "outputs\\generation_531a951ba715b142282dfddd07116f0573c60171dd19ced503c8a7ed973f3799",
+    "collection": "guance_legacy_9fdb30d78eee7dd2dac6",
+    "postgres_schema": "rag_legacy",
+    "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
+    "revision": 2,
+    "status": "active",
+    "partial": true,
+    "statistics": {
+      "unique_inputs": 45337,
+      "representations": 47276,
+      "cache_hits": 1449,
+      "new_input_vectors": 43888,
+      "embedding_requests": 2002,
+      "failed_inputs": 0,
+      "service_http_attempts_including_probes_and_retries": 2010
+    },
+    "activated_at": "2026-10-22T18:27:06.707154+00:00"
+  },
+  "ocr_full_run_completed": true,
+  "ocr_all_assets_parsed": false,
+  "ocr_all_assets_attempted": true,
   "multimodal_embedding_protocol_verified": true,
-  "postgres_qdrant_reconciled": false,
-  "backup_restore_tested": false,
+  "postgres_qdrant_reconciled": true,
+  "backup_restore_tested": true,
+  "current_runtime_check": {
+    "at": "2026-10-23T00:04:04.741986+00:00",
+    "releases": {
+      "legacy": {
+        "generation_id": "generation_531a951ba715b142282dfddd07116f0573c60171dd19ced503c8a7ed973f3799",
+        "revision": 2,
+        "postgres_points": 47276,
+        "qdrant_points": 47276,
+        "collection_status": "green",
+        "optimizer_status": "ok",
+        "indexed_vectors": 46697,
+        "keyword_indexes": [
+          "area_code",
+          "source_type",
+          "period_key",
+          "area_name",
+          "planid",
+          "document_type",
+          "representation_type",
+          "document_version_id"
+        ],
+        "unfinished_tasks": 0,
+        "passed": true
+      },
+      "oss": {
+        "generation_id": "generation_71821316d70c92132db03cf68d66818246ec06f84f8e2fe1f926e20f60401e61",
+        "revision": 1,
+        "postgres_points": 48263,
+        "qdrant_points": 48263,
+        "collection_status": "green",
+        "optimizer_status": "ok",
+        "indexed_vectors": 47896,
+        "keyword_indexes": [
+          "area_code",
+          "period_key",
+          "planid",
+          "area_name",
+          "document_type",
+          "representation_type",
+          "source_type",
+          "document_version_id"
+        ],
+        "unfinished_tasks": 0,
+        "passed": true
+      }
+    },
+    "passed": true
+  },
   "database_bootstrap": {
     "rag_legacy": {
       "server": "PostgreSQL 16.13, compiled by Visual C++ build 1944, 64-bit",
@@ -256,5 +234,5 @@
     "release_activated": false
   },
   "blocking_condition": null,
-  "git_delivery": "pending_local_commit"
+  "git_delivery": "local_commits_created"
 }

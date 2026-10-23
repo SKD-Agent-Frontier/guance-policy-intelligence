@@ -6,7 +6,9 @@
 
 ## 当前状态
 
-2026-10-22正在实施。共享实现的23项回归通过，真实文本与图像Embedding接口验证通过，本机PostgreSQL与Qdrant已启动；两版全量图片识别共享实际计算，来源导入正在执行。尚无已激活的正式向量批次。执行状态见[实施记录](实施记录.json)及[批次索引](outputs/README.md)。
+2026-10-23已完成全量运行并激活：**506篇文档，48,263个真实向量点**。逐点对账、5篇来源/父块回取和真实备份恢复通过，共享实现25项离线回归通过。详见[验收报告](验收报告.md)、[验收摘要](验收摘要.json)、[实施记录](实施记录.json)及[最新批次](outputs/README.md)。
+
+这是有明确缺口的正式批次：490张唯一图片均已尝试，479张获得可解析转录（其中19张含不确定区域），11张识别失败；56个按出现位置计的视觉子块因不确定而排除。原有285处缺图引用仍保留。未把这些缺口补写为政策事实，原图及原因见[待处理图片](待处理图片.md)。
 
 ## 当前目录与作用
 
@@ -15,8 +17,12 @@
 ├─ README.md              # 本版输入、隔离、状态与运行方式
 ├─ AGENTS.md              # 继承共享工程的维护要求
 ├─ config.json            # 开源组件切块输入、rag_oss schema、guance_oss collection前缀
+├─ 当前批次.json          # 已激活generation、collection、覆盖状态与统计
 ├─ run.py                 # 只调整输入配置，调用兄弟目录的共享实现
 ├─ 实施记录.json          # 本版实际执行及未完成项
+├─ 验收摘要.json          # 本版实际数量与验收状态
+├─ 验收报告.md            # 来源、point、父块回取与备份恢复证据
+├─ 待处理图片.md          # 失败原图入口及不确定区域清单
 ├─ .gitignore             # 排除数据、缓存和私密配置
 ├─ .gitattributes         # 保持配置和代码指纹的原始字节
 ├─ .cache/                # 本版准备/识别工作数据，Git忽略
@@ -34,8 +40,8 @@
 ```powershell
 ..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py prepare --sample
 ..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py prepare --all
-..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py build --sample
-..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py build --all
+..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py build --sample --allow-partial
+..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py build --all --allow-partial
 ..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py verify
 ..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py smoke
 ..\向量化与存储工程\.venv\Scripts\python.exe -X utf8 run.py backup

@@ -12,6 +12,7 @@ from vector_store.common import SHARED,CORPUS,read_json,rows,write_json
 def generate(project):
     """输入工程目录，读取正式指针及其冻结副本；缺少任何验收文件即抛错。"""
     pointer=read_json(project/'当前批次.json')
+    run=Path(pointer['run']).as_posix()
     output=project/pointer['run'];frozen=read_json(output/'manifest.json')
     prepared=Path(frozen['prepared_path']);media=Path(frozen['media_path'])
     manifest=read_json(prepared/'manifest.json')
@@ -41,6 +42,11 @@ def generate(project):
         'point_set_and_vectors_verified':validation['passed'],'restored_points':restore['points_checked'],
         'backup_restore_verified':restore['passed'],'self_lookup_checks':len(smoke['checks']),
         'semantic_correctness_claimed':False}
+    health_file=SHARED/'.cache/current-runtime.json'
+    if health_file.exists():
+        health=read_json(health_file)
+        variant=read_json(project/'config.json')['variant']
+        result['runtime_health']={'checked_at':health['at'],**health['releases'][variant]}
     write_json(project/'验收摘要.json',result)
     lines=['# 向量化与存储验收报告','',f'生成时间：{now}。',
         '',f"当前入口：`{pointer['generation_id']}`；激活时间：{pointer['activated_at']}。",
@@ -63,16 +69,17 @@ def generate(project):
         f"- {len(smoke['checks'])}篇固定样例完成真实向量自命中及来源/父块回取。这是存储连通检查，不是检索准确率评估。",
         f"- 已导出PostgreSQL、创建Qdrant快照并复制来源和向量缓存；恢复到新数据库`{restore['database']}`及新collection`{restore['collection']}`，核对真实成员、payload、向量和来源副本。",
         '- 图片bbox为模型估计；转录始终标为识别文本，未经人工逐字校对。程序校验通过不等于政策语义全部正确。',
+        '- Windows后台优化器曾因segment重命名拒绝访问报错；重启本工程Qdrant后，两版恢复green/ok，point计数、PG指针及5篇回取重查通过。具体维护命令及限制见共享工程README的本机Windows运行记录。',
         '', '## 待处理与排除','',
         f"原生子块排除{result['native_excluded']}条，原因在准备批次的eligibility.jsonl；视觉缺口见[待处理图片](待处理图片.md)。",
         '', '| 表示排除原因 | 条目数 |','|---|---:|',
         *[f'| {key} | {count} |' for key,count in sorted(exclusions.items())],
         '', '上述条目、图片和派生块采用不同计数单位，不能相加当作政策数。缺图引用和归属记录见media_sources.jsonl及media_excluded.jsonl。',
         '', '## 原始验收入口','',
-        f"- [独立全量校验]({pointer['run']}/validation.json)",
-        f"- [存储回取检查]({pointer['run']}/storage_smoke.json)",
-        f"- [备份清单]({pointer['run']}/backup_receipt.json)",
-        f"- [真实恢复演练]({pointer['run']}/restore_drill.json)",
+        f"- [独立全量校验]({run}/validation.json)",
+        f"- [存储回取检查]({run}/storage_smoke.json)",
+        f"- [备份清单]({run}/backup_receipt.json)",
+        f"- [真实恢复演练]({run}/restore_drill.json)",
         '- [批次时间及最新版本](outputs/README.md)','']
     (project/'验收报告.md').write_text('\n'.join(lines),encoding='utf-8')
     pending=['# 图片待处理清单','',f'更新时间：{now}。',

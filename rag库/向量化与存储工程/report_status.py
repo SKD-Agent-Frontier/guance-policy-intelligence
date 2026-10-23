@@ -41,6 +41,9 @@ def main():
             manifest=read_json(file)
             same=manifest['specification']['code']==code and manifest['specification']['config']==config
             validation=file.parent/'prepared_validation.json'
+            if not validation.exists():
+                from vector_store.validation import validate_prepared
+                write_json(validation,validate_prepared(file.parent,manifest))
             batch={'directory':file.parent.name,'created_at':manifest['created_at'],
                 'sample':manifest['specification']['sample'],'documents':manifest['documents'],
                 'text_included':manifest['text_included'],'text_excluded':manifest['text_excluded'],
@@ -71,11 +74,13 @@ def main():
             'shared_code_hashes':code,'dependencies_installed':True,'pip_check_passed':check.returncode==0,
             'offline_pytest':tested,'prepared_batches':batches,'input_files_rechecked':len(sources),
             'input_mismatches':source_mismatches,'formal_active_pointer':active_data,
-            'ocr_full_run_completed':bool(live_media and live_media['assets']==live_media['recognized_assets'] and not live_media['recognition_failures']),
+            'ocr_full_run_completed':bool(live_media and live_media['assets']==live_media['recognized_assets']+live_media['recognition_failures']),
+            'ocr_all_assets_parsed':bool(live_media and live_media['assets']==live_media['recognized_assets'] and not live_media['recognition_failures']),
             'ocr_all_assets_attempted':bool(live_media and live_media['assets']==live_media['recognized_assets']+live_media['recognition_failures']),
             'multimodal_embedding_protocol_verified':bool(live_probe and live_probe.get('visual',{}).get('status')=='passed'),
             'postgres_qdrant_reconciled':bool(live_validation and live_validation['passed']),
             'backup_restore_tested':bool(live_restore and live_restore['passed']),
+            'current_runtime_check':read_json(SHARED/'.cache/current-runtime.json') if (SHARED/'.cache/current-runtime.json').exists() else None,
             'database_bootstrap':database,
             'small_scale_database_protocol_probe':read_json(SHARED/'.cache/database-protocol-probe.json') if (SHARED/'.cache/database-protocol-probe.json').exists() else None,
             'small_scale_restore_filter_probe':read_json(SHARED/'.cache/restore-protocol-recheck.json') if (SHARED/'.cache/restore-protocol-recheck.json').exists() else None,
@@ -107,6 +112,18 @@ def main():
             lines+=['','| 向量批次 | 清单写入时间（北京时间） | 对账 | 当前激活 |','|---|---|---|---|']
             for g in sorted(generations,key=lambda g:g['time']):
                 lines.append(f"| [{g['directory']}]({g['directory']}/manifest.json) | {g['time']} | {'通过' if g['validation'] and g['validation']['passed'] else '未通过或未完成'} | {'是' if g['active'] else '否'} |")
+        media_folders=[]
+        for folder in (project/'outputs').glob('media_*'):
+            files=list(folder.glob('*.jsonl'))
+            if files:
+                timestamp=min(p.stat().st_ctime for p in files)
+                media_folders.append((folder,datetime.fromtimestamp(timestamp,timezone(timedelta(hours=8))).isoformat(timespec='seconds')))
+        if media_folders:
+            lines+=['','| 识别快照 | 文件记录时间（北京时间） | 用途 |','|---|---|---|']
+            for folder,timestamp in sorted(media_folders,key=lambda pair:pair[1]):
+                lines.append(f'| [{folder.name}]({folder.name}/media_extractions.jsonl) | {timestamp} | 不可变识别及视觉父子块，是否正式使用以generation清单为准 |')
+        if (project/'.cache/development-runs/README.md').exists():
+            lines+=['','[已归档开发准备版本及各自时间](../.cache/development-runs/README.md)。归档只移动本任务未被发布引用的准备目录，没有删除数据。']
         lines+=['','`prepared_*`冻结上游、原文快照、入库资格与媒体；`media_*`冻结识别结果；`generation_*`才承载向量与存储候选。构建失败不切换正式指针。开发样例若归档至.cache/development-runs，保留其数据但不混在正式输出中。','']
         (project/'outputs/README.md').write_text('\n'.join(lines),encoding='utf-8')
         print(project.name,{'batches':len(batches),'original_input_hashes_checked':len(sources),'mismatches':len(source_mismatches)},flush=True)

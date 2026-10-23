@@ -201,7 +201,8 @@ def test_concurrent_ocr_keeps_source_order(tmp_path,monkeypatch):
     assert summary['recognized_assets']==2
 
 
-def test_truncated_ocr_preserves_raw_attempt_and_avoids_identical_retry(tmp_path,monkeypatch):
+@pytest.mark.parametrize('finish_reason',['length','stop'])
+def test_invalid_ocr_preserves_raw_attempt_and_avoids_identical_retry(tmp_path,monkeypatch,finish_reason):
     from PIL import Image
     from vector_store import media
     from vector_store.common import read_json
@@ -212,13 +213,13 @@ def test_truncated_ocr_preserves_raw_attempt_and_avoids_identical_retry(tmp_path
         calls=0
         def request(self,*args):
             self.calls+=1
-            return {'model':'vision','choices':[{'finish_reason':'length',
+            return {'model':'vision','choices':[{'finish_reason':finish_reason,
                 'message':{'content':'{"regions":["未完成的真实输出'}}]}
     service=Stub();config={'vision_model':'vision','vision_max_output_tokens':100}
     with pytest.raises(media.OCRPending) as first:
         media.recognize(asset,path,service,config)
     attempt=read_json(tmp_path/first.value.artifact)
-    assert attempt['finish_reason']=='length' and attempt['raw_output'].endswith('真实输出')
+    assert attempt['finish_reason']==finish_reason and attempt['raw_output'].endswith('真实输出')
     assert digest(attempt['raw_output'])==attempt['raw_output_hash']
     with pytest.raises(media.OCRPending) as repeated:
         media.recognize(asset,path,service,config)
@@ -267,3 +268,11 @@ def test_resume_completes_partially_created_payload_indexes():
     assert len(existing)==8 and 'document_type' in existing
     vectors.create('interrupted_collection')
     assert len(existing)==8
+
+
+def test_missing_media_remains_partial_after_pointer_switch():
+    from vector_store.media import has_media_gaps
+    summary={'recognition_failures':0,'uncertain_visual_chunks':0,'missing_or_unprocessed_occurrences':0}
+    assert not has_media_gaps(summary,[{'reason':'blank_image_has_no_policy_content'}])
+    assert has_media_gaps({**summary,'missing_or_unprocessed_occurrences':1},[])
+    assert has_media_gaps({**summary,'uncertain_visual_chunks':1},[])

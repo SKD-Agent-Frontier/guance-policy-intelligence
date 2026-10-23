@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 import json
-from .common import SHARED,read_json,paths,write_json,secrets,redact,utc_now
+from .common import SHARED,read_json,paths,write_json,secrets,redact,utc_now,rows
 
 
 def main(project):
@@ -85,9 +85,12 @@ def main(project):
             try:
                 revision=db.activate(config['knowledge_base_id'],generation,args.expected_revision,args.reason)
             finally:db.close()
+            from .media import has_media_gaps
+            partial=has_media_gaps(read_json(output/'media_summary.json'),rows(output/'representation_excluded.jsonl'))
             write_json(Path(project)/'当前批次.json',{'generation_id':generation,'run':str(output.relative_to(project)),
                 'collection':frozen['collection'],'postgres_schema':config['postgres_schema'],'profile_id':frozen['profile_id'],
-                'revision':revision,'status':'active','activated_at':utc_now(),'reason':args.reason})
+                'revision':revision,'status':'active','partial':partial,
+                'statistics':read_json(output/'embedding_summary.json'),'activated_at':utc_now(),'reason':args.reason})
             print(json.dumps({'generation_id':generation,'revision':revision},ensure_ascii=False))
         else:
             from . import operations

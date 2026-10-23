@@ -131,7 +131,9 @@ def validate_release(db,vectors,generation,prepared,cache,output):
     from .importer import batched
     for table,folder,key in [('parents',prepared,'parent_id'),('visual_parents',media_path,'parent_id'),('relations',prepared,'relation_id'),('visual_extractions',media_path,'extraction_id')]:
         from psycopg import sql
-        for batch in batched(rows(folder/(table+'.jsonl'))):
+        # PG的visual_extractions对应冻结文件media_extractions，二者命名不同。
+        filename='media_extractions' if table=='visual_extractions' else table
+        for batch in batched(rows(folder/(filename+'.jsonl'))):
             expected_objects={r['id']:r for r in batch}
             query=sql.SQL('SELECT {},data,data_hash FROM {} WHERE {}=ANY(%s)').format(sql.Identifier(key),sql.Identifier(table),sql.Identifier(key))
             stored={r[key]:r for r in db.connection.execute(query,(list(expected_objects),))}

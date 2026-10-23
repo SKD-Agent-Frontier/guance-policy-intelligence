@@ -33,6 +33,13 @@ class OCRPending(ValueError):
         self.artifact=artifact
 
 
+def has_media_gaps(summary,excluded):
+    """统一构建及回退指针的覆盖状态；原有缺图也是缺口，空白图排除则不是失败。"""
+    return bool(summary['recognition_failures'] or summary['uncertain_visual_chunks']
+        or summary['missing_or_unprocessed_occurrences']
+        or any(r['reason']!='blank_image_has_no_policy_content' for r in excluded))
+
+
 def parse_ocr(content,width,height,finish_reason='stop'):
     """将模型JSON变成原图像素区域；非法坐标不裁成合法值，输出截断直接拒绝。"""
     if finish_reason!='stop':
@@ -102,7 +109,7 @@ def recognize(asset,path,service,config):
         failed=read_json(failure)
         if failed['input_hash']!=digest({'asset_hash':asset['sha256'],'profile':profile_id}):
             raise ValueError('OCR failure cache input mismatch')
-        # 相同图片和输出上限的length失败不会因换了来源身份而变得完整。
+        # 相同图片和profile的截断或非法JSON，不会因换了来源身份而变得完整。
         # 保留待处理并复用失败证据；确需重试时必须显式设置配置或改变识别profile。
         raise OCRPending(failed['reason'],failed['artifact'])
     with Image.open(io.BytesIO(raw)) as picture:
@@ -128,9 +135,10 @@ def recognize(asset,path,service,config):
     try:
         parsed=parse_ocr(content,width,height,choice.get('finish_reason'))
     except Exception as error:
-        if choice.get('finish_reason')=='length':
-            write_json(failure,{'input_hash':digest({'asset_hash':asset['sha256'],'profile':profile_id}),
-                'reason':str(error),'artifact':artifact})
+        # 已收到的无效响应也属于可复核结果。同配置默认复用其待处理状态；
+        # 网络异常没有完整响应，不在这里缓存，仍按服务层的重试规则处理。
+        write_json(failure,{'input_hash':digest({'asset_hash':asset['sha256'],'profile':profile_id}),
+            'reason':str(error),'artifact':artifact,'finish_reason':choice.get('finish_reason')})
         raise OCRPending(str(error),artifact) from error
     # 同配置重跑也可能有不同转录；输出摘要进入版本，不能覆盖旧识别引用。
     result={'id':identity('extraction',asset['sha256'],profile_id,digest(content)),'asset_hash':asset['sha256'],

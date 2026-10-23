@@ -42,8 +42,8 @@
   "remote_weight_revision": null,
   "multimodal_embedding_api_verified": true,
   "all_assets_recognized": false,
-  "formal_vectors_generated": false,
-  "database_release_activated": false,
+  "formal_vectors_generated": true,
+  "database_release_activated": true,
   "credential_values_included": false,
   "multimodal_embedding_probe": {
     "status": "passed",
@@ -80,5 +80,7 @@
     },
     "pixel_input_sent": true,
     "api_contract": "messages + image_url; add_generation_prompt=true"
-  }
+  },
+  "all_assets_attempted": true,
+  "scope_result": "两版全量运行完成，11张图片失败及56个不确定视觉子块明确排除"
 }

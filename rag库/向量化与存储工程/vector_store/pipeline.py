@@ -16,6 +16,7 @@ from .dedup import prepare_dedup
 from .importer import import_sources,import_visual,register_release_documents
 from .storage import Database,Vectors
 from .validation import validate_prepared,validate_release
+from .media import has_media_gaps
 
 
 def verify_service_space(service,counter,profile_id):
@@ -217,7 +218,7 @@ def build(project,sample=False,allow_partial=False,fault_after=None):
             statistics=embed_inputs(db,vectors,generation,collection,candidates,cache,service,counter,docs,config,output,fault_after)
             if statistics['failed_inputs']:
                 raise RuntimeError('embedding failures remain; release is not activated')
-            incomplete_media=media_summary['recognition_failures'] or media_summary['uncertain_visual_chunks'] or any(r['reason']!='blank_image_has_no_policy_content' for r in excluded)
+            incomplete_media=has_media_gaps(media_summary,excluded)
             if incomplete_media and not allow_partial:
                 raise RuntimeError('media/representation gaps remain; use explicit --allow-partial only after inspecting reports')
             with db.connection.transaction():
