@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "message": "",
+  "data": [
+    {
+      "planid": "TEST-001",
+      "chunk_id": "TEST-001__s00__p00",
+      "title": "甲市十四五农业农村规划",
+      "area": "甲市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 0,
+      "section_path": "第一章 总体目标",
+      "content": "第一章 总体目标\n发展农业农村，推进乡村建设。\n",
+      "char_start": 0,
+      "char_end": 24,
+      "score": 1.0
+    }
+  ]
+}
