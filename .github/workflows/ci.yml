@@ -1,0 +1,26 @@
+name: Agent CI
+on:
+  push:
+    paths: ['agent/**', '.github/workflows/ci.yml']
+  pull_request:
+    paths: ['agent/**', '.github/workflows/ci.yml']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[dev]'
+      - name: Offline tests (empty suite allowed during bootstrap)
+        run: |
+          code=0
+          python -m pytest || code=$?
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
+      - run: python -m ruff check .
