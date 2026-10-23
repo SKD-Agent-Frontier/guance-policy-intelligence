@@ -1,0 +1,141 @@
+{
+  "timestamp": "2026-10-23T16:30:24.562367+00:00",
+  "mode": "hybrid",
+  "contract_version": "proposal-v0.3",
+  "passed": true,
+  "startup_seconds": 82.935,
+  "first_search_seconds": 2.487,
+  "baseline": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1,
+    "mode": "hybrid",
+    "documents": 506,
+    "native_representations": 42551,
+    "metadata_loads": 1,
+    "bm25_loads": 1,
+    "dense_loads": 1,
+    "snapshot_loads": 506,
+    "object_primary_key_lookups": 0,
+    "model_calls": 0,
+    "query_cache_hits": 0,
+    "worker_thread_id": 5880,
+    "runtime_instance_id": 2834038459040,
+    "queue_size": 0
+  },
+  "after": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1,
+    "mode": "hybrid",
+    "documents": 506,
+    "native_representations": 42551,
+    "metadata_loads": 1,
+    "bm25_loads": 1,
+    "dense_loads": 1,
+    "snapshot_loads": 506,
+    "object_primary_key_lookups": 122,
+    "model_calls": 3,
+    "query_cache_hits": 6,
+    "worker_thread_id": 5880,
+    "runtime_instance_id": 2834038459040,
+    "queue_size": 0
+  },
+  "samples_matched": [
+    "Passage.json",
+    "章节Passage.json",
+    "长块第1页.json",
+    "长块第2页.json"
+  ],
+  "hit_sample_recalled": true,
+  "concurrent_requests": 12,
+  "long_chunks_reconstructed": 41,
+  "longest_chunk_chars": 91631,
+  "long_chunk_pages": 137,
+  "errors_checked": [
+    "not_found",
+    "invalid_argument"
+  ],
+  "metadata_database_unchanged": true,
+  "service_query": {
+    "query": "苏州市十四五养老服务设施布局与智慧养老分别有哪些安排？",
+    "hits": 2,
+    "model_calls": 3,
+    "query_cache_hits": 0
+  },
+  "peak_working_set_gib": 9.486,
+  "hits": [
+    {
+      "chunk_id": "chunk_71bdac7c940d3baeb3864dd4724ef70f",
+      "planid": "20699",
+      "score": 0.03225806451612903,
+      "char_start": 9707,
+      "char_end": 10007,
+      "contexts": 1,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_0cf650ee0e78194e7e84a47228b36837",
+      "planid": "20699",
+      "score": 0.032018442622950824,
+      "char_start": 1583,
+      "char_end": 1883,
+      "contexts": 1,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_c5481643e7c67d653e29160c30719104",
+      "planid": "20699",
+      "score": 0.03177805800756621,
+      "char_start": 10864,
+      "char_end": 11164,
+      "contexts": 0,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_d7c402eafe0bbf1d32f883c117720800",
+      "planid": "20699",
+      "score": 0.03149801587301587,
+      "char_start": 11316,
+      "char_end": 11616,
+      "contexts": 1,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_ffbe27fe2e362d8c1171c3eb2edebeb1",
+      "planid": "20699",
+      "score": 0.03125763125763126,
+      "char_start": 6106,
+      "char_end": 6406,
+      "contexts": 1,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_965609e0e0120101a68f086ecd623e0d",
+      "planid": "20699",
+      "score": 0.029411764705882353,
+      "char_start": 7259,
+      "char_end": 7559,
+      "contexts": 2,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_0cf266405b3704a39efdeea846aa0f9c",
+      "planid": "20699",
+      "score": 0.029236022193768675,
+      "char_start": 2833,
+      "char_end": 3133,
+      "contexts": 3,
+      "quality_warnings": []
+    },
+    {
+      "chunk_id": "chunk_c353d1bf1b1d1ee85922032b8f74b2a4",
+      "planid": "20699",
+      "score": 0.028006267136701922,
+      "char_start": 3778,
+      "char_end": 4078,
+      "contexts": 1,
+      "quality_warnings": []
+    }
+  ],
+  "elapsed_seconds": 101.499,
+  "answer_accuracy_evaluated": false
+}
