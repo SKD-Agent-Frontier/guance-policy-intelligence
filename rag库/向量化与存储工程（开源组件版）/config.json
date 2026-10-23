@@ -13,6 +13,7 @@
   "normalization": "l2_float32",
   "distance": "Cosine",
   "scope": "text_and_multimodal",
+  "coverage_policy": "all_existing_content",
   "vision_model": "qwen3.8-27b",
   "vision_concurrency": 2,
   "vision_max_output_tokens": 12000,

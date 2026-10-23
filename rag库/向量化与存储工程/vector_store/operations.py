@@ -70,7 +70,7 @@ def smoke(project):
             if source is None or source['document_id']!=record['document_id']:
                 raise ValueError('retrieved source provenance mismatch')
             parent=None
-            parent_id=source['data'].get('parent_id')
+            parent_id=row['payload'].get('parent_id') or source['data'].get('parent_id')
             if parent_id:
                 parent=db.connection.execute('SELECT * FROM source_objects WHERE object_id=%s',(parent_id,)).fetchone()
                 if not parent or parent['document_id']!=record['document_id']:

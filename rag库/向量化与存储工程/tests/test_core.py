@@ -117,7 +117,7 @@ def test_visual_transcript_ranges_and_heading_context():
     assert c['context_segments'][0]['text']=='标题'
 
 
-def test_reviewed_bad_chunks_excluded_without_changing_source():
+def test_reviewed_chunk_labels_do_not_change_source():
     doc={'planid':'29326','source_hash':'3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d'}
     chunk={'source_segments':[{'start':61806,'end':61843,'text':'原文'}]}
     assert reviewed_exclusion(doc,chunk)=='reviewed_pdf_word_split_确保'
@@ -276,3 +276,157 @@ def test_missing_media_remains_partial_after_pointer_switch():
     assert not has_media_gaps(summary,[{'reason':'blank_image_has_no_policy_content'}])
     assert has_media_gaps({**summary,'missing_or_unprocessed_occurrences':1},[])
     assert has_media_gaps({**summary,'uncertain_visual_chunks':1},[])
+
+
+def test_complete_policy_includes_pending_oversize_and_reviewed_chunks():
+    from vector_store.prepare import chunk_eligibility
+    doc={'planid':'29326','source_hash':'3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d'}
+    chunk={'id':'c','document_id':'d','parent_id':'p','status':'pending',
+        'reasons':['input_over_limit'],'embedding_tokens':9000,'embedding_input_hash':'h',
+        'source_segments':[{'start':61806,'end':61843,'text':'原文'}]}
+    record=chunk_eligibility(doc,chunk,{}, {'max_input_tokens':8192,'coverage_policy':'all_existing_content'})
+    assert record['status']=='included' and record['reason'] is None
+    assert 'reviewed_pdf_word_split_确保' in record['quality_warning']
+    assert record['original_status']==chunk['status']=='pending'
+    assert chunk_eligibility(doc,chunk,{}, {'max_input_tokens':8192})['status']=='excluded'
+
+
+class CharacterCounter:
+    """仅用于验证分片算法，字符即token；真实集成仍使用固定Qwen tokenizer。"""
+    def encode(self,text):return '指令:'+text,[1,2,3]+[ord(c) for c in text]
+
+
+@pytest.mark.parametrize('text',['甲😀\r\n重复句。\r\n'*20,'超长表格单元格'*50])
+def test_input_fragments_cover_unicode_crlf_without_truncation(text):
+    from vector_store.text_inputs import text_descriptions
+    parts=text_descriptions(text,CharacterCounter(),24)
+    assert len(parts)>1
+    assert ''.join(text[f['start']:f['end']] for _,f in parts)==text
+    for index,(description,fragment) in enumerate(parts):
+        assert description['expected_tokens']<=24
+        assert fragment['index']==index and fragment['count']==len(parts)
+        assert not(text[fragment['end']-1:fragment['end']]=='\r' and text[fragment['end']:fragment['end']+1]=='\n')
+    assert text_descriptions('短文本',CharacterCounter(),24)[0][1] is None
+
+
+def test_repeated_fragments_share_calculation_but_keep_distinct_point_ids():
+    from vector_store.text_inputs import attach_fragment
+    base=representation({'id':'d','planid':'1','source_hash':'h'},{'id':'c'},'text_chunk','text',
+        {'type':'text','token_ids':[1,2],'expected_tokens':2},'profile')
+    left=attach_fragment(base,{'start':0,'end':2,'index':0,'count':2})
+    right=attach_fragment(base,{'start':2,'end':4,'index':1,'count':2})
+    assert left['input_hash']==right['input_hash'] and left['point_id']!=right['point_id']
+
+
+def test_complete_coverage_detects_missing_chunk_and_overlapping_fragment(tmp_path,monkeypatch):
+    from vector_store.common import write_rows,write_json
+    from vector_store.coverage import validate_coverage
+    from vector_store.text_inputs import text_descriptions,attach_fragment
+    from vector_store import embedding
+    monkeypatch.setattr(embedding,'Counter',lambda upstream:CharacterCounter())
+    prepared=tmp_path/'prepared';prepared.mkdir()
+    output=tmp_path/'result';output.mkdir()
+    doc={'id':'d','planid':'1','source_hash':'h','metadata':{}}
+    chunk={'id':'c','document_id':'d','retrieval_text':'连续原文😀\r\n'*10}
+    write_json(prepared/'manifest.json',{'specification':{'config':{'coverage_policy':'all_existing_content','max_input_tokens':24}},'upstream_project':str(tmp_path)})
+    for name,values in [('documents',[doc]),('chunks',[chunk]),('media_assets',[]),('media_sources',[])]:
+        write_rows(prepared/(name+'.jsonl'),values)
+    write_rows(output/'visual_chunks.jsonl',[])
+    records=[attach_fragment(representation(doc,chunk,'text_chunk','text',d,'profile'),f)
+        for d,f in text_descriptions(chunk['retrieval_text'],CharacterCounter(),24)]
+    write_rows(output/'representations.jsonl',records)
+    assert validate_coverage(prepared,output,output)['passed']
+    records[1]['embedding_fragment']['start']-=1
+    write_rows(output/'representations.jsonl',records)
+    assert not validate_coverage(prepared,output,output)['passed']
+    write_rows(output/'representations.jsonl',[])
+    check=validate_coverage(prepared,output,output)
+    assert not check['passed'] and check['native_missing']==['c']
+
+
+def test_known_parent_word_split_gets_one_complete_retrieval_parent():
+    from vector_store.prepare import complete_parent_contexts
+    from vector_store.candidates import payload
+    doc={'id':'d','planid':'29326','source_hash':'3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d','metadata':{}}
+    source='前'*61806+'甲'*35+'确\n'+'保'+('乙'*69)
+    parents={'a':{'id':'a','document_id':'d','start':61806,'end':61843},
+        'b':{'id':'b','document_id':'d','start':61843,'end':61913}}
+    chunks=[{'id':'c'+key,'document_id':'d','parent_id':key,
+        'source_segments':[{'start':p['start'],'end':p['end'],'text':source[p['start']:p['end']]}]} for key,p in parents.items()]
+    contexts=complete_parent_contexts([doc],parents,chunks,{'d':source})
+    assert len(contexts)==1 and '确\n保' in contexts[0]['source_segments'][0]['text']
+    assert contexts[0]['member_chunk_ids']==['ca','cb']
+    chunk=chunks[0]
+    record=representation(doc,chunk,'text_chunk','text',{'expected_tokens':5},'profile')
+    record['context_parent_id']=contexts[0]['id']
+    stored=payload(record,doc,chunk,'generation')
+    assert stored['parent_id']==contexts[0]['id'] and stored['original_parent_id']=='a'
+
+
+def test_complete_candidates_keep_uncertain_text_and_images_without_ocr(tmp_path,monkeypatch):
+    from vector_store import candidates
+    from vector_store.common import write_rows
+    prepared=tmp_path/'prepared';prepared.mkdir()
+    output=tmp_path/'result';output.mkdir()
+    monkeypatch.setattr(candidates,'SHARED',tmp_path)
+    raw=b'unit-test-image'
+    monkeypatch.setattr(candidates,'vision_input',lambda *args:(None,
+        {'type':'image','derived_image_hash':digest(raw),'expected_tokens':3,'text':''},raw))
+    doc={'id':'d','planid':'1','source_hash':'h','metadata':{}}
+    asset={'id':'a','sha256':'hash','paths':['source.png'],'status':'registered','width':100,'height':100}
+    occurrence={'id':'o','document_id':'d','asset_id':'a','status':'linked'}
+    chunk={'id':'v','document_id':'d','occurrence_id':'o','status':'pending','kind':'paragraph',
+        'text':'金额□元','context_segments':[]}
+    for name,values in [('eligibility',[]),('chunks',[]),('media_assets',[asset]),('media_sources',[occurrence])]:
+        write_rows(prepared/(name+'.jsonl'),values)
+    result,excluded=candidates.make_candidates(prepared,output,
+        {'coverage_policy':'all_existing_content','max_input_tokens':100},CharacterCounter(),'profile',{'d':doc},[chunk],[])
+    assert not excluded and {(c['record']['source_type'],c['record']['representation_type']) for c in result}=={
+        ('visual_chunk','text'),('image_occurrence','image')}
+    assert chunk['status']=='pending'
+
+
+def test_local_qdrant_connection_does_not_use_system_proxy(monkeypatch):
+    from vector_store.storage import Vectors
+    monkeypatch.setenv('HTTP_PROXY','http://127.0.0.1:9')
+    monkeypatch.delenv('NO_PROXY',raising=False)
+    monkeypatch.delenv('no_proxy',raising=False)
+    vectors=Vectors({'qdrant_url':'http://127.0.0.1:16333','qdrant_api_key':'unit-test'})
+    try:
+        client=vectors.client.http.client._client
+        transport=client._transport_for_url(httpx.URL('http://127.0.0.1:16333'))
+        assert not hasattr(transport._pool,'_proxy_url'),'本机Qdrant请求被送入代理连接池'
+    finally:vectors.close()
+
+
+def test_vector_retry_replays_same_ids_after_unknown_write_result(monkeypatch):
+    from vector_store import storage
+    from qdrant_client.http.exceptions import ResponseHandlingException
+    monkeypatch.setattr(storage.time,'sleep',lambda seconds:None)
+    class Client:
+        calls=0
+        stored={}
+        def upsert(self,name,points,wait):
+            self.calls+=1
+            for point in points:self.stored[str(point.id)]=point.payload
+            if self.calls==1:raise ResponseHandlingException(httpx.ConnectError('temporary connection timeout'))
+    vectors=storage.Vectors.__new__(storage.Vectors);vectors.client=Client()
+    rid=point_id('retry-test')
+    vectors.upsert('collection',[({'point_id':rid},normalize(np.ones(4096)),{'source':'same-source'})])
+    assert vectors.client.calls==2 and vectors.client.stored=={rid:{'source':'same-source'}}
+
+
+def test_vector_retry_is_bounded_and_auth_errors_are_not_retried(monkeypatch):
+    from vector_store import storage
+    from qdrant_client.http.exceptions import ResponseHandlingException,UnexpectedResponse
+    monkeypatch.setattr(storage.time,'sleep',lambda seconds:None)
+    calls=[]
+    def unavailable():
+        calls.append(1);raise ResponseHandlingException(httpx.ConnectError('temporary failure'))
+    with pytest.raises(ResponseHandlingException):storage.retry_vector_request(unavailable)
+    assert len(calls)==4
+    calls.clear()
+    def unauthorized():
+        calls.append(1);raise UnexpectedResponse(401,'Unauthorized',b'unit-test',{})
+    with pytest.raises(UnexpectedResponse):storage.retry_vector_request(unauthorized)
+    assert len(calls)==1

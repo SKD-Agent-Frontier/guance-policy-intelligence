@@ -26,6 +26,14 @@ def validate_prepared(prepared,manifest):
         if cursor!=len(sources[did]):
             errors.append('unit coverage incomplete: '+did)
     parents={p['id']:p for p in rows(prepared/'parents.jsonl')}
+    if (prepared/'parent_contexts.jsonl').exists():
+        for context in rows(prepared/'parent_contexts.jsonl'):
+            validate_segments(sources[context['document_id']],context['source_segments'])
+            checked+=len(context['source_segments'])
+            for pid in context['member_parent_ids']:
+                p=parents.get(pid)
+                if not p or p['document_id']!=context['document_id'] or not context['start']<=p['start']<p['end']<=context['end']:
+                    errors.append('supplemental parent membership invalid: '+context['id'])
     for table in ('parents','chunks'):
         for item in rows(prepared/(table+'.jsonl')):
             segments=item['source_segments']+item.get('context_segments',[])
@@ -116,6 +124,9 @@ def validate_release(db,vectors,generation,prepared,cache,output):
     frozen=read_json(output/'manifest.json')
     media_path=Path(frozen['media_path'])
     visual_check=validate_visual_artifacts(prepared,media_path)
+    from .coverage import validate_coverage
+    coverage=validate_coverage(prepared,output,media_path)
+    if not coverage['passed']:issues.append({'reason':'content_coverage_failed','errors':coverage['errors']})
     frozen_sources={r['id']:r for name,folder in [('chunks',prepared),('media_sources',prepared),('visual_chunks',media_path)] for r in rows(folder/(name+'.jsonl'))}
     source_ids=list({r['source_id'] for r in expected.values()})
     source_objects={r['object_id']:r for r in db.connection.execute('SELECT object_id,document_id,data,data_hash FROM source_objects WHERE object_id=ANY(%s)',(source_ids,))}
@@ -129,10 +140,12 @@ def validate_release(db,vectors,generation,prepared,cache,output):
             issues.append({'reason':'payload_differs_from_frozen_source_metadata','representation_id':row['representation_id']})
     # 原文父块、视觉父块和引用也独立比对冻结副本，防止“子块有point但父块回取错误”。
     from .importer import batched
-    for table,folder,key in [('parents',prepared,'parent_id'),('visual_parents',media_path,'parent_id'),('relations',prepared,'relation_id'),('visual_extractions',media_path,'extraction_id')]:
+    checks=[('parents',prepared,'parent_id','parents'),('visual_parents',media_path,'parent_id','visual_parents'),
+        ('relations',prepared,'relation_id','relations'),('visual_extractions',media_path,'extraction_id','media_extractions')]
+    if (prepared/'parent_contexts.jsonl').exists():checks.append(('parents',prepared,'parent_id','parent_contexts'))
+    for table,folder,key,filename in checks:
         from psycopg import sql
         # PG的visual_extractions对应冻结文件media_extractions，二者命名不同。
-        filename='media_extractions' if table=='visual_extractions' else table
         for batch in batched(rows(folder/(filename+'.jsonl'))):
             expected_objects={r['id']:r for r in batch}
             query=sql.SQL('SELECT {},data,data_hash FROM {} WHERE {}=ANY(%s)').format(sql.Identifier(key),sql.Identifier(table),sql.Identifier(key))
@@ -174,7 +187,7 @@ def validate_release(db,vectors,generation,prepared,cache,output):
         if member['document_id'] not in documents or member['metadata_snapshot']!=documents[member['document_id']]['metadata']:
             issues.append({'reason':'release_metadata_differs_from_frozen_document','document_id':member['document_id']})
     db.connection.commit()
-    result={'generation_id':generation,'checked_at':utc_now(),'source':source_check,'visual':visual_check,
+    result={'generation_id':generation,'checked_at':utc_now(),'source':source_check,'visual':visual_check,'coverage':coverage,
         'expected_points':len(expected),'actual_points':len(seen),'vectors_checked':vector_checks,
         'unfinished_tasks':unfinished,'issues':issues,
         'passed':bool(source_check['passed'] and visual_check['passed'] and not issues and not unfinished),

@@ -1,20 +1,20 @@
 {
-  "generation_id": "generation_71821316d70c92132db03cf68d66818246ec06f84f8e2fe1f926e20f60401e61",
-  "run": "outputs\\generation_71821316d70c92132db03cf68d66818246ec06f84f8e2fe1f926e20f60401e61",
-  "collection": "guance_oss_e1e84f7f3a4066db012d",
+  "generation_id": "generation_ce8d63791a039cff77e4d9251c8b06680ae27188306d96f3ae4dce950d3a765e",
+  "run": "outputs\\generation_ce8d63791a039cff77e4d9251c8b06680ae27188306d96f3ae4dce950d3a765e",
+  "collection": "guance_oss_cbc94cba10e312addabc",
   "postgres_schema": "rag_oss",
   "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
-  "revision": 1,
+  "revision": 2,
   "status": "active",
   "partial": true,
   "statistics": {
-    "unique_inputs": 46324,
-    "representations": 48263,
-    "cache_hits": 39987,
-    "new_input_vectors": 6337,
-    "embedding_requests": 225,
+    "unique_inputs": 46522,
+    "representations": 48516,
+    "cache_hits": 46438,
+    "new_input_vectors": 84,
+    "embedding_requests": 15,
     "failed_inputs": 0,
-    "service_http_attempts_including_probes_and_retries": 228
+    "service_http_attempts_including_probes_and_retries": 18
   },
-  "activated_at": "2026-10-22T21:03:39.973629+00:00"
+  "activated_at": "2026-10-23T02:06:27.398620+00:00"
 }

@@ -5,11 +5,14 @@
 """
 from contextlib import contextmanager
 import re
+import time
+import httpx
 import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
 from psycopg.rows import dict_row
 from qdrant_client import QdrantClient,models
+from qdrant_client.http.exceptions import ResponseHandlingException,UnexpectedResponse
 from .common import SHARED,digest,canonical
 
 KEYS={'document_versions':('document_id',),'source_objects':('object_id',),'parents':('parent_id',),
@@ -18,6 +21,22 @@ KEYS={'document_versions':('document_id',),'source_objects':('object_id',),'pare
       'visual_regions':('region_id',),'visual_parents':('parent_id',),'visual_chunks':('chunk_id',),'embedding_profiles':('profile_id',),
       'embedding_inputs':('input_hash',),'embedding_records':('representation_id',),
       'embedding_cache':('profile_id','input_hash')}
+
+
+def retry_vector_request(operation):
+    """只重试可重放的固定ID写入/只读翻页，4xx参数或鉴权错误直接失败。
+
+    连接中断时服务端可能已写成功，重试必须继续使用同一组point ID及payload。
+    最多重试3次，仍失败则保留断点抛错；不无限循环，也不伪造写入成功。
+    """
+    for attempt in range(4):
+        try:return operation()
+        except (ResponseHandlingException,UnexpectedResponse) as error:
+            transient=(isinstance(error,ResponseHandlingException) and isinstance(error.source,(httpx.TransportError,OSError))) or (
+                isinstance(error,UnexpectedResponse) and error.status_code is not None and (error.status_code==429 or error.status_code>=500))
+            if not transient or attempt==3:raise
+            print(f'Qdrant transient connection/availability error; retry {attempt+1}/3',flush=True)
+            time.sleep(2**attempt)
 
 
 class Database:
@@ -121,7 +140,9 @@ class Vectors:
     def __init__(self,private):
         # 服务版本和客户端版本均锁定并报告；实际协议由集成测试验证，不假定版本相等。
         self.client=QdrantClient(url=private['qdrant_url'],api_key=private['qdrant_api_key'],
-            prefer_grpc=False,timeout=60,check_compatibility=False)
+            prefer_grpc=False,timeout=60,check_compatibility=False,trust_env=False)
+        # HTTPX默认会读取Windows系统代理；本机127.0.0.1也可能被送入代理池，
+        # 导致偶发WinError 10060。数据库连接明确直连，不修改系统代理设置。
 
     def close(self):
         self.client.close()
@@ -148,12 +169,12 @@ class Vectors:
         points=[models.PointStruct(id=record['point_id'],vector={'dense':vector.tolist()},payload=payload)
             for record,vector,payload in records]
         if points:
-            self.client.upsert(collection,points=points,wait=True)
+            retry_vector_request(lambda:self.client.upsert(collection,points=points,wait=True))
 
     def scan(self,collection):
         offset=None
         while True:
-            points,offset=self.client.scroll(collection,offset=offset,limit=128,with_vectors=True,with_payload=True)
+            points,offset=retry_vector_request(lambda:self.client.scroll(collection,offset=offset,limit=128,with_vectors=True,with_payload=True))
             yield from points
             if offset is None:
                 break

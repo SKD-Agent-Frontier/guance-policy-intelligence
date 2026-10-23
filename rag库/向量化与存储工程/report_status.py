@@ -57,10 +57,17 @@ def main():
                     sources[doc['source_path']]=doc['source_hash']
                 for asset in rows(file.parent/'media_assets.jsonl'):
                     for path in asset['paths']:sources[path]=asset['sha256']
-        source_mismatches=[p for p,h in sources.items() if file_hash(CORPUS/p)!=h]
         active=project/'当前批次.json'
         active_data=read_json(active) if active.exists() else None
         live_dir=project/active_data['run'] if active_data else None
+        # 已发布批次可能使用网络修复前的实现，仍必须复核它真实引用的来源；
+        # 不能因代码指纹不等于当前版本就把原始文件检查数误报为0。
+        if live_dir:
+            live_prepared=Path(read_json(live_dir/'manifest.json')['prepared_path'])
+            for doc in rows(live_prepared/'documents.jsonl'):sources[doc['source_path']]=doc['source_hash']
+            for asset in rows(live_prepared/'media_assets.jsonl'):
+                for path in asset['paths']:sources[path]=asset['sha256']
+        source_mismatches=[p for p,h in sources.items() if file_hash(CORPUS/p)!=h]
         live_media=read_json(live_dir/'media_summary.json') if live_dir and (live_dir/'media_summary.json').exists() else None
         probe_file=live_dir/'service_probe.json' if live_dir else SHARED/'.cache/latest-probe.json'
         live_probe=read_json(probe_file) if probe_file.exists() else None
@@ -96,7 +103,7 @@ def main():
             '|---|---|---|---:|---:|---|---|']
         for b in sorted(batches,key=lambda b:b['created_at']):
             local_time=datetime.fromisoformat(b['created_at']).astimezone(timezone(timedelta(hours=8))).isoformat(timespec='seconds')
-            lines.append(f"| [{b['directory']}]({b['directory']}/manifest.json) | {local_time} | {'5篇样例' if b['sample'] else '全量'} | {b['documents']} | {b['text_included']}/{b['text_excluded']} | {'一致' if b['same_current_code_and_config'] else '开发版本'} | {'通过' if b['validation']['passed'] else '未完成'} |")
+            lines.append(f"| [{b['directory']}]({b['directory']}/manifest.json) | {local_time} | {'5篇样例' if b['sample'] else '全量'} | {b['documents']} | {b['text_included']}/{b['text_excluded']} | {'一致' if b['same_current_code_and_config'] else '历史代码版本'} | {'通过' if b['validation']['passed'] else '未完成'} |")
         newest=next((b for b in sorted(batches,key=lambda b:b['created_at'],reverse=True) if not b['sample'] and b['same_current_code_and_config']),None)
         if newest:lines+=['',f"最新全量准备版本：`{newest['directory']}`。准备版本与向量发布状态分别记录。"]
         if active_data:

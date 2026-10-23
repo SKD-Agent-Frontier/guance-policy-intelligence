@@ -35,6 +35,11 @@ def import_sources(db,prepared):
             elif table=='chunks':
                 db.immutable('chunks',[{'chunk_id':r['id'],'parent_id':r['parent_id'],'document_id':r['document_id'],
                     'status':r['status'],'data':r,'data_hash':digest(r)} for r in batch])
+    if (prepared/'parent_contexts.jsonl').exists():
+        for batch in batched(rows(prepared/'parent_contexts.jsonl')):
+            db.immutable('source_objects',[object_row(r,'parent_context') for r in batch])
+            db.immutable('parents',[{'parent_id':r['id'],'document_id':r['document_id'],
+                'source_start':r['start'],'source_end':r['end'],'data':r,'data_hash':digest(r)} for r in batch])
     for batch in batched(rows(prepared/'media_assets.jsonl')):
         db.immutable('media_assets',[{'asset_id':r['id'],'sha256':r['sha256'],'data':r,'data_hash':digest(r)} for r in batch])
         db.immutable('source_objects',[object_row(r,'media_asset') for r in batch])
