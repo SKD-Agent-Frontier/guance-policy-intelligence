@@ -59,7 +59,8 @@ python -m pip install -e '.[dev]'
 | STRUCTURED_OUTPUT | off；模型接口实测支持 json_schema 后可改 on |
 | LLM_TEMPERATURE | 留空，不发送该参数；接口实测支持后再填 0 |
 | LLM_REQUEST_TIMEOUT、LLM_MAX_RETRIES | 单次模型请求 60 秒、最多重试 2 次 |
-| MAX_INPUT_CHARS、MAX_TURNS | 最多 4000 字、8 轮模型调用 |
+| MAX_INPUT_CHARS、MAX_TURNS | 去除首尾空白后的最大字符数为 4000、最多 8 轮模型调用 |
+| MAX_USER_ID_CHARS | 用户 ID 最多 64 字符 |
 | RUN_TIMEOUT、TOOL_TIMEOUT | 整次执行 180 秒、单次工具 20 秒 |
 | TOP_K_DEFAULT、TOP_K_MAX | 检索默认 8 条、上限 20 条 |
 | SEARCH_SNIPPET_CHARS、READ_MAX_CHARS | 检索片段最多 300 字、章节读取最多 6000 字 |
@@ -139,6 +140,8 @@ python scripts/live_acceptance.py
 正式接入前需要与 RAG 负责人确认字段、章节定位参数和规划期分类。
 
 只提供 `kb_search` 与 `kb_read` 两个只读工具，不提供 Web 服务、文档导出或真实语料检索。
+匿名会话不绑定客户端身份；持有同一 `session_id` 的匿名调用方都可以读取该会话历史。
+新会话 ID 含 32 位随机字符，难以猜测；生产环境应由 Web 认证层签发不可伪造的凭证。
 不进行逐字引文或语义支持校验，也未验证五人并发。
 模型若不调工具直接回答政策问题，结果只能标为“未引用政策原文”。
 章节超长时只返回开头部分；工具超时会停止等待，但不能强制终止后端线程，正式后端仍需自身查询超时。

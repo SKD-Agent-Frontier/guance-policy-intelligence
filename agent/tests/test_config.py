@@ -37,6 +37,18 @@ def test_invalid_switch(tmp_path, monkeypatch):
         load_settings(tmp_path / "absent")
 
 
+def test_max_user_id_chars_default_and_validation():
+    assert Settings().max_user_id_chars == 64
+    with pytest.raises(ValueError):
+        Settings(max_user_id_chars=0)
+
+
+def test_max_user_id_chars_loads_from_environment(tmp_path):
+    env = tmp_path / "settings.env"
+    env.write_text("MAX_USER_ID_CHARS=80\n", encoding="utf-8")
+    assert load_settings(env).max_user_id_chars == 80
+
+
 def test_schema_roundtrip_and_independent_defaults():
     first, second = AgentOutput(answer="你好"), AgentOutput(answer="再见")
     first.claims.append({"text": "示例", "chunk_ids": []})

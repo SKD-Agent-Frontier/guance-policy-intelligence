@@ -12,8 +12,13 @@ from openai import AsyncOpenAI
 
 from .agent import prompt_version
 from .config import Settings
+from .context import sanitize_error_fields
 
 set_tracing_disabled(True)
+
+
+class SessionForbidden(PermissionError):
+    """Raised when a session is accessed with a different owner identity."""
 
 
 @lru_cache(maxsize=1)
@@ -33,11 +38,12 @@ def open_session(s, session_id, user_id):
         row = conn.execute("SELECT user_id FROM guance_session_owner WHERE session_id=?",
                            (session_id,)).fetchone()
         if row and row[0] != user_id:
-            raise PermissionError("SESSION_FORBIDDEN")
-        if not row and user_id is not None:
+            raise SessionForbidden("会话归属与当前用户不匹配")
+        created = row is None
+        if created:
             conn.execute("INSERT INTO guance_session_owner VALUES (?, ?, ?)",
                          (session_id, user_id, datetime.now(timezone.utc).isoformat()))
-    return SQLiteSession(session_id, s.session_path)
+    return SQLiteSession(session_id, s.session_path), created
 
 
 class Runtime:
@@ -54,10 +60,13 @@ class Runtime:
         return get_client(self.settings)
 
     def prepare(self):
-        self.session = open_session(self.settings, self.task.session_id, self.task.user_id)
+        self.session, created = open_session(
+            self.settings, self.task.session_id, self.task.user_id)
+        self.meta["session_created"] = created
         self.log("run_start", **self.meta)
 
     def log(self, stage, **values):
+        values = sanitize_error_fields(values, self.settings)
         event = dict(time=datetime.now(timezone.utc).isoformat(), run_id=self.task.run_id,
                      session_id=self.task.session_id, stage=stage, tool=None,
                      elapsed_ms=round((perf_counter() - self.started) * 1000),
@@ -78,6 +87,8 @@ class Runtime:
                  question_hash=sha256(question.encode()).hexdigest()[:12], **content)
 
     def finish(self, result, ctx):
+        if ctx:
+            ctx.tool_calls[:] = sanitize_error_fields(ctx.tool_calls, self.settings)
         result.meta.update(elapsed_ms=round((perf_counter() - self.started) * 1000),
                            tool_calls=ctx.tool_calls if ctx else [])
         if ctx:

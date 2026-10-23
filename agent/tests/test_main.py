@@ -40,12 +40,83 @@ async def test_run_and_session_ids(configured):
     assert all(e["tools"] == ["kb_search", "kb_read"] for e in ends)
 
 
+async def test_session_created_metadata_for_omitted_and_explicit_ids(configured):
+    generated = await submit("你好", settings=configured)
+    explicit = await submit("你好", session_id="s_explicit_new", settings=configured)
+    assert generated.meta["session_created"] is True
+    assert explicit.meta["session_created"] is True
+
+
+async def test_session_created_metadata_for_existing_id(configured):
+    first = await submit("你好", session_id="s_existing", settings=configured)
+    second = await submit("继续", session_id="s_existing", settings=configured)
+    assert first.meta["session_created"] is True
+    assert second.meta["session_created"] is False
+
+
+def test_task_request_does_not_store_session_creation_intent():
+    from guance_agent.schemas import TaskRequest
+    assert "is_new_session" not in TaskRequest.model_fields
+
+
 async def test_forbidden_and_missing_config(configured, env):
     first = await submit("你好", user_id="alice", settings=configured)
     denied = await submit("你好", session_id=first.session_id, user_id="bob", settings=configured)
     assert denied.error.code == "SESSION_FORBIDDEN"
     missing = await submit("你好", settings=env[0])
     assert missing.error.code == "MODEL_UNAVAILABLE"
+
+
+async def test_session_forbidden_is_mapped_by_type(configured, monkeypatch):
+    from guance_agent.runtime import SessionForbidden
+    def deny(*args):
+        raise SessionForbidden("arbitrary detail")
+    monkeypatch.setattr("guance_agent.runtime.open_session", deny)
+    result = await submit("你好", session_id="s_denied", settings=configured)
+    assert result.error.code == "SESSION_FORBIDDEN"
+
+
+async def test_unrelated_permission_error_remains_internal(configured, monkeypatch):
+    def fail(*args):
+        raise PermissionError("SESSION_FORBIDDEN")
+    monkeypatch.setattr("guance_agent.runtime.open_session", fail)
+    result = await submit("你好", session_id="s_permission", settings=configured)
+    assert result.error.code == "INTERNAL"
+
+
+@pytest.mark.parametrize("exception", [ValueError("bad config"), KeyError("missing config")])
+async def test_settings_stage_errors_map_to_config_error(env, monkeypatch, exception):
+    def fail(*args, **kwargs):
+        raise exception
+    monkeypatch.setattr("guance_agent.main.load_settings", fail)
+    result = await submit("你好")
+    assert result.error.code == "CONFIG_ERROR"
+    assert result.error.message == "服务配置有误，请联系管理员"
+
+
+@pytest.mark.parametrize("exception,code", [
+    (ValueError("bad kb config"), "CONFIG_ERROR"),
+    (KeyError("missing kb config"), "CONFIG_ERROR"),
+    (RuntimeError("kb runtime fault"), "INTERNAL"),
+])
+async def test_kb_stage_classifies_only_value_and_key_errors(configured, monkeypatch,
+                                                              exception, code):
+    def fail(*args, **kwargs):
+        raise exception
+    monkeypatch.setattr("guance_agent.orchestrator.get_kb", fail)
+    result = await submit("你好", settings=configured)
+    assert result.error.code == code
+    if code == "CONFIG_ERROR":
+        assert result.error.message == "服务配置有误，请联系管理员"
+
+
+async def test_execution_value_error_is_internal(configured, monkeypatch):
+    async def fail(*args, **kwargs):
+        raise ValueError("execution failure")
+
+    monkeypatch.setattr("guance_agent.runner.Runner.run", fail)
+    result = await submit("你好", settings=configured)
+    assert result.error.code == "INTERNAL"
 
 
 async def test_submit_tools_and_verified_output(configured, monkeypatch):
@@ -55,6 +126,25 @@ async def test_submit_tools_and_verified_output(configured, monkeypatch):
     monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: model)
     result = await submit("农业重点", settings=configured)
     assert result.evidence_status == "verified" and len(result.meta["tool_calls"]) == 2
+
+
+async def test_trimmed_question_limit_accepts_surrounding_whitespace(configured):
+    result = await submit(" " * 100 + "字" * 4000 + " " * 100, settings=configured)
+    assert result.status == "completed"
+
+
+async def test_user_id_limit_accepts_64_and_rejects_65(configured):
+    accepted = await submit("你好", user_id="u" * 64, settings=configured)
+    rejected = await submit("你好", user_id="u" * 65, settings=configured)
+    assert accepted.status == "completed"
+    assert rejected.error.code == "INVALID_INPUT"
+    assert rejected.error.message == "用户 ID 格式不正确"
+
+
+async def test_user_id_limit_uses_configured_value(configured):
+    custom = replace(configured, max_user_id_chars=80)
+    result = await submit("你好", user_id="u" * 65, settings=custom)
+    assert result.status == "completed"
 
 
 @pytest.mark.parametrize("status,error,expected", [

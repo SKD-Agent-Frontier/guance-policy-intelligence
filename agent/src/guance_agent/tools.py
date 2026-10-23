@@ -5,8 +5,9 @@ import re
 from time import perf_counter
 
 from agents import RunContextWrapper, function_tool
+from openai import APIStatusError
 
-from .context import RunContext
+from .context import RunContext, sanitize_error_detail
 from .kb import KBNoText, KBNotFound, normalize_fyp
 from .schemas import ToolResult
 
@@ -55,7 +56,9 @@ async def _call(ctx, name, fn, *args):
     except TimeoutError:
         result = ToolResult(status="timeout", message="检索超时，检索服务暂时不可用")
     except Exception as exc:
-        detail = type(exc).__name__
+        detail = (f"{type(exc).__name__}: HTTP {exc.status_code}"
+                  if isinstance(exc, APIStatusError) else f"{type(exc).__name__}: {exc}")
+        detail = sanitize_error_detail(detail, ctx.settings)
         result = ToolResult(status="backend_error", message="检索服务异常，暂时不可用（详情只写日志）")
     event = dict(name=name, status=result.status, message=result.message,
                  elapsed_ms=round((perf_counter() - started) * 1000))

@@ -10,7 +10,6 @@ ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
 class TaskRequest(BaseModel):
     run_id: str
     session_id: str
-    is_new_session: bool
     user_id: str | None = None
     question: str
     created_at: str

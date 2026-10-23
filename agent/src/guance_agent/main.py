@@ -3,10 +3,10 @@ import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from .config import Settings, load_settings
+from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_task
 from .output import ERRORS, build_result
-from .runtime import Runtime
+from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -16,7 +16,6 @@ def _build_task(question: str, session_id, user_id) -> TaskRequest:
     return TaskRequest(
         run_id="run_" + uuid4().hex,
         session_id=session_id if isinstance(session_id, str) else "s_" + uuid4().hex,
-        is_new_session=session_id is None,
         user_id=user_id if isinstance(user_id, str) else None,
         question=question.strip() if isinstance(question, str) else "",
         created_at=datetime.now(timezone.utc).isoformat())
@@ -31,6 +30,8 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
         return "会话 ID 格式不正确"
     if user_id is not None and (not isinstance(user_id, str) or not user_id.strip()):
         return "用户 ID 格式不正确"
+    if user_id is not None and len(user_id) > s.max_user_id_chars:
+        return "用户 ID 格式不正确"
     return None
 
 
@@ -39,7 +40,10 @@ async def submit(question: str, session_id: str | None = None,
     task = _build_task(question, session_id, user_id)
     rt = None
     try:
-        s = settings or load_settings()
+        try:
+            s = settings or load_settings()
+        except (ValueError, KeyError) as exc:
+            raise ConfigurationError from exc
         rt = Runtime(s, task)
         rt.received()
         message = _reject_reason(question, task, session_id, user_id, s)
@@ -52,14 +56,18 @@ async def submit(question: str, session_id: str | None = None,
         rt.prepare()
         return await run_task(task, s, rt)
     except Exception as exc:
-        code = ("SESSION_FORBIDDEN"
-                if isinstance(exc, PermissionError) and str(exc) == "SESSION_FORBIDDEN"
-                else "INTERNAL")
+        if isinstance(exc, ConfigurationError):
+            code = "CONFIG_ERROR"
+        elif isinstance(exc, SessionForbidden):
+            code = "SESSION_FORBIDDEN"
+        else:
+            code = "INTERNAL"
         result = build_result(task, None, None, rt.meta if rt else {},
                               RunError(code=code, message=ERRORS[code]))
         if rt:
             try:
-                rt.log("rejected", error_code=code, error_detail=type(exc).__name__)
+                rt.log("rejected", error_code=code,
+                       error_detail=f"{type(exc).__name__}: {exc}")
                 rt.finish(result, None)
             except OSError:
                 pass

@@ -41,6 +41,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime) -> Exe
             code = "MODEL_BEHAVIOR"
         else:
             code = "INTERNAL"
-        detail = type(exc).__name__ + (f":{exc.status_code}" if isinstance(exc, APIStatusError) else "")
+        detail = (f"{type(exc).__name__}: HTTP {exc.status_code}"
+                  if isinstance(exc, APIStatusError) else f"{type(exc).__name__}: {exc}")
         rt.log("execution_error", error_code=code, error_detail=detail)
         return ExecOutcome(None, code, detail)

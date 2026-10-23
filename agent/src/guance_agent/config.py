@@ -9,6 +9,10 @@ from dotenv import dotenv_values
 ROOT = Path(__file__).resolve().parents[2]
 
 
+class ConfigurationError(Exception):
+    """Raised only when loading runtime or knowledge-base configuration fails."""
+
+
 @dataclass(frozen=True)
 class Settings:
     llm_base_url: str = ""
@@ -19,6 +23,7 @@ class Settings:
     llm_request_timeout: float = 60
     llm_max_retries: int = 2
     max_input_chars: int = 4000
+    max_user_id_chars: int = 64
     max_turns: int = 8
     run_timeout: float = 180
     tool_timeout: float = 20
@@ -33,11 +38,11 @@ class Settings:
     log_content: bool = False
 
     def __post_init__(self):
-        for name in ("max_input_chars", "max_turns", "top_k_default", "top_k_max",
+        for name in ("max_input_chars", "max_user_id_chars", "max_turns", "top_k_default", "top_k_max",
                      "search_snippet_chars", "read_max_chars", "llm_max_retries"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
-        positive = ("llm_request_timeout", "max_input_chars", "max_turns", "run_timeout",
+        positive = ("llm_request_timeout", "max_input_chars", "max_user_id_chars", "max_turns", "run_timeout",
                     "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars",
                     "read_max_chars")
         for name in positive:

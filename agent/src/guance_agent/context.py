@@ -6,6 +6,24 @@ from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
 
+def sanitize_error_detail(detail, settings) -> str:
+    text = str(detail)
+    for secret in (settings.llm_api_key, settings.llm_base_url):
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
+    return text[:200]
+
+
+def sanitize_error_fields(value, settings, key=None):
+    if key == "error_detail" and value is not None:
+        return sanitize_error_detail(value, settings)
+    if isinstance(value, dict):
+        return {name: sanitize_error_fields(item, settings, name) for name, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_error_fields(item, settings) for item in value]
+    return value
+
+
 class EvidenceRegistry:
     def __init__(self):
         self._refs: dict[str, EvidenceRef] = {}
