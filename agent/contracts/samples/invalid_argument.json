@@ -1,5 +1,0 @@
-{
-  "status": "invalid_argument",
-  "message": "参数不合法：top_k必须为 1–20 的整数",
-  "data": null
-}

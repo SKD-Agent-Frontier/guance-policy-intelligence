@@ -91,7 +91,7 @@ async def probe():
         lines += ["", f"STRUCTURED_OUTPUT={'on' if structured else 'off'}",
                   f"LLM_TEMPERATURE={'0' if temperature else '留空'}",
                   "配置建议仅写入报告，不自动覆盖本地环境变量。",
-                  "SDK 轮次由离线 test_turn_counting 验证：同一响应的多个工具调用合计一轮；真实响应数量见上表。",
+                  "本脚本记录 API 单次响应中的工具调用数量；多个工具调用可来自同一轮模型响应。",
                   "鉴权是否校验 Key：未做绕过鉴权测试，需由校方确认。"]
         if durations:
             lines.append(f"成功延迟样本 {len(durations)}/5；P50={statistics.median(durations)} ms；最大值={max(durations)} ms。")

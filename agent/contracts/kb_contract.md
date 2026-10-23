@@ -52,6 +52,6 @@ Passage 包含相同篇目元数据、section_idx、section_path、content、偏
 | timeout | 工具超时 | 检索超时，检索服务暂时不可用 |
 | backend_error | 后端异常 | 检索服务异常，暂时不可用（详情只写日志） |
 
-样例位于 `samples/`。empty 的未指定筛选值展示为“未指定”。
+empty 的未指定筛选值展示为“未指定”。
 mock_data 全部为合成数据，不代表任何真实政策；TEST-003 无正文、TEST-004 含伪指令、
 TEST-005 无章节标题且正文超过读取上限。

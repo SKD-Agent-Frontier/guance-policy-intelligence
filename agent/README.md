@@ -55,7 +55,7 @@ python -m guance_agent probe
 # 等价命令：python scripts/probe_model.py
 ```
 
-查看 [接口实测记录](docs/model_probe.md)，再据此设置结构化输出和 temperature。
+运行后查看生成的 `docs/model_probe.md`，再据此设置结构化输出和 temperature。
 脚本不会自动覆盖本机配置；配置缺失时返回“待联调”，不发送模型请求。
 
 ## 问答
@@ -95,16 +95,15 @@ asyncio.run(example())
 在同一个事件循环中复用入口。需要会话归属检查时传入 `user_id`；已绑定身份的会话不允许其他身份访问。
 取消任务使用调用方的 asyncio 取消机制，CancelledError 会继续向调用方传播。
 
-## 测试与排障
+## 检查与排障
 
 ```bash
-python -m pytest
 python -m ruff check .
 python scripts/live_acceptance.py
 ```
 
-前两项完全离线，不需要模型密钥。最后一项调用真实学校模型并写入
-[真实验收记录](docs/live_acceptance.md)，需要本机模型配置和可用的网络连接。
+代码检查完全离线，不需要模型密钥。验收脚本调用真实学校模型，运行后生成
+`docs/live_acceptance.md`，需要本机模型配置和可用的网络连接。
 
 `data/runs.jsonl` 每行是一条事件，可按 `run_id` 关联模型轮次、工具状态与耗时。
 默认不记录问题、回答和政策原文；会话历史保存在本机 `data/sessions.sqlite`。
@@ -113,7 +112,7 @@ python scripts/live_acceptance.py
 
 ## 检索接入与限制
 
-接口和样例位于 [contracts/kb_contract.md](contracts/kb_contract.md) 与 `contracts/samples/`。
+接口位于 [contracts/kb_contract.md](contracts/kb_contract.md)。
 当前仅支持 MockKB；正式后端实现同一接口后，在 `get_kb()` 增加分支即可接入。
 正式接入前需要与 RAG 负责人确认字段、章节定位参数和规划期分类。
 
