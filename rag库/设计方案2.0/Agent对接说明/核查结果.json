@@ -1,0 +1,123 @@
+{
+  "checked_at": "2026-10-23T09:38:40.068640+00:00",
+  "repository_commit": "3a94e13a1159741d7788d53376742960233a7033",
+  "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "revision": 1,
+  "counts": {
+    "documents_with_crlf": 21,
+    "multi_segment_chunks": 0,
+    "chunks_with_internal_section_boundary": 0,
+    "chunk_ids_recomputed": 42516,
+    "chunk_spans_verified": 42516,
+    "documents": 506,
+    "native_chunks": 42516,
+    "structures": 19975,
+    "parents": 38972,
+    "chunks_over_6000": 41,
+    "active_representations": 47477
+  },
+  "active_source_types": {
+    "text_chunk": 42551,
+    "image_occurrence": 919,
+    "visual_chunk": 4007
+  },
+  "max_chunk_chars": 91631,
+  "max_chunk_id": "chunk_53fa85d0d93141de905d490248ff79dd",
+  "sample_query": "养老服务",
+  "sample_mode": "bm25",
+  "sample_rank": 1,
+  "sample_bm25_score": 4.467740058898926,
+  "sample_chunk_id": "chunk_c5481643e7c67d653e29160c30719104",
+  "sample_planid": "20699",
+  "sample_chunk_chars": 451,
+  "sample_snippet_chars": 300,
+  "chapter_sample": {
+    "chars": 6000,
+    "chunks": 10,
+    "truncated": true,
+    "char_start": 8540,
+    "char_end": 14540
+  },
+  "sample_section_idx_is_proposed": true,
+  "agent_v01_drops_proposed_fields": {
+    "Hit": [
+      "body_start",
+      "chunk_char_end",
+      "chunk_char_start",
+      "contexts",
+      "contract_version",
+      "document_id",
+      "document_version_id",
+      "generation_id",
+      "offset_basis",
+      "offset_unit",
+      "parent_id",
+      "quality_warnings",
+      "representation_id",
+      "required_relation_ids",
+      "section_id",
+      "snapshot",
+      "source_hash",
+      "source_path",
+      "source_type",
+      "truncated"
+    ],
+    "Passage": [
+      "body_start",
+      "chunk_char_end",
+      "chunk_char_start",
+      "chunk_id",
+      "contexts",
+      "contract_version",
+      "document_id",
+      "document_version_id",
+      "generation_id",
+      "next_offset",
+      "offset_basis",
+      "offset_unit",
+      "parent_id",
+      "quality_warnings",
+      "read_scope",
+      "required_relation_ids",
+      "section_char_end",
+      "section_char_start",
+      "section_id",
+      "snapshot",
+      "source_hash",
+      "source_path"
+    ]
+  },
+  "long_sample": {
+    "chunk_id": "chunk_594a17c56902e7fdac2a38662282ebda",
+    "chars": 6134,
+    "page_chars": [
+      6000,
+      134
+    ],
+    "reconstruction_passed": true
+  },
+  "lookup_plan": [
+    [
+      3,
+      0,
+      39,
+      "SEARCH objects USING INDEX sqlite_autoindex_objects_1 (id=?)"
+    ]
+  ],
+  "checks": {
+    "snapshot_hashes": true,
+    "all_native_spans": true,
+    "chunk_id_recomputation": true,
+    "sample_primary_key_lookup": true,
+    "snippet_and_full_chunk": true,
+    "long_chunk_pagination": true
+  },
+  "models_called": 0,
+  "production_adapter_implemented": false,
+  "startup_and_concurrency_tested": false,
+  "limitations": [
+    "拟议字段由样例脚本投影，不是已接入的 Agent 后端响应",
+    "只核查原生文本块；OCR 和图片字段需要单独的坐标类型",
+    "未运行 dense、混合检索或回答准确率评测"
+  ]
+}
