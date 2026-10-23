@@ -1,39 +1,71 @@
-# Agent 与 RAG 对接核查交付
+# Agent 与 RAG 四项对接交付
 
-日期：2026-10-23。本次将5份Hit/Passage样例对齐到正文坐标并标记proposal-v0.3，仅用于接口对齐，**没有实现生产适配器或修改Agent代码**。此前核查基线为本地代码`3a94e13`、本地发布revision=1，旧结果保留在[核查结果](核查结果.json)。
+日期：2026-10-23。契约版本：**proposal-v0.3**。适用：当前本地SQLite＋Qdrant Local＋BM25S；首轮仅接原生text_chunk。
 
-**设计及样例口径已对齐，生产接口待实施：** 跳过头部元数据及正文前面的空白，正文首字符记为0；之后所有字符保留并计数，包括空格、换行、Markdown符号。完整块与实际返回范围统一采用0起点、左闭右开、Unicode码点，offset_basis=body_first_non_whitespace，以body_origin换算回原文件。内部存储、原始ID及数据库保持不变；未来检索适配层需实现同样的转换。具体见[检索方案第六节](../检索设计方案.md#6-身份稳定性与统一原文坐标)和[接口适配说明](接口适配说明.md)。
+本目录可直接用于Agent与RAG开发对齐。接口形态为同步search/read，由Agent异步调用。**真实数据样例不等于已运行的生产接口；检索适配、常驻共享和续读工具仍待实现。**
 
-Hit.json、Passage.json、章节Passage.json和长块两页均为**真实数据的proposal-v0.3契约投影，不是生产接口响应**。原始RAG结果、核查报告及旧导出脚本保留原文件坐标，不能与新样例混用。
+## 1. 四项交付物
 
-| 交付物 | 作用 | 实际状态 |
+| 交付物 | 文件 | 内容与用途 |
 |---|---|---|
-| [接口适配说明.md](接口适配说明.md) | 逐项回答同步/加载/共享、完整块与预览范围、ID 稳定性、续读、章节归属及出处证明 | 区分已有实现与拟议接口，可供双方对齐 |
-| [samples/Hit.json](samples/Hit.json) | 真实命中的元数据、RAG块ID、正文完整块范围与300字预览范围 | proposal-v0.3真实数据投影，非生产响应 |
-| [samples/Passage.json](samples/Passage.json) | 上述块完整451字原文、所属章节、正文范围及未截断状态 | proposal-v0.3投影，生产read(chunk_id)尚未实现 |
-| [samples/章节Passage.json](samples/章节Passage.json) | 同一章节从章首读取的6000字、块与页交集及截断状态 | proposal-v0.3投影，全部范围使用正文原点 |
-| [差异清单.md](差异清单.md) | 当前 `kb_contract.md`、现有 RAG 与修订设计之间的差异，以及应修改的位置 | 供下一轮实现使用，不代表差异已修复 |
-| [samples/真实RAG结果.json](samples/真实RAG结果.json) | 与现有operations.query同形的嵌套来源结果 | 原始数据参考，保留内部文件坐标，不是proposal-v0.3响应 |
-| [samples/长块第1页.json](samples/长块第1页.json)、[第2页](samples/长块第2页.json) | 6134字长块按6000＋134字续读；页边界无缺口 | proposal-v0.3投影，块内next_offset不变，非生产API |
-| [核查并导出样例.py](核查并导出样例.py) | 此前的只读核查和旧样例导出脚本 | 保留旧文件坐标；运行会覆盖新样例，尚未升级到proposal-v0.3 |
-| [核查结果.json](核查结果.json) | 此前的数量、原文件范围/快照/ID、检索及SQL核查 | 历史核查证据，内部坐标保持旧口径 |
+| ① 接口适配说明 | [接口适配说明.md](接口适配说明.md) | 同步Protocol、Agent工具参数、search映射、read选择/续读、字段来源、坐标规则、错误状态、启动与共享 |
+| ② 一条真实Hit样例 | [samples/Hit.json](samples/Hit.json) | 完整元数据、原始chunk证据ID、冻结版本、完整块与300字预览范围，供校验字段与证据映射 |
+| ③ 一条真实Passage样例 | [samples/Passage.json](samples/Passage.json) | 上述块完整451字原文、所属章节及范围、ChunkSpan、完整/截断状态，供原文回读；章节内容补充见[章节Passage](samples/章节Passage.json) |
+| ④ 差异清单 | [差异清单.md](差异清单.md) | 对照现行kb_contract.md和实际代码，列双方负责的改动、文件位置及后续验收行为 |
 
-## 核查结论
+建议按①→②→③→④查看：先看契约，再核对同一块的预览和完整原文，最后确定双方实现范围。JSON可直接作为字段讨论与后续契约检查的输入；不把其中的真实来源信息替换为自编ID。
 
-- 当前业务入口是同步 `query(project, text, limit, mode, filters)`，返回嵌套字典；存储层另有三个同步 Protocol。尚无匹配 Agent `KnowledgeBase.search/read` 的真实适配器，也没有 RAG HTTP 服务。
-- 当前查询逐次开库、加载、关闭；Agent 缓存的只是首次使用时建立的 MockKB。生产“启动预加载一次、并发请求共享”尚未实现，也未完成并发验收。
-- 506 篇快照哈希一致；42,516 个原生子块的完整坐标及 ID 重算通过。当前均为单一连续范围，未发现块内部跨越已识别章节边界。
-- 有 41 个原生子块超过 6000 码点，最长 91,631 码点。仅加 chunk_id 无法让这些块一次装入模型上下文，必须有完整原文读取能力和明确续读机制。
-- 当前契约样例：查询“养老服务”，原生文本BM25第1名，planid=`20699`，body_start=253、body_origin=254；正文完整块`[10864,11315)`，预览`[10864,11164)`，所属章节`[8286,19608)`。内部原完整块仍为`[11118,11569)`；read_scope=chunk说明此次只读取其中一个块。
-- 本次5份样例已逐字核对对应版本的冻结快照，content及原始ID不变；章节范围、页内块范围统一换算。长块两页仍为6000＋134码点，连续拼接等于完整原文，next_offset保持块内相对位置；数据库以mode=ro查询，未更改切片、索引、模型或发布。
-- 旧 Agent Pydantic 类型会忽略新增字段；脚本已实际验证，不能仅给返回字典加字段就宣称接入完成。
+## 2. 样例版本和坐标
 
-本轮没有做真实模型问答、dense/混合召回、生产并发、启动加载次数或历史版本恢复的运行验收；不能将本轮原文定位核查称为回答准确率评测。
+| 字段 | 统一约定 |
+|---|---|
+| contract_version | proposal-v0.3，表示当前对接提案，不表示生产API已发布 |
+| offset_basis | body_first_non_whitespace |
+| offset_unit | unicode_codepoint，0起点、左闭右开 |
+| body_origin | 正文首字符在完整冻结Markdown中的绝对码点位置 |
+| chunk_char_start/end | 完整块在正文中的固定范围 |
+| char_start/end | 本次content的实际正文范围，可能只是预览或一页 |
 
-## 样例版本与复核边界
+跳过头部元数据及正文前面的空白，首字符记为0；从这里往后所有空格、换行和Markdown符号都保留并计数。body_start仍是元数据结束位置，不一定等于body_origin。数据库、切片、快照及原始ID保持不变；接口按正文原点统一换算。
 
-旧导出脚本仍生成proposal-v0.2文件坐标，不能用于重建当前proposal-v0.3样例，否则会覆盖这些样例。它保持此前实现，待检索工程阶段再升级。本次只转换已有真实样例的坐标并验证原文，不重新运行检索或模型。
+```python
+body = source_text[body_origin:]
+assert content == body[char_start:char_end]
+assert content == source_text[body_origin + char_start:body_origin + char_end]
+```
 
-新样例复核使用各自版本快照：严格UTF-8解码后，从body_start起跳过开头空白得到body_origin；检查content==source_text[body_origin+char_start:body_origin+char_end]，完整块同理，并验证章节/块交集、分页拼接、原ID及文本未改变。发布或样例变更后应重新核对，旧核查报告不能作为新接口运行验收。
+[检索设计第六节](../检索设计方案.md#6-身份稳定性与统一原文坐标)保留完整坐标设计。旧坐标不能只换版本号后直接套用到新正文。
 
-本目录后续增删文件、调整字段或重新导出时，同步更新文件作用、状态和链接。上游[检索设计方案](../检索设计方案.md)为本轮修订后的目标设计，当前实际实现与它仍存在的差异见差异清单。
+## 3. 两条主样例如何对应
+
+planid=20699，《苏州市“十四五”民政事业发展规划》。来自此前真实BM25查询“养老服务”的首个命中，样例不是Mock；本轮未重跑检索或模型。
+
+| 项目 | Hit | Passage |
+|---|---|---|
+| chunk_id | chunk_c5481643e7c67d653e29160c30719104 | 同一个ID |
+| section_id / section_idx | section_aa3464a90b5898f38ba5c38fa030ce26 / 4 | 相同，目录idx尚未持久化发布 |
+| body_start / body_origin | 253 / 254 | 253 / 254 |
+| 完整块正文范围 | [10864,11315)，451码点 | 相同 |
+| 本次content范围 | [10864,11164)，300码点 | [10864,11315)，完整451码点 |
+| truncated / next_offset | true；Hit没有分页字段 | false / null |
+| 章节 | 第四部分主要任务 | 返回所属章节完整范围[8286,19608) |
+| ChunkSpan | 以chunk_id及完整范围定位 | chunks[0].complete=true |
+
+按Hit的chunk_id回读应得到这一条Passage。若要读整章，目标输入为section_idx=4，示例[章节Passage.json](samples/章节Passage.json)返回正文[8286,14286)，6000码点、10个块交集，truncated=true、next_offset=6000；它与按块读取是两种请求。
+
+## 4. 补充样例与证据
+
+| 文件 | 用途与实际状态 |
+|---|---|
+| [长块第1页](samples/长块第1页.json)、[第2页](samples/长块第2页.json) | 同一真实6134码点块，planid=48787，按6000＋134分页；proposal-v0.3、页边界连续，next_offset为块内偏移；不是已实现的kb_read响应 |
+| [真实RAG结果.json](samples/真实RAG结果.json) | 现有query形态的嵌套结果，保留内部文件坐标，仅作原始数据映射参考 |
+| [核查结果.json](核查结果.json) | 此前核查基线3a94e13、发布revision=1的原文/ID/SQL证据；坐标仍为文件原点，不是新接口运行验收 |
+| [核查并导出样例.py](核查并导出样例.py) | 保留此前的旧版导出器，会写回proposal-v0.2并覆盖当前样例；不应用来重建新版样例，待工程阶段升级 |
+
+5份Hit/Passage样例已按各自版本冻结快照核对：完整原文范围、本次content、章节/页内块交集与分页拼接一致，文本和原始ID未改变。历史核查记录506篇文档、42516个原生块，其中41个块超过6000码点、最长91631；仅加chunk_id不足以替代offset续读。
+
+## 5. 交付范围
+
+已交付：接口契约说明、真实Hit、真实Passage/补充章节及分页样例、逐项差异与双方修改位置。文档和样例采用同一proposal-v0.3口径。
+
+待后续工程：实现真实同步适配器、Agent类型/工具接入、原文分页、启动加载一次和多请求共享、引用范围合并及原句校验。原始Markdown和数据库不因本次对接材料交付而变更；没有新增HTTP服务或实施检索代码。
