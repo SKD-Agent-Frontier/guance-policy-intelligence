@@ -218,3 +218,22 @@ def test_log_write_failure_is_reported_in_result_meta(env, tmp_path):
     result = build_result(task, ExecOutcome(answer(), None), None, {})
     rt.finish(result, None)
     assert result.meta.get("log_write_failed"), "日志写失败应体现在 meta 中"
+
+
+def test_result_meta_error_detail_hides_user_question(env):
+    from guance_agent.context import RunContext
+    from guance_agent.kb import get_kb
+    from guance_agent.output import build_result
+    from guance_agent.runner import ExecOutcome
+    s, task = env
+    ctx = RunContext(s, get_kb(s), task.run_id, task.session_id)
+    ctx.tool_calls.append(dict(name="kb_search", status="backend_error", message="x", elapsed_ms=1,
+                               error_detail=f"RuntimeError: 查询失败 {task.question}"))
+    rt = Runtime(s, task)
+    rt.received()
+    rt.prepare()
+    result = build_result(task, ExecOutcome(None, "INTERNAL"), ctx, rt.meta)
+    rt.finish(result, ctx)
+    rt.close()
+    detail = result.meta["tool_calls"][0]["error_detail"]
+    assert task.question not in detail and "[REDACTED]" in detail

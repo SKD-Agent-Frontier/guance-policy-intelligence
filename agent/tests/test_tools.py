@@ -7,7 +7,7 @@ from agents.tool_context import ToolContext
 from guance_agent.config import Settings
 from guance_agent.context import RunContext
 from guance_agent.kb import MockKB, get_kb
-from guance_agent.schemas import ToolResult
+from guance_agent.schemas import Hit, Passage, ToolResult
 from guance_agent.tools import _call, kb_read, kb_search
 
 
@@ -92,3 +92,37 @@ async def test_normalized_parameters_reach_backend(ctx):
         return []
     await _call(ctx, "kb_search", backend, " 农业 ", "甲", '“十四五”', 3)
     assert seen == [("农业", "甲", "第十四个五年规划", 3)]
+
+
+class _WrongKB:
+    """后端返回与操作不匹配的类型，用于验证工具层拒绝。"""
+
+    name = "wrong"
+
+    def search(self, *args, **kwargs):
+        return Passage(planid="X", title="X", area=None, fyp=None, admin_level=None,
+                       plantype_label=None, section_idx=0, section_path="p", content="c",
+                       char_start=0, char_end=1)
+
+    def read(self, *args, **kwargs):
+        return [Hit(planid="Y", chunk_id="Y-1", title="Y", area=None, fyp=None, admin_level=None,
+                    plantype_label=None, section_idx=0, section_path="p", content="c",
+                    char_start=0, char_end=1, score=1.0)]
+
+
+async def test_wrong_return_type_is_rejected(ctx):
+    bad = _WrongKB()
+    for name, fn, args in (("kb_search", bad.search, ("农业", None, None, 3)),
+                           ("kb_read", bad.read, ("Y", 0, 6000))):
+        run = RunContext(ctx.settings, bad, ctx.run_id, ctx.session_id)
+        out = json.loads(await _call(run, name, fn, *args))
+        assert out["status"] == "backend_error", name
+        assert run.evidence.ids() == [], name
+
+
+async def test_evidence_failure_is_not_masked_as_backend_error(ctx):
+    def boom(*args, **kwargs):
+        raise AttributeError("EvidenceRegistry.add_result 内部错误")
+    ctx.evidence.add_result = boom
+    with pytest.raises(AttributeError):
+        await _call(ctx, "kb_search", ctx.kb.search, "农业", None, None, 3)

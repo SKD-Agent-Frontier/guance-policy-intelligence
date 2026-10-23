@@ -89,7 +89,8 @@ class Runtime:
 
     def finish(self, result, ctx):
         if ctx:
-            ctx.tool_calls[:] = sanitize_error_fields(ctx.tool_calls, self.settings)
+            ctx.tool_calls[:] = sanitize_error_fields(
+                ctx.tool_calls, self.settings, question=self.task.question)
             for chunk_id in ctx.evidence.conflicts:
                 self.log("evidence_conflict", chunk_id=chunk_id)
         result.meta.update(elapsed_ms=round((perf_counter() - self.started) * 1000),
