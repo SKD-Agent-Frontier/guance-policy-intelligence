@@ -1,0 +1,10 @@
+httpx==0.28.1
+numpy==2.5.4
+qdrant-client==1.15.1
+datasketch==1.6.5
+transformers==4.57.6
+pytest==9.1.1
+Pillow==13.0.0
+
+bm25s==0.3.15
+jieba==0.42.1
