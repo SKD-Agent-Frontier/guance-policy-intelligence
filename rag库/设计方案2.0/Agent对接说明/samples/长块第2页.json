@@ -12,32 +12,32 @@
   "section_id": "section_834fd242cc4e4371d07a54dfd1e5b58e",
   "section_idx": 37,
   "section_path": "六、保障措施 / （七）深化行业中介组织建设和管理",
-  "offset_basis": "full_markdown_with_front_matter",
+  "offset_basis": "body_first_non_whitespace",
   "offset_unit": "unicode_codepoint",
   "body_start": 252,
   "source_path": "corpus/48787/48787.md",
   "snapshot": "snapshots/3287d901840438a492c4a04b6ee665222c884d2ddefdca46978073326fc68f1c/48787.md",
-  "contract_version": "proposal-v0.2",
+  "contract_version": "proposal-v0.3",
   "read_scope": "chunk",
   "chunk_id": "chunk_594a17c56902e7fdac2a38662282ebda",
   "parent_id": "parent_2d291968882035eaaf5d8b066f348e42",
-  "chunk_char_start": 14934,
-  "chunk_char_end": 21068,
-  "section_char_start": 14538,
-  "section_char_end": 24293,
+  "chunk_char_start": 14681,
+  "chunk_char_end": 20815,
+  "section_char_start": 14285,
+  "section_char_end": 24040,
   "content": "专业市场 | 2000 | 新建项目 |  |\n| 125 | 建德市 | 大同碳酸钙专业市场 | 专业市场 |  |  |  |\n| 126 | 全市 | “12312”商务综合执法服务平台 | 商贸领域综合执法平台 | 1000 | 续建项目 | 2012 |\n\n",
-  "char_start": 20934,
-  "char_end": 21068,
+  "char_start": 20681,
+  "char_end": 20815,
   "is_index": false,
   "truncated": false,
   "next_offset": null,
   "chunks": [
     {
       "chunk_id": "chunk_594a17c56902e7fdac2a38662282ebda",
-      "chunk_char_start": 14934,
-      "chunk_char_end": 21068,
-      "char_start": 20934,
-      "char_end": 21068,
+      "chunk_char_start": 14681,
+      "chunk_char_end": 20815,
+      "char_start": 20681,
+      "char_end": 20815,
       "complete": false
     }
   ],
@@ -46,5 +46,6 @@
     "relation_ff7fd30b2b5aa031e90e690fec27bfc0"
   ],
   "quality_warnings": [],
-  "sections": null
+  "sections": null,
+  "body_origin": 253
 }
