@@ -6,7 +6,7 @@ from guance_agent.config import ROOT
 
 def test_source_size_and_dependencies():
     source = ROOT / "src/guance_agent"
-    modules = "config schemas kb context tools agent runtime runner output main cli".split()
+    modules = "config schemas kb context tools agent runtime runner output orchestrator main cli".split()
     order = {name: i for i, name in enumerate(modules)}
     counts = []
     for path in source.glob("*.py"):

@@ -13,7 +13,7 @@ from .fake_model import FakeModel, answer, tool
 def configured(env, monkeypatch):
     s = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-test-key")
     monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    monkeypatch.setattr("guance_agent.main.chat_model", lambda s, c: FakeModel([answer()]))
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: FakeModel([answer()]))
     return s
 
 
@@ -52,7 +52,7 @@ async def test_submit_tools_and_verified_output(configured, monkeypatch):
     model = FakeModel([[tool("kb_search", query="农业", area="甲", fyp="十四五", top_k=1)],
                        [tool("kb_read", planid="TEST-001", section_idx=0)],
                        answer("农业重点", [{"text":"农业农村发展", "chunk_ids":["TEST-001__s00__p00"]}])])
-    monkeypatch.setattr("guance_agent.main.chat_model", lambda s, c: model)
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: model)
     result = await submit("农业重点", settings=configured)
     assert result.evidence_status == "verified" and len(result.meta["tool_calls"]) == 2
 

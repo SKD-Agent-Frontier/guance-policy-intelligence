@@ -3,6 +3,27 @@
 命令行政策文本检索助手，支持单次问答、多轮会话、原文出处和 JSON 输出。
 当前检索库只有五篇合成测试资料，不能用于真实政策研究。
 
+## 模块结构
+
+`src/guance_agent/` 按单向依赖分层。`tests/test_architecture.py` 用 AST 强制校验：单文件不超过 150 行、整体不超过 900 行、只有工具层与执行层可导入 Agent SDK。
+
+| 模块 | 职责 |
+| --- | --- |
+| `config.py` | 环境变量与配置装载、边界校验 |
+| `schemas.py` | 工具契约与对外结果的 Pydantic 模型，不依赖 Agent SDK |
+| `kb.py` | 检索后端契约与 MockKB 实现 |
+| `context.py` | 每次运行独立的证据注册表与工具调用记录 |
+| `tools.py` | `kb_search` / `kb_read` 包装：参数校验、超时、统一 ToolResult |
+| `agent.py` | 单 Agent 配置与版本化提示词 |
+| `runtime.py` | 会话持久化、客户端复用、脱敏运行日志 |
+| `runner.py` | 调用 SDK 执行循环并映射执行异常 |
+| `output.py` | 证据 ID 校验、确定性结果与出处组装 |
+| `orchestrator.py` | 执行编排：建立检索与证据上下文，调用执行核心，返回结构化结果 |
+| `main.py` | 任务入口：只做校验、装配与转交，不直接访问 RAG |
+| `cli.py` | 标准库命令行，调用 `main.submit` |
+
+依赖方向：`config -> schemas -> kb -> context -> tools -> agent -> runtime -> runner -> output -> orchestrator -> main -> cli`，不得反向或循环。入口层不持有检索与模型实现，替换 `get_kb()` 分支或调整模型连接参数都不需要修改 `main.py`。
+
 ## 安装
 
 需要 Python 3.11 或更新版本。以下命令都在仓库的 `agent/` 目录执行。
