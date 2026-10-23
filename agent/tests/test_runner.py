@@ -80,3 +80,24 @@ async def test_cancellation_logged_and_propagated(env):
         await pending
     events = [json.loads(line) for line in env[0].run_log.read_text(encoding="utf-8").splitlines()]
     assert any(e["error_code"] == "CANCELLED" for e in events)
+
+
+@pytest.mark.parametrize("status,code", [(400, "MODEL_BAD_REQUEST"), (429, "MODEL_UNAVAILABLE"), (503, "MODEL_UNAVAILABLE")])
+async def test_http_status_classification(env, status, code):
+    from openai import APIStatusError
+    from openai._exceptions import httpx2
+    error = APIStatusError("must never be logged", response=httpx2.Response(
+        status, request=httpx2.Request("POST", "https://example.invalid")), body=None)
+    outcome, _, _ = await run(env, FakeModel([error]))
+    assert outcome.error_code == code
+    assert "must never be logged" not in env[0].run_log.read_text(encoding="utf-8")
+
+
+async def test_structured_mode_and_malformed_call(env):
+    from guance_agent.schemas import AgentOutput
+    s, task = env
+    outcome, _, _ = await run((replace(s, structured_output=True), task), FakeModel([answer()]))
+    assert isinstance(outcome.final_output, AgentOutput)
+    malformed = tool("kb_search", query="农业").model_copy(update={"arguments": "broken json"})
+    outcome, _, _ = await run(env, FakeModel([[malformed]]))
+    assert outcome.error_code == "MODEL_BEHAVIOR"

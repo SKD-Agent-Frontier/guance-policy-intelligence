@@ -37,7 +37,8 @@ Passage 包含相同篇目元数据、section_idx、section_path、content、偏
 
 ## 异常与状态
 
-后端不存在篇目/章节抛 KBNotFound；篇目无正文抛 KBNoText(planid, title)；
+后端不存在篇目抛 KBNotFound(planid)，章节不存在抛 KBNotFound(planid, section_idx)；
+篇目无正文抛 KBNoText(planid, title)；
 其他异常由工具转为 backend_error。后端必须另设自身查询超时：to_thread 超时不会杀死后台线程。
 工具统一返回 ToolResult JSON；目录与非 ok 结果不登记证据。
 

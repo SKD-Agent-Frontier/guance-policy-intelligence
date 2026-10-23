@@ -33,6 +33,10 @@ class Settings:
     log_content: bool = False
 
     def __post_init__(self):
+        for name in ("max_input_chars", "max_turns", "top_k_default", "top_k_max",
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries"):
+            if type(getattr(self, name)) is not int:
+                raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_turns", "run_timeout",
                     "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars",
                     "read_max_chars")

@@ -1,6 +1,7 @@
 """会话、客户端复用和本地脱敏运行日志。"""
 import json
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from functools import lru_cache
 from hashlib import sha256
@@ -25,7 +26,7 @@ def get_client(s: Settings):
 
 def open_session(s, session_id, user_id):
     s.session_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(s.session_path) as conn:
+    with closing(sqlite3.connect(s.session_path)) as conn, conn:
         conn.execute("CREATE TABLE IF NOT EXISTS guance_session_owner "
                      "(session_id TEXT PRIMARY KEY, user_id TEXT, created_at TEXT)")
         conn.execute("BEGIN IMMEDIATE")

@@ -11,7 +11,8 @@ META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label")
 
 
 class KBNotFound(Exception):
-    pass
+    def __init__(self, planid: str, section_idx: int | None = None):
+        self.planid, self.section_idx = planid, section_idx
 
 
 class KBNoText(Exception):
@@ -73,7 +74,7 @@ class MockKB:
         self._fault("read")
         doc = next((d for d in self.docs if d["planid"] == planid), None)
         if doc is None:
-            raise KBNotFound(f"未找到 planid={planid} 的篇目")
+            raise KBNotFound(planid)
         if not doc["body"]:
             raise KBNoText(planid, doc["title"])
         values = {k: doc[k] for k in META}
@@ -84,7 +85,7 @@ class MockKB:
                                 "chars": s["char_end"] - s["char_start"]} for s in doc["sections"]])
         section = next((s for s in doc["sections"] if s["idx"] == section_idx), None)
         if section is None:
-            raise KBNotFound(f"该篇没有第 {section_idx} 节")
+            raise KBNotFound(planid, section_idx)
         start = section["char_start"]
         end = min(section["char_end"], start + max_chars)
         chunks = [{k: c[k] for k in ("chunk_id", "char_start", "char_end")}

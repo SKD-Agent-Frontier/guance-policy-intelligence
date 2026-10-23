@@ -36,7 +36,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime) -> Exe
         elif isinstance(exc, (APIConnectionError, APITimeoutError, RateLimitError)):
             code = "MODEL_UNAVAILABLE"
         elif isinstance(exc, APIStatusError):
-            code = "MODEL_UNAVAILABLE" if exc.status_code >= 500 else "MODEL_BAD_REQUEST"
+            code = "MODEL_UNAVAILABLE" if exc.status_code == 429 or exc.status_code >= 500 else "MODEL_BAD_REQUEST"
         elif isinstance(exc, ModelBehaviorError):
             code = "MODEL_BEHAVIOR"
         else:

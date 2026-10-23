@@ -24,6 +24,7 @@ def test_env_precedence_paths_and_secret(tmp_path, monkeypatch):
     {"max_turns": 0}, {"tool_timeout": 0}, {"run_timeout": -1},
     {"llm_request_timeout": float("nan")}, {"top_k_default": 21},
     {"kb_backend": "real"}, {"llm_max_retries": -1}, {"llm_temperature": 3},
+    {"max_turns": 1.5}, {"llm_max_retries": True},
 ])
 def test_invalid_settings(kwargs):
     with pytest.raises(ValueError):

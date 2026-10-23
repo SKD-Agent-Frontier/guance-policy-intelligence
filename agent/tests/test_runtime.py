@@ -44,3 +44,22 @@ async def test_log_privacy_and_linkage(env):
     rt = Runtime(replace(s, log_content=True), task)
     rt.log("debug", answer="super-private-key")
     assert "super-private-key" not in s.run_log.read_text(encoding="utf-8")
+
+
+def test_client_reused_without_unconfigured_parameters(env, monkeypatch):
+    from guance_agent.runtime import get_client
+    calls = []
+    def constructor(**kwargs):
+        calls.append(kwargs)
+        return object()
+    monkeypatch.setattr("guance_agent.runtime.AsyncOpenAI", constructor)
+    get_client.cache_clear()
+    s = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
+    assert get_client(s) is get_client(s)
+    assert len(calls) == 1 and calls[0]["max_retries"] == 2 and calls[0]["timeout"] == 60
+    get_client.cache_clear()
+
+
+def test_tracing_disabled():
+    from agents.tracing import get_trace_provider
+    assert get_trace_provider()._disabled

@@ -75,3 +75,20 @@ async def test_conflict_and_per_run_evidence(ctx):
     assert ctx.evidence.conflicts == [first.chunk_id]
     other = RunContext(ctx.settings, ctx.kb, "run_other", "s_test")
     assert not other.evidence.ids() and not other.tool_calls
+
+
+async def test_missing_plan_with_section_and_default_top_k(ctx):
+    result = await invoke(kb_read, ctx, planid="missing", section_idx=0)
+    assert result.message == "未找到 planid=missing 的篇目"
+    ctx.settings = replace(ctx.settings, top_k_default=1)
+    result = await invoke(kb_search, ctx, query="农业", area="甲", fyp=None)
+    assert len(result.data) == 1
+
+
+async def test_normalized_parameters_reach_backend(ctx):
+    seen = []
+    def backend(*args):
+        seen.append(args)
+        return []
+    await _call(ctx, "kb_search", backend, " 农业 ", "甲", '“十四五”', 3)
+    assert seen == [("农业", "甲", "第十四个五年规划", 3)]

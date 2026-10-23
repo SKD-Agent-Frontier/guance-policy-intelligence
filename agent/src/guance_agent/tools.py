@@ -1,5 +1,6 @@
 """两个只读工具；超时和业务错误统一返回 ToolResult。"""
 import asyncio
+import json
 import re
 from time import perf_counter
 
@@ -48,8 +49,8 @@ async def _call(ctx, name, fn, *args):
                 ctx.evidence.add_result(result.data, name)
     except KBNoText as exc:
         result = ToolResult(status="no_text", message=f"《{exc.title}》（planid={exc.planid}）没有可用正文，无法引用原文")
-    except KBNotFound:
-        message = f"未找到 planid={args[0]} 的篇目" if args[1] is None else f"该篇没有第 {args[1]} 节"
+    except KBNotFound as exc:
+        message = f"未找到 planid={args[0]} 的篇目" if exc.section_idx is None else f"该篇没有第 {args[1]} 节"
         result = ToolResult(status="not_found", message=message)
     except TimeoutError:
         result = ToolResult(status="timeout", message="检索超时，检索服务暂时不可用")
@@ -70,6 +71,8 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     """检索政策片段。area 可用地区简称；fyp 可用十四五；top_k 为 1–20。
     返回 status 和片段列表，含 chunk_id、planid、篇名、地区、规划期、章节路径和原文。
     """
+    if "top_k" not in json.loads(getattr(ctx, "tool_arguments", '{"top_k":8}')):
+        top_k = ctx.context.settings.top_k_default
     return await _call(ctx.context, "kb_search", ctx.context.kb.search, query, area, fyp, top_k)
 
 
