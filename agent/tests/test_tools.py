@@ -126,3 +126,32 @@ async def test_evidence_failure_is_not_masked_as_backend_error(ctx):
     ctx.evidence.add_result = boom
     with pytest.raises(AttributeError):
         await _call(ctx, "kb_search", ctx.kb.search, "农业", None, None, 3)
+
+@pytest.mark.parametrize("area,fyp,expected_area,expected_fyp", [
+    ("", None, None, None),
+    ("   ", None, None, None),
+    ("甲市", None, "甲市", None),
+    (None, "", None, None),
+    (None, "   ", None, None),
+    (None, "十四五", None, "第十四个五年规划"),
+])
+async def test_search_filters_are_normalized(ctx, area, fyp, expected_area, expected_fyp):
+    seen = []
+
+    def backend(*args):
+        seen.append(args)
+        return []
+
+    await _call(ctx, "kb_search", backend, "农业", area, fyp, 3)
+    assert seen == [("农业", expected_area, expected_fyp, 3)]
+
+
+async def test_blank_filters_show_unspecified_in_empty_message(ctx):
+    def backend(*args):
+        return []
+
+    result = ToolResult.model_validate_json(
+        await _call(ctx, "kb_search", backend, "农业", "", "   ", 3))
+    assert result.status == "empty"
+    assert "地区：未指定" in result.message
+    assert "规划期：未指定" in result.message

@@ -45,6 +45,7 @@ class Passage(BaseModel):
     content: str
     char_start: int | None
     char_end: int | None
+    is_index: bool = False   # True 表示本响应是章节目录，不携带正文
     truncated: bool = False
     chunks: list[ChunkSpan] = Field(default_factory=list)
     sections: list[dict] | None = None

@@ -22,6 +22,10 @@ def _validate(s, name, args):
                 raise ValueError(f"{key}须为不超过 50 字符的字符串")
         if type(top_k) is not int or not 1 <= top_k <= s.top_k_max:
             raise ValueError(f"top_k必须为 1–{s.top_k_max} 的整数")
+        if isinstance(area, str) and not area.strip():
+            area = None
+        if isinstance(fyp, str) and not fyp.strip():
+            fyp = None
         return query.strip(), area, normalize_fyp(fyp), top_k
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):

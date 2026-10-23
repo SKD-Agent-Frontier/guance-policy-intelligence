@@ -28,12 +28,14 @@ def test_search_filters_sort_and_offsets(kb):
 def test_read_directory_errors_and_truncation(kb):
     directory = kb.read("TEST-001", None, 6000)
     assert len(directory.sections) >= 3 and directory.content == "" and not directory.chunks
+    assert directory.is_index is True
     for planid, section, exception in [("missing", None, KBNotFound),
                                       ("TEST-001", 99, KBNotFound), ("TEST-003", None, KBNoText)]:
         with pytest.raises(exception):
             kb.read(planid, section, 6000)
     long = kb.read("TEST-005", 0, 6000)
     assert len(long.content) == 6000 and long.truncated and long.fyp is None
+    assert long.is_index is False
     assert all(c.char_end <= long.char_end for c in long.chunks)
 
 

@@ -55,10 +55,13 @@ class MockKB:
             for chunk in doc["chunks"]:
                 start, end = chunk["char_start"], chunk["char_end"]
                 content = doc["body"][start:end]
-                score = sum(gram in content for gram in grams)
+                section = next(s for s in doc["sections"] if s["idx"] == chunk["section_idx"])
+                # ponytail: mock 检索保真度改进（标题+章节路径+正文参与打分），
+                # 不代表真实 RAG 的召回策略；接入真实后端时整段替换。
+                blob = " ".join([doc["title"], section["path"], content])
+                score = sum(gram in blob for gram in grams)
                 if not score:
                     continue
-                section = next(s for s in doc["sections"] if s["idx"] == chunk["section_idx"])
                 content = content[:self.snippet_chars]
                 hits.append(Hit(**{k: doc[k] for k in META}, chunk_id=chunk["chunk_id"],
                                 section_idx=section["idx"], section_path=section["path"],
@@ -76,7 +79,7 @@ class MockKB:
         values = {k: doc[k] for k in META}
         if section_idx is None:
             return Passage(**values, section_idx=None, section_path="", content="",
-                           char_start=None, char_end=None, sections=[
+                           char_start=None, char_end=None, is_index=True, sections=[
                                {"idx": s["idx"], "path": s["path"],
                                 "chars": s["char_end"] - s["char_start"]} for s in doc["sections"]])
         section = next((s for s in doc["sections"] if s["idx"] == section_idx), None)
@@ -88,10 +91,14 @@ class MockKB:
                   for c in doc["chunks"] if start <= c["char_start"] < c["char_end"] <= end]
         return Passage(**values, section_idx=section_idx, section_path=section["path"],
                        content=doc["body"][start:end], char_start=start, char_end=end,
-                       truncated=end < section["char_end"], chunks=chunks)
+                       is_index=False, truncated=end < section["char_end"], chunks=chunks)
 
-@lru_cache(maxsize=1)
-def get_kb(s: Settings) -> KnowledgeBase:
-    if s.kb_backend == "mock":
-        return MockKB(s.mock_kb_path, snippet_chars=s.search_snippet_chars)
+# ponytail: 键只保留知识库相关三项，最多 4 个实例；接入多后端/多路径时再改为显式生命周期管理。
+@lru_cache(maxsize=4)
+def _build_kb(backend: str, path: str, snippet_chars: int) -> KnowledgeBase:
+    if backend == "mock":
+        return MockKB(path, snippet_chars=snippet_chars)
     raise ValueError("不支持的检索后端")
+
+def get_kb(s: Settings) -> KnowledgeBase:
+    return _build_kb(s.kb_backend, str(s.mock_kb_path), s.search_snippet_chars)

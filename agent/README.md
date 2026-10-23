@@ -5,7 +5,7 @@
 
 ## 模块结构
 
-`src/guance_agent/` 按单向依赖分层。`tests/test_architecture.py` 用 AST 强制校验：单文件不超过 150 行、整体不超过 900 行、只有工具层与执行层可导入 Agent SDK。
+`src/guance_agent/` 按单向依赖分层。`tests/test_architecture.py` 用 AST 强制校验三项结构性约束：单文件不超过 150 行、只有工具层与执行层可导入 Agent SDK、模块依赖必须单向。
 
 | 模块 | 职责 |
 | --- | --- |

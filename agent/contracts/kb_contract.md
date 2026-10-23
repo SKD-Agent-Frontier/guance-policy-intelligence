@@ -16,12 +16,12 @@
 - 十一五、十二五、十三五、十四五、十五五分别映射为第十一个至第十五个五年规划。
   匹配别名前忽略空白与中英文引号；未知值原样保留。
 - 结果按 score 降序、chunk_id 升序排序；无结果返回 `[]`。
-- 模拟打分为 query 中不重复二字片段在完整 chunk 内容中的命中个数；单字查询合法但不命中。
+- 模拟打分为 query 中不重复二字片段在「标题 + 章节路径 + 正文」中的命中个数；单字查询合法但不命中。这是 mock 的检索保真度设定，不代表真实 RAG 的召回策略。
 
 `read(planid: str, section_idx: int | None, max_chars: int) -> Passage`
 
 - planid 匹配 `^[A-Za-z0-9_-]{1,64}$`；section_idx 为非负整数。
-- 不指定章节：返回 sections 目录（idx / path / chars），content 为空、偏移为 null、chunks 为空。
+- 不指定章节：返回 sections 目录（idx / path / chars），`is_index=true`、content 为空、偏移为 null、chunks 为空。
 - 指定章节：返回章节开头至 max_chars 的原文，truncated 标记截断；chunks 只列完整包含的片段。
 - 所有偏移均为完整 body 中的 Python Unicode 字符索引、左闭右开，不是字节偏移。
 - Hit 截断到 SEARCH_SNIPPET_CHARS，char_end 对应实际返回内容；chunk_id 保持真源 ID。
@@ -32,7 +32,7 @@
 完整机器字段定义见 `src/guance_agent/schemas.py` 的 Hit、Passage、ChunkSpan、ToolResult。
 Hit 必含 planid、chunk_id、title、area、fyp、admin_level、plantype_label、section_idx、
 section_path、content、char_start、char_end、score。元数据缺失的 nullable 字段必须返回 null。
-Passage 包含相同篇目元数据、section_idx、section_path、content、偏移、truncated、chunks、sections。
+Passage 包含相同篇目元数据、section_idx、section_path、content、偏移、truncated、chunks、sections；`is_index` 为 true 表示本次响应是章节目录、不携带正文。
 工具和模型均不能生成 planid、chunk_id、章节、偏移或缺失元数据。
 
 ## 异常与状态
