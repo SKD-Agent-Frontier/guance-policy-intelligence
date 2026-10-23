@@ -10,13 +10,17 @@ requires-python = ">=3.11"
 dependencies = ["openai-agents>=0.24,<0.25", "openai", "pydantic>=2", "python-dotenv"]
 
 [project.optional-dependencies]
-dev = ["ruff"]
+dev = ["pytest", "pytest-asyncio", "ruff"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 guance_agent = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py311"

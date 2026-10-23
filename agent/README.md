@@ -95,14 +95,15 @@ asyncio.run(example())
 在同一个事件循环中复用入口。需要会话归属检查时传入 `user_id`；已绑定身份的会话不允许其他身份访问。
 取消任务使用调用方的 asyncio 取消机制，CancelledError 会继续向调用方传播。
 
-## 检查与排障
+## 测试与排障
 
 ```bash
+python -m pytest
 python -m ruff check .
 python scripts/live_acceptance.py
 ```
 
-代码检查完全离线，不需要模型密钥。验收脚本调用真实学校模型，运行后生成
+测试和代码检查完全离线，不需要模型密钥。验收脚本调用真实学校模型，运行后生成
 `docs/live_acceptance.md`，需要本机模型配置和可用的网络连接。
 
 `data/runs.jsonl` 每行是一条事件，可按 `run_id` 关联模型轮次、工具状态与耗时。
@@ -112,7 +113,7 @@ python scripts/live_acceptance.py
 
 ## 检索接入与限制
 
-接口位于 [contracts/kb_contract.md](contracts/kb_contract.md)。
+接口和样例位于 [contracts/kb_contract.md](contracts/kb_contract.md) 与 `contracts/samples/`。
 当前仅支持 MockKB；正式后端实现同一接口后，在 `get_kb()` 增加分支即可接入。
 正式接入前需要与 RAG 负责人确认字段、章节定位参数和规划期分类。
 
