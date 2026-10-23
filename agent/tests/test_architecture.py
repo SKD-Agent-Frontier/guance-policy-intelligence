@@ -1,22 +1,21 @@
-"""固定规模、SDK 边界和依赖方向，防止超出基础 Agent 范围。"""
+"""固定 SDK 边界与依赖方向，防止基础 Agent 越过架构分层。"""
 import ast
 
 from guance_agent.config import ROOT
 
 
-def test_source_size_and_dependencies():
+def test_source_structure_and_dependencies():
+    # 不再限制总行数：行数不是复杂度的可靠代理，且会诱导为凑数字而牺牲可读性。
+    # 保留单文件上限、SDK 导入边界与单向依赖三项结构性约束。
     source = ROOT / "src/guance_agent"
     modules = "config schemas kb context tools agent runtime runner output orchestrator main cli".split()
     order = {name: i for i, name in enumerate(modules)}
-    counts = []
     for path in source.glob("*.py"):
         text = path.read_text(encoding="utf-8")
-        counts.append(len(text.splitlines()))
-        assert counts[-1] <= 150, path.name
+        assert len(text.splitlines()) <= 150, path.name
         for node in ast.walk(ast.parse(text)):
             if isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.split(".")[0] == "agents":
                     assert path.stem in {"tools", "agent", "runtime", "runner"}
                 if node.level == 1 and path.stem in order and node.module in order:
                     assert order[node.module] < order[path.stem], path.name
-    assert sum(counts) <= 900

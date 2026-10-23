@@ -51,6 +51,12 @@ class Settings:
             raise ValueError("KB_BACKEND 仅支持 mock")
         if self.llm_temperature is not None and not 0 <= self.llm_temperature <= 2:
             raise ValueError("LLM_TEMPERATURE 必须在 0..2")
+        if not self.llm_model.strip():
+            raise ValueError("LLM_MODEL 不能为空")
+        if self.llm_base_url and not self.llm_base_url.startswith(("http://", "https://")):
+            raise ValueError("LLM_BASE_URL 必须以 http:// 或 https:// 开头")
+        if self.llm_api_key and self.llm_api_key != self.llm_api_key.strip():
+            raise ValueError("LLM_API_KEY 不能包含首尾空白")
         for name in ("mock_kb_path", "session_path", "run_log"):
             path = Path(getattr(self, name))
             object.__setattr__(self, name, path if path.is_absolute() else ROOT / path)

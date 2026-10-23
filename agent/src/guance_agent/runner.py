@@ -12,6 +12,21 @@ from .runtime import Runtime, ToolBudgetExceeded
 from .schemas import TaskRequest
 
 
+def find_cause(exc, kind, depth: int = 8):
+    """沿 __cause__ / __context__ 查找指定类型的异常。
+
+    SDK 会把钩子异常包成 UserError，包装层数不保证只有一层；
+    限制深度可防止异常链成环时死循环。
+    """
+    for _ in range(depth):
+        if isinstance(exc, kind):
+            return exc
+        exc = exc.__cause__ or exc.__context__
+        if exc is None:
+            break
+    return None
+
+
 @dataclass
 class ExecOutcome:
     final_output: object | None
@@ -30,8 +45,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
         rt.log("run_end", status="failed", error_code="CANCELLED")
         raise
     except Exception as exc:
-        # SDK 把钩子异常包成 UserError，原因可能在 __cause__ 或 __context__
-        budget = exc if isinstance(exc, ToolBudgetExceeded) else (exc.__cause__ or exc.__context__)
+        budget = find_cause(exc, ToolBudgetExceeded)
         if isinstance(exc, MaxTurnsExceeded):
             code = "MAX_TURNS"
         elif isinstance(budget, ToolBudgetExceeded):

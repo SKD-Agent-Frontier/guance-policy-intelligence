@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from guance_agent.agent import build_agent, prompt_version
+from guance_agent.agent import build_agent, effective_prompt, prompt_version
 from guance_agent.config import Settings
 from guance_agent.schemas import AgentOutput
 
@@ -17,3 +17,18 @@ def test_agent_modes_tools_and_version():
     assert structured.output_type is AgentOutput
     assert structured.model_settings.temperature == 0
     assert not structured.handoffs and not structured.input_guardrails
+
+
+def test_prompt_version_covers_effective_prompt():
+    # 两种输出模式下实际下发的提示词不同，版本号必须随之不同
+    assert effective_prompt(False) != effective_prompt(True)
+    assert prompt_version(False) != prompt_version(True)
+    for structured in (False, True):
+        head, digest = prompt_version(structured).split("@")
+        assert head.startswith("system_v1:") and len(digest) == 8
+
+
+def test_build_agent_uses_effective_prompt():
+    for structured in (False, True):
+        s = replace(Settings(), structured_output=structured)
+        assert build_agent(s, "unused").instructions == effective_prompt(structured)

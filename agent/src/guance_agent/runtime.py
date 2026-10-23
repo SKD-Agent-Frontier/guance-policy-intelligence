@@ -52,7 +52,7 @@ class Runtime:
         self.session = None
         self.log_error = None
         self.hooks = LogHooks(self)
-        self.meta = dict(model=s.llm_model, prompt_version=prompt_version(),
+        self.meta = dict(model=s.llm_model, prompt_version=prompt_version(s.structured_output),
                          tools=["kb_search", "kb_read"], kb_backend=s.kb_backend)
 
     @property

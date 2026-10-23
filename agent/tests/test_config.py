@@ -62,3 +62,21 @@ def test_schema_roundtrip_and_independent_defaults():
 
 def test_tool_budget_default():
     assert Settings().max_tool_calls == 20
+
+
+@pytest.mark.parametrize("field,value", [
+    ("llm_model", ""), ("llm_model", "   "),
+    ("llm_base_url", "ftp://example.invalid"), ("llm_base_url", "example.invalid/v1"),
+    ("llm_api_key", " padded-key "),
+])
+def test_model_config_validation(field, value):
+    with pytest.raises(ValueError):
+        Settings(**{field: value})
+
+
+@pytest.mark.parametrize("field,value", [
+    ("llm_model", "qwen3.8-27b"), ("llm_base_url", "http://10.0.0.1:8000/v1"),
+    ("llm_base_url", "https://example.invalid/v1"), ("llm_api_key", "plain-key"),
+])
+def test_model_config_accepts_valid_values(field, value):
+    assert getattr(Settings(**{field: value}), field) == value

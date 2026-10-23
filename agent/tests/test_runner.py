@@ -175,3 +175,23 @@ async def test_clean_timeout_does_not_log_overrun(env):
     assert outcome.error_code == "RUN_TIMEOUT"
     events = [json.loads(line) for line in s.run_log.read_text(encoding="utf-8").splitlines()]
     assert not any(e["stage"] == "timeout_overrun" for e in events)
+
+
+async def test_double_wrapped_tool_budget(env):
+    from guance_agent.runtime import ToolBudgetExceeded
+    inner = ToolBudgetExceeded("已调用 21 次 / 上限 20")
+    middle = RuntimeError("middle layer")
+    middle.__cause__ = inner
+    outer = RuntimeError("outer layer")
+    outer.__cause__ = middle
+    outcome, _, _ = await run(env, FakeModel([outer]))
+    assert outcome.error_code == "TOOL_BUDGET"
+    assert "上限 20" in outcome.error_detail
+
+
+def test_find_cause_stops_on_cycle():
+    from guance_agent.runner import find_cause
+    from guance_agent.runtime import ToolBudgetExceeded
+    a, b = RuntimeError("a"), RuntimeError("b")
+    a.__context__, b.__context__ = b, a          # 人为成环
+    assert find_cause(a, ToolBudgetExceeded) is None
