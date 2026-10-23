@@ -6,19 +6,21 @@ from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
 
-def sanitize_error_detail(detail, settings) -> str:
-    text = str(detail)
-    for secret in (settings.llm_api_key, settings.llm_base_url):
-        if secret:
-            text = text.replace(secret, "[REDACTED]")
-    return text[:200]
-def sanitize_error_fields(value, settings, key=None):
+def sanitize_error_detail(detail, settings, question=None, limit=200) -> str:
+    text, hide = str(detail), [settings.llm_api_key, settings.llm_base_url]
+    if question and not settings.log_content:   # 用户输入同属敏感内容
+        hide.append(question)
+    for item in hide:
+        if item:
+            text = text.replace(item, "[REDACTED]")
+    return text if limit is None else text[:limit]
+def sanitize_error_fields(value, settings, key=None, question=None):
     if key == "error_detail" and value is not None:
-        return sanitize_error_detail(value, settings)
+        return sanitize_error_detail(value, settings, question)
     if isinstance(value, dict):
-        return {name: sanitize_error_fields(item, settings, name) for name, item in value.items()}
+        return {n: sanitize_error_fields(v, settings, n, question) for n, v in value.items()}
     if isinstance(value, list):
-        return [sanitize_error_fields(item, settings) for item in value]
+        return [sanitize_error_fields(v, settings, question=question) for v in value]
     return value
 
 class EvidenceRegistry:

@@ -2,7 +2,7 @@ import pytest
 
 from guance_agent.context import RunContext
 from guance_agent.kb import get_kb
-from guance_agent.output import ERRORS, build_result, insufficient_message, to_markdown
+from guance_agent.output import ERRORS, LIMIT_CODES, build_result, insufficient_message, to_markdown
 from guance_agent.runner import ExecOutcome
 from guance_agent.schemas import AgentOutput, Claim
 
@@ -67,7 +67,7 @@ def test_no_tool_greeting_and_thinking(env):
 def test_error_result_complete(env, code):
     result = build_result(env[1], ExecOutcome(None, code), None, {})
     assert result.error.code == code and result.answer == ERRORS[code]
-    assert result.status == ("limit_reached" if code in ("MAX_TURNS", "RUN_TIMEOUT") else "failed")
+    assert result.status == ("limit_reached" if code in LIMIT_CODES else "failed")
     assert not result.claims and not result.evidence_refs and result.evidence_status == "none"
     assert to_markdown(result) == ERRORS[code]
 

@@ -198,3 +198,23 @@ async def test_tool_budget_hook_counts_and_raises(env):
     await rt.hooks.on_tool_start(None, None, tool)
     with pytest.raises(ToolBudgetExceeded, match="已调用 1 次 / 上限 1"):
         await rt.hooks.on_tool_start(None, None, tool)
+
+def test_error_detail_redacts_user_question_when_log_content_off(env):
+    from guance_agent.context import sanitize_error_detail
+    s, task = env
+    hidden = sanitize_error_detail(f"检索失败：{task.question}", replace(s, log_content=False), task.question)
+    assert task.question not in hidden and "检索失败" in hidden
+    shown = sanitize_error_detail(f"检索失败：{task.question}", replace(s, log_content=True), task.question)
+    assert task.question in shown
+    assert len(sanitize_error_detail("x" * 500, s)) == 200
+
+
+def test_log_write_failure_is_reported_in_result_meta(env, tmp_path):
+    from guance_agent.output import build_result
+    from guance_agent.runner import ExecOutcome
+    s, task = env
+    rt = Runtime(s, task)
+    rt.settings = replace(s, run_log=tmp_path)      # 目录，写入必然失败
+    result = build_result(task, ExecOutcome(answer(), None), None, {})
+    rt.finish(result, None)
+    assert result.meta.get("log_write_failed"), "日志写失败应体现在 meta 中"

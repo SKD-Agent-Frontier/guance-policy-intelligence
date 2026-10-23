@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 
 from .agent import prompt_version
 from .config import Settings
-from .context import sanitize_error_fields
+from .context import sanitize_error_detail, sanitize_error_fields
 
 set_tracing_disabled(True)
 
@@ -50,6 +50,7 @@ class Runtime:
         self.settings, self.task = s, task
         self.started = perf_counter()
         self.session = None
+        self.log_error = None
         self.hooks = LogHooks(self)
         self.meta = dict(model=s.llm_model, prompt_version=prompt_version(),
                          tools=["kb_search", "kb_read"], kb_backend=s.kb_backend)
@@ -65,23 +66,20 @@ class Runtime:
         self.log("run_start", **self.meta)
 
     def log(self, stage, **values):
-        values = sanitize_error_fields(values, self.settings)
         event = dict(time=datetime.now(timezone.utc).isoformat(), run_id=self.task.run_id,
                      session_id=self.task.session_id, stage=stage, tool=None,
                      elapsed_ms=round((perf_counter() - self.started) * 1000),
                      status=None, error_code=None)
-        event.update(values)
-        payload = json.dumps(event, ensure_ascii=False)
-        for secret in (self.settings.llm_api_key, self.settings.llm_base_url):
-            if secret:
-                payload = payload.replace(json.dumps(secret, ensure_ascii=False)[1:-1], "[REDACTED]")
+        event.update(sanitize_error_fields(values, self.settings, question=self.task.question))
+        payload = sanitize_error_detail(json.dumps(event, ensure_ascii=False),
+                                        self.settings, self.task.question, limit=None)
         try:
             self.settings.run_log.parent.mkdir(parents=True, exist_ok=True)
             with self.settings.run_log.open("a", encoding="utf-8") as stream:
                 stream.write(payload + "\n")
-        except OSError:
-            # ponytail: 运行日志是尽力而为的观测手段，写不进去不应毁掉已经生成的答案。
-            pass
+        except OSError as exc:
+            # ponytail: 日志尽力而为，写不进去不影响回答；失败标志由 finish 写入结果 meta。
+            self.log_error = type(exc).__name__
 
     def received(self):
         question = self.task.question
@@ -92,17 +90,18 @@ class Runtime:
     def finish(self, result, ctx):
         if ctx:
             ctx.tool_calls[:] = sanitize_error_fields(ctx.tool_calls, self.settings)
-        result.meta.update(elapsed_ms=round((perf_counter() - self.started) * 1000),
-                           tool_calls=ctx.tool_calls if ctx else [])
-        if ctx:
             for chunk_id in ctx.evidence.conflicts:
                 self.log("evidence_conflict", chunk_id=chunk_id)
+        result.meta.update(elapsed_ms=round((perf_counter() - self.started) * 1000),
+                           tool_calls=ctx.tool_calls if ctx else [])
         content = {"answer": result.answer} if self.settings.log_content else {}
         self.log("run_end", status=result.status, evidence_status=result.evidence_status,
                  error_code=result.error.code if result.error else None,
                  no_tool_answer=result.meta.get("no_tool_answer", False),
                  evidence_ids=[r.chunk_id for r in result.evidence_refs],
                  dropped_chunk_ids=result.dropped_chunk_ids, **self.meta, **content)
+        if self.log_error:
+            result.meta["log_write_failed"] = self.log_error
 
     def close(self):
         if self.session:

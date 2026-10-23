@@ -5,6 +5,7 @@ from .context import RunContext
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
+LIMIT_CODES = frozenset({"MAX_TURNS", "RUN_TIMEOUT", "TOOL_BUDGET"})
 ERRORS = dict(INVALID_INPUT="问题为空、超长或格式不正确", SESSION_FORBIDDEN="无权访问该会话",
               CONFIG_ERROR="服务配置有误，请联系管理员",
               MAX_TURNS="本次任务步骤过多，已停止，请缩小问题范围", RUN_TIMEOUT="本次任务超时，已停止",
@@ -35,7 +36,7 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
                         evidence_status="none", answer="", claims=[], evidence_refs=[],
                         dropped_chunk_ids=[], error=None, meta=meta)
     if code:
-        result.status = "limit_reached" if code in ("MAX_TURNS", "RUN_TIMEOUT") else "failed"
+        result.status = ("limit_reached" if code in LIMIT_CODES else "failed")
         result.error = error or RunError(code=code, message=ERRORS.get(code, ERRORS["INTERNAL"]))
         result.answer = result.error.message
         return result
