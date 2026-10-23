@@ -24,7 +24,7 @@ def test_env_precedence_paths_and_secret(tmp_path, monkeypatch):
     {"max_turns": 0}, {"tool_timeout": 0}, {"run_timeout": -1},
     {"llm_request_timeout": float("nan")}, {"top_k_default": 21},
     {"kb_backend": "real"}, {"llm_max_retries": -1}, {"llm_temperature": 3},
-    {"max_turns": 1.5}, {"llm_max_retries": True},
+    {"max_turns": 1.5}, {"llm_max_retries": True}, {"max_tool_calls": 0},
 ])
 def test_invalid_settings(kwargs):
     with pytest.raises(ValueError):
@@ -58,3 +58,7 @@ def test_schema_roundtrip_and_independent_defaults():
                   answer="错误", claims=[], evidence_refs=[], dropped_chunk_ids=[],
                   error={"code": "INTERNAL", "message": "错误"}, meta={})
     assert RunResult.model_validate_json(r.model_dump_json()) == r
+
+
+def test_tool_budget_default():
+    assert Settings().max_tool_calls == 20

@@ -11,7 +11,6 @@ from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
-
 def _build_task(question: str, session_id, user_id) -> TaskRequest:
     return TaskRequest(
         run_id="run_" + uuid4().hex,
@@ -19,7 +18,6 @@ def _build_task(question: str, session_id, user_id) -> TaskRequest:
         user_id=user_id if isinstance(user_id, str) else None,
         question=question.strip() if isinstance(question, str) else "",
         created_at=datetime.now(timezone.utc).isoformat())
-
 
 def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Settings) -> str | None:
     if not isinstance(question, str) or not task.question:
@@ -33,7 +31,6 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
     if user_id is not None and len(user_id) > s.max_user_id_chars:
         return "用户 ID 格式不正确"
     return None
-
 
 async def submit(question: str, session_id: str | None = None,
                  user_id: str | None = None, settings: Settings | None = None) -> RunResult:

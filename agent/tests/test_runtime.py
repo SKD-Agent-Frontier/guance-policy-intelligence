@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from guance_agent.runtime import Runtime, open_session
+from guance_agent.runtime import Runtime, ToolBudgetExceeded, open_session
 
 from .fake_model import FakeModel, answer, tool
 from .test_runner import run
@@ -188,3 +188,13 @@ def test_client_reused_without_unconfigured_parameters(env, monkeypatch):
 def test_tracing_disabled():
     from agents.tracing import get_trace_provider
     assert get_trace_provider()._disabled
+
+
+async def test_tool_budget_hook_counts_and_raises(env):
+    s, task = env
+    rt = Runtime(replace(s, max_tool_calls=1), task)
+    from types import SimpleNamespace
+    tool = SimpleNamespace(name="kb_search")
+    await rt.hooks.on_tool_start(None, None, tool)
+    with pytest.raises(ToolBudgetExceeded, match="已调用 1 次 / 上限 1"):
+        await rt.hooks.on_tool_start(None, None, tool)

@@ -79,3 +79,9 @@ def test_parse_failure_and_order(env):
              dict(status="no_text", message="无正文"), dict(status="not_found", message="未找到")]
     message = insufficient_message(calls)
     assert message.startswith("检索服务暂时不可用") and message.count("无正文") == 1
+
+
+def test_new_error_messages():
+    assert ERRORS["TOOL_BUDGET"] == "本次任务工具调用次数过多，已停止，请缩小问题范围"
+    assert ERRORS["MODEL_UNAUTHORIZED"] == "模型服务认证失败，请检查接口密钥与权限"
+    assert "Base URL" in ERRORS["MODEL_NOT_FOUND"]

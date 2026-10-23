@@ -11,14 +11,11 @@ from .tools import kb_read, kb_search
 
 PROMPT_FILE = Path(__file__).with_name("prompts") / "system_v1.md"
 
-
 def prompt_version() -> str:
     return "system_v1@" + sha256(PROMPT_FILE.read_bytes()).hexdigest()[:8]
 
-
 def chat_model(s: Settings, client):
     return OpenAIChatCompletionsModel(model=s.llm_model, openai_client=client)
-
 
 def build_agent(s: Settings, model) -> Agent[RunContext]:
     prompt = PROMPT_FILE.read_text(encoding="utf-8")

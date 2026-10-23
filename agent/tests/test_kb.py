@@ -65,3 +65,8 @@ def test_contract_examples():
                for p in (ROOT / "contracts/samples").glob("*.json")]
     assert {s.status for s in samples} == {
         "ok", "empty", "no_text", "not_found", "invalid_argument", "timeout", "backend_error"}
+
+
+def test_get_kb_is_cached():
+    s = Settings()
+    assert get_kb(s) is get_kb(s)

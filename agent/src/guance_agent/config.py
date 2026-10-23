@@ -7,12 +7,8 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
 class ConfigurationError(Exception):
     """Raised only when loading runtime or knowledge-base configuration fails."""
-
-
 @dataclass(frozen=True)
 class Settings:
     llm_base_url: str = ""
@@ -25,6 +21,7 @@ class Settings:
     max_input_chars: int = 4000
     max_user_id_chars: int = 64
     max_turns: int = 8
+    max_tool_calls: int = 20
     run_timeout: float = 180
     tool_timeout: float = 20
     top_k_default: int = 8
@@ -36,15 +33,14 @@ class Settings:
     session_path: Path = ROOT / "data/sessions.sqlite"
     run_log: Path = ROOT / "data/runs.jsonl"
     log_content: bool = False
-
     def __post_init__(self):
         for name in ("max_input_chars", "max_user_id_chars", "max_turns", "top_k_default", "top_k_max",
-                     "search_snippet_chars", "read_max_chars", "llm_max_retries"):
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_user_id_chars", "max_turns", "run_timeout",
-                    "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars",
-                    "read_max_chars")
+                    "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars", "read_max_chars",
+                    "max_tool_calls")
         for name in positive:
             value = getattr(self, name)
             if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
@@ -58,8 +54,6 @@ class Settings:
         for name in ("mock_kb_path", "session_path", "run_log"):
             path = Path(getattr(self, name))
             object.__setattr__(self, name, path if path.is_absolute() else ROOT / path)
-
-
 def load_settings(env_file=None) -> Settings:
     values = {**dotenv_values(env_file or ROOT / ".env"), **os.environ}
     kwargs = {}

@@ -1,6 +1,7 @@
 """同步检索契约；模拟库仅用于验证运行能力。"""
 import json
 import time
+from functools import lru_cache
 from typing import Protocol
 
 from .config import Settings
@@ -9,16 +10,13 @@ from .schemas import Hit, Passage
 FYP_ALIASES = {f"{n}五": f"第{n}个五年规划" for n in ("十一", "十二", "十三", "十四", "十五")}
 META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label")
 
-
 class KBNotFound(Exception):
     def __init__(self, planid: str, section_idx: int | None = None):
         self.planid, self.section_idx = planid, section_idx
 
-
 class KBNoText(Exception):
     def __init__(self, planid: str, title: str):
         self.planid, self.title = planid, title
-
 
 def normalize_fyp(fyp: str | None) -> str | None:
     if fyp is None:
@@ -26,13 +24,11 @@ def normalize_fyp(fyp: str | None) -> str | None:
     key = "".join(c for c in fyp if not c.isspace() and c not in '\"\'“”‘’')
     return FYP_ALIASES.get(key, fyp)
 
-
 class KnowledgeBase(Protocol):
     name: str
 
     def search(self, query: str, area: str | None, fyp: str | None, top_k: int) -> list[Hit]: ...
     def read(self, planid: str, section_idx: int | None, max_chars: int) -> Passage: ...
-
 
 class MockKB:
     name = "mock"
@@ -94,7 +90,7 @@ class MockKB:
                        content=doc["body"][start:end], char_start=start, char_end=end,
                        truncated=end < section["char_end"], chunks=chunks)
 
-
+@lru_cache(maxsize=1)
 def get_kb(s: Settings) -> KnowledgeBase:
     if s.kb_backend == "mock":
         return MockKB(s.mock_kb_path, snippet_chars=s.search_snippet_chars)

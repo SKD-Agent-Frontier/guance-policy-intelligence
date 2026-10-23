@@ -14,7 +14,6 @@ def exit_code(result):
         return 2
     return {"completed": 0, "failed": 1, "limit_reached": 3}[result.status]
 
-
 async def _interact(args):
     session, code = args.session, 0
     while True:
@@ -31,7 +30,6 @@ async def _interact(args):
         if args.command == "ask":
             break
     return code
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="管策智研政策原文检索助手")

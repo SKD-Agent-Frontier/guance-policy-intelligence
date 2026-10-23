@@ -30,7 +30,6 @@ def _validate(s, name, args):
         raise ValueError("section_idx须为非负整数")
     return planid, section_idx, max_chars
 
-
 async def _call(ctx, name, fn, *args):
     started, detail = perf_counter(), None
     try:
@@ -67,7 +66,6 @@ async def _call(ctx, name, fn, *args):
     ctx.tool_calls.append(event)
     return result.model_dump_json()
 
-
 @function_tool(failure_error_function=None)
 async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
                     area: str | None = None, fyp: str | None = None, top_k: int = 8) -> str:
@@ -77,7 +75,6 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     if "top_k" not in json.loads(getattr(ctx, "tool_arguments", '{"top_k":8}')):
         top_k = ctx.context.settings.top_k_default
     return await _call(ctx.context, "kb_search", ctx.context.kb.search, query, area, fyp, top_k)
-
 
 @function_tool(failure_error_function=None)
 async def kb_read(ctx: RunContextWrapper[RunContext], planid: str, section_idx: int | None = None) -> str:

@@ -12,8 +12,6 @@ def sanitize_error_detail(detail, settings) -> str:
         if secret:
             text = text.replace(secret, "[REDACTED]")
     return text[:200]
-
-
 def sanitize_error_fields(value, settings, key=None):
     if key == "error_detail" and value is not None:
         return sanitize_error_detail(value, settings)
@@ -22,7 +20,6 @@ def sanitize_error_fields(value, settings, key=None):
     if isinstance(value, list):
         return [sanitize_error_fields(item, settings) for item in value]
     return value
-
 
 class EvidenceRegistry:
     def __init__(self):
@@ -51,7 +48,6 @@ class EvidenceRegistry:
                                                 "char_start", "char_end"})
             for chunk in data.chunks:
                 self.register(EvidenceRef(**metadata, **chunk.model_dump(), source=source))
-
 
 @dataclass
 class RunContext:
