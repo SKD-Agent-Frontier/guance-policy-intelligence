@@ -1,4 +1,4 @@
-"""从真实产物汇总两版进度，维护批次时间索引；不伪造未运行的向量或数据库结果。"""
+"""从保留的自写版真实产物汇总进度及批次索引，不重新创建已移除的开源版。"""
 from datetime import datetime,timezone,timedelta
 from importlib.metadata import version
 import argparse
@@ -35,7 +35,7 @@ def main():
         'lock_sha256':file_hash(SHARED/'requirements.lock.txt')})
     print('actual dependency versions recorded',flush=True)
     check=subprocess.run([sys.executable,'-m','pip','check'],capture_output=True,text=True)
-    for project in (SHARED,SHARED.parent/'向量化与存储工程（开源组件版）'):
+    for project in (SHARED,):
         config=read_json(project/'config.json');batches=[];sources={}
         for file in sorted((project/'outputs').glob('prepared_*/manifest.json')):
             manifest=read_json(file)
@@ -77,7 +77,7 @@ def main():
         database=read_json(database_file) if database_file.exists() else None
         imported=project/'.cache/source-import-receipt.json'
         receipt={'updated_at':now,'status':'runtime_execution_in_progress' if not active.exists() else 'see_active_pointer',
-            'variant':config['variant'],'scope_confirmed':'两版文本+图片识别+语义切块+多模态向量化+PostgreSQL/Qdrant',
+            'variant':config['variant'],'scope_confirmed':'保留自写版：文本+图片识别+语义切块+多模态向量化+PostgreSQL/Qdrant',
             'shared_code_hashes':code,'dependencies_installed':True,'pip_check_passed':check.returncode==0,
             'offline_pytest':tested,'prepared_batches':batches,'input_files_rechecked':len(sources),
             'input_mismatches':source_mismatches,'formal_active_pointer':active_data,

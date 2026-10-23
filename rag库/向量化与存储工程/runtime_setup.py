@@ -28,7 +28,8 @@ def ascii_root(project=PROJECT):
     数据仍在本工程，不复制或移动语料，不修改系统区域设置，也不覆盖既有目录。
     """
     project=Path(project).resolve()
-    allowed={PROJECT.resolve(),(PROJECT.parent/'向量化与存储工程（开源组件版）').resolve()}
+    # 只为仍保留的工程提供原生入口，避免维护命令恢复已删除的开源版目录。
+    allowed={PROJECT.resolve()}
     if project not in allowed:raise ValueError('unmanaged native runtime project')
     if os.name!='nt':return project
     buffer=ctypes.create_unicode_buffer(32768)
@@ -53,7 +54,7 @@ def ascii_root(project=PROJECT):
 def native_path(path):
     value=str(path).removeprefix('\\\\?\\')
     absolute=Path(value).resolve()
-    project=next((p for p in [PROJECT.resolve(),(PROJECT.parent/'向量化与存储工程（开源组件版）').resolve()] if absolute.is_relative_to(p)),None)
+    project=PROJECT.resolve() if absolute.is_relative_to(PROJECT.resolve()) else None
     if project is None:raise ValueError('native path outside managed projects')
     result=ascii_root(project)/absolute.relative_to(project)
     if not str(result).isascii():raise ValueError('native PostgreSQL path must be ASCII')

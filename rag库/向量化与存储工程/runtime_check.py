@@ -1,4 +1,4 @@
-"""只读检查两版生效指针、成员计数和Qdrant索引健康；不调用模型或改写数据。
+"""检查保留的自写版生效指针、成员计数和Qdrant索引健康；不调用模型。
 
 本检查补充全量逐点校验：数量相等不能替代verify；green/ok用于检查后台优化器。
 少量低于索引阈值的向量可使用精确扫描，因此不要求indexed_vectors等于points。
@@ -14,7 +14,8 @@ from vector_store.storage import Vectors
 def check():
     private=secrets();vectors=Vectors(private);results={}
     try:
-        for project in (SHARED,SHARED.with_name('向量化与存储工程（开源组件版）')):
+        # 开源组件版已按用户要求移除；不再读取或隐式创建其目录及数据库。
+        for project in (SHARED,):
             config,_,_=paths(project);pointer=read_json(project/'当前批次.json')
             with psycopg.connect(private['postgres_dsn'],row_factory=dict_row) as connection:
                 connection.execute(sql.SQL('SET search_path TO {},public').format(sql.Identifier(config['postgres_schema'])))

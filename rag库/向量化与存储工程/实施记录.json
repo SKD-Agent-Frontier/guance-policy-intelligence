@@ -1,8 +1,8 @@
 {
-  "updated_at": "2026-10-23T10:14:35.372424+08:00",
+  "updated_at": "2026-10-23T12:54:12.206894+08:00",
   "status": "active_release_validated",
   "variant": "legacy",
-  "scope_confirmed": "两版文本+图片识别+语义切块+多模态向量化+PostgreSQL/Qdrant",
+  "scope_confirmed": "保留自写版：文本+图片识别+语义切块+多模态向量化+PostgreSQL/Qdrant",
   "shared_code_hashes": {
     "__init__.py": "65129c0d2a48a1cb90a9ada673a48caea051014147532239ec916e16d2b1365e",
     "candidates.py": "47fa9530518f9e2aa090586bf34b835b0dceaf25119a66b7e2908051d843cb1c",
@@ -163,7 +163,7 @@
   "postgres_qdrant_reconciled": true,
   "backup_restore_tested": false,
   "current_runtime_check": {
-    "at": "2026-10-23T02:08:12.850090+00:00",
+    "at": "2026-10-23T04:55:53.212091+00:00",
     "releases": {
       "legacy": {
         "generation_id": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
@@ -174,35 +174,14 @@
         "optimizer_status": "ok",
         "indexed_vectors": 47364,
         "keyword_indexes": [
-          "source_type",
-          "area_name",
-          "period_key",
-          "area_code",
           "document_type",
-          "planid",
-          "representation_type",
-          "document_version_id"
-        ],
-        "unfinished_tasks": 0,
-        "passed": true
-      },
-      "oss": {
-        "generation_id": "generation_ce8d63791a039cff77e4d9251c8b06680ae27188306d96f3ae4dce950d3a765e",
-        "revision": 2,
-        "postgres_points": 48516,
-        "qdrant_points": 48516,
-        "collection_status": "green",
-        "optimizer_status": "ok",
-        "indexed_vectors": 48383,
-        "keyword_indexes": [
-          "representation_type",
-          "area_name",
+          "source_type",
           "document_version_id",
-          "period_key",
           "planid",
-          "document_type",
-          "source_type",
-          "area_code"
+          "area_code",
+          "area_name",
+          "period_key",
+          "representation_type"
         ],
         "unfinished_tasks": 0,
         "passed": true
@@ -261,5 +240,5 @@
     "release_activated": false
   },
   "blocking_condition": null,
-  "git_delivery": "report_generated_before_local_commit; see git log; no push"
+  "git_delivery": "see git log for the local open-source removal commit; no push"
 }

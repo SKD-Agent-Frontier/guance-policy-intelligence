@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-23T10:14:34+08:00",
+  "updated_at": "2026-10-23T12:56:28+08:00",
   "generation_id": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
   "activation_time": "2026-10-23T01:04:59.460862+00:00",
   "partial": true,
@@ -69,7 +69,7 @@
   "semantic_correctness_claimed": false,
   "runtime_code_snapshot_verified": true,
   "runtime_health": {
-    "checked_at": "2026-10-23T02:08:12.850090+00:00",
+    "checked_at": "2026-10-23T04:55:53.212091+00:00",
     "generation_id": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
     "revision": 3,
     "postgres_points": 47477,
@@ -78,14 +78,14 @@
     "optimizer_status": "ok",
     "indexed_vectors": 47364,
     "keyword_indexes": [
+      "document_type",
       "source_type",
+      "document_version_id",
+      "planid",
+      "area_code",
       "area_name",
       "period_key",
-      "area_code",
-      "document_type",
-      "planid",
-      "representation_type",
-      "document_version_id"
+      "representation_type"
     ],
     "unfinished_tasks": 0,
     "passed": true

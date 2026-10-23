@@ -186,6 +186,9 @@ def metrics(questions, records):
 
 
 def main():
+    required=REPO/'rag库/切块工程（开源组件版）/当前批次.json'
+    if not required.exists():
+        raise RuntimeError('开源组件版已按用户要求移除。此目录保留历史评估证据；重新评估需先恢复并构建被移除版本，不会自动新建工程或集合。')
     questions=load_inputs(); structural=structural_comparison();private=secrets()
     for q in questions:
         assert set(q['gold_planids']) <= set(structural['legacy']['document_hashes'])

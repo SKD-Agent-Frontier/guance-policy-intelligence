@@ -128,17 +128,6 @@ def generate(project):
 
 
 if __name__=='__main__':
-    results=[generate(p) for p in (SHARED,SHARED.with_name('向量化与存储工程（开源组件版）'))]
-    lines=['# 两版向量化与存储实施对照','',
-        '两版使用相同的API模型、输入模板和存储规则，分别接入原版及开源组件版切块。共享计算不合并来源身份。','',
-        '| 指标 | 原版输入 | 开源组件输入 |','|---|---:|---:|']
-    for label,key in [('文档','documents'),('原生父块','parents'),('原生子块','native_children'),
-        ('补充完整父级上下文','supplemental_parent_contexts'),
-        ('纳入原生子块','native_included'),('排除原生子块','native_excluded'),('唯一图片','unique_images'),
-        ('可解析转录图片','ocr_parsed_assets'),('识别失败图片','ocr_failed_assets'),('视觉子块','visual_children'),
-        ('不确定视觉子块','uncertain_visual_children')]:
-        lines.append(f'| {label} | {results[0][key]} | {results[1][key]} |')
-    lines.append(f"| 本批次向量记录 | {results[0]['embedding']['representations']} | {results[1]['embedding']['representations']} |")
-    lines+=['','详细验收分别见本目录验收报告.md及兄弟工程验收报告.md。向量数或块数差异本身不能证明检索质量提升，本轮没有进行有标注问题集的检索准确率对比。','']
-    (SHARED/'双版实施对照.md').write_text('\n'.join(lines),encoding='utf-8')
-    print('Verified delivery reports generated for both releases.')
+    # 双版实施对照作为历史证据保留，不再读取已删除工程或重写历史统计。
+    generate(SHARED)
+    print('Verified delivery report generated for the retained release.')
