@@ -16,6 +16,10 @@ from .config import Settings
 set_tracing_disabled(True)
 
 
+class ToolBudgetExceeded(Exception):
+    """工具调用总数超过预算。"""
+
+
 @lru_cache(maxsize=1)
 def get_client(s: Settings):
     if not s.llm_base_url or not s.llm_api_key:
@@ -67,9 +71,13 @@ class Runtime:
         for secret in (self.settings.llm_api_key, self.settings.llm_base_url):
             if secret:
                 payload = payload.replace(json.dumps(secret, ensure_ascii=False)[1:-1], "[REDACTED]")
-        self.settings.run_log.parent.mkdir(parents=True, exist_ok=True)
-        with self.settings.run_log.open("a", encoding="utf-8") as stream:
-            stream.write(payload + "\n")
+        try:
+            self.settings.run_log.parent.mkdir(parents=True, exist_ok=True)
+            with self.settings.run_log.open("a", encoding="utf-8") as stream:
+                stream.write(payload + "\n")
+        except OSError:
+            # ponytail: 运行日志是尽力而为的观测手段，写不进去不应毁掉已经生成的答案。
+            pass
 
     def received(self):
         question = self.task.question
@@ -97,10 +105,13 @@ class Runtime:
 
 class LogHooks(RunHooks):
     def __init__(self, runtime):
-        self.rt, self.starts, self.turns = runtime, {}, 0
+        self.rt, self.starts, self.turns, self.calls = runtime, {}, 0, 0
         self.llm_started = perf_counter()
 
     async def on_tool_start(self, context, agent, tool):
+        self.calls += 1
+        if self.calls > self.rt.settings.max_tool_calls:
+            raise ToolBudgetExceeded(f"已调用 {self.calls - 1} 次 / 上限 {self.rt.settings.max_tool_calls}")
         self.starts[getattr(context, "tool_call_id", id(context))] = perf_counter()
         self.rt.log("tool_start", tool=tool.name)
 

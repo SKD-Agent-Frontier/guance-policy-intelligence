@@ -20,6 +20,7 @@ class Settings:
     llm_max_retries: int = 2
     max_input_chars: int = 4000
     max_turns: int = 8
+    max_tool_calls: int = 20
     run_timeout: float = 180
     tool_timeout: float = 20
     top_k_default: int = 8
@@ -34,12 +35,13 @@ class Settings:
 
     def __post_init__(self):
         for name in ("max_input_chars", "max_turns", "top_k_default", "top_k_max",
-                     "search_snippet_chars", "read_max_chars", "llm_max_retries"):
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries",
+                     "max_tool_calls"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_turns", "run_timeout",
                     "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars",
-                    "read_max_chars")
+                    "read_max_chars", "max_tool_calls")
         for name in positive:
             value = getattr(self, name)
             if isinstance(value, bool) or not math.isfinite(value) or value <= 0:

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from dataclasses import replace
 
 import pytest
@@ -14,14 +15,14 @@ from guance_agent.runtime import Runtime
 from .fake_model import FakeModel, answer, tool
 
 
-async def run(env, model, kb=None):
+async def run(env, model, kb=None, deadline=None):
     s, task = env
     ctx = RunContext(s, kb or get_kb(s), task.run_id, task.session_id)
     rt = Runtime(s, task)
     rt.received()
     rt.prepare()
     try:
-        return await execute(build_agent(s, model), task, ctx, rt), ctx, rt
+        return await execute(build_agent(s, model), task, ctx, rt, deadline=deadline), ctx, rt
     finally:
         rt.close()
 
@@ -101,3 +102,76 @@ async def test_structured_mode_and_malformed_call(env):
     malformed = tool("kb_search", query="农业").model_copy(update={"arguments": "broken json"})
     outcome, _, _ = await run(env, FakeModel([[malformed]]))
     assert outcome.error_code == "MODEL_BEHAVIOR"
+
+
+async def test_error_detail_keeps_exception_message(env):
+    outcome, _, _ = await run(env, FakeModel([RuntimeError("检索后端未配置 kb_backend=xxx")]))
+    assert outcome.error_code == "INTERNAL"
+    assert "kb_backend=xxx" in outcome.error_detail
+    assert "kb_backend=xxx" in env[0].run_log.read_text(encoding="utf-8")
+
+
+async def test_library_timeout_is_not_run_timeout(env):
+    outcome, _, _ = await run(env, FakeModel([TimeoutError("library timed out")]))
+    assert outcome.error_code == "INTERNAL"
+    assert "library timed out" in outcome.error_detail
+
+
+async def test_tool_budget_stops_before_extra_call(env):
+    s, task = env
+    model = FakeModel([[tool("kb_search", query="农业", area=None, fyp=None, top_k=8),
+                        tool("kb_read", planid="TEST-001", section_idx=0)]])
+    outcome, ctx, rt = await run((replace(s, max_tool_calls=3), task), model)
+    assert outcome.error_code == "TOOL_BUDGET"
+    assert len(ctx.tool_calls) == 3 and rt.hooks.calls == 4
+    assert "已调用 3 次 / 上限 3" in outcome.error_detail
+
+
+async def test_deadline_contract(env):
+    s, task = env
+    deadline = time.monotonic() + .03
+    outcome, _, _ = await run((replace(s, run_timeout=10), task), FakeModel([answer()], delay=.2),
+                              deadline=deadline)
+    assert outcome.error_code == "RUN_TIMEOUT"
+
+
+async def test_timeout_overrun_is_logged(env):
+    class BlockingModel(FakeModel):
+        async def get_response(self, *args, **kwargs):
+            time.sleep(.5)
+            return await super().get_response(*args, **kwargs)
+
+    s, task = env
+    outcome, _, _ = await run((replace(s, run_timeout=.3), task), BlockingModel([answer()]))
+    assert outcome.error_code == "RUN_TIMEOUT"
+    events = [json.loads(line) for line in s.run_log.read_text(encoding="utf-8").splitlines()]
+    overruns = [e for e in events if e["stage"] == "timeout_overrun"]
+    assert overruns and overruns[0]["seconds"] > .05
+
+
+async def test_max_turns_detail_has_counts(env):
+    s, task = env
+    model = FakeModel([[tool("kb_read", planid="TEST-001", section_idx=0)]])
+    outcome, _, rt = await run((replace(s, max_turns=1), task), model)
+    assert outcome.error_code == "MAX_TURNS"
+    assert f"已执行 {rt.hooks.turns} 轮 / 上限 1" in outcome.error_detail
+
+
+async def test_http_auth_and_not_found(env):
+    from openai import APIStatusError
+    from openai._exceptions import httpx2
+    for status, code in ((401, "MODEL_UNAUTHORIZED"), (403, "MODEL_UNAUTHORIZED"),
+                         (404, "MODEL_NOT_FOUND")):
+        error = APIStatusError("must never be logged", response=httpx2.Response(
+            status, request=httpx2.Request("POST", "https://example.invalid")), body=None)
+        outcome, _, _ = await run(env, FakeModel([error]))
+        assert outcome.error_code == code
+        assert "must never be logged" not in env[0].run_log.read_text(encoding="utf-8")
+
+
+async def test_clean_timeout_does_not_log_overrun(env):
+    s, task = env
+    outcome, _, _ = await run((replace(s, run_timeout=.3), task), FakeModel([answer()], delay=10))
+    assert outcome.error_code == "RUN_TIMEOUT"
+    events = [json.loads(line) for line in s.run_log.read_text(encoding="utf-8").splitlines()]
+    assert not any(e["stage"] == "timeout_overrun" for e in events)

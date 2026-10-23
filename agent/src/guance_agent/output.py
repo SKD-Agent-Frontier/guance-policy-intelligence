@@ -8,6 +8,9 @@ from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 ERRORS = dict(INVALID_INPUT="问题为空、超长或格式不正确", SESSION_FORBIDDEN="无权访问该会话",
               MAX_TURNS="本次任务步骤过多，已停止，请缩小问题范围", RUN_TIMEOUT="本次任务超时，已停止",
               MODEL_UNAVAILABLE="模型服务暂时不可用，请稍后再试", MODEL_BAD_REQUEST="模型接口不支持本次请求参数",
+              MODEL_UNAUTHORIZED="模型服务认证失败，请检查接口密钥与权限",
+              MODEL_NOT_FOUND="模型或接口地址不存在，请检查模型名称与 Base URL",
+              TOOL_BUDGET="本次任务工具调用次数过多，已停止，请缩小问题范围",
               MODEL_BEHAVIOR="模型返回了无法执行的工具调用", OUTPUT_PARSE="模型输出无法解析为约定结构",
               CANCELLED="任务已取消", INTERNAL="系统内部错误")
 

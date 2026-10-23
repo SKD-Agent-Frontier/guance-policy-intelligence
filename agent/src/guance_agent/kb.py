@@ -1,6 +1,7 @@
 """同步检索契约；模拟库仅用于验证运行能力。"""
 import json
 import time
+from functools import lru_cache
 from typing import Protocol
 
 from .config import Settings
@@ -95,6 +96,7 @@ class MockKB:
                        truncated=end < section["char_end"], chunks=chunks)
 
 
+@lru_cache(maxsize=1)
 def get_kb(s: Settings) -> KnowledgeBase:
     if s.kb_backend == "mock":
         return MockKB(s.mock_kb_path, snippet_chars=s.search_snippet_chars)
