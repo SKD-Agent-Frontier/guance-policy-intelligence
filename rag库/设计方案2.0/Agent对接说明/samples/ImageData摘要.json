@@ -1,0 +1,23 @@
+{
+  "contract_version": "proposal-v0.4",
+  "source_id": "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76",
+  "occurrence_id": "occurrence_b64427031d3b6637713a6e732b0065e5",
+  "asset_id": "asset_7abcfd0c06682747083ccb6860d50700",
+  "document_id": "doc_37ed1691b9f36a6abb6331cadfcd8944",
+  "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "variant": "region",
+  "mime_type": "image/png",
+  "width": 673,
+  "height": 9,
+  "sha256": "dcde63f2613636edc1de811423068efe2319cde2de9a35a376a717d27206949a",
+  "source_image_sha256": "2eec9325f410938b4d10a364943b7fdba832bdc03761624e09984f680e618191",
+  "byte_length": 1655,
+  "bbox_pixels": [
+    6,
+    4,
+    679,
+    13
+  ],
+  "coordinate_unit": "original_image_pixels",
+  "excerpt_notice": "真实read_image响应摘要；省略data_url，完整调用会返回经核验的图片数据"
+}

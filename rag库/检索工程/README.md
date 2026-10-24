@@ -1,8 +1,8 @@
 # RAG 检索工程
 
-2026-10-24，契约 **proposal-v0.3**。独立实现同步 `search/read`、BM25＋dense＋RRF、正文坐标、目录与分页、原文回取和共享运行时。只开发 RAG；Agent 源码由同事接入。验证结果见 [验收报告](验收报告.md)。
+2026-10-24，工程0.4.0，API **proposal-v0.4**。保留文本V0.3，新增独立媒体类型。同步 `search/read` 现已支持原生文字、OCR和原图，并提供 `read_image` 获取原图/区域的真实图片数据。只开发RAG，Agent源码由同事接入。验证见[文本验收](验收报告.md)、[多模态验收](多模态验收报告.md)，接入要求见[多模态交接说明](../设计方案2.0/Agent对接说明/多模态交接说明.md)。
 
-本工程直接读取相邻的 `向量化与存储工程（降级版）` 已发布产物，不重新切块或建库。首轮限定原生 `text_chunk`；图片、OCR、回答生成及 Agent 的运行内证据登记不在本工程内。
+本工程直接读取相邻的 `向量化与存储工程（降级版）` 已发布产物，不重新切块、OCR或建库。默认混合三类来源；`source_types=["text_chunk"]` 可选择原先纯文本行为。回答生成、Agent运行内证据登记和图片展示由Agent接入。
 
 ## 启动与调用
 
@@ -12,6 +12,7 @@
 $py = '..\向量化与存储工程（降级版）\.venv\Scripts\python.exe'
 & $py .\run.py --mode bm25 search '养老服务' --area 苏州 --fyp 十四五 --top-k 8
 & $py .\run.py --mode hybrid stats
+& $py .\run.py --mode hybrid search '逝有所安重点工程' --area 江苏 --source-types visual_chunk image_occurrence
 & $py .\run.py --mode bm25 read 48787 --chunk-id chunk_594a17c56902e7fdac2a38662282ebda --offset 6000
 & $py .\run.py --mode hybrid serve
 ```
@@ -33,7 +34,7 @@ from guance_rag import RagKnowledgeBase, RuntimeOptions
 
 # 在应用启动阶段创建，ready 后再接收请求；退出时统一 kb.close()。
 kb = RagKnowledgeBase(RuntimeOptions(mode="hybrid"))
-hits = kb.search("养老服务", area="苏州", fyp="十四五", top_k=8)
+hits = kb.search("养老服务", area="苏州", fyp="十四五", top_k=8, source_types=["text_chunk"])
 page = kb.read(hits[0].planid, chunk_id=hits[0].chunk_id,
                document_id=hits[0].document_id,
                generation_id=hits[0].generation_id)
@@ -44,28 +45,52 @@ kb.close()
 ## 对接契约
 
 ```python
-search(query, area=None, fyp=None, top_k=8) -> list[HitV03]
-read(planid, section_idx=None, max_chars=None, *, chunk_id=None,
-     offset=0, document_id=None, generation_id=None) -> PassageV03
+search(query, area=None, fyp=None, top_k=8, *, source_types=None) -> list[HitV03 | MediaHitV04]
+read(planid, section_idx=None, max_chars=None, *, chunk_id=None, source_id=None,
+     offset=0, document_id=None, generation_id=None) -> PassageV03 | MediaPassageV04
+read_image(source_id, *, variant="original", document_id=None, generation_id=None) -> ImageDataV04
 get_chunk_source(chunk_id, *, document_id=None, generation_id=None) -> PassageV03
 verify_quote(chunk_id, quote, observed_ranges, *, document_id=None, generation_id=None) -> bool
+verify_media_quote(source_id, quote, observed_ranges, *, document_id=None, generation_id=None) -> bool
 stats() -> dict
 close() -> None
 ```
 
-- 不给章节或 chunk 返回目录；给章节返回一页章节正文；给 chunk 返回一页块原文和原章节。两者同时给出会校验归属。未知来源、错误版本或越界 offset 不返回空成功。
+- 不给章节、chunk或source_id返回目录；给章节返回一页章节正文；给chunk返回一页块原文和原章节；给媒体source_id返回OCR及原图信息。定位参数同时给出会校验归属。未知来源、错误版本或越界offset不返回空成功。
 - `read` 默认及配置上限为 6000 码点；`offset` 是所选块/章节内部的偏移，按 `next_offset` 续读。页内 `chunks` 同时保存完整块范围、实际交集和 `complete`；新增的可选 `section_id/section_path` 保留子块自身章节，根目录或父章节读页不会把子块改归到根。
 - `get_chunk_source` 为程序原文回看返回完整长块，不受 6000 字页预算限制；调用方不得把它直接无预算塞给模型。
-- `Hit.content` 最多 300 码点，保持连续原文。长块的检索表示若对应中间片段，只有通过检索视图哈希及原文连续后缀核对后才换算预览位置。
+- `HitV03.content` 最多 300 码点，保持连续原文。长块的检索表示若对应中间片段，只有通过检索视图哈希及原文连续后缀核对后才换算预览位置。
 - `area` 对真实 `area_name` 做包含匹配；`fyp` 将十一五至十五五常用别名规范到 `period_key`，其他值精确匹配。缺元数据不满足硬条件。两路均在 Top-K 前过滤，每路同 source 保留最佳原始名次后按 `Σ1/(60+rank)` 融合。score 只表示排序值。
 - 父块、补充 `parent_context` 和已解析的必要条件以独立 `contexts` 返回；同次 search 按来源范围去重。主 `content` 不混入标题前缀、条件或省略号。无法完整放入的上下文整体省略，并返回 `context_budget_exceeded:*`；未解决关联和原始 pending 状态保留质量提示。调用方须共同收集一批 Hit 的 contexts，不能把后续 Hit 的去重视为缺失来源。
 - 默认 search 主内容＋contexts 总预算 16000 码点，每条上下文预算 6000；read 主内容与 contexts 各受独立上限。这里控制的是字符，不是回答模型的 token，Agent 仍需按实际模型预算装配并保留不足提示。
 - 异常独立定义为 `InvalidArgument/KBNotFound/KBNoText/RetrievalTimeout/BackendError`，分别对应 `invalid_argument/not_found/no_text/timeout/backend_error`；无搜索命中返回 `[]`。Agent 需映射类型和异常、透传关键字参数，并扩展其证据登记；当前旧 Agent 不能仅切换配置即接入。
 - `verify_quote` 只在调用方提供的已见范围内合并重叠或相邻范围，再逐字校验原句。**它不维护 Agent run 的证据记录，也不证明语义结论正确。** 历史回看依赖原发布清单、旧对象及快照仍被保存；测试包含历史版本隔离，当前生产库只有一个发布基线。
 
+## 图片和OCR
+
+`source_types` 支持 `text_chunk/visual_chunk/image_occurrence`，省略表示三类；旧Agent接入前可显式仅选text_chunk。原生文字和OCR走BM25与dense，原图及区域图/图文表示走dense。纯BM25模式不会产生原图向量命中，但仍可按已知图片来源ID读图。每路先按来源ID归一，再RRF；相同OCR块的文字、区域图及图文表示不会重复累计同路得分，各文档图片出现位置仍独立保留。
+
+媒体命中以 `source_id` 标识，不编造原生 `chunk_id`。用 `read(planid, source_id=...)` 取得OCR页、原图引用、像素区域和识别状态；用 `read_image(source_id, variant="original"|"region")` 获取经哈希核验的图片 `data_url`，可由Agent传给支持图片的模型。搜索/普通read不携带大段base64。默认单张原图及返回图片上限20MiB，可通过RuntimeOptions调整。
+
+```python
+hits = kb.search("逝有所安重点工程", area="江苏", source_types=["visual_chunk", "image_occurrence"])
+hit = hits[0]
+page = kb.read(hit.planid, source_id=hit.source_id,
+               document_id=hit.document_id, generation_id=hit.generation_id)
+image = kb.read_image(hit.source_id, generation_id=hit.generation_id)
+# image.data_url是实际图片数据；把路径或JSON当普通文字发送不会让模型看到图片。
+# OCR长页按page.next_offset继续read同一source_id；区域图只适用于visual_chunk来源。
+```
+
+媒体API的 `contract_version=proposal-v0.4`；原生Hit/Passage保留V0.3正文语义。媒体不填写原生char_start/end或chunk_char_start/end。`ocr_range` 使用完整识别转录串内的码点、左闭右开，保存父转录ID/哈希及完整范围与本页范围；`reference_span` 单独表示原文中的图片Markdown引用。部分图片仅有已验证的文档目录关联，reference_span/section为空，association_basis和质量提示明确这一缺口，不猜页码或正文位置。
+
+`image.bbox_pixels` 已是原图像素，上游 `coordinate_basis=model_estimated_normalized_1000` 说明模型框的来源；上游已经做过归一化到像素换算，此处禁止再乘尺寸/1000。接口另给 `coordinate_unit=original_image_pixels`，裁剪仅使用原像素范围，原图字节不改。模型估计的框不等于人工精确标注。
+
+`HitV03/PassageV03.media_sources` 是原文范围内的已发布图片ID；目录响应还列出仅关联文档的图片，并明确reference_span=null。它们是回取入口，不代表模型已经看过图片。OCR保留不确定状态、标题上下文和识别版本，原图OCR不可用时仍可读图。`verify_media_quote`只在已见OCR范围内逐字核验，不批准图片alt文本，也不证明识别准确或语义成立。
+
 ## 坐标与版本
 
-`contract_version=proposal-v0.3`，`offset_basis=body_first_non_whitespace`，`offset_unit=unicode_codepoint`。跳过元数据及正文前空白，以正文首字符为 0；之后所有字符保留，包括空格、CRLF、Markdown 和非 BMP 字符。坐标为 0 起点、左闭右开。`body_origin` 计算及缓存一次，内部数据库和原始 ID 不变。
+原生文字继续使用`contract_version=proposal-v0.3`，`offset_basis=body_first_non_whitespace`，`offset_unit=unicode_codepoint`。跳过元数据及正文前空白，以正文首字符为 0；之后所有字符保留，包括空格、CRLF、Markdown 和非 BMP 字符。坐标为 0 起点、左闭右开。`body_origin` 计算及缓存一次，内部数据库和原始 ID 不变。
 
 ```python
 body = frozen_md_bytes.decode("utf-8")[body_origin:]
@@ -76,7 +101,7 @@ assert result.content == body[result.char_start:result.char_end]
 
 ## 共享与资源
 
-构造函数在专用库线程中固定 active generation，校验并加载 SQLite 来源映射、506 份冻结快照、目录、BM25 和所需 Qdrant 集合，完成后才返回。后续请求共用一个运行时，库操作经有界队列串行执行；SQLite 连接从创建、使用到关闭始终属于同一线程。可以从多个线程或 `asyncio.to_thread` 调用公开方法。
+构造函数在专用库线程中固定 active generation，校验并加载 SQLite 来源映射、506 份冻结快照、目录、媒体映射、490份原图哈希/尺寸、BM25 和所需 Qdrant 集合，完成后才返回。后续请求共用一个运行时，库操作经有界队列串行执行；SQLite 连接从创建、使用到关闭始终属于同一线程。可以从多个线程或 `asyncio.to_thread` 调用公开方法。
 
 默认队列容量 32、排队 20 秒、每任务执行等待 30 秒、启动 180 秒、关闭 60 秒，可通过不可变 `RuntimeOptions` 调整。排队任务可以取消；已经运行的底层计算无法强行取消，等待超时后仍由库线程持有资源直到真正结束。关闭停止接收请求并收尾，超时会明确报告尚未释放。参考 [Python Future 的取消语义](https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.Future.cancel)。
 
@@ -90,6 +115,7 @@ assert result.content == body[result.char_start:result.char_end]
 src/guance_rag/  类型、只读来源层、双路召回、业务适配、运行时、CLI
 tests/          小型真实 SQLite/BM25/Qdrant 产物及生命周期回归
 scripts/acceptance.py  当前完整发布验收（只读，可调用真实向量服务）
+scripts/media_acceptance.py  全量媒体读取、OCR查询与原图向量召回/原图及区域验证
 验收报告.md / 验收结果-*.json  本次实际结果
 outputs/        本地复验原始输出，忽略提交
 .cache/         分词、问题向量、pytest 临时产物，忽略提交
@@ -99,6 +125,8 @@ outputs/        本地复验原始输出，忽略提交
 & $py -m pytest -q --basetemp=.cache/pytest-tmp
 & $py .\scripts\acceptance.py --mode bm25 --output .\outputs\acceptance-bm25.json
 & $py .\scripts\acceptance.py --mode hybrid --output .\outputs\acceptance-hybrid.json
+& $py .\scripts\media_acceptance.py --mode bm25 --output .\outputs\media-acceptance-bm25.json
+& $py .\scripts\media_acceptance.py --mode hybrid --output .\outputs\media-acceptance-hybrid.json
 ```
 
 临时测试库位于本工程 `.cache` 下；测试不读取鉴权、不调用模型。完整库验收会读取真实快照和索引，hybrid 模式在缓存未命中时发送测试查询到已配置服务。核对加载次数、并发请求、真实样例、全部超长块分页重建和数据库文件哈希；这些结果不等同于端到端问答准确率。

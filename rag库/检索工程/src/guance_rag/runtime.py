@@ -105,14 +105,14 @@ class RagKnowledgeBase:
             job.future.cancel()
             raise RetrievalTimeout("RAG执行等待超时；库线程仍拥有资源直到实际任务结束") from None
 
-    def search(self, query, area=None, fyp=None, top_k=8):
-        return self._submit("search", query=query, area=area, fyp=fyp, top_k=top_k)
+    def search(self, query, area=None, fyp=None, top_k=8, *, source_types=None):
+        return self._submit("search", query=query, area=area, fyp=fyp, top_k=top_k, source_types=source_types)
 
-    def read(self, planid, section_idx=None, max_chars=None, *, chunk_id=None, offset=0,
+    def read(self, planid, section_idx=None, max_chars=None, *, chunk_id=None, source_id=None, offset=0,
              document_id=None, generation_id=None):
         return self._submit("read", planid=planid, section_idx=section_idx,
                             max_chars=self.options.max_read_chars if max_chars is None else max_chars,
-                            chunk_id=chunk_id, offset=offset, document_id=document_id, generation_id=generation_id)
+                            chunk_id=chunk_id, source_id=source_id, offset=offset, document_id=document_id, generation_id=generation_id)
 
     def get_chunk_source(self, chunk_id, *, document_id=None, generation_id=None):
         """程序/原文回看用途，允许完整长块；不应直接无预算塞给模型。"""
@@ -124,6 +124,13 @@ class RagKnowledgeBase:
 
     def stats(self):
         return self._submit("stats")
+
+    def read_image(self, source_id, *, variant="original", document_id=None, generation_id=None):
+        return self._submit("read_image", source_id=source_id, variant=variant, document_id=document_id, generation_id=generation_id)
+
+    def verify_media_quote(self, source_id, quote, observed_ranges, *, document_id=None, generation_id=None):
+        return self._submit("verify_media_quote", source_id=source_id, quote=quote, observed_ranges=observed_ranges,
+                            document_id=document_id, generation_id=generation_id)
 
     def close(self, timeout=None):
         with self._state_lock:

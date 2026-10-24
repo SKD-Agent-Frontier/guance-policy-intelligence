@@ -9,6 +9,7 @@ from guance_rag import RagKnowledgeBase
 from guance_rag.cli import respond
 from guance_rag.errors import BackendError, InvalidArgument, KBNoText, KBNotFound
 from guance_rag.models import HitV03, PassageV03
+from guance_rag.media_models import MediaHitV04, MediaPassageV04
 from guance_rag.retrieval import DenseReader, fuse_sources
 from guance_rag.storage import body_origin
 
@@ -26,6 +27,12 @@ def test_delivered_samples_validate():
     for name in ("Hit.json", "Passage.json", "章节Passage.json", "长块第1页.json", "长块第2页.json"):
         value = json.loads((samples / name).read_text(encoding="utf-8"))
         (HitV03 if name == "Hit.json" else PassageV03).model_validate(value)
+
+
+def test_delivered_media_samples_validate():
+    samples = Path(__file__).resolve().parents[2] / "设计方案2.0/Agent对接说明/samples"
+    for name, cls in (("MediaHit.json", MediaHitV04), ("MediaPassage.json", MediaPassageV04)):
+        cls.model_validate_json((samples / name).read_text(encoding="utf-8"))
 
 
 def test_read_paging_exact_reconstruction_and_versions(options):

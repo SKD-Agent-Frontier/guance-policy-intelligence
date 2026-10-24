@@ -2,7 +2,9 @@
 from .config import RuntimeOptions
 from .errors import BackendError, InvalidArgument, KBNoText, KBNotFound, RetrievalError, RetrievalTimeout
 from .models import ChunkSpan, ContextSpan, HitV03, PassageV03
+from .media_models import MediaHitV04, MediaPassageV04, ImageDataV04
 from .runtime import RagKnowledgeBase
 
 __all__ = ["RuntimeOptions", "RagKnowledgeBase", "HitV03", "PassageV03", "ChunkSpan", "ContextSpan",
+           "MediaHitV04", "MediaPassageV04", "ImageDataV04",
            "RetrievalError", "InvalidArgument", "KBNotFound", "KBNoText", "RetrievalTimeout", "BackendError"]

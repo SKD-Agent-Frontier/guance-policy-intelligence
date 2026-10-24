@@ -6,6 +6,7 @@ from filelock import FileLock, Timeout
 
 from .errors import BackendError, InvalidArgument, KBNoText, KBNotFound, RetrievalTimeout
 from .models import ChunkSpan, ContextSpan, HitV03, PassageV03
+from .media import MediaLibrary, SOURCE_TYPES
 from .retrieval import DenseReader, LexicalReader, QueryEncoder, fuse_sources
 from .storage import ReadStore
 
@@ -23,6 +24,7 @@ class StoreBackend:
     def __init__(self, options):
         self.options = options
         self.store = self.lexical = self.dense = self.encoder = None
+        self.media = None
         self.lock = FileLock(str(options.store_project / ".runtime/project.lock"))
         try:
             self.lock.acquire(timeout=0)
@@ -32,11 +34,14 @@ class StoreBackend:
             # 保留半初始化实例，启动核查失败时也能在所属线程关闭SQLite。
             self.store = ReadStore.__new__(ReadStore)
             self.store.__init__(options.store_project)
+            self.media = MediaLibrary(self.store, options)
             if options.mode in {"bm25", "hybrid"}:
                 self.lexical = LexicalReader(options.store_project, self.store.root / "bm25",
                                              self.store.generation, options.cache_directory / "jieba")
-                if not set(self.store.members) <= set(self.lexical.index.ids):
-                    raise BackendError("BM25缺少当前发布的原生文本表示")
+                self.lexical_ids = set(self.lexical.index.ids)
+                required = {rid for rid, row in self.store.all_members.items() if row["record"].get("representation_type", "text") == "text"}
+                if not required <= self.lexical_ids:
+                    raise BackendError("BM25缺少当前发布的文本或OCR表示")
             if options.mode in {"dense", "hybrid"}:
                 self.dense = DenseReader(self.store.root / "qdrant", self.store.manifest["collection"])
                 if self.dense.count != self.store.all_member_count:
@@ -59,7 +64,7 @@ class StoreBackend:
         if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value):
             raise InvalidArgument(name + "格式不正确")
 
-    def search(self, query, area, fyp, top_k, *, deadline):
+    def search(self, query, area, fyp, top_k, *, source_types=None, deadline):
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
             raise InvalidArgument("query须为1–200字符")
         for key, value in (("area", area), ("fyp", fyp)):
@@ -67,34 +72,54 @@ class StoreBackend:
                 raise InvalidArgument(key + "须为不超过50字符的字符串")
         if type(top_k) is not int or not 1 <= top_k <= self.options.top_k_max:
             raise InvalidArgument("top_k超出配置范围")
+        if source_types is None:
+            source_types = SOURCE_TYPES
+        elif (not isinstance(source_types, (list, tuple)) or not source_types
+              or any(not isinstance(s, str) or s not in SOURCE_TYPES for s in source_types)):
+            raise InvalidArgument("source_types须为非空来源类型列表")
+        source_types = set(source_types)
         query = query.strip()
         area = (area.strip() or None) if area is not None else None
         fyp = normalize_fyp(fyp.strip() or None) if fyp is not None else None
-        allowed = {rid for rid, row in self.store.members.items()
-                   if (area is None or (row["payload"].get("area_name") and area in row["payload"]["area_name"]))
+        members = self.store.all_members
+        allowed = {rid for rid, row in members.items()
+                   if row["record"]["source_type"] in source_types
+                   and (area is None or (row["payload"].get("area_name") and area in row["payload"]["area_name"]))
                    and (fyp is None or row["payload"].get("period_key") == fyp)}
         self._deadline(deadline)
         if not allowed:
             return []
         limit, channels = max(20, top_k * 4), {}
         if self.lexical:
-            channels["bm25"] = self.lexical.search(query, limit, allowed)
+            channels["bm25"] = self.lexical.search(query, limit, allowed & self.lexical_ids)
         if self.dense:
             vector = self.encoder.vector(query)
             self._deadline(deadline)
-            versions = {self.store.members[r]["record"]["document_version_id"] for r in allowed}
-            channels["dense"] = self.dense.search(vector, limit, versions)
+            versions = {members[r]["record"]["document_version_id"] for r in allowed}
+            channels["dense"] = self.dense.search(vector, limit, versions, source_types)
         for hits in channels.values():
             for hit in hits:
                 if hit["id"] not in allowed:
                     raise BackendError("索引返回未发布或不满足条件的来源")
-                if "point_id" in hit and hit["point_id"] != self.store.members[hit["id"]]["record"]["point_id"]:
+                if "point_id" in hit and hit["point_id"] != members[hit["id"]]["record"]["point_id"]:
                     raise BackendError("向量身份与来源映射不一致")
-        ranked = fuse_sources(channels, self.store.members)
+        ranked = fuse_sources(channels, members)
         results, seen_contexts, remaining = [], set(), self.options.max_search_chars
         for source, score, rid in ranked:
             self._deadline(deadline)
-            row = self.store.members[rid]
+            row = members[rid]
+            if remaining <= 0:
+                if results:
+                    results[-1].quality_warnings.append("search_evidence_budget_reached")
+                break
+            if row["record"]["source_type"] != "text_chunk":
+                result = self.media.hit(row, score, remaining)
+                if result is not None:
+                    results.append(result)
+                    remaining -= len(result.content) + sum(len(c.content) for c in result.ocr_contexts)
+                    if len(results) >= top_k:
+                        break
+                continue
             doc, chunk = self.store.resolve(row["payload"]["planid"], source, row["record"]["document_id"], self.store.generation)
             section = self.store.section(doc, chunk=chunk)
             span = chunk["source_segments"][0]
@@ -113,6 +138,7 @@ class StoreBackend:
                             chunk_char_end=span["end"] - doc.origin, char_start=a - doc.origin,
                             char_end=b - doc.origin, content=doc.text[a:b], score=score,
                             truncated=a != span["start"] or b != span["end"], contexts=contexts,
+                            media_sources=self.media.references(doc, a, b),
                             required_relation_ids=relations, quality_warnings=list(dict.fromkeys(warnings)))
             results.append(result)
             remaining -= len(result.content) + sum(len(c.content) for c in contexts)
@@ -191,10 +217,10 @@ class StoreBackend:
                 budget -= b - a
         return contexts, list(dict.fromkeys(required)), list(dict.fromkeys(warnings))
 
-    def read(self, planid, section_idx, max_chars, *, chunk_id=None, offset=0,
+    def read(self, planid, section_idx, max_chars, *, chunk_id=None, source_id=None, offset=0,
              document_id=None, generation_id=None, deadline, _complete=False):
         self._identifier(planid, "planid")
-        for name, value in (("chunk_id", chunk_id), ("document_id", document_id), ("generation_id", generation_id)):
+        for name, value in (("chunk_id", chunk_id), ("source_id", source_id), ("document_id", document_id), ("generation_id", generation_id)):
             self._identifier(value, name, optional=True)
         if section_idx is not None and (type(section_idx) is not int or section_idx < 0):
             raise InvalidArgument("section_idx须为非负整数")
@@ -202,6 +228,18 @@ class StoreBackend:
             raise InvalidArgument("offset须为非负整数")
         if type(max_chars) is not int or max_chars <= 0 or (not _complete and max_chars > self.options.max_read_chars):
             raise InvalidArgument("max_chars超出服务预算")
+        if source_id is not None:
+            if chunk_id is not None and source_id != chunk_id:
+                raise InvalidArgument("chunk_id与source_id不能选择两个不同来源")
+            if source_id.startswith("chunk_"):
+                chunk_id = source_id
+            else:
+                self._deadline(deadline)
+                result = self.media.evidence(source_id, planid=planid, section_idx=section_idx,
+                                             document_id=document_id, generation_id=generation_id,
+                                             offset=offset, max_chars=max_chars)
+                self._deadline(deadline)
+                return result
         doc, chunk = self.store.resolve(planid, chunk_id, document_id, generation_id)
         self._deadline(deadline)
         if doc.origin == len(doc.text):
@@ -217,7 +255,8 @@ class StoreBackend:
                 directory.append(dict(idx=idx, section_id=s["id"], path=metadata["section_path"],
                                       char_start=a - doc.origin, char_end=s["end"] - doc.origin, chars=s["end"] - a))
             return PassageV03(**self.store.metadata(doc), read_scope="index", is_index=True,
-                              content="", char_start=None, char_end=None, sections=directory)
+                              content="", char_start=None, char_end=None, sections=directory,
+                              media_sources=self.media.references(doc, doc.origin, len(doc.text), include_unanchored=True))
         whole = chunk["source_segments"][0] if chunk else {"start": self.store.section_start(doc, section), "end": section["end"]}
         if offset >= whole["end"] - whole["start"]:
             raise InvalidArgument("offset超出所选非空块或章节范围")
@@ -248,6 +287,7 @@ class StoreBackend:
                           section_char_end=section["end"] - doc.origin, content=doc.text[a:b],
                           char_start=a - doc.origin, char_end=b - doc.origin, truncated=b < end,
                           next_offset=b - whole["start"] if b < end else None, chunks=intersections,
+                          media_sources=self.media.references(doc, a, b),
                           contexts=contexts, required_relation_ids=required,
                           quality_warnings=list(dict.fromkeys((chunk.get("reasons", []) if chunk else []) + warnings)))
 
@@ -284,12 +324,45 @@ class StoreBackend:
 
     def stats(self, *, deadline):
         return dict(generation_id=self.store.generation, revision=self.store.revision, mode=self.options.mode,
+                    api_version="proposal-v0.4", supported_source_types=sorted(SOURCE_TYPES),
+                    media_coverage_partial=bool(self.store.manifest.get("partial", False)),
                     documents=len(self.store.current_documents), native_representations=len(self.store.members),
+                    media_representations=len(self.store.all_members) - len(self.store.members),
+                    media_index_loads=len(self.media.generations), image_assets_verified=self.media.image_checks,
                     metadata_loads=1, bm25_loads=self.lexical.loads if self.lexical else 0,
                     dense_loads=self.dense.loads if self.dense else 0, snapshot_loads=self.store.snapshot_loads,
                     object_primary_key_lookups=self.store.object_lookups,
                     model_calls=self.encoder.calls if self.encoder else 0,
                     query_cache_hits=self.encoder.cache_hits if self.encoder else 0)
+
+    def read_image(self, source_id, *, variant="original", document_id=None, generation_id=None, deadline):
+        for name, value in (("source_id", source_id), ("document_id", document_id), ("generation_id", generation_id)):
+            self._identifier(value, name, optional=name != "source_id")
+        self._deadline(deadline)
+        result = self.media.image_data(source_id, variant=variant, document_id=document_id, generation_id=generation_id)
+        self._deadline(deadline)
+        return result
+
+    def verify_media_quote(self, source_id, quote, observed_ranges, *, document_id=None, generation_id=None, deadline):
+        for name, value in (("source_id", source_id), ("document_id", document_id), ("generation_id", generation_id)):
+            self._identifier(value, name, optional=name != "source_id")
+        if not isinstance(quote, str) or not quote or not isinstance(observed_ranges, (list, tuple)):
+            raise InvalidArgument("需要非空引句及OCR已见范围列表")
+        source = self.media.evidence(source_id, document_id=document_id, generation_id=generation_id, max_chars=2**63 - 1)
+        if source.ocr_range is None:
+            return False
+        span, merged = source.ocr_range, []
+        for item in observed_ranges:
+            if (not isinstance(item, (list, tuple)) or len(item) != 2 or any(type(x) is not int for x in item)
+                    or not span.full_char_start <= item[0] < item[1] <= span.full_char_end):
+                raise InvalidArgument("已见范围必须属于同版OCR转录，不能使用Markdown正文坐标")
+        for a, b in sorted(observed_ranges):
+            if merged and a <= merged[-1][1]:
+                merged[-1][1] = max(b, merged[-1][1])
+            else:
+                merged.append([a, b])
+        self._deadline(deadline)
+        return any(quote in source.content[a - span.full_char_start:b - span.full_char_start] for a, b in merged)
 
     def close(self):
         errors = []

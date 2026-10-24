@@ -65,6 +65,7 @@ class ReadStore:
             raise BackendError("当前发布尚未就绪")
         self.manifest = self.manifests[self.generation]
         self.members = {}
+        self.all_members = {}
         self.versions = {}
         self.all_member_count = 0
         rows = self.connection.execute(
@@ -74,6 +75,9 @@ class ReadStore:
             self.all_member_count += 1
             record, payload = json.loads(row[0]), json.loads(row[1])
             self.versions[record["document_id"]] = record["document_version_id"]
+            if record["source_type"] not in {"text_chunk", "visual_chunk", "image_occurrence"}:
+                raise BackendError("冻结发布存在不支持的来源类型")
+            self.all_members[record["id"]] = {"record": record, "payload": payload}
             if record["source_type"] == "text_chunk":
                 if record["id"] in self.members:
                     raise BackendError("发布包含重复表示身份")
@@ -92,7 +96,7 @@ class ReadStore:
         if not sources <= known:
             raise BackendError("发布成员缺少原生块或章节定位")
         signatures = {}
-        for row in self.members.values():
+        for row in self.all_members.values():
             record, payload = row["record"], row["payload"]
             signature = (record["document_id"], payload.get("planid"), payload.get("area_name"), payload.get("period_key"))
             version = record["document_version_id"]

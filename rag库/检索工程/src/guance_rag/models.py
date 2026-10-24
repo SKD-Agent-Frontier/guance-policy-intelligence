@@ -1,6 +1,7 @@
 """proposal-v0.3的独立类型；Agent可用model_dump后验证到其扩展类型。"""
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from .media_models import MediaPointer
 
 
 class SourceInfo(BaseModel):
@@ -77,6 +78,7 @@ class HitV03(SourceInfo):
     contexts: list[ContextSpan] = Field(default_factory=list)
     required_relation_ids: list[str] = Field(default_factory=list)
     quality_warnings: list[str] = Field(default_factory=list)
+    media_sources: list[MediaPointer] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_ranges(self):
@@ -108,6 +110,7 @@ class PassageV03(SourceInfo):
     required_relation_ids: list[str] = Field(default_factory=list)
     quality_warnings: list[str] = Field(default_factory=list)
     sections: list[dict] | None = None
+    media_sources: list[MediaPointer] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_ranges(self):

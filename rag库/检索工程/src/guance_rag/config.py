@@ -22,13 +22,14 @@ class RuntimeOptions:
     max_context_chars: int = 6000
     max_search_chars: int = 16000
     top_k_max: int = 20
+    max_image_bytes: int = 20 * 1024 * 1024
 
     def __post_init__(self):
         for name in ("store_project", "cache_directory"):
             object.__setattr__(self, name, Path(getattr(self, name)).resolve())
         if self.mode not in {"bm25", "dense", "hybrid"}:
             raise ValueError("mode必须为bm25、dense或hybrid")
-        for name in ("queue_capacity", "snippet_chars", "max_read_chars", "max_context_chars", "max_search_chars", "top_k_max"):
+        for name in ("queue_capacity", "snippet_chars", "max_read_chars", "max_context_chars", "max_search_chars", "top_k_max", "max_image_bytes"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise ValueError(name + "必须为正整数")
         for name in ("queue_timeout", "execution_timeout", "startup_timeout", "close_timeout"):

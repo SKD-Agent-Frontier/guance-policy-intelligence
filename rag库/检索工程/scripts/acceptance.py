@@ -88,7 +88,7 @@ def main():
             checked_samples.append(filename)
 
         search_start = time.perf_counter()
-        hits = kb.search("养老服务", area="苏州", fyp="十四五", top_k=8)
+        hits = kb.search("养老服务", area="苏州", fyp="十四五", top_k=8, source_types=["text_chunk"])
         search_seconds = time.perf_counter() - search_start
         assert hits and all("苏州" in h.area and h.fyp in ("十四五", "第十四个五年规划") for h in hits)
         for hit in hits:
@@ -100,7 +100,7 @@ def main():
         live_query = None
         if args.mode in {"dense", "hybrid"}:
             query = "苏州市十四五养老服务设施布局与智慧养老分别有哪些安排？"
-            extra = kb.search(query, area="苏州", fyp="十四五", top_k=2)
+            extra = kb.search(query, area="苏州", fyp="十四五", top_k=2, source_types=["text_chunk"])
             assert extra
             for hit in extra:
                 verify_source(hit)
@@ -110,7 +110,7 @@ def main():
 
         # 同一实例的并发调用实际执行search/read，随后核对线程及预加载次数。
         with ThreadPoolExecutor(max_workers=4) as pool:
-            concurrent = list(pool.map(lambda i: kb.search("养老服务", area="苏州", fyp="十四五", top_k=2)
+            concurrent = list(pool.map(lambda i: kb.search("养老服务", area="苏州", fyp="十四五", top_k=2, source_types=["text_chunk"])
                                        if i % 2 else kb.read("48787", chunk_id="chunk_594a17c56902e7fdac2a38662282ebda", offset=6000), range(12)))
         assert all(concurrent)
         long_chunks = []

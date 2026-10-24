@@ -66,11 +66,11 @@ class DenseReader:
             raise
         self.collection, self.loads = collection, 1
 
-    def search(self, vector, limit, versions):
-        # 版本集合和text_chunk限制在Top-K前执行；不从全库Top-K后裁掉不合格项。
+    def search(self, vector, limit, versions, source_types=("text_chunk",)):
+        # 文档版本和来源类型均在Top-K前过滤，不从全库Top-K后裁掉不合格项。
         m = self.models
         filters = m.Filter(must=[
-            m.FieldCondition(key="source_type", match=m.MatchValue(value="text_chunk")),
+            m.FieldCondition(key="source_type", match=m.MatchAny(any=sorted(source_types))),
             m.FieldCondition(key="document_version_id", match=m.MatchAny(any=sorted(versions))),
         ])
         points = self.client.query_points(self.collection, query=vector.tolist(), using="dense",

@@ -21,7 +21,7 @@ def respond(kb, request):
     if not isinstance(request, dict):
         return {"status": "invalid_argument", "message": "请求须为JSON对象", "data": None}
     operation = request.get("operation")
-    if operation not in {"search", "read", "get_chunk_source", "verify_quote", "stats"}:
+    if operation not in {"search", "read", "read_image", "get_chunk_source", "verify_quote", "verify_media_quote", "stats"}:
         return {"status": "invalid_argument", "message": "不支持的只读操作", "data": None}
     try:
         arguments = request.get("arguments", {})
@@ -45,14 +45,21 @@ def main(argv=None):
     query.add_argument("--area")
     query.add_argument("--fyp")
     query.add_argument("--top-k", type=int, default=8)
+    query.add_argument("--source-types", nargs="+", choices=["text_chunk", "visual_chunk", "image_occurrence"])
     read = commands.add_parser("read")
     read.add_argument("planid")
     read.add_argument("--section-idx", type=int)
     read.add_argument("--chunk-id")
+    read.add_argument("--source-id")
     read.add_argument("--offset", type=int, default=0)
     read.add_argument("--max-chars", type=int, default=6000)
     read.add_argument("--document-id")
     read.add_argument("--generation-id")
+    picture = commands.add_parser("read_image", help="按媒体来源ID返回经哈希核验的图片data URL")
+    picture.add_argument("source_id")
+    picture.add_argument("--variant", choices=["original", "region"], default="original")
+    picture.add_argument("--document-id")
+    picture.add_argument("--generation-id")
     commands.add_parser("stats")
     commands.add_parser("serve", help="一次启动加载，逐行读取JSON请求并输出JSON结果")
     args = parser.parse_args(argv)
