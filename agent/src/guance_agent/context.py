@@ -23,13 +23,27 @@ def merge_ranges(ranges):
     return [tuple(r) for r in out]
 
 
+def check_span(start, end, text=None) -> str | None:
+    """校验一个原文跨度：非空、不倒置，给了文本时长度必须与跨度一致。"""
+    if start is None or end is None:
+        return None
+    if start >= end:
+        return "范围为空或倒置"
+    if text is not None and end - start != len(text):
+        return f"文本长度 {len(text)} 与坐标跨度 {end - start} 不符"
+    return None
+
+
 def check_ref(ref) -> str | None:
     """确定性校验证据坐标；返回违规原因，None 表示通过。"""
+    reason = check_span(ref.char_start, ref.char_end)
+    if reason:
+        return reason
     if ref.chunk_char_start is None or ref.chunk_char_end is None:
         return None                      # mock 后端未提供完整块坐标，跳过块级检查
     if ref.chunk_char_start >= ref.chunk_char_end:
         return "完整块范围为空或倒置"
-    if not (ref.chunk_char_start <= ref.char_start and ref.char_end <= ref.chunk_char_end):
+    if not (ref.chunk_char_start <= ref.char_start < ref.char_end <= ref.chunk_char_end):
         return "本次范围越出完整块"
     if ref.section_char_start is not None and ref.section_char_end is not None:
         if not (ref.section_char_start <= ref.chunk_char_start
@@ -133,19 +147,44 @@ class EvidenceRegistry:
     def ids(self) -> list[str]:
         return list(self._refs)
 
-    def add_result(self, data: list[Hit] | Passage, source: str):
-        """把工具返回的来源登记为可引用证据；只保留 EvidenceRef 认识的字段。"""
+    def add_result(self, data: list[Hit] | Passage, source: str) -> int:
+        """整批通过才登记，返回登记条数。
+
+        先全部校验、再统一提交：一批里只要有一条不合规就整批拒绝，
+        不会出现前几条已进库、工具却报失败的情况。
+        """
+        refs, problems = self._collect(data, source)
+        if problems:
+            self.rejected.extend(problems)
+            return 0
+        for ref in refs:
+            self.register(ref)
+        return len(refs)
+
+    def _collect(self, data, source):
+        """把工具返回值拆成待登记证据，并逐条做确定性校验。"""
+        refs, problems = [], []
         if isinstance(data, list):
             for hit in data:
-                self.register(EvidenceRef(**hit.model_dump(exclude={"content", "score"}),
-                                          source=source))
-            return
-        if data.section_idx is None:
-            return
+                ref = EvidenceRef(**hit.model_dump(exclude={"content", "score"}), source=source)
+                reason = check_span(hit.char_start, hit.char_end, hit.content) or check_ref(ref)
+                refs.append(ref)
+                if reason:
+                    problems.append({"chunk_id": hit.chunk_id, "reason": reason})
+            return refs, problems
+        if data.section_idx is None or data.is_index:
+            return refs, problems
+        reason = check_span(data.char_start, data.char_end, data.content)
+        if reason:
+            problems.append({"chunk_id": data.chunk_id or "", "reason": reason})
         metadata = data.model_dump(exclude=PASSAGE_ONLY)
         for chunk in data.chunks:
-            self.register(EvidenceRef(**metadata, **chunk.model_dump(exclude={"complete"}),
-                                      source=source))
+            ref = EvidenceRef(**metadata, **chunk.model_dump(exclude={"complete"}), source=source)
+            refs.append(ref)
+            reason = check_ref(ref)
+            if reason:
+                problems.append({"chunk_id": ref.chunk_id, "reason": reason})
+        return refs, problems
 
 
 @dataclass

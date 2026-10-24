@@ -134,3 +134,57 @@ def test_observed_ranges_merge_across_pages():
     merged = reg.get(LONG_CID)
     assert merged.observed_ranges == [(14681, 20815)]
     assert merged.complete is True
+
+
+def test_rejects_inverted_or_empty_span():
+    """char_start 必须严格小于 char_end，且两端都要在完整块内。"""
+    from guance_agent.context import check_ref
+    assert "\u5012\u7f6e" in (check_ref(make_ref(char_start=250, char_end=200)) or "")
+    assert "\u5012\u7f6e" in (check_ref(make_ref(char_start=200, char_end=200)) or "")
+    assert check_ref(make_ref(char_start=10880, char_end=11100)) is None
+
+
+def test_rejects_text_length_mismatch():
+    """携带正文时必须满足 char_end - char_start == len(content)。"""
+    from guance_agent.schemas import Hit
+    base = dict(planid="p", chunk_id="c_len", title="t", area=None, fyp=None,
+                admin_level=None, plantype_label=None, section_idx=1,
+                section_path="s", content="x" * 10, char_start=100, score=1.0)
+    reg = EvidenceRegistry()
+    reg.add_result([Hit(**base, char_end=200)], "kb_search")
+    assert reg.get("c_len") is None
+    assert reg.rejected and "\u957f\u5ea6" in reg.rejected[0]["reason"]
+
+    good = EvidenceRegistry()
+    good.add_result([Hit(**base, char_end=110)], "kb_search")
+    assert good.get("c_len") is not None
+
+
+def test_batch_registration_is_atomic():
+    """一批里只要有一条不合规，整批都不登记，不留半批。"""
+    from guance_agent.schemas import Hit
+    base = dict(planid="p", title="t", area=None, fyp=None, admin_level=None,
+                plantype_label=None, section_idx=1, section_path="s",
+                content="x" * 10, char_start=0, char_end=10, score=1.0,
+                chunk_char_start=0, chunk_char_end=100,
+                section_char_start=0, section_char_end=100)
+    good = Hit(**base, chunk_id="ok1")
+    bad = Hit(**{**base, "chunk_id": "bad1", "char_end": 500})
+    reg = EvidenceRegistry()
+    assert reg.add_result([good, bad], "kb_search") == 0
+    assert reg.ids() == []
+    assert [r["chunk_id"] for r in reg.rejected] == ["bad1"]
+
+
+def test_rejected_batch_keeps_earlier_evidence():
+    """被拒的一批不能动到之前已经合法登记的证据。"""
+    from guance_agent.schemas import Hit
+    base = dict(planid="p", title="t", area=None, fyp=None, admin_level=None,
+                plantype_label=None, section_idx=1, section_path="s",
+                content="x" * 10, char_start=0, char_end=10, score=1.0,
+                chunk_char_start=0, chunk_char_end=100,
+                section_char_start=0, section_char_end=100)
+    reg = EvidenceRegistry()
+    reg.add_result([Hit(**base, chunk_id="keep1")], "kb_search")
+    reg.add_result([Hit(**{**base, "chunk_id": "bad2", "char_end": 500})], "kb_search")
+    assert reg.ids() == ["keep1"]
