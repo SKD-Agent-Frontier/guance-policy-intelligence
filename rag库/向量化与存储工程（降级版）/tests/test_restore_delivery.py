@@ -87,3 +87,19 @@ def test_zip_traversal_rejected_before_destination_created(tmp_path):
     with pytest.raises(ValueError, match='unsafe archive path'):
         delivery.restore(archive, destination)
     assert not destination.exists()
+
+
+def test_fresh_restore_long_path_does_not_resolve_concurrent_children(tmp_path, monkeypatch):
+    manifest, _ = make_package(tmp_path / 'download')
+    archive, _ = delivery.assemble(manifest)
+    destination = tmp_path / ('长路径' * 12) / 'restored'
+    original_resolve = Path.resolve
+
+    def resolve_existing_root_only(path, *args, **kwargs):
+        # destination创建后，子目录正被其他线程创建；恢复阶段不应再依赖其realpath。
+        if destination.exists() and path != destination and path.is_relative_to(destination):
+            raise AssertionError('concurrent child realpath')
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'resolve', resolve_existing_root_only)
+    assert delivery.restore(archive, destination)['files_verified'] == 3

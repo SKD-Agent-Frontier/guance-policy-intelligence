@@ -30,11 +30,13 @@ def checksum(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def safe_path(root, value):
+def safe_path(root, value, *, resolve=True):
     path = PurePosixPath(value)
     if path.is_absolute() or not path.parts or '..' in path.parts or '\\' in value or ':' in value:
         raise ValueError('unsafe archive path')
-    result = root.joinpath(*path.parts).resolve()
+    result = root.joinpath(*path.parts)
+    if resolve:
+        result = result.resolve()
     if not result.is_relative_to(root):
         raise ValueError('archive path escaped destination')
     return result
@@ -119,11 +121,13 @@ def restore(archive, destination):
         if len(set(names)) != len(names) or set(package.namelist()) != set(names) | {'backup_manifest.json'}:
             raise ValueError('archive member list mismatch')
         for name in names:
-            safe_path(destination, name)
+            safe_path(destination, name, resolve=False)
         destination.mkdir(parents=True)
 
         def one(entry):
-            path = io_path(safe_path(destination, entry['path']))
+            # 目标必须全新，且我们只创建目录及普通文件（不恢复ZIP符号链接）。
+            # 先完成词法越界校验，再并发写入，避免对正在创建的长路径反复realpath。
+            path = io_path(safe_path(destination, entry['path'], resolve=False))
             path.parent.mkdir(parents=True, exist_ok=True)
             digest = hashlib.sha256()
             with package.open(entry['path']) as source, path.open('xb') as output:

@@ -11,7 +11,7 @@
     "vector_points": 47477,
     "unique_cached_inputs": 45483,
     "files": 93213,
-    "uncompressed_bytes": 4448244961
+    "uncompressed_bytes": 4448245991
   },
   "partial": true,
   "known_gaps": {
@@ -27,8 +27,8 @@
   },
   "archive": {
     "name": "rag-runtime-r1.zip",
-    "bytes": 1870494842,
-    "sha256": "97b92fc145319277bf0b64c93bededab7cab0065c0d3def81bf777cbd0b5a712"
+    "bytes": 1876763871,
+    "sha256": "7fc79a540c4f60b71b9b52027eb69a825d37d26fd172af208fe5773b356e621e"
   },
   "parts": [
     {
@@ -48,8 +48,8 @@
     },
     {
       "name": "rag-runtime-r1.zip.part004",
-      "bytes": 259882106,
-      "sha256": "4f933d244ffe3827366e10e365f5df29362dead790b79e524b8c22be25cc9cdf"
+      "bytes": 266151135,
+      "sha256": "324b8aa3d8a39a0b4eab8fa1f96b87707fa75f334ac6dc859d69d4d3d9d3d278"
     }
   ]
 }
