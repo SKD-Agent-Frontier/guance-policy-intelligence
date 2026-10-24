@@ -1,0 +1,203 @@
+{
+  "source_project": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程",
+  "source_commit": "65c1d63e16e36b2b02ba396cf803b733c3e08609",
+  "original_files_sha256": {
+    "config.json": "eed62250473469ff195503380e8968d096d97d977da049cd7291850575b19745",
+    "requirements.txt": "6090b9d8780cd216db0605d6e90dd5f734d4bebd42709b1b24a1e07dd9d892f7",
+    "requirements.lock.txt": "fa6d84ae55d9e558af460bc87202ae79033604b63ca7ec79501dd1c74052e0dc",
+    "secrets.example.json": "0aaf9e6acb546b5de932b255edbb4315885d1dcc0cbe1a95bf91907d954633b4",
+    ".gitignore": "85d730024c25cf7f4d8bd475e79a0380bba146e4398bcef9e262ae394f5ab8f2",
+    ".gitattributes": "0c90cc050cf05c6bed3bae96da71bd84bc2379f4d80fc382489f842f20033ac6",
+    "run.py": "21f8ae966bd06e18a0459fe62c5fdb72cba27cde9415e54d1120d3a6bc1e2252",
+    "vector_store/candidates.py": "47fa9530518f9e2aa090586bf34b835b0dceaf25119a66b7e2908051d843cb1c",
+    "vector_store/cli.py": "8e3d9d8eb6640ebe6314d4323968654e56020ece9956797cd6dcf5fce5253667",
+    "vector_store/common.py": "c8d8b9f16cee6dd2cb73c723973bf59e80c8e1ceab343f80e281c3f814d2a191",
+    "vector_store/coverage.py": "e82afc43fce1c41a6b0569d36fcd3129ed5a69f959c790dca6685f9c5b546042",
+    "vector_store/dedup.py": "387e272e7dcbfa150577c97ec795e3727cf42587ab715555220061ce8e9a472f",
+    "vector_store/embedding.py": "3a757787056bc17b6d0594e3cfd3ac44900eb939a8e6a00873bb16ba5587ce29",
+    "vector_store/importer.py": "f126aa2d4734fb3c2945610c5100aa73aa78179e95d0016acf50249791cfbfe2",
+    "vector_store/media.py": "e45abee12e8ed679712e5c9acff30407b16252f9592c09fe9603ee37591624aa",
+    "vector_store/operations.py": "7d61e8e420aebde99cf5906d4ecb1828d05dd46422fc241e2b467bbdbbdb9504",
+    "vector_store/pipeline.py": "9513237a8b3490ed1c3644d336be37946923e857c135a3e8ed5a80cbd09c07f9",
+    "vector_store/prepare.py": "7ec8e3ee35e3312bf5abdc2135e98f72a2aa5ebfc2f2ddf8b375d05f05348ff9",
+    "vector_store/probe.py": "9089dc19fdaf23fc852fb9ded1f40e68654e6257528f16febbda7b8b13277c5b",
+    "vector_store/storage.py": "ffa216701ed8ced2d704a0874705dd488e23d6486ea6711dcdc999e48121be58",
+    "vector_store/text_inputs.py": "68ed39222aa97d4b6c6927ddde125ed529bd2e0e3b2354c868055d13c7c0632b",
+    "vector_store/validation.py": "775e3107eba01178abe1e631d8cd4994da92ab1b6b24230bfd662fbac7c7856e",
+    "vector_store/__init__.py": "65129c0d2a48a1cb90a9ada673a48caea051014147532239ec916e16d2b1365e"
+  },
+  "excluded": "不复制旧数据库、服务二进制、历史备份、旧验收报告及旧发布指针；向量及识别结果由migrate命令核验后迁入。",
+  "source_files_unchanged": true,
+  "source_files_checked": 23,
+  "source_pointer_sha256": "ae9d62185a2c688182557e51e55c8b3e1ff4be3e04eff5c4ed308ff64e8004d5",
+  "source_pointer_matches_initial": true,
+  "local_file_reuse": {
+    "config.json": {
+      "source_sha256": "eed62250473469ff195503380e8968d096d97d977da049cd7291850575b19745",
+      "local_sha256": "dea24918b6a087b9951f3a66730698f772b04e31f0513121dea616ae7a9e13bc",
+      "byte_identical": false
+    },
+    "requirements.txt": {
+      "source_sha256": "6090b9d8780cd216db0605d6e90dd5f734d4bebd42709b1b24a1e07dd9d892f7",
+      "local_sha256": "d79a03955a6477a986108463f9efe61d811f0cb350dda768a88bda7ad5e5ed94",
+      "byte_identical": false
+    },
+    "requirements.lock.txt": {
+      "source_sha256": "fa6d84ae55d9e558af460bc87202ae79033604b63ca7ec79501dd1c74052e0dc",
+      "local_sha256": "464aae4190e48e617e4fc17c3a5c0428a86220c9f60b728b92803b5278cd3bae",
+      "byte_identical": false
+    },
+    "secrets.example.json": {
+      "source_sha256": "0aaf9e6acb546b5de932b255edbb4315885d1dcc0cbe1a95bf91907d954633b4",
+      "local_sha256": "1dcc933ebdbfdd23d8e456f6ccd0528b000bbceb0e7e44d799a7de616ff44a82",
+      "byte_identical": false
+    },
+    ".gitignore": {
+      "source_sha256": "85d730024c25cf7f4d8bd475e79a0380bba146e4398bcef9e262ae394f5ab8f2",
+      "local_sha256": "85d730024c25cf7f4d8bd475e79a0380bba146e4398bcef9e262ae394f5ab8f2",
+      "byte_identical": true
+    },
+    ".gitattributes": {
+      "source_sha256": "0c90cc050cf05c6bed3bae96da71bd84bc2379f4d80fc382489f842f20033ac6",
+      "local_sha256": "50d3d388e26b3c3ca3a13e7313904c4340128e3dc90fb48af80b3d4d486797a6",
+      "byte_identical": false
+    },
+    "run.py": {
+      "source_sha256": "21f8ae966bd06e18a0459fe62c5fdb72cba27cde9415e54d1120d3a6bc1e2252",
+      "local_sha256": "8df5bb1c8cbff5395b51bc97b6a5b9fe44d5392e1088483f5c3a821ea76a6132",
+      "byte_identical": false
+    },
+    "vector_store/candidates.py": {
+      "source_sha256": "47fa9530518f9e2aa090586bf34b835b0dceaf25119a66b7e2908051d843cb1c",
+      "local_sha256": "47fa9530518f9e2aa090586bf34b835b0dceaf25119a66b7e2908051d843cb1c",
+      "byte_identical": true
+    },
+    "vector_store/cli.py": {
+      "source_sha256": "8e3d9d8eb6640ebe6314d4323968654e56020ece9956797cd6dcf5fce5253667",
+      "local_sha256": "9421470e1328814a94dc4235584e58eeb7556e1dc08b56707278710a6a623c82",
+      "byte_identical": false
+    },
+    "vector_store/common.py": {
+      "source_sha256": "c8d8b9f16cee6dd2cb73c723973bf59e80c8e1ceab343f80e281c3f814d2a191",
+      "local_sha256": "2c1047d41365cdfb01ef166b8d786e9da6f5937e5c163694545d5db5fde485d3",
+      "byte_identical": false
+    },
+    "vector_store/coverage.py": {
+      "source_sha256": "e82afc43fce1c41a6b0569d36fcd3129ed5a69f959c790dca6685f9c5b546042",
+      "local_sha256": "2fcc8ba20cc0e6ba87ddab122d1bb8e50be951824d6f9fd818bc327102c49849",
+      "byte_identical": false
+    },
+    "vector_store/dedup.py": {
+      "source_sha256": "387e272e7dcbfa150577c97ec795e3727cf42587ab715555220061ce8e9a472f",
+      "local_sha256": "387e272e7dcbfa150577c97ec795e3727cf42587ab715555220061ce8e9a472f",
+      "byte_identical": true
+    },
+    "vector_store/embedding.py": {
+      "source_sha256": "3a757787056bc17b6d0594e3cfd3ac44900eb939a8e6a00873bb16ba5587ce29",
+      "local_sha256": "8ee426ee033034ed98c4fe95c069371248484323bd5f9410f5e0cfdae98613b4",
+      "byte_identical": false
+    },
+    "vector_store/importer.py": {
+      "source_sha256": "f126aa2d4734fb3c2945610c5100aa73aa78179e95d0016acf50249791cfbfe2",
+      "local_sha256": "7485e6cf313df29c1d749803a332441a87f32af3ea9208246a0970bf61aba3e0",
+      "byte_identical": false
+    },
+    "vector_store/media.py": {
+      "source_sha256": "e45abee12e8ed679712e5c9acff30407b16252f9592c09fe9603ee37591624aa",
+      "local_sha256": "e45abee12e8ed679712e5c9acff30407b16252f9592c09fe9603ee37591624aa",
+      "byte_identical": true
+    },
+    "vector_store/operations.py": {
+      "source_sha256": "7d61e8e420aebde99cf5906d4ecb1828d05dd46422fc241e2b467bbdbbdb9504",
+      "local_sha256": "5f31329dbca89baf56dfb5279f6d92a57cbe634ceb3ce849dc899125a30dbe84",
+      "byte_identical": false
+    },
+    "vector_store/pipeline.py": {
+      "source_sha256": "9513237a8b3490ed1c3644d336be37946923e857c135a3e8ed5a80cbd09c07f9",
+      "local_sha256": "02cfcf6c34077f4b87de77fba8d798fc25ab29ef45871a00530462ccb702a828",
+      "byte_identical": false
+    },
+    "vector_store/prepare.py": {
+      "source_sha256": "7ec8e3ee35e3312bf5abdc2135e98f72a2aa5ebfc2f2ddf8b375d05f05348ff9",
+      "local_sha256": "58a748feece2138c256b942d9b2372cd8ddc5503a7e75ba9a97476b60ada91e9",
+      "byte_identical": false
+    },
+    "vector_store/probe.py": {
+      "source_sha256": "9089dc19fdaf23fc852fb9ded1f40e68654e6257528f16febbda7b8b13277c5b",
+      "local_sha256": "9089dc19fdaf23fc852fb9ded1f40e68654e6257528f16febbda7b8b13277c5b",
+      "byte_identical": true
+    },
+    "vector_store/storage.py": {
+      "source_sha256": "ffa216701ed8ced2d704a0874705dd488e23d6486ea6711dcdc999e48121be58",
+      "local_sha256": "7d3a0f24bf8433e756c4282430f64b26993262b89096e0eca6adf427f3b4bcc7",
+      "byte_identical": false
+    },
+    "vector_store/text_inputs.py": {
+      "source_sha256": "68ed39222aa97d4b6c6927ddde125ed529bd2e0e3b2354c868055d13c7c0632b",
+      "local_sha256": "68ed39222aa97d4b6c6927ddde125ed529bd2e0e3b2354c868055d13c7c0632b",
+      "byte_identical": true
+    },
+    "vector_store/validation.py": {
+      "source_sha256": "775e3107eba01178abe1e631d8cd4994da92ab1b6b24230bfd662fbac7c7856e",
+      "local_sha256": "0201245f1c934b9d510050962f1e1c1c207092237fd0493e69aa5bd8c7a74f5f",
+      "byte_identical": false
+    },
+    "vector_store/__init__.py": {
+      "source_sha256": "65129c0d2a48a1cb90a9ada673a48caea051014147532239ec916e16d2b1365e",
+      "local_sha256": "83580720bcbe5daf4bf36a4029119c0eab3473b8a31ae75eb3cc5574f2a3abb8",
+      "byte_identical": false
+    }
+  },
+  "new_modules": [
+    "vector_store/backup.py",
+    "vector_store/bm25s_index.py",
+    "vector_store/contracts.py",
+    "vector_store/qdrant_local.py",
+    "vector_store/sqlite_metadata.py"
+  ],
+  "new_dependencies": [
+    {
+      "package": "bm25s",
+      "version": "0.3.15",
+      "file": "bm25s-0.3.15-py3-none-any.whl",
+      "sha256": "dc6b63936f50f05ac41b44a51e99df0c6e58b04ee9b9d72bba48006f633fd3b1",
+      "source": "https://files.pythonhosted.org/packages/1d/a2/1da11128b4a4e28d583ecf56d1c12c977ca4398a22ee8b731491e3f52e82/bm25s-0.3.15-py3-none-any.whl",
+      "requires_dist": [
+        "numpy",
+        "orjson; extra == \"core\"",
+        "tqdm; extra == \"core\"",
+        "PyStemmer; extra == \"core\"",
+        "numba; extra == \"core\"",
+        "PyStemmer; extra == \"stem\"",
+        "huggingface_hub; extra == \"hf\"",
+        "black; extra == \"dev\"",
+        "jax[cpu]; extra == \"selection\"",
+        "scipy; extra == \"indexing\"",
+        "pytrec_eval; extra == \"evaluation\"",
+        "mcp; extra == \"mcp\"",
+        "rich; extra == \"cli\"",
+        "orjson; extra == \"full\"",
+        "tqdm; extra == \"full\"",
+        "PyStemmer; extra == \"full\"",
+        "numba; extra == \"full\"",
+        "PyStemmer; extra == \"full\"",
+        "huggingface_hub; extra == \"full\"",
+        "black; extra == \"full\"",
+        "jax[cpu]; extra == \"full\"",
+        "scipy; extra == \"full\"",
+        "pytrec_eval; extra == \"full\"",
+        "mcp; extra == \"full\"",
+        "rich; extra == \"full\""
+      ]
+    },
+    {
+      "package": "jieba",
+      "version": "0.42.1",
+      "file": "jieba-0.42.1.tar.gz",
+      "sha256": "055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2",
+      "source": "https://files.pythonhosted.org/packages/c6/cb/18eeb235f833b726522d7ebed54f2278ce28ba9438e3135ab0278d9792a2/jieba-0.42.1.tar.gz",
+      "requires_dist": null
+    }
+  ],
+  "updated_at": "2026-10-23T08:46:29.389556+00:00"
+}

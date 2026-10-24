@@ -1,0 +1,224 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "向量化与存储方案 · 处理流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "inputs",
+      "label": "输入与图片分支"
+    },
+    {
+      "id": "embedding",
+      "label": "去重与向量化"
+    },
+    {
+      "id": "storage",
+      "label": "存储与批次切换"
+    },
+    {
+      "id": "release",
+      "label": "校验与正式发布"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "formal_inputs",
+      "lane": "inputs",
+      "col": 0,
+      "type": "backend",
+      "label": "接收正式切块",
+      "sublabel": "原文与媒体快照",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "verify_inputs",
+      "lane": "inputs",
+      "col": 1,
+      "type": "security",
+      "label": "来源与审核校验",
+      "sublabel": "归属、位置、合格状态",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "extract_media",
+      "lane": "inputs",
+      "col": 2,
+      "type": "backend",
+      "label": "图片识别与切分",
+      "sublabel": "保留原图、OCR、区域",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "detect_duplicates",
+      "lane": "embedding",
+      "col": 2,
+      "type": "backend",
+      "label": "精确与近重复检测",
+      "sublabel": "指纹、候选及差异",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "group_inputs",
+      "lane": "embedding",
+      "col": 3,
+      "type": "backend",
+      "label": "差异核验与分组",
+      "sublabel": "来源独立；按实际输入",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "lookup_cache",
+      "lane": "embedding",
+      "col": 4,
+      "type": "backend",
+      "label": "检查向量缓存",
+      "sublabel": "同输入、同配置",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "encode_qwen",
+      "lane": "inputs",
+      "col": 4,
+      "type": "external",
+      "label": "Qwen 向量化",
+      "sublabel": "4,096 维 · L2",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "seal_vectors",
+      "lane": "embedding",
+      "col": 5,
+      "type": "security",
+      "label": "校验并封存向量",
+      "sublabel": "维度、数值、校验和",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "write_stores",
+      "lane": "storage",
+      "col": 5,
+      "type": "database",
+      "label": "分库写入新批次",
+      "sublabel": "Qdrant / PostgreSQL",
+      "width": 152,
+      "height": 64
+    },
+    {
+      "id": "activate_release",
+      "lane": "release",
+      "col": 5,
+      "type": "security",
+      "label": "对账后切换批次",
+      "sublabel": "单一生效指针；可回滚",
+      "width": 152,
+      "height": 64
+    }
+  ],
+  "edges": [
+    {
+      "from": "formal_inputs",
+      "to": "verify_inputs"
+    },
+    {
+      "from": "verify_inputs",
+      "to": "detect_duplicates",
+      "label": "正式文本"
+    },
+    {
+      "from": "verify_inputs",
+      "to": "extract_media",
+      "label": "图片资源",
+      "role": "branch"
+    },
+    {
+      "from": "extract_media",
+      "to": "detect_duplicates",
+      "label": "识别、切分与复核完成",
+      "role": "branch"
+    },
+    {
+      "from": "detect_duplicates",
+      "to": "group_inputs"
+    },
+    {
+      "from": "group_inputs",
+      "to": "lookup_cache"
+    },
+    {
+      "from": "lookup_cache",
+      "to": "seal_vectors",
+      "label": "缓存命中"
+    },
+    {
+      "from": "lookup_cache",
+      "to": "encode_qwen",
+      "label": "缓存缺失",
+      "role": "branch"
+    },
+    {
+      "from": "encode_qwen",
+      "to": "seal_vectors",
+      "label": "新生成向量",
+      "role": "branch"
+    },
+    {
+      "from": "seal_vectors",
+      "to": "write_stores"
+    },
+    {
+      "from": "write_stores",
+      "to": "activate_release"
+    }
+  ],
+  "mainPath": [
+    "formal_inputs",
+    "verify_inputs",
+    "detect_duplicates",
+    "group_inputs",
+    "lookup_cache",
+    "seal_vectors",
+    "write_stores",
+    "activate_release"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "复用开源方案",
+      "items": [
+        "Qwen3-VL-Embedding-8B：文本及图文向量",
+        "datasketch MinHash/LSH：近重复候选",
+        "Qdrant 存向量；PostgreSQL 存来源与关系"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "项目自行设计",
+      "items": [
+        "图片分类、语义区域、原图映射与阶段复核",
+        "指纹与差异核验、实际输入分组和缓存键",
+        "双库对账、任务恢复及完整批次切换"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "选型边界",
+      "items": [
+        "OCR / 视觉识别引擎尚待固定",
+        "相似片段保留独立来源；同输入才复用计算",
+        "图片识别结果独立核验，embedding 不代替 OCR"
+      ]
+    }
+  ]
+}

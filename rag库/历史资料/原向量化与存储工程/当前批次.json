@@ -1,0 +1,20 @@
+{
+  "generation_id": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
+  "run": "outputs\\generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
+  "collection": "guance_legacy_f25aeebb542aa74a7d72",
+  "postgres_schema": "rag_legacy",
+  "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
+  "revision": 3,
+  "status": "active",
+  "partial": true,
+  "statistics": {
+    "unique_inputs": 45483,
+    "representations": 47477,
+    "cache_hits": 45337,
+    "new_input_vectors": 146,
+    "embedding_requests": 62,
+    "failed_inputs": 0,
+    "service_http_attempts_including_probes_and_retries": 65
+  },
+  "activated_at": "2026-10-23T01:04:59.460862+00:00"
+}

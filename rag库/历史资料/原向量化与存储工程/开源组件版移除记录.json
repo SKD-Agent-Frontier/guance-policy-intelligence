@@ -1,0 +1,224 @@
+{
+  "removed_at": "2026-10-23T03:14:36.303877+00:00",
+  "authorization": "用户明确要求删除开源组件版并本地Git提交",
+  "status": "removed_and_retained_release_verified",
+  "recoverable_code_history_commit": "5890bf8",
+  "data_recovery": "代码可从Git历史查看；从未纳入Git的批次、向量集合和独占备份已按请求删除，恢复需重建，不承诺Git能恢复数据。",
+  "removed_project_folders": {
+    "rag库\\切块工程（开源组件版）": {
+      "bytes": 2844378368,
+      "files": 19908
+    },
+    "rag库\\向量化与存储工程（开源组件版）": {
+      "bytes": 9840047268,
+      "files": 103022
+    }
+  },
+  "removed_database_actions": [
+    {
+      "at": "2026-10-23T03:05:27.687952+00:00",
+      "action": "delete_collection",
+      "target": "guance_oss_570e7a2bf6a6ab9c1615",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:27.957244+00:00",
+      "action": "delete_collection",
+      "target": "guance_oss_cbc94cba10e312addabc",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:27.991289+00:00",
+      "action": "delete_snapshot",
+      "target": "guance_oss_e1e84f7f3a4066db012d/guance_oss_e1e84f7f3a4066db012d-3798554321885581-2026-10-22-21-32-45.snapshot",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:28.148256+00:00",
+      "action": "delete_collection",
+      "target": "guance_oss_e1e84f7f3a4066db012d",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:28.193587+00:00",
+      "action": "delete_snapshot",
+      "target": "guance_restore_9c03e4ab85f442a9/guance_oss_e1e84f7f3a4066db012d-3798554321885581-2026-10-22-21-32-45.snapshot",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:28.362904+00:00",
+      "action": "delete_collection",
+      "target": "guance_restore_9c03e4ab85f442a9",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:29.548418+00:00",
+      "action": "drop_schema",
+      "target": "guance_rag.rag_oss",
+      "success": true
+    },
+    {
+      "at": "2026-10-23T03:05:30.046861+00:00",
+      "action": "drop_database",
+      "target": "guance_restore_b482a269566c",
+      "success": true
+    }
+  ],
+  "removed_runtime_paths_before": [
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\qdrant-data\\collections\\guance_oss_570e7a2bf6a6ab9c1615",
+      "bytes": 696779360,
+      "files": 659
+    },
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\qdrant-data\\collections\\guance_oss_cbc94cba10e312addabc",
+      "bytes": 1401949145,
+      "files": 660
+    },
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\qdrant-data\\collections\\guance_oss_e1e84f7f3a4066db012d",
+      "bytes": 1393788389,
+      "files": 660
+    },
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\snapshots\\guance_oss_e1e84f7f3a4066db012d",
+      "bytes": 1394293824,
+      "files": 2
+    },
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\qdrant-data\\collections\\guance_restore_9c03e4ab85f442a9",
+      "bytes": 1393788389,
+      "files": 660
+    },
+    {
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程\\.runtime\\snapshots\\guance_restore_9c03e4ab85f442a9",
+      "bytes": 1394293760,
+      "files": 1
+    }
+  ],
+  "filesystem_actions": [
+    {
+      "action": "remove_owned_junction",
+      "path": "C:\\Users\\39962\\AppData\\Local\\Temp\\guance-rag-0fd4afb5e886"
+    },
+    {
+      "action": "remove_project",
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\切块工程（开源组件版）"
+    },
+    {
+      "action": "remove_project",
+      "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程（开源组件版）"
+    },
+    {
+      "action": "remove_exclusive_vector_cache",
+      "bytes": 109398782,
+      "retained_legacy_keys": 45483,
+      "keys": 6423,
+      "files": 12846
+    }
+  ],
+  "retained_release_checks": {
+    "at": "2026-10-23T03:14:36.299629+00:00",
+    "passed": true,
+    "kept_collection": "guance_legacy_f25aeebb542aa74a7d72",
+    "kept_generation": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
+    "kept_points": 47477,
+    "kept_collections_unchanged": {
+      "guance_legacy_27752c0afc24e705ff26": 1467,
+      "guance_legacy_7baea0f3d5a02f785c70": 1467,
+      "guance_legacy_9fdb30d78eee7dd2dac6": 47276,
+      "guance_legacy_f25aeebb542aa74a7d72": 47477,
+      "guance_protocol_probe_c9a403e11e1d": 0,
+      "guance_protocol_probe_ed9ffe4df4f9": 2,
+      "guance_protocol_probe_ed9ffe4df4f9_restored": 2,
+      "guance_restore_8de92ce7ad304db7": 47276,
+      "guance_restore_fe9ccede605240a8": 2
+    },
+    "kept_source_objects": 285534,
+    "kept_cache_keys": 45483,
+    "retired_cache_keys_absent": 6423,
+    "native_hashes_unchanged": 13,
+    "retired_folders_absent": true,
+    "retired_schema_and_database_absent": true,
+    "retired_runtime_paths_absent": true,
+    "retired_alias_absent": true,
+    "retired_native_alias_rejected": true,
+    "historical_evaluation_stops_without_network": true,
+    "databases_after": {
+      "postgres": 8035351,
+      "guance_rag": 1546394647,
+      "template1": 8109079,
+      "template0": 7873039,
+      "guance_restore_311df050f34e": 911219735
+    }
+  },
+  "runtime_health_after": {
+    "at": "2026-10-23T04:55:53.212091+00:00",
+    "releases": {
+      "legacy": {
+        "generation_id": "generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61",
+        "revision": 3,
+        "postgres_points": 47477,
+        "qdrant_points": 47477,
+        "collection_status": "green",
+        "optimizer_status": "ok",
+        "indexed_vectors": 47364,
+        "keyword_indexes": [
+          "document_type",
+          "source_type",
+          "document_version_id",
+          "planid",
+          "area_code",
+          "area_name",
+          "period_key",
+          "representation_type"
+        ],
+        "unfinished_tasks": 0,
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "original_hashes_unchanged": {
+    "rag库\\向量化与存储工程\\当前批次.json": "ae9d62185a2c688182557e51e55c8b3e1ff4be3e04eff5c4ed308ff64e8004d5",
+    "rag库\\向量化与存储工程\\outputs\\generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61\\manifest.json": "8976561c1eb2446a6ba0039d5ef2e4acbb6b16391e4fc176631622c28290e342",
+    "rag库\\向量化与存储工程\\outputs\\generation_bdc0bd54544319e10d18f5e88ce7d93292fb4e988c4707f5585c63421fbefa61\\validation.json": "a25ac2d1f2bcbe5d335557e49ab1fc870d1a8cd84ba70c52c0f920136f411eeb",
+    "rag库\\切块工程\\当前批次.json": "e3b8151b52fd9d11a2550394f08380695e9c15c7438af5a8634aa36584db76bf",
+    "rag库\\切块工程\\policy_chunker\\chunking.py": "52a58f32c604924c077ff0c734e78d793a1c20e97e3c6e71f8d8f46cae27297c",
+    "rag库\\切块工程\\policy_chunker\\media.py": "869ad5d8fc0655a2e1342bac0b5139137fe2c664ea2ce61e7ea1d7745679ccb7",
+    "rag库\\切块工程\\policy_chunker\\pipeline.py": "8a58780097f1850e835057f6fbc83602b4b9c882003c97d7e5b488fbb95a7c1c",
+    "rag库\\切块工程\\policy_chunker\\relations.py": "dbb04c1e78575f47c6af6534bad13e5f0015fa2f1ccdab90fd12aa36c8b1379c",
+    "rag库\\切块工程\\policy_chunker\\source.py": "781a903f8d0eddd009c5c372f84c8c04fb528d6f178f683030ae38911df6da54",
+    "rag库\\切块工程\\policy_chunker\\structure.py": "ee2a1a11ff433360fd10fbfd194052cde26cdba200451fd8567b1d79c1afa270",
+    "rag库\\切块工程\\policy_chunker\\tokens.py": "cb7df8bf2890add75457a73376b2f44ed3246118e500b7a0b9457fc2b2789271",
+    "rag库\\切块工程\\policy_chunker\\validation.py": "8d4e6ce96e6a8808cbc203f204ff1f58cbdb97055c16190aa716c14b149f49c8",
+    "rag库\\切块工程\\policy_chunker\\__init__.py": "0d9ef1b04a5acfe67f98819a6859ad4cff2e8a748cce3c8f40443f9fc49d9d97"
+  },
+  "retained_scope": [
+    "自写版切块工程、原文语料及正式指针",
+    "rag_legacy及其47477条当前向量",
+    "所有保留版引用的45483份模型输入缓存",
+    "共享OCR、图片、运行环境、凭证和自写版备份",
+    "历史评估报告及Git历史"
+  ],
+  "unrelated_legacy_history_not_pruned": true,
+  "offline_regressions": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0
+  },
+  "space": {
+    "drive": "D:",
+    "free_bytes_before": 45717422080,
+    "measurement": "以清理前后D盘可用字节数的净变化为准；含文件分配粒度及同时段系统写入影响，Git提交保留历史对象。",
+    "measured_at": "2026-10-23T04:55:05.763369+00:00",
+    "free_bytes_after": 67103346688,
+    "net_free_bytes_increase": 21385924608,
+    "net_free_gib_increase": 19.917,
+    "free_gib_before": 42.578,
+    "free_gib_after": 62.495
+  },
+  "git_delivery": "see git log for the local open-source removal commit; no push",
+  "input_files_rechecked_after_removal": 1475,
+  "input_hash_mismatches_after_removal": []
+}

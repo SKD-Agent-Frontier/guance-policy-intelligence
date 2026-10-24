@@ -1,0 +1,9 @@
+# 问题向量与逐次检索明细只保留本地，避免Git重复保存生成数据。
+query_vectors*.npy
+questions.json
+query_profile.json
+embedding_calls.jsonl
+legacy_retrieval.json
+oss_retrieval.json
+*.tmp
+__pycache__/

@@ -1,0 +1,83 @@
+{
+  "contract_version": "proposal-v0.4",
+  "planid": "18177",
+  "title": "江苏省“十四五”公共服务规划",
+  "area": "江苏省",
+  "fyp": "第十四个五年规划",
+  "admin_level": "省",
+  "plantype_label": "专项规划",
+  "document_id": "doc_37ed1691b9f36a6abb6331cadfcd8944",
+  "document_version_id": "document_version_37ed1691b9f36a6abb6331cadfcd8944a700c56639b5d5af164b74bb62cdd473",
+  "source_hash": "967eb6e421fba525944902b8ad1ed50d00edab8b8dd9d2ba94fb28625aa379fd",
+  "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "source_path": "corpus/18177/18177.md",
+  "snapshot": "snapshots/967eb6e421fba525944902b8ad1ed50d00edab8b8dd9d2ba94fb28625aa379fd/18177.md",
+  "section_id": "section_45b4b37754c4b5b888a8d4999b967a14",
+  "section_idx": 1,
+  "section_path": "一、规划背景",
+  "source_type": "visual_chunk",
+  "source_id": "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76",
+  "occurrence_id": "occurrence_b64427031d3b6637713a6e732b0065e5",
+  "asset_id": "asset_7abcfd0c06682747083ccb6860d50700",
+  "visual_chunk_id": "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76",
+  "extraction_id": "extraction_5b730eee4b8e3c9fbba6389e59a038ddb7a373200ceed382ea520ddbb9b2cc00",
+  "ocr_parent_id": "visual_parent_9ca1f0355ef66b10ba62ada982e871dcc2080dcd52a498ca7c380572da720086",
+  "recognition_status": "recognized",
+  "kind": "paragraph",
+  "evidence_label": "识别文本，未经人工逐字校对",
+  "content": "通有所安保障能力提升行动。加快推进公益性骨灰安放（葬）设施、殡仪馆、集中守灵中心等殡葬设施建设，对规模、设施、管理相对薄弱的乡镇公益性骨灰安放（葬）设施进行提档升级，加强城市公益性骨灰安放（葬）设施和集中守灵中心建设，到2025年实现城乡公益性骨灰安放（葬）设施全覆盖，所有县（市）、全国重点镇都建有集中守灵中心。",
+  "content_basis": "ocr_transcript",
+  "ocr_range": {
+    "offset_basis": "ocr_transcript",
+    "offset_unit": "unicode_codepoint_in_ocr_transcript",
+    "transcript_id": "visual_parent_9ca1f0355ef66b10ba62ada982e871dcc2080dcd52a498ca7c380572da720086",
+    "transcript_hash": "937acb23dd983cc0ccca5a438645c93a9ef30282c6c12e696083566670691486",
+    "full_char_start": 14,
+    "full_char_end": 171,
+    "char_start": 14,
+    "char_end": 171
+  },
+  "association_basis": "markdown_reference",
+  "reference_span": {
+    "offset_basis": "body_first_non_whitespace",
+    "offset_unit": "unicode_codepoint",
+    "body_origin": 253,
+    "char_start": 3027,
+    "char_end": 3051,
+    "content": "![图1](media/image1.jpeg)"
+  },
+  "image": {
+    "asset_id": "asset_7abcfd0c06682747083ccb6860d50700",
+    "sha256": "2eec9325f410938b4d10a364943b7fdba832bdc03761624e09984f680e618191",
+    "mime_type": "image/jpeg",
+    "width": 685,
+    "height": 135,
+    "byte_length": 48278,
+    "path": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\向量化与存储工程（降级版）\\outputs\\prepared_822ec6f1de9ba2d1542e1a22a63111a3e0fb8bfe2d908cf77a6a438518f0bac5\\media\\2eec9325f410938b4d10a364943b7fdba832bdc03761624e09984f680e618191\\image1.jpeg",
+    "bbox_pixels": [
+      6,
+      4,
+      679,
+      13
+    ],
+    "coordinate_unit": "original_image_pixels",
+    "coordinate_basis": "model_estimated_normalized_1000"
+  },
+  "ocr_contexts": [
+    {
+      "role": "recognized_heading",
+      "char_start": 0,
+      "char_end": 12,
+      "content": "专栏6 逝有所安重点工程",
+      "offset_unit": "unicode_codepoint_in_ocr_transcript"
+    }
+  ],
+  "quality_warnings": [
+    "region_bbox_model_estimated",
+    "verify_text_and_numbers_against_original_image"
+  ],
+  "truncated": false,
+  "representation_id": "representation_1e770bb0f45225807cd0693c78648bc4375c44607f3f1bb928187ecc8f5d5dac",
+  "representation_type": "text",
+  "score": 0.026153846153846153
+}

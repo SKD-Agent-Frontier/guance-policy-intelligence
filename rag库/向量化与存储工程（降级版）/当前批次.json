@@ -1,0 +1,11 @@
+{
+  "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "run": "outputs\\local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "collection": "guance_local_3040f34d76751123c4af",
+  "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
+  "revision": 1,
+  "backend": "sqlite+qdrant_local+bm25s",
+  "status": "active",
+  "partial": true,
+  "activated_at": "2026-10-23T08:27:46.100507+00:00"
+}

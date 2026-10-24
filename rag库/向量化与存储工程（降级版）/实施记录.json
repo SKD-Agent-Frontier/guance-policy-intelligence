@@ -1,0 +1,618 @@
+{
+  "status": "complete",
+  "source_engine_untouched": true,
+  "generation": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "run": "outputs\\local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "collection": "guance_local_3040f34d76751123c4af",
+    "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
+    "revision": 1,
+    "backend": "sqlite+qdrant_local+bm25s",
+    "status": "active",
+    "partial": true,
+    "activated_at": "2026-10-23T08:27:46.100507+00:00"
+  },
+  "migration": {
+    "representations": 47477,
+    "unique_inputs": 45483,
+    "cache_hits": 36779,
+    "new_input_vectors": 0,
+    "model_requests": 0,
+    "point_upserts": 38773,
+    "points_reused": 8704,
+    "lexical": {
+      "documents": 46113,
+      "reused": false
+    }
+  },
+  "first_validation": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "passed": true,
+    "issues": [],
+    "source": {
+      "passed": true,
+      "errors": [],
+      "source_segments_checked": 81707,
+      "documents": 506
+    },
+    "visual": {
+      "passed": true,
+      "errors": [],
+      "extractions": 479,
+      "parents": 893,
+      "chunks_checked": 3562
+    },
+    "coverage": {
+      "policy": "all_existing_content",
+      "native_chunks": 42516,
+      "native_covered": 42516,
+      "native_missing": [],
+      "native_text_representations": 42551,
+      "visual_chunks": 3562,
+      "visual_covered": 3562,
+      "visual_missing": [],
+      "original_image_occurrences": 919,
+      "original_images_covered": 919,
+      "original_images_missing": [],
+      "split_text_sources": 17,
+      "input_fragments": 52,
+      "supplemental_parent_context_links": 2,
+      "errors": [],
+      "passed": true
+    },
+    "sqlite_integrity": true,
+    "vectors_checked": 47477,
+    "lexical": {
+      "passed": true,
+      "documents": 46113,
+      "mmap": true
+    },
+    "unfinished_tasks": 0,
+    "at": "2026-10-23T08:27:46.003334+00:00"
+  },
+  "interface_probe": {
+    "token_count": 27,
+    "usage": {
+      "prompt_tokens": 27,
+      "total_tokens": 27,
+      "completion_tokens": 0,
+      "prompt_tokens_details": null
+    },
+    "server_revision_verified": false,
+    "visual_embedding": {
+      "status": "passed",
+      "asset_hash": "97ede2cb6d916a93b6ce4e0f061021db2988290d6744d75144681a18cf48f3a2",
+      "input_description": {
+        "type": "image_text",
+        "asset_hash": "97ede2cb6d916a93b6ce4e0f061021db2988290d6744d75144681a18cf48f3a2",
+        "bbox": [
+          0,
+          0,
+          1920,
+          1080
+        ],
+        "original_size": [
+          1920,
+          1080
+        ],
+        "resized_size": [
+          1344,
+          768
+        ],
+        "derived_image_hash": "0ad7f599faab46674f57f1a40e018363079a8d29106def61c02821bdaa96b9f1",
+        "text": "文档图片向量输入校验。",
+        "expected_tokens": 1037,
+        "expected_visual_tokens": 1008,
+        "preprocess": "qwen_smart_resize_v1"
+      },
+      "dimensions": 4096,
+      "usage": {
+        "prompt_tokens": 1037,
+        "total_tokens": 1037,
+        "completion_tokens": 0,
+        "prompt_tokens_details": null
+      },
+      "pixel_input_sent": true,
+      "api_contract": "messages + image_url; add_generation_prompt=true"
+    },
+    "model": "qwen3-vl-embedding-8b",
+    "dimensions": 4096,
+    "models_advertised": 6,
+    "http_calls": 3,
+    "passed": true,
+    "at": "2026-10-23T07:59:26.584274+00:00",
+    "production_points_written": 0
+  },
+  "unit_tests": {
+    "passed": 35,
+    "full_suite_command": ".venv/Scripts/python.exe -m pytest tests -q --basetemp .cache/tests-content-integrity",
+    "additional_local_regressions_passed": 4
+  },
+  "at": "2026-10-23T08:32:15.579534+00:00",
+  "independent_validation": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "passed": true,
+    "issues": [],
+    "source": {
+      "passed": true,
+      "errors": [],
+      "source_segments_checked": 81707,
+      "documents": 506
+    },
+    "visual": {
+      "passed": true,
+      "errors": [],
+      "extractions": 479,
+      "parents": 893,
+      "chunks_checked": 3562
+    },
+    "coverage": {
+      "policy": "all_existing_content",
+      "native_chunks": 42516,
+      "native_covered": 42516,
+      "native_missing": [],
+      "native_text_representations": 42551,
+      "visual_chunks": 3562,
+      "visual_covered": 3562,
+      "visual_missing": [],
+      "original_image_occurrences": 919,
+      "original_images_covered": 919,
+      "original_images_missing": [],
+      "split_text_sources": 17,
+      "input_fragments": 52,
+      "supplemental_parent_context_links": 2,
+      "errors": [],
+      "passed": true
+    },
+    "sqlite_integrity": true,
+    "vectors_checked": 47477,
+    "lexical": {
+      "passed": true,
+      "documents": 46113,
+      "mmap": true
+    },
+    "unfinished_tasks": 0,
+    "at": "2026-10-23T08:34:43.053341+00:00"
+  },
+  "storage_and_retrieval_check": {
+    "at": "2026-10-23T08:38:50.323153+00:00",
+    "phases": {},
+    "independent_validation": {
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "passed": true,
+      "issues": [],
+      "source": {
+        "passed": true,
+        "errors": [],
+        "source_segments_checked": 81707,
+        "documents": 506
+      },
+      "visual": {
+        "passed": true,
+        "errors": [],
+        "extractions": 479,
+        "parents": 893,
+        "chunks_checked": 3562
+      },
+      "coverage": {
+        "policy": "all_existing_content",
+        "native_chunks": 42516,
+        "native_covered": 42516,
+        "native_missing": [],
+        "native_text_representations": 42551,
+        "visual_chunks": 3562,
+        "visual_covered": 3562,
+        "visual_missing": [],
+        "original_image_occurrences": 919,
+        "original_images_covered": 919,
+        "original_images_missing": [],
+        "split_text_sources": 17,
+        "input_fragments": 52,
+        "supplemental_parent_context_links": 2,
+        "errors": [],
+        "passed": true
+      },
+      "sqlite_integrity": true,
+      "vectors_checked": 47477,
+      "lexical": {
+        "passed": true,
+        "documents": 46113,
+        "mmap": true
+      },
+      "unfinished_tasks": 0,
+      "at": "2026-10-23T08:34:43.053341+00:00"
+    },
+    "smoke": {
+      "passed": true,
+      "checks": [
+        {
+          "planid": "31629",
+          "dense_self_score": 1.0,
+          "bm25_positive_filtered": 1,
+          "parent_id": "parent_05e9e5046fe13e1190f4182457560a41",
+          "passed": true
+        },
+        {
+          "planid": "13046",
+          "dense_self_score": 1.0,
+          "bm25_positive_filtered": 5,
+          "parent_id": "parent_c4ff80b96d1d055511a19911dd1f5e6a",
+          "passed": true
+        },
+        {
+          "planid": "36656",
+          "dense_self_score": 0.9999999999999998,
+          "bm25_positive_filtered": 5,
+          "parent_id": "parent_7cf87a19f7fe412b7a444d7749476a11",
+          "passed": true
+        },
+        {
+          "planid": "37913",
+          "dense_self_score": 1.000000000000001,
+          "bm25_positive_filtered": 5,
+          "parent_id": "parent_b29a555f679b74db2d267c7ebd6cc7a0",
+          "passed": true
+        },
+        {
+          "planid": "29326",
+          "dense_self_score": 1.0,
+          "bm25_positive_filtered": 5,
+          "parent_id": "parent_701c205a36b37c85d1ae17088c8c2446",
+          "passed": true
+        }
+      ],
+      "supplemental_parent_contexts_checked": 2,
+      "models_called": 0,
+      "retrieval_quality_evaluation": false
+    },
+    "reused_completed_checks": "same active generation; independent verify and smoke already passed before negative-query fixture correction",
+    "queries": [
+      {
+        "text": "燃气安全管理",
+        "mode": "bm25",
+        "seconds": 4.916427500007558,
+        "query_cache_hit": null,
+        "results": [
+          {
+            "representation_id": "representation_9347ca7c2d0ccc70c62eed29133334d0407c6ea33c283e17771d537775cc5381",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_11dea2ec65c4c37b29f2eca31ece02d5",
+            "source_type": "text_chunk",
+            "source_preview": "液化石油气供应管理应严格按照《城镇燃气管理条例》、《贵州省燃气管理条\n例》等相关法规条例执行，提出以下要求： \n（1）以科学发展观为指导，切实加强液化石油气供应管理工作，提高液化石\n",
+            "parent_id": "parent_06207a41753453d224c0c6e23a920fc2",
+            "parent_preview": "液化石油气供应管理应严格按照《城镇燃气管理条例》、《贵州省燃气管理条\n例》等相关法规条例执行，提出以下要求： \n（1）以科学发展观为指导，切实加强液化石油气供应管理工作，提高液化石\n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 1,
+                "score": 5.735893726348877
+              }
+            },
+            "rrf_score": 0.01639344262295082
+          },
+          {
+            "representation_id": "representation_45df0b84280e583de6d55dd8ec401d6f8ef6ae57ff078ef02ec038d369f3a634",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_c62dc9c59539bc5405ec43c926db7000",
+            "source_type": "text_chunk",
+            "source_preview": "5、按照燃气行业相关规范确定燃气设施的安全保护范围。在燃气设施的地面\n",
+            "parent_id": "parent_4edbbd7b7cbf0f72ca9e80ec9ee7e674",
+            "parent_preview": "5、按照燃气行业相关规范确定燃气设施的安全保护范围。在燃气设施的地面\n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 2,
+                "score": 5.708451747894287
+              }
+            },
+            "rrf_score": 0.016129032258064516
+          },
+          {
+            "representation_id": "representation_f901cad1f3486f47778d2ab33b521c32b65ce2a5dc3cffb8ec2e2cc9b8264376",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_fb334c82efb8cb553cd433c3e5e95c88",
+            "source_type": "text_chunk",
+            "source_preview": "7、加强城市燃气安全与防灾社会宣传舆论工作； \n8、严格执行《城镇燃气管理条例》，保护燃气设施。 \n",
+            "parent_id": "parent_f86f50719e76164d2c4ba70128cd349c",
+            "parent_preview": "7、加强城市燃气安全与防灾社会宣传舆论工作； \n8、严格执行《城镇燃气管理条例》，保护燃气设施。 \n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 3,
+                "score": 5.698267936706543
+              }
+            },
+            "rrf_score": 0.015873015873015872
+          },
+          {
+            "representation_id": "representation_437bea32b431cd7c4fc99b51c1d513d672f6478cd0527158cb2ed65c8f8d86d9",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_a6b54c3c79eab9fcaa289aaa83e65a25",
+            "source_type": "text_chunk",
+            "source_preview": "在规范液化石油气储配站以及瓶装液化石油气供应站体系的基础上，需重点加\n强完善瓶装液化石油气供应监管机制，通过控制瓶装液化石油气充装站和供应站这\n两个供应链中的必经和关键环节，加大职能部门对燃气企业的监管力度，进一步完\n善供应站-服务点供应网络，切实提高瓶装液化石油气市场的安全水平、服务水平和\n规范化经营水平。 \n燃气经营企业必须提高安全预防意识，强化安全责任意识，重视日常管理、加\n大安全投入、提高行业技术水平、重视用户管理。 \n",
+            "parent_id": "parent_32c8e8a23dc1485ccaa1650ca1fc0ce3",
+            "parent_preview": "在规范液化石油气储配站以及瓶装液化石油气供应站体系的基础上，需重点加\n强完善瓶装液化石油气供应监管机制，通过控制瓶装液化石油气充装站和供应站这\n两个供应链中的必经和关键环节，加大职能部门对燃气企业的监管力度，进一步完\n善供应站-服务点供应网络，切实提高瓶装液化石油气市场的安全水平、服务水平和\n规范化经营水平。 \n燃气经营企业必须提高安全预防意识，强化安全责任意识，重视日常管理、加\n大安全投入、提高行业技术水平、重视用户管理。 \n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 4,
+                "score": 5.678991794586182
+              }
+            },
+            "rrf_score": 0.015625
+          },
+          {
+            "representation_id": "representation_daf27de9a6386ee17ecff8de8e0e369f9549412aa2416b353ec2e7af671d5cfd",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_4ef0ad773ed73f32511baff7d1872d39",
+            "source_type": "text_chunk",
+            "source_preview": "燃气设施尤其是燃气应急储备库、输气管线等重大的安全关系到民生、社会稳\n定及燃气供应安全等各方面，燃气设施的安全保护尤为重要。燃气设施的安全保护\n要从规划控制、设计、维护运行、监管等全方面落实，重点落实以下方面： \n1、城市燃气工程的生产对象为天然气和液化石油气，工程中重要厂站内的生\n",
+            "parent_id": "parent_1c974f6c4c1e52d04fcea3683beac508",
+            "parent_preview": "燃气设施尤其是燃气应急储备库、输气管线等重大的安全关系到民生、社会稳\n定及燃气供应安全等各方面，燃气设施的安全保护尤为重要。燃气设施的安全保护\n要从规划控制、设计、维护运行、监管等全方面落实，重点落实以下方面： \n1、城市燃气工程的生产对象为天然气和液化石油气，工程中重要厂站内的生\n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 5,
+                "score": 5.675531387329102
+              }
+            },
+            "rrf_score": 0.015384615384615385
+          }
+        ]
+      },
+      {
+        "text": "如何加强城市燃气安全管理？",
+        "mode": "hybrid",
+        "seconds": 72.08020319999196,
+        "query_cache_hit": true,
+        "results": [
+          {
+            "representation_id": "representation_090b58735ae77331293aee0eb977a123f75f652e8a2e57ff5223d8d7f6671bdd",
+            "planid": "7963",
+            "title": "江苏省苏州市昆山市2017年政府工作报告",
+            "source_id": "chunk_90e89f1c9882dd7fdfd4aa594f3637d4",
+            "source_type": "text_chunk",
+            "source_preview": "深入持久厉行法治。弘扬宪法精神，推进法治政府、法治市场、法治社会 “三位一体” 建设，让法治成为昆山发展核心竞争力的重要标志。严格落实政府权力清单和责任清单制度，不断提高依法行政水平。以法治规范市场行为，加强产权保护，推动规则、机会、权利平等，最大限度释放市场活力。全力创建省信用建设示范市，扎实推进社会信用体系建设，制定完善信息披露、诚信档案、红黑榜等工作制度。注重培育市民的法律信仰、法治观念和规则意识，营造讲法治、守法治的文化环境。推动普法宣传与法治实践有机结合，进一步提高普法教育的针对性、服务性、实效性，增强全民法治意识。\n\n全力保持和谐稳定。始终秉持城市安全理念，让安全的城市成为人民追求更加美好生活的有力依托。把平安稳定作为发展的首要前提，深化平安昆山建设。制定实施新一轮科技强警规划。创新升级立体化、信息化社会治安防控体系，完善城际卡口治安防线。推动警力下沉，优化派出所勤务运作机制，提高见警率和管事率，提升居民群众安全感和满意度。探索整合区镇执法力量，建立综合执法模式。加强居住证管理应用，改进户口管理准入政策。整合市、区镇管理服务资源，深化网格化治理，推进社会综治联动中心建设，第一时间回应、处置、反馈群众诉求。落实信访工作责任制，强化信访基层基础建设，健全社会矛盾排查预警和调处化解机制。依法治理网上舆论生态，走好网上群众路线。推进 “政社互动” “三社联动” ，提升基层自治水",
+            "parent_id": "parent_3ddda8398fa7ed85872f753ac1e83654",
+            "parent_preview": "深入持久厉行法治。弘扬宪法精神，推进法治政府、法治市场、法治社会 “三位一体” 建设，让法治成为昆山发展核心竞争力的重要标志。严格落实政府权力清单和责任清单制度，不断提高依法行政水平。以法治规范市场行为，加强产权保护，推动规则、机会、权利平等，最大限度释放市场活力。全力创建省信用建设示范市，扎实推进社会信用体系建设，制定完善信息披露、诚信档案、红黑榜等工作制度。注重培育市民的法律信仰、法治观念和规则意识，营造讲法治、守法治的文化环境。推动普法宣传与法治实践有机结合，进一步提高普法教育的针对性、服务性、实效性，增强全民法治意识。\n\n全力保持和谐稳定。始终秉持城市安全理念，让安全的城市成为人民追求更加美好生活的有力依托。把平安稳定作为发展的首要前提，深化平安昆山建设。制定实施新一轮科技强警规划。创新升级立体化、信息化社会治安防控体系，完善城际卡口治安防线。推动警力下沉，优化派出所勤务运作机制，提高见警率和管事率，提升居民群众安全感和满意度。探索整合区镇执法力量，建立综合执法模式。加强居住证管理应用，改进户口管理准入政策。整合市、区镇管理服务资源，深化网格化治理，推进社会综治联动中心建设，第一时间回应、处置、反馈群众诉求。落实信访工作责任制，强化信访基层基础建设，健全社会矛盾排查预警和调处化解机制。依法治理网上舆论生态，走好网上群众路线。推进 “政社互动” “三社联动” ，提升基层自治水",
+            "source_hash": "8005d8f177f96c36ffe6ea35fb3811219f75f6d1c9e62c035c06352cffa422b6",
+            "snapshot": "snapshots/8005d8f177f96c36ffe6ea35fb3811219f75f6d1c9e62c035c06352cffa422b6/7963.md",
+            "channels": {
+              "dense": {
+                "rank": 1,
+                "score": 0.7282755744669978
+              }
+            },
+            "rrf_score": 0.01639344262295082
+          },
+          {
+            "representation_id": "representation_f901cad1f3486f47778d2ab33b521c32b65ce2a5dc3cffb8ec2e2cc9b8264376",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_fb334c82efb8cb553cd433c3e5e95c88",
+            "source_type": "text_chunk",
+            "source_preview": "7、加强城市燃气安全与防灾社会宣传舆论工作； \n8、严格执行《城镇燃气管理条例》，保护燃气设施。 \n",
+            "parent_id": "parent_f86f50719e76164d2c4ba70128cd349c",
+            "parent_preview": "7、加强城市燃气安全与防灾社会宣传舆论工作； \n8、严格执行《城镇燃气管理条例》，保护燃气设施。 \n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 1,
+                "score": 7.506684303283691
+              }
+            },
+            "rrf_score": 0.01639344262295082
+          },
+          {
+            "representation_id": "representation_b7a6c42984909d658d289dfb36594decccd85702c960bac1bd5c530915502dc8",
+            "planid": "4454",
+            "title": "国家突发事件应急体系建设“十三五”规划",
+            "source_id": "chunk_0f85f9a051ce4ba30d54d6438cba6935",
+            "source_type": "text_chunk",
+            "source_preview": "3.1.4.1　推进城市公共安全风险评估，鼓励编制城市公共安全风险清单，形成基于地理信息系统的城市风险“一张图”，并对重大风险源进行实时监控。\n\n3.1.4.2　推进生命线工程全生命周期风险管理，做好房屋建筑、城市桥梁、建筑幕墙、斜坡（高切坡）、城市轨道交通（隧道、高架结构）、地下综合管廊和管线、电梯、大型游乐设施等运行使用的风险评估与安全监管。\n\n3.1.4.3　积极有序推进海绵城市、城市地下综合管廊、人民防空工程、城市应急水源等城市基础设施建设，健全风险管理、监测预警与应急响应机制，提高城市综合防灾能力。\n\n3.1.4.4　推行常态与应急管理相结合的城市网格化管理模式，建立健全城市应急管理单元，规范网格巡查标准化操作流程。结合智慧城市建设，完善网格管理信息平台，强化突发事件预测预警功能，及时发现突发事件苗头，提高先期处置时效。\n\n3.1.4.5　探索完善城市应急联动综合应急管理模式，加强城市应急指挥调度平台和应急联动工作机制建设，提高多部门联合协调行动能力，实现统一调度、部门联动、资源共享、快速响应、高效处置。\n\n",
+            "parent_id": "parent_59eb377ca3b35a3cf98d9a49fe8b83c8",
+            "parent_preview": "3.1.4.1　推进城市公共安全风险评估，鼓励编制城市公共安全风险清单，形成基于地理信息系统的城市风险“一张图”，并对重大风险源进行实时监控。\n\n3.1.4.2　推进生命线工程全生命周期风险管理，做好房屋建筑、城市桥梁、建筑幕墙、斜坡（高切坡）、城市轨道交通（隧道、高架结构）、地下综合管廊和管线、电梯、大型游乐设施等运行使用的风险评估与安全监管。\n\n3.1.4.3　积极有序推进海绵城市、城市地下综合管廊、人民防空工程、城市应急水源等城市基础设施建设，健全风险管理、监测预警与应急响应机制，提高城市综合防灾能力。\n\n3.1.4.4　推行常态与应急管理相结合的城市网格化管理模式，建立健全城市应急管理单元，规范网格巡查标准化操作流程。结合智慧城市建设，完善网格管理信息平台，强化突发事件预测预警功能，及时发现突发事件苗头，提高先期处置时效。\n\n3.1.4.5　探索完善城市应急联动综合应急管理模式，加强城市应急指挥调度平台和应急联动工作机制建设，提高多部门联合协调行动能力，实现统一调度、部门联动、资源共享、快速响应、高效处置。\n\n",
+            "source_hash": "a4bad91a7d581b0771b3fedd4b53936c79c9b0db94c68ac6a36bd7ef25a8166d",
+            "snapshot": "snapshots/a4bad91a7d581b0771b3fedd4b53936c79c9b0db94c68ac6a36bd7ef25a8166d/4454.md",
+            "channels": {
+              "dense": {
+                "rank": 2,
+                "score": 0.7208834420781636
+              }
+            },
+            "rrf_score": 0.016129032258064516
+          },
+          {
+            "representation_id": "representation_f694d91addce902b42eb5f379fbf6e830cf4362b0c583f28c72b747e01f55bce",
+            "planid": "29326",
+            "title": "罗甸县城镇燃气专项规划（2020～2030年）",
+            "source_id": "chunk_a2e581555e5d678bc74e7a65ae63fbf1",
+            "source_type": "text_chunk",
+            "source_preview": "1、城市燃气建设必须在城市总体规划和燃气专项规划的指导下，进行具体建\n",
+            "parent_id": "parent_b126d489105824f29c30ddfb5de38477",
+            "parent_preview": "1、城市燃气建设必须在城市总体规划和燃气专项规划的指导下，进行具体建\n",
+            "source_hash": "3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d",
+            "snapshot": "snapshots/3b2f1487d7b732fb44119b6be8a2fffb26cd24cd83d35bf6df499c3229b0123d/29326.md",
+            "channels": {
+              "bm25": {
+                "rank": 2,
+                "score": 6.903350830078125
+              }
+            },
+            "rrf_score": 0.016129032258064516
+          },
+          {
+            "representation_id": "representation_265d3050c76207ba453ef4179c3745650ccd1fdc426c677e2f56a9b9407ed3f5",
+            "planid": "22984",
+            "title": "濮阳市“十四五”应急管理体系和本质安全能力建设规划",
+            "source_id": "chunk_0eecfcd61d9bc22affc3a8ce6c8ef8bb",
+            "source_type": "text_chunk",
+            "source_preview": "| 专栏2：濮阳市安全生产治本攻坚重点 |\n|---|\n| 1．危险化学品：制定完善危险化学品“禁限控”目录；组织开展化工园区安全风险排查评估分级工作；深入开展危险化学品企业安全风险隐患排查治理；建立完善危险化学品生产、储存、运输、使用、处置等全生命周期监管机制；推进危险化学品“两重点一重大”生产装置、储存设施可燃气体和有毒气体泄漏报警装置、紧急切断装置、自动化控制系统建设；深化精细化工反应安全风险评估及结果应用。2．消防：加强消防车通道、高层建筑、大型商业综合体、电气火灾、电动自行车、仓储物流、老旧小区、家庭生产加工作坊、“三合一”场所、外墙保温材料、彩钢板建筑、城乡结合部、文化娱乐场所、校外培训机构等综合治理。3．道路运输：深入实施公路安全提升工程，加快临水、长陡下坡、急弯陡坡等隐患路段和危旧桥改造整治；全面清理整治农村马路市场；严格客货车生产销售监管，开展货车非法改装、“大吨小标”专项整治，全面排查货车、专用车生产企业、车辆维修企业和车辆非法改装站点。加强旅游客运、长途客运、危险货物运输、校车运行、农村交通等安全监管。4．交通运输：深化铁路沿线、公铁水并行交汇地段、危险货物运输等安全治理；严格落实“收寄验视、实名收寄、过机安检”三项制度，严密防范禁止寄递物品进入寄递渠道；加强邮件快件处理场所、营业网点火灾、车辆安全、作业安全隐患排查治理；严厉打击“三无船舶”非法营运；强化砂石",
+            "parent_id": "parent_839e5afcb31203432502249412b1160f",
+            "parent_preview": "| 专栏2：濮阳市安全生产治本攻坚重点 |\n|---|\n| 1．危险化学品：制定完善危险化学品“禁限控”目录；组织开展化工园区安全风险排查评估分级工作；深入开展危险化学品企业安全风险隐患排查治理；建立完善危险化学品生产、储存、运输、使用、处置等全生命周期监管机制；推进危险化学品“两重点一重大”生产装置、储存设施可燃气体和有毒气体泄漏报警装置、紧急切断装置、自动化控制系统建设；深化精细化工反应安全风险评估及结果应用。2．消防：加强消防车通道、高层建筑、大型商业综合体、电气火灾、电动自行车、仓储物流、老旧小区、家庭生产加工作坊、“三合一”场所、外墙保温材料、彩钢板建筑、城乡结合部、文化娱乐场所、校外培训机构等综合治理。3．道路运输：深入实施公路安全提升工程，加快临水、长陡下坡、急弯陡坡等隐患路段和危旧桥改造整治；全面清理整治农村马路市场；严格客货车生产销售监管，开展货车非法改装、“大吨小标”专项整治，全面排查货车、专用车生产企业、车辆维修企业和车辆非法改装站点。加强旅游客运、长途客运、危险货物运输、校车运行、农村交通等安全监管。4．交通运输：深化铁路沿线、公铁水并行交汇地段、危险货物运输等安全治理；严格落实“收寄验视、实名收寄、过机安检”三项制度，严密防范禁止寄递物品进入寄递渠道；加强邮件快件处理场所、营业网点火灾、车辆安全、作业安全隐患排查治理；严厉打击“三无船舶”非法营运；强化砂石",
+            "source_hash": "0af3e114c7020a6d0af8c22342da439889a28866c0b433829fc315c8e37a971d",
+            "snapshot": "snapshots/0af3e114c7020a6d0af8c22342da439889a28866c0b433829fc315c8e37a971d/22984.md",
+            "channels": {
+              "bm25": {
+                "rank": 3,
+                "score": 6.7073869705200195
+              }
+            },
+            "rrf_score": 0.015873015873015872
+          }
+        ]
+      },
+      {
+        "text": "qxyzunmatchedpolicymarker78123456",
+        "mode": "bm25",
+        "seconds": 15.724179899989394,
+        "query_cache_hit": null,
+        "results": []
+      }
+    ],
+    "passed": true,
+    "memory": {
+      "PeakWorkingSetSize": 10477367296,
+      "WorkingSetSize": 370585600,
+      "PeakPagefileUsage": 10985803776
+    },
+    "finished_at": "2026-10-23T08:40:23.229123+00:00",
+    "retrieval_accuracy_evaluation": false
+  },
+  "media": {
+    "assets": 490,
+    "recognized_assets": 479,
+    "ocr_cache_hits": 479,
+    "recognition_failures": 11,
+    "visual_parents": 893,
+    "visual_chunks": 3562,
+    "uncertain_visual_chunks": 56,
+    "missing_or_unprocessed_occurrences": 311
+  },
+  "inheritance": {
+    "prepared": {
+      "existing_hardlink": 1011
+    },
+    "media": {
+      "existing_hardlink": 5
+    },
+    "ocr": {
+      "existing_hardlink": 479
+    },
+    "ocr-failures": {
+      "existing_hardlink": 11
+    },
+    "ocr-attempts": {
+      "existing_hardlink": 5
+    },
+    "derived_images": {
+      "existing_hardlink": 690
+    },
+    "service-canaries": {
+      "existing_hardlink": 1
+    },
+    "vector_cache": {
+      "existing_hardlink": 90938,
+      "relinked": 28
+    }
+  },
+  "updated_at": "2026-10-23T08:46:28.446480+00:00",
+  "sqlite_counts": {
+    "documents": 506,
+    "objects_by_kind": {
+      "chunk": 42516,
+      "document": 506,
+      "media_asset": 490,
+      "media_occurrence": 1204,
+      "parent": 38972,
+      "parent_context": 1,
+      "relation": 1029,
+      "structure": 19975,
+      "unit": 177415,
+      "visual_chunk": 3562,
+      "visual_extraction": 479,
+      "visual_parent": 893,
+      "visual_region": 2810
+    },
+    "representations_by_type": {
+      "image": 1175,
+      "image_text": 189,
+      "text": 46113
+    }
+  },
+  "active_sqlite_pointer": {
+    "generation": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1
+  },
+  "remote_http_calls": {
+    "total": 5,
+    "by_path": {
+      "/models": 1,
+      "/embeddings": 4
+    },
+    "corpus_embedding_calls": 0,
+    "description": "模型列表、文本/原图接口探测及首次混合问题的向量空间探针/问题向量；重复检索命中问题缓存。"
+  },
+  "dependencies": {
+    "qdrant-client": "1.15.1",
+    "bm25s": "0.3.15",
+    "jieba": "0.42.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "httpx": "0.28.1",
+    "transformers": "4.57.6",
+    "tokenizers": "0.22.2",
+    "Pillow": "13.0.0"
+  },
+  "python": "3.12.14",
+  "sqlite_version": "3.53.1",
+  "storage_sizes": {
+    ".runtime/local": {
+      "bytes": 2610697122,
+      "files": 11,
+      "gib": 2.4314
+    },
+    ".runtime/local/qdrant": {
+      "bytes": 1851847215,
+      "files": 3,
+      "gib": 1.7247
+    },
+    ".runtime/local/bm25": {
+      "bytes": 55275891,
+      "files": 7,
+      "gib": 0.0515
+    },
+    ".cache/vectors": {
+      "bytes": 774642833,
+      "files": 90966,
+      "gib": 0.7214
+    },
+    ".venv": {
+      "bytes": 452474230,
+      "files": 14488,
+      "gib": 0.4214
+    },
+    "metadata_sqlite_bytes": 703574016,
+    "size_definition": "logical file sizes; shared hardlinks are counted by path, not additional allocated bytes"
+  },
+  "source_unchanged": {
+    "baseline_files": 23,
+    "all_match": true,
+    "original_pointer_unchanged": true
+  },
+  "backup_validation": {
+    "small_real_local_fixture": "passed; closed backup and restored indexes validated",
+    "full_production_restore_drill": "not_run; avoid creating duplicate full backups"
+  }
+}

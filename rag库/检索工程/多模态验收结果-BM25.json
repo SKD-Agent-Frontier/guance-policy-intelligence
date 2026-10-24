@@ -1,0 +1,159 @@
+{
+  "timestamp": "2026-10-24T02:32:36.962559+00:00",
+  "mode": "bm25",
+  "contract_version": "proposal-v0.4",
+  "passed": true,
+  "startup_seconds": 10.026,
+  "elapsed_seconds": 12.523,
+  "peak_working_set_gib": 0.603,
+  "before": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1,
+    "mode": "bm25",
+    "documents": 506,
+    "native_representations": 42551,
+    "media_representations": 4926,
+    "media_index_loads": 1,
+    "image_assets_verified": 490,
+    "metadata_loads": 1,
+    "bm25_loads": 1,
+    "dense_loads": 0,
+    "snapshot_loads": 506,
+    "object_primary_key_lookups": 7177,
+    "model_calls": 0,
+    "query_cache_hits": 0,
+    "worker_thread_id": 59900,
+    "runtime_instance_id": 2897206932160,
+    "queue_size": 0
+  },
+  "after": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1,
+    "mode": "bm25",
+    "documents": 506,
+    "native_representations": 42551,
+    "media_representations": 4926,
+    "media_index_loads": 1,
+    "image_assets_verified": 490,
+    "metadata_loads": 1,
+    "bm25_loads": 1,
+    "dense_loads": 0,
+    "snapshot_loads": 506,
+    "object_primary_key_lookups": 11679,
+    "model_calls": 0,
+    "query_cache_hits": 0,
+    "worker_thread_id": 59900,
+    "runtime_instance_id": 2897206932160,
+    "queue_size": 0
+  },
+  "sources_read": 4481,
+  "original_occurrences": 919,
+  "visual_chunks": 3562,
+  "pages_read": 4485,
+  "long_ocr_units_reconstructed": 4,
+  "source_units_without_markdown_anchor": 2359,
+  "source_units_without_ocr": 26,
+  "source_units_with_pending_recognition": 289,
+  "visual_kinds": {
+    "paragraph": 2359,
+    "formula": 30,
+    "table": 317,
+    "other": 743,
+    "chart": 98,
+    "photo": 15
+  },
+  "real_ocr_query": {
+    "query": "逝有所安重点工程 骨灰安放 殡仪馆",
+    "hits": 20,
+    "expected_source_rank": 18
+  },
+  "original_image_query_hits": [],
+  "images_checked": [
+    {
+      "source_id": "visual_chunk_000ce1ca18710ab747b28d40a874534086e5720e5fb45eca23c3cd647f65fb62",
+      "kind": "paragraph",
+      "asset_id": "asset_d9624ecc545e011d6e73863d077e6d9c",
+      "original_sha256": "ad1ebfc1e2f28b639f589c838b7d7778b22e8c77d9ebda33d72ad4886484699b",
+      "bbox_pixels": [
+        52,
+        120,
+        476,
+        160
+      ],
+      "region_size": [
+        424,
+        40
+      ]
+    },
+    {
+      "source_id": "visual_chunk_00212c7da30e435f7f32daf5f6fa299898a5106afd8b96c35684300995914a90",
+      "kind": "formula",
+      "asset_id": "asset_35b09089762ba8ad3458e10ae8bd277c",
+      "original_sha256": "39e3601fe3ff8dfc24e0aee5b4664959d3c385169151428ea2bac3ab82f2a10d",
+      "bbox_pixels": [
+        93,
+        5,
+        373,
+        52
+      ],
+      "region_size": [
+        280,
+        47
+      ]
+    },
+    {
+      "source_id": "visual_chunk_00431ff4decbb9dc5cfb942ebde091977ab962679b4b267c98ee0c6d0c5de30a",
+      "kind": "table",
+      "asset_id": "asset_127c93042286c03fbc6be3eb754a2719",
+      "original_sha256": "525d2334d0244689a97ae8872c2216753f790655c1c1e3842182e284ede2811c",
+      "bbox_pixels": [
+        168,
+        152,
+        1518,
+        982
+      ],
+      "region_size": [
+        1350,
+        830
+      ]
+    },
+    {
+      "source_id": "visual_chunk_0061363e868fcac5534af09ac1caab4f93c83fa0e277d31f455676fbdb463093",
+      "kind": "other",
+      "asset_id": "asset_208ef96b066895aea4d5582770939908",
+      "original_sha256": "bea19100c785a965674e78d4d446fb8b6cabb738db0ea57f40e0ed93fcb42371",
+      "bbox_pixels": [
+        269,
+        2114,
+        431,
+        2151
+      ],
+      "region_size": [
+        162,
+        37
+      ]
+    },
+    {
+      "source_id": "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76",
+      "kind": "paragraph",
+      "asset_id": "asset_7abcfd0c06682747083ccb6860d50700",
+      "original_sha256": "2eec9325f410938b4d10a364943b7fdba832bdc03761624e09984f680e618191",
+      "bbox_pixels": [
+        6,
+        4,
+        679,
+        13
+      ],
+      "region_size": [
+        673,
+        9
+      ]
+    }
+  ],
+  "concurrent_requests": 12,
+  "metadata_database_unchanged": true,
+  "agent_modified": false,
+  "ocr_rerun": false,
+  "vectors_rebuilt": false,
+  "answer_accuracy_evaluated": false
+}

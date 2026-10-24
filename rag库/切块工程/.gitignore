@@ -1,0 +1,8 @@
+.venv/
+.cache/
+# 只提交批次索引；批次数据与快照继续留在本地。
+outputs/*
+!outputs/README.md
+__pycache__/
+.pytest_cache/
+*.pyc

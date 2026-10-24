@@ -1,0 +1,8 @@
+{
+  "run": "outputs/all-9dd48b1750-1d289c5d78",
+  "sample_run": "outputs/sample-9dd48b1750-1d289c5d78",
+  "validation_passed": true,
+  "usable_chunks": "outputs/all-9dd48b1750-1d289c5d78/usable_chunks.jsonl",
+  "report": "outputs/all-9dd48b1750-1d289c5d78/校验报告.md",
+  "receipt": "验收记录.json"
+}

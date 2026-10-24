@@ -1,0 +1,53 @@
+{
+  "token_count": 27,
+  "usage": {
+    "prompt_tokens": 27,
+    "total_tokens": 27,
+    "completion_tokens": 0,
+    "prompt_tokens_details": null
+  },
+  "server_revision_verified": false,
+  "visual_embedding": {
+    "status": "passed",
+    "asset_hash": "97ede2cb6d916a93b6ce4e0f061021db2988290d6744d75144681a18cf48f3a2",
+    "input_description": {
+      "type": "image_text",
+      "asset_hash": "97ede2cb6d916a93b6ce4e0f061021db2988290d6744d75144681a18cf48f3a2",
+      "bbox": [
+        0,
+        0,
+        1920,
+        1080
+      ],
+      "original_size": [
+        1920,
+        1080
+      ],
+      "resized_size": [
+        1344,
+        768
+      ],
+      "derived_image_hash": "0ad7f599faab46674f57f1a40e018363079a8d29106def61c02821bdaa96b9f1",
+      "text": "文档图片向量输入校验。",
+      "expected_tokens": 1037,
+      "expected_visual_tokens": 1008,
+      "preprocess": "qwen_smart_resize_v1"
+    },
+    "dimensions": 4096,
+    "usage": {
+      "prompt_tokens": 1037,
+      "total_tokens": 1037,
+      "completion_tokens": 0,
+      "prompt_tokens_details": null
+    },
+    "pixel_input_sent": true,
+    "api_contract": "messages + image_url; add_generation_prompt=true"
+  },
+  "model": "qwen3-vl-embedding-8b",
+  "dimensions": 4096,
+  "models_advertised": 6,
+  "http_calls": 3,
+  "passed": true,
+  "at": "2026-10-23T07:59:26.584274+00:00",
+  "production_points_written": 0
+}
