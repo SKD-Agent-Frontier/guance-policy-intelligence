@@ -5,6 +5,10 @@ from .config import Settings
 from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
+# 段落级读时这些字段由 ChunkSpan 提供或只属于响应本身，不写进证据。
+PASSAGE_ONLY = frozenset({"content", "chunks", "sections", "truncated", "is_index",
+                          "read_scope", "next_offset", "char_start", "char_end",
+                          "chunk_id", "chunk_char_start", "chunk_char_end"})
 MIN_SECRET_LEN = 8   # 过短的"密钥"（如测试用单字符）全局替换会误伤无关字段
 
 
@@ -52,14 +56,20 @@ class EvidenceRegistry:
         return list(self._refs)
 
     def add_result(self, data: list[Hit] | Passage, source: str):
+        """把工具返回的来源登记为可引用证据；只保留 EvidenceRef 认识的字段。"""
         if isinstance(data, list):
             for hit in data:
-                self.register(EvidenceRef(**hit.model_dump(exclude={"content", "score"}), source=source))
-        elif data.section_idx is not None:
-            metadata = data.model_dump(exclude={"content", "chunks", "sections", "truncated",
-                                                "char_start", "char_end"})
-            for chunk in data.chunks:
-                self.register(EvidenceRef(**metadata, **chunk.model_dump(), source=source))
+                self.register(EvidenceRef(**hit.model_dump(exclude={"content", "score"}),
+                                          source=source))
+            return
+        if data.section_idx is None:
+            return
+        metadata = data.model_dump(exclude=PASSAGE_ONLY)
+        for chunk in data.chunks:
+            # ponytail: complete 暂不参与登记；接入真实 RAG 时改为 observed_ranges 合并，
+            # 只登记本页真正可见的交集。
+            self.register(EvidenceRef(**metadata, **chunk.model_dump(exclude={"complete"}),
+                                      source=source))
 
 @dataclass
 class RunContext:

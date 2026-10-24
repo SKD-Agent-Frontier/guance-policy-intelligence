@@ -12,7 +12,7 @@ from .kb import KBNoText, KBNotFound, normalize_fyp
 from .schemas import Passage, ToolResult
 
 
-def _validate(s, name, args):
+def _validate(s, name, args, kwargs):
     if name == "kb_search":
         query, area, fyp, top_k = args
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
@@ -26,24 +26,33 @@ def _validate(s, name, args):
             area = None
         if isinstance(fyp, str) and not fyp.strip():
             fyp = None
-        return query.strip(), area, normalize_fyp(fyp), top_k
+        return (query.strip(), area, normalize_fyp(fyp), top_k), {}
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):
         raise ValueError("planid须为 1–64 位字母、数字、下划线或连字符")
     if section_idx is not None and (type(section_idx) is not int or section_idx < 0):
         raise ValueError("section_idx须为非负整数")
-    return planid, section_idx, max_chars
+    chunk_id = kwargs.get("chunk_id")
+    if chunk_id is not None and (not isinstance(chunk_id, str) or not 1 <= len(chunk_id) <= 200):
+        raise ValueError("chunk_id须为 1–200 字符的字符串")
+    offset = kwargs.get("offset", 0)
+    if type(offset) is not int or offset < 0:
+        raise ValueError("offset须为非负整数")
+    if section_idx is not None and chunk_id is not None:
+        raise ValueError("section_idx与chunk_id只能二选一")
+    return (planid, section_idx, max_chars), {"chunk_id": chunk_id, "offset": offset}
 
-async def _call(ctx, name, fn, *args):
+async def _call(ctx, name, fn, *args, **kwargs):
     """只把后端调用包进异常处理；本层自身的处理错误不冒充服务故障。"""
     started, detail = perf_counter(), None
     try:
-        args = _validate(ctx.settings, name, args)
+        args, kwargs = _validate(ctx.settings, name, args, kwargs)
     except ValueError as exc:
         result = ToolResult(status="invalid_argument", message=f"参数不合法：{exc}")
     else:
         try:
-            data = await asyncio.wait_for(asyncio.to_thread(fn, *args), ctx.settings.tool_timeout)
+            data = await asyncio.wait_for(
+                asyncio.to_thread(lambda: fn(*args, **kwargs)), ctx.settings.tool_timeout)
         except KBNoText as exc:
             result = ToolResult(status="no_text",
                                 message=f"《{exc.title}》（planid={exc.planid}）没有可用正文，无法引用原文")

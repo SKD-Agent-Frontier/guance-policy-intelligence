@@ -48,8 +48,8 @@ class Settings:
                 raise ValueError(f"{name} 必须为正数")
         if self.top_k_default > self.top_k_max or self.llm_max_retries < 0:
             raise ValueError("top_k_default / llm_max_retries 超出范围")
-        if self.kb_backend != "mock":
-            raise ValueError("KB_BACKEND 仅支持 mock")
+        if self.kb_backend not in {"mock", "sample"}:
+            raise ValueError("KB_BACKEND 仅支持 mock 或 sample")
         if self.llm_temperature is not None and not 0 <= self.llm_temperature <= 2:
             raise ValueError("LLM_TEMPERATURE 必须在 0..2")
         if not self.llm_model.strip():
