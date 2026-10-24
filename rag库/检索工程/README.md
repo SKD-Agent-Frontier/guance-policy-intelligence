@@ -77,7 +77,8 @@ hits = kb.search("逝有所安重点工程", area="江苏", source_types=["visua
 hit = hits[0]
 page = kb.read(hit.planid, source_id=hit.source_id,
                document_id=hit.document_id, generation_id=hit.generation_id)
-image = kb.read_image(hit.source_id, generation_id=hit.generation_id)
+image = kb.read_image(hit.source_id, document_id=hit.document_id,
+                      generation_id=hit.generation_id)
 # image.data_url是实际图片数据；把路径或JSON当普通文字发送不会让模型看到图片。
 # OCR长页按page.next_offset继续read同一source_id；区域图只适用于visual_chunk来源。
 ```
@@ -87,6 +88,40 @@ image = kb.read_image(hit.source_id, generation_id=hit.generation_id)
 `image.bbox_pixels` 已是原图像素，上游 `coordinate_basis=model_estimated_normalized_1000` 说明模型框的来源；上游已经做过归一化到像素换算，此处禁止再乘尺寸/1000。接口另给 `coordinate_unit=original_image_pixels`，裁剪仅使用原像素范围，原图字节不改。模型估计的框不等于人工精确标注。
 
 `HitV03/PassageV03.media_sources` 是原文范围内的已发布图片ID；目录响应还列出仅关联文档的图片，并明确reference_span=null。它们是回取入口，不代表模型已经看过图片。OCR保留不确定状态、标题上下文和识别版本，原图OCR不可用时仍可读图。`verify_media_quote`只在已见OCR范围内逐字核验，不批准图片alt文本，也不证明识别准确或语义成立。
+
+### 媒体命中后从哪里回取
+
+**图片/OCR证据按媒体来源回取，章节和Markdown图片标记都是可选的定位信息。** 内容来源如下：
+
+| 命中或请求 | 实际内容来源 | 回取方式 |
+|---|---|---|
+| 原生文字块 | 冻结Markdown正文 | `read(planid, chunk_id=...)` |
+| OCR片段或整图的识别文字 | 同版识别父转录及其独立OCR范围 | `read(planid, source_id=...)`；按`next_offset`续读 |
+| 原图或OCR区域图 | 冻结图片资产；区域图按已存像素框裁剪 | `read_image(source_id, variant="original"或"region")`；region仅适用于visual_chunk |
+
+媒体内容无需从Markdown正文切片取得；运行时仍校验所属文档、发布版本和来源身份，当前工程仍需保留冻结Markdown及元数据。OCR是派生识别文字，原图才是图片证据的原始内容。
+
+对仅能确认文档归属、无法定位章节的媒体，按现有proposal-v0.4执行：
+
+- 搜索命中后固定`source_id/document_id/generation_id`，直接使用上表的媒体接口。**无章节信息不会阻止OCR或原图回取。**
+- `read`不传`section_idx`，也不以`read(planid)`的目录响应替代媒体内容；显式传入章节时仍会校验归属。
+- `reference_span=null`、`section_id=null`、`section_idx=null`、`section_path=""`；保留`association_basis=verified_document_directory`和`document_only_image_association`提示，不按文件名推断章节或页码。
+- 引用可显示“《政策标题》中的图片／识别文字（章节未定位）”，并保留媒体ID、原图哈希和识别版本。Agent引用校验不能以章节为空拒绝这类已验证文档归属的媒体，也不能将其伪装成Markdown原句。
+- OCR不可用时仍可`read_image`；此时`content`可能只是图片alt或空串，应以`content_basis/recognition_status`区分，不能当作完整图片原文。
+
+当前有422个仅关联文档的图片来源，连同派生OCR片段共2359个媒体证据单元；2359不是不同图片张数。这些是可回取的文档级媒体证据，章节细化可在后续取得可靠原始版面对应关系时补充。
+
+### 当前图片与OCR数据缺口
+
+以下为2026-10-24核对的当前revision=1发布限制；本轮只补充说明，未补图或重跑OCR，发布仍保留`partial=true`。
+
+| 缺口 | 数量和原因 | 当前能力与影响 |
+|---|---|---|
+| 缺失图片引用 | 285处Markdown图片引用未登记到对应图片资产；按引用次数统计 | 保留原引用及缺失状态，无法取得这些引用对应的图片/OCR；需补文件或核对路径 |
+| OCR失败 | 11个不同图片资产：9个模型输出因长度上限截断，2个返回无法解析的JSON；影响26个图片出现位置 | 原图仍可检索和回取，这些位置没有可用OCR，不将残缺响应当完整转录 |
+| 不确定OCR | 56个OCR子块为pending，含小字、模糊数字、遮挡等识别不确定内容 | 保留已识别文字、原图和质量提示，文字及数字需对照原图核验 |
+
+计数口径分别是“引用”“图片资产”“OCR子块”，不能相加作为缺失图片总数。来源记录与状态见[存储工程说明](../向量化与存储工程（降级版）/README.md)，媒体回取实测见[多模态验收报告](多模态验收报告.md)。
 
 ## 坐标与版本
 
