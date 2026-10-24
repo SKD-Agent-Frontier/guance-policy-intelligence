@@ -71,7 +71,9 @@ async def test_conflict_and_per_run_evidence(ctx):
     await invoke(kb_search, ctx, query="农业", area="甲", fyp=None, top_k=1)
     first = ctx.evidence.get(ctx.evidence.ids()[0])
     ctx.evidence.register(first.model_copy(update={"planid": "forged"}))
-    assert ctx.evidence.get(first.chunk_id) == first
+    # 冲突证据整体不可用：记冲突，且不能被继续引用
+    assert ctx.evidence.get(first.chunk_id) is None
+    assert first.chunk_id in ctx.evidence.conflicts
     assert ctx.evidence.conflicts == [first.chunk_id]
     other = RunContext(ctx.settings, ctx.kb, "run_other", "s_test")
     assert not other.evidence.ids() and not other.tool_calls

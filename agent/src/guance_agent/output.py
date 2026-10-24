@@ -22,8 +22,10 @@ def insufficient_message(calls):
         messages.append("检索服务暂时不可用，本次无法给出有依据的结论，请稍后再试。")
     for status in ("no_text", "not_found"):
         messages.extend(c["message"] for c in calls if c["status"] == status)
-    if statuses and statuses <= {"empty", "invalid_argument"}:
+    if "empty" in statuses:
         messages.append("未检索到相关政策原文，暂无法给出有依据的结论。")
+    if "invalid_argument" in statuses:
+        messages.append("本次检索参数不合法，未能完成检索。")
     if "ok" in statuses or not messages:
         messages.append("本次检索结果中没有能够支撑回答的原文证据，暂无法给出有依据的结论。")
     return "\n".join(dict.fromkeys(messages))
@@ -49,9 +51,9 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
             parsed = AgentOutput.model_validate(raw)
     except (ValueError, TypeError):
         return build_result(task, None, ctx, meta, RunError(code="OUTPUT_PARSE", message=ERRORS["OUTPUT_PARSE"]))
-    refs, dropped = {}, []
+    refs, dropped, affected = {}, [], 0
     for claim in parsed.claims:
-        valid = []
+        valid, invalid = [], False
         for chunk_id in claim.chunk_ids:
             ref = ctx.evidence.get(chunk_id) if ctx else None
             if ref:
@@ -59,16 +61,34 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
                 valid.append(chunk_id)
             else:
                 dropped.append(chunk_id)
+                invalid = True
+        affected += invalid
         if valid:
             result.claims.append(claim.model_copy(update={"chunk_ids": list(dict.fromkeys(valid))}))
     result.meta["dropped_claims"] = len(parsed.claims) - len(result.claims)
     result.dropped_chunk_ids = list(dict.fromkeys(dropped))
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
+    all_dropped = bool(parsed.claims) and not result.claims
+    incomplete = bool(result.dropped_chunk_ids or result.meta["dropped_claims"])
+    if incomplete and not all_dropped:
+        result.answer += f"\n\n（提示：有 {affected} 条结论因缺少有效证据，未被采信。）"
     if result.claims:
-        result.evidence_status = "insufficient" if parsed.insufficient else "verified"
-    elif (ctx and ctx.tool_calls) or parsed.claims or parsed.insufficient:
+        if incomplete or parsed.insufficient:
+            result.evidence_status = "insufficient"
+        else:
+            result.evidence_status = "verified"
+        if parsed.insufficient:
+            result.answer += "\n\n（提示：本次证据不足，以上结论可能不完整。）"
+    # 全部证据被丢弃时模型答案已不可信，保留替换文案；其余 insufficient 保留原话并追加提示。
+    elif all_dropped:
         result.evidence_status = "insufficient"
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
+    elif parsed.insufficient:
+        result.evidence_status = "insufficient"
+        result.answer += "\n\n（提示：本次证据不足，以上结论可能不完整。）"
+    elif ctx and ctx.tool_calls:
+        result.evidence_status = "insufficient"
+        result.answer = insufficient_message(ctx.tool_calls)
     else:
         result.meta["no_tool_answer"] = True
     return result
@@ -76,14 +96,21 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
 def to_markdown(r: RunResult) -> str:
     if r.error:
         return r.error.message
-    lines, refs = [r.answer], {ref.chunk_id: ref for ref in r.evidence_refs}
+    lines, refs = [], {ref.chunk_id: ref for ref in r.evidence_refs}
+    if r.evidence_status == "none":
+        lines.append("（警告：本回答未引用政策原文，且未调用检索工具，结论未经核验，请谨慎参考。）")
+    lines.append(r.answer)
     for claim in r.claims:
         lines.append("\n" + claim.text)
         lines.extend("> " + quote for quote in claim.quotes)
         for chunk_id in claim.chunk_ids:
-            ref = refs[chunk_id]
+            ref = refs.get(chunk_id)
+            if ref is None:
+                lines.append(f"（出处缺失：{chunk_id}）")
+                continue
             lines.append(f"（规划库）《{ref.title}》·{ref.area or '地区未标注'}·"
-                         f"{ref.fyp or '规划期未标注'}·{ref.section_path or '正文'}·片段编号 {chunk_id}")
-    if r.evidence_status == "none":
-        lines.append("（本回答未引用政策原文）")
+                         f"{ref.fyp or '规划期未标注'}·planid={ref.planid}·"
+                         f"{ref.section_path or '正文'}·片段编号 {chunk_id}")
+    if r.evidence_status == "insufficient":
+        lines.append("（本次证据不足，以上结论可能不完整）")
     return "\n".join(lines)

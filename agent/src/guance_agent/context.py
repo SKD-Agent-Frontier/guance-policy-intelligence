@@ -26,11 +26,17 @@ def sanitize_error_fields(value, settings, key=None, question=None):
 class EvidenceRegistry:
     def __init__(self):
         self._refs: dict[str, EvidenceRef] = {}
+        self._conflicted: set[str] = set()
         self.conflicts: list[str] = []
 
     def register(self, ref: EvidenceRef) -> None:
+        if ref.chunk_id in self._conflicted:
+            return
         existing = self._refs.get(ref.chunk_id)
         if existing and existing.planid != ref.planid:
+            # ponytail: ownership compares planid only; add document_version_id when refs carry it.
+            self._refs.pop(ref.chunk_id, None)
+            self._conflicted.add(ref.chunk_id)
             self.conflicts.append(ref.chunk_id)
             return
         self._refs[ref.chunk_id] = ref
