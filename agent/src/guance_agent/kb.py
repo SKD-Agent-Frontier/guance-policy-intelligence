@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Protocol
 
 from .config import Settings
-from .schemas import Hit, Passage
+from .schemas import ChunkSpan, Hit, Passage
 
 FYP_ALIASES = {f"{n}五": f"第{n}个五年规划" for n in ("十一", "十二", "十三", "十四", "十五")}
 META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label")
@@ -28,7 +28,9 @@ class KnowledgeBase(Protocol):
     name: str
 
     def search(self, query: str, area: str | None, fyp: str | None, top_k: int) -> list[Hit]: ...
-    def read(self, planid: str, section_idx: int | None, max_chars: int) -> Passage: ...
+    def read(self, planid: str, section_idx: int | None, max_chars: int, *,
+             chunk_id: str | None = None, offset: int = 0,
+             document_id: str | None = None, generation_id: str | None = None) -> Passage: ...
 
 class MockKB:
     name = "mock"
@@ -69,7 +71,9 @@ class MockKB:
                                 score=score))
         return sorted(hits, key=lambda h: (-h.score, h.chunk_id))[:top_k]
 
-    def read(self, planid, section_idx, max_chars):
+    def read(self, planid, section_idx, max_chars, *, chunk_id=None, offset=0,
+             document_id=None, generation_id=None):
+        """按目录 / 章节 / 片段三种范围读取；offset 是对象内偏移，读完 next_offset 为 None。"""
         self._fault("read")
         doc = next((d for d in self.docs if d["planid"] == planid), None)
         if doc is None:
@@ -77,27 +81,56 @@ class MockKB:
         if not doc["body"]:
             raise KBNoText(planid, doc["title"])
         values = {k: doc[k] for k in META}
+        if chunk_id is not None:
+            return self._page(doc, values, self._locate(doc, chunk_id), offset, max_chars, "chunk")
         if section_idx is None:
             return Passage(**values, section_idx=None, section_path="", content="",
-                           char_start=None, char_end=None, is_index=True, sections=[
-                               {"idx": s["idx"], "path": s["path"],
-                                "chars": s["char_end"] - s["char_start"]} for s in doc["sections"]])
+                           char_start=None, char_end=None, is_index=True, read_scope="index",
+                           sections=[{"idx": s["idx"], "path": s["path"],
+                                      "chars": s["char_end"] - s["char_start"]}
+                                     for s in doc["sections"]])
         section = next((s for s in doc["sections"] if s["idx"] == section_idx), None)
         if section is None:
             raise KBNotFound(planid, section_idx)
-        start = section["char_start"]
-        end = min(section["char_end"], start + max_chars)
-        chunks = [{k: c[k] for k in ("chunk_id", "char_start", "char_end")}
-                  for c in doc["chunks"] if start <= c["char_start"] < c["char_end"] <= end]
-        return Passage(**values, section_idx=section_idx, section_path=section["path"],
-                       content=doc["body"][start:end], char_start=start, char_end=end,
-                       is_index=False, truncated=end < section["char_end"], chunks=chunks)
+        return self._page(doc, values, dict(section, chunk=None), offset, max_chars, "section")
+
+    @staticmethod
+    def _locate(doc, chunk_id):
+        """按 chunk_id 直接定位完整块范围与所属章节。"""
+        chunk = next((c for c in doc["chunks"] if c["chunk_id"] == chunk_id), None)
+        if chunk is None:
+            raise KBNotFound(doc["planid"])
+        section = next(s for s in doc["sections"] if s["idx"] == chunk["section_idx"])
+        return {"idx": section["idx"], "path": section["path"],
+                "char_start": chunk["char_start"], "char_end": chunk["char_end"], "chunk": chunk}
+
+    def _page(self, doc, values, target, offset, max_chars, scope):
+        start, end = target["char_start"], target["char_end"]
+        cut, stop = min(start + offset, end), 0
+        stop = min(end, cut + max_chars)
+        spans = [ChunkSpan(chunk_id=c["chunk_id"],
+                           char_start=max(c["char_start"], cut), char_end=min(c["char_end"], stop),
+                           chunk_char_start=c["char_start"], chunk_char_end=c["char_end"],
+                           complete=c["char_start"] >= cut and c["char_end"] <= stop)
+                 for c in doc["chunks"] if c["char_start"] < stop and c["char_end"] > cut]
+        chunk = target.get("chunk")
+        return Passage(**values, section_idx=target["idx"], section_path=target["path"],
+                       content=doc["body"][cut:stop], char_start=cut, char_end=stop,
+                       is_index=False, read_scope=scope, truncated=stop < end,
+                       next_offset=None if stop >= end else stop - start, chunks=spans,
+                       chunk_id=chunk["chunk_id"] if chunk else None,
+                       chunk_char_start=start if chunk else None,
+                       chunk_char_end=end if chunk else None,
+                       parent_id=chunk.get("parent_id") if chunk else None)
 
 # ponytail: 键只保留知识库相关三项，最多 4 个实例；接入多后端/多路径时再改为显式生命周期管理。
 @lru_cache(maxsize=4)
 def _build_kb(backend: str, path: str, snippet_chars: int) -> KnowledgeBase:
     if backend == "mock":
         return MockKB(path, snippet_chars=snippet_chars)
+    if backend == "sample":
+        from .kb_sample import SampleKB  # 延迟导入打破导入环
+        return SampleKB()
     raise ValueError("不支持的检索后端")
 
 def get_kb(s: Settings) -> KnowledgeBase:

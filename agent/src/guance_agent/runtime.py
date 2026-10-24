@@ -1,49 +1,47 @@
 """会话、客户端复用和本地脱敏运行日志。"""
 import json
-import sqlite3
-from contextlib import closing
 from datetime import datetime, timezone
-from functools import lru_cache
 from hashlib import sha256
 from time import perf_counter
 
 from agents import RunHooks, SQLiteSession, set_tracing_disabled
-from openai import AsyncOpenAI
 
 from .agent import prompt_version
-from .config import Settings
+from .client import get_client
 from .context import sanitize_error_detail, sanitize_error_fields
+from .sessions import SessionForbidden, claim_session  # noqa: F401 (再导出)
 
 set_tracing_disabled(True)
-
-class SessionForbidden(PermissionError):
-    """Raised when a session is accessed with a different owner identity."""
 
 class ToolBudgetExceeded(Exception):
     """工具调用总数超过预算。"""
 
-@lru_cache(maxsize=1)
-def get_client(s: Settings):
-    if not s.llm_base_url or not s.llm_api_key:
-        raise ValueError("缺少模型本地配置")
-    return AsyncOpenAI(base_url=s.llm_base_url, api_key=s.llm_api_key,
-                       timeout=s.llm_request_timeout, max_retries=s.llm_max_retries)
+class TrimmedSession(SQLiteSession):
+    """历史按回合边界截断：保留最后 N 条，但起点必须是 user 消息。
+
+    function_call 与其 function_call_output 按 call_id 成对出现，普通截断会把它们拆开，
+    所以宁可少给几轮上下文，也不从半条回合开始。
+    ponytail: 为找回合边界需要读全量历史；会话很长时应改成按回合存储。
+    """
+
+    def __init__(self, session_id, db_path, max_items):
+        super().__init__(session_id, db_path)
+        self.max_items = max_items
+
+    async def get_items(self, limit=None):
+        items = await super().get_items()
+        window = items[-limit:] if limit else items[-self.max_items:]
+        for index, item in enumerate(window):
+            role = item.get("role") if isinstance(item, dict) else getattr(item, "role", None)
+            if role == "user":
+                return window[index:]
+        return []
+
 
 def open_session(s, session_id, user_id):
-    s.session_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(s.session_path)) as conn, conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS guance_session_owner "
-                     "(session_id TEXT PRIMARY KEY, user_id TEXT, created_at TEXT)")
-        conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute("SELECT user_id FROM guance_session_owner WHERE session_id=?",
-                           (session_id,)).fetchone()
-        if row and row[0] != user_id:
-            raise SessionForbidden("会话归属与当前用户不匹配")
-        created = row is None
-        if created:
-            conn.execute("INSERT INTO guance_session_owner VALUES (?, ?, ?)",
-                         (session_id, user_id, datetime.now(timezone.utc).isoformat()))
-    return SQLiteSession(session_id, s.session_path), created
+    created = claim_session(s, session_id, user_id)
+    return TrimmedSession(session_id, s.session_path, s.max_history_items), created
+
 
 class Runtime:
     def __init__(self, s, task):
@@ -105,8 +103,12 @@ class Runtime:
             result.meta["log_write_failed"] = self.log_error
 
     def close(self):
-        if self.session:
+        if not self.session:
+            return
+        try:
             self.session.close()
+        except Exception as exc:   # noqa: BLE001 - 清理阶段任何异常都不应覆盖已生成的结果
+            self.log("close_failed", error_detail=type(exc).__name__)
 
 class LogHooks(RunHooks):
     def __init__(self, runtime):
@@ -116,16 +118,21 @@ class LogHooks(RunHooks):
     async def on_tool_start(self, context, agent, tool):
         self.calls += 1
         if self.calls > self.rt.settings.max_tool_calls:
+            self.rt.log("tool_rejected", tool=tool.name, calls=self.calls,
+                        limit=self.rt.settings.max_tool_calls)
             raise ToolBudgetExceeded(f"已调用 {self.calls - 1} 次 / 上限 {self.rt.settings.max_tool_calls}")
         self.starts[getattr(context, "tool_call_id", id(context))] = perf_counter()
         self.rt.log("tool_start", tool=tool.name)
 
     async def on_tool_end(self, context, agent, tool, result):
         started = self.starts.pop(getattr(context, "tool_call_id", id(context)), perf_counter())
-        payload = json.loads(str(result))
+        try:
+            status = json.loads(str(result))["status"]
+        except (ValueError, KeyError, TypeError):
+            status = "unparsed"
         calls = context.context.tool_calls
         detail = next((c.get("error_detail") for c in reversed(calls) if c["name"] == tool.name), None)
-        self.rt.log("tool_end", tool=tool.name, status=payload["status"], error_detail=detail,
+        self.rt.log("tool_end", tool=tool.name, status=status, error_detail=detail,
                     elapsed_ms=round((perf_counter() - started) * 1000))
 
     async def on_llm_start(self, context, agent, system_prompt, input_items):

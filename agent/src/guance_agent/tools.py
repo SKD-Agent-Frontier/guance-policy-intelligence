@@ -12,7 +12,7 @@ from .kb import KBNoText, KBNotFound, normalize_fyp
 from .schemas import Passage, ToolResult
 
 
-def _validate(s, name, args):
+def _validate(s, name, args, kwargs):
     if name == "kb_search":
         query, area, fyp, top_k = args
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
@@ -26,24 +26,33 @@ def _validate(s, name, args):
             area = None
         if isinstance(fyp, str) and not fyp.strip():
             fyp = None
-        return query.strip(), area, normalize_fyp(fyp), top_k
+        return (query.strip(), area, normalize_fyp(fyp), top_k), {}
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):
         raise ValueError("planid须为 1–64 位字母、数字、下划线或连字符")
     if section_idx is not None and (type(section_idx) is not int or section_idx < 0):
         raise ValueError("section_idx须为非负整数")
-    return planid, section_idx, max_chars
+    chunk_id = kwargs.get("chunk_id")
+    if chunk_id is not None and (not isinstance(chunk_id, str) or not 1 <= len(chunk_id) <= 200):
+        raise ValueError("chunk_id须为 1–200 字符的字符串")
+    offset = kwargs.get("offset", 0)
+    if type(offset) is not int or offset < 0:
+        raise ValueError("offset须为非负整数")
+    if section_idx is not None and chunk_id is not None:
+        raise ValueError("section_idx与chunk_id只能二选一")
+    return (planid, section_idx, max_chars), {"chunk_id": chunk_id, "offset": offset}
 
-async def _call(ctx, name, fn, *args):
+async def _call(ctx, name, fn, *args, **kwargs):
     """只把后端调用包进异常处理；本层自身的处理错误不冒充服务故障。"""
     started, detail = perf_counter(), None
     try:
-        args = _validate(ctx.settings, name, args)
+        args, kwargs = _validate(ctx.settings, name, args, kwargs)
     except ValueError as exc:
         result = ToolResult(status="invalid_argument", message=f"参数不合法：{exc}")
     else:
         try:
-            data = await asyncio.wait_for(asyncio.to_thread(fn, *args), ctx.settings.tool_timeout)
+            data = await asyncio.wait_for(
+                asyncio.to_thread(lambda: fn(*args, **kwargs)), ctx.settings.tool_timeout)
         except KBNoText as exc:
             result = ToolResult(status="no_text",
                                 message=f"《{exc.title}》（planid={exc.planid}）没有可用正文，无法引用原文")
@@ -73,7 +82,14 @@ async def _call(ctx, name, fn, *args):
             else:
                 result = ToolResult(status="ok", data=data)
                 # 证据登记在本层，出错属程序缺陷，应上抛成 INTERNAL 而不是 backend_error
+                before = len(ctx.evidence.rejected)
                 ctx.evidence.add_result(result.data, name)
+                broken = ctx.evidence.rejected[before:]
+                if broken:
+                    # 坐标自相矛盾说明后端数据不可信：整次结果作废，不能挑着用
+                    detail = "; ".join(f"{b['chunk_id']}: {b['reason']}" for b in broken)
+                    result = ToolResult(status="backend_error",
+                                        message="检索服务返回了不一致的坐标数据，暂时不可用")
     event = dict(name=name, status=result.status, message=result.message,
                  elapsed_ms=round((perf_counter() - started) * 1000))
     if detail:
@@ -92,7 +108,18 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     return await _call(ctx.context, "kb_search", ctx.context.kb.search, query, area, fyp, top_k)
 
 @function_tool(failure_error_function=None)
-async def kb_read(ctx: RunContextWrapper[RunContext], planid: str, section_idx: int | None = None) -> str:
-    """读取篇目原文。不给 section_idx 返回章节目录；给了返回该章节原文（最多 6000 字）。"""
+async def kb_read(ctx: RunContextWrapper[RunContext], planid: str,
+                  section_idx: int | None = None, chunk_id: str | None = None,
+                  offset: int = 0) -> str:
+    """读取政策原文。
+
+    - 都不给：返回该篇的章节目录
+    - 给 section_idx：读该章节的一页
+    - 给 chunk_id：读该片段的完整原文，并从块内 offset 起返回一页
+    - 续读时把上一页返回的 next_offset 原样传给 offset，不要自己计算
+
+    section_idx 与 chunk_id 只能二选一。
+    """
     return await _call(ctx.context, "kb_read", ctx.context.kb.read,
-                       planid, section_idx, ctx.context.settings.read_max_chars)
+                       planid, section_idx, ctx.context.settings.read_max_chars,
+                       chunk_id=chunk_id, offset=offset)

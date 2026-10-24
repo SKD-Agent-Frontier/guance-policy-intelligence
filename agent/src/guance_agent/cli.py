@@ -4,6 +4,7 @@ import asyncio
 import runpy
 import sys
 
+from .client import aclose_client
 from .config import ROOT
 from .main import submit
 from .output import to_markdown
@@ -31,6 +32,14 @@ async def _interact(args):
             break
     return code
 
+async def _run(args):
+    """进程级资源由最外层统一收尾，单次任务不负责关闭共享客户端。"""
+    try:
+        return await _interact(args)
+    finally:
+        await aclose_client()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="管策智研政策原文检索助手")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -46,6 +55,6 @@ def main(argv=None):
         runpy.run_path(str(ROOT / "scripts/probe_model.py"), run_name="__main__")
         return 0
     try:
-        return asyncio.run(_interact(args))
+        return asyncio.run(_run(args))
     except KeyboardInterrupt:
         return 1

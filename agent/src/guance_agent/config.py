@@ -22,6 +22,7 @@ class Settings:
     max_user_id_chars: int = 64
     max_turns: int = 8
     max_tool_calls: int = 20
+    max_history_items: int = 40
     run_timeout: float = 180
     tool_timeout: float = 20
     top_k_default: int = 8
@@ -35,20 +36,20 @@ class Settings:
     log_content: bool = False
     def __post_init__(self):
         for name in ("max_input_chars", "max_user_id_chars", "max_turns", "top_k_default", "top_k_max",
-                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls"):
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls", "max_history_items"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_user_id_chars", "max_turns", "run_timeout",
                     "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars", "read_max_chars",
-                    "max_tool_calls")
+                    "max_tool_calls", "max_history_items")
         for name in positive:
             value = getattr(self, name)
             if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
                 raise ValueError(f"{name} 必须为正数")
         if self.top_k_default > self.top_k_max or self.llm_max_retries < 0:
             raise ValueError("top_k_default / llm_max_retries 超出范围")
-        if self.kb_backend != "mock":
-            raise ValueError("KB_BACKEND 仅支持 mock")
+        if self.kb_backend not in {"mock", "sample"}:
+            raise ValueError("KB_BACKEND 仅支持 mock 或 sample")
         if self.llm_temperature is not None and not 0 <= self.llm_temperature <= 2:
             raise ValueError("LLM_TEMPERATURE 必须在 0..2")
         if not self.llm_model.strip():
