@@ -1,7 +1,7 @@
 {
   "variant": "legacy",
   "knowledge_base_id": "guance_legacy_text",
-  "upstream_project": "../切块工程",
+  "upstream_project": "../../切块工程",
   "postgres_schema": "rag_legacy",
   "collection_prefix": "guance_legacy",
   "model": "qwen3-vl-embedding-8b",

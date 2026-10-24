@@ -1,0 +1,19 @@
+# GitHub保存源码、契约及验收摘要；运行数据和凭证留在本地。
+.venv/
+.cache/
+.runtime/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+*.local.json
+*.local.env
+*.sqlite
+*.sqlite3
+*.db
+*.zip
+**/outputs/*
+!**/outputs/README.md
+
+# 原PostgreSQL数据、缓存及迁移入口原地保留；源码已归档到历史资料。
+/向量化与存储工程/

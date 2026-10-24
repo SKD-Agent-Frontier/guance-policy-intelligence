@@ -8,7 +8,8 @@ import time
 import uuid
 
 SHARED=Path(__file__).resolve().parents[1]
-REPO=SHARED.parents[1]
+# 源码已归档到rag库/历史资料，语料库仍位于仓库根目录。
+REPO=SHARED.parents[2]
 CORPUS=REPO/'语料库/Agent标准引用库'
 POINT_NAMESPACE=uuid.UUID('6ab2851a-e8be-43eb-b123-23f6f19bd82a')
 

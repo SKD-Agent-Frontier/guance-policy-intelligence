@@ -1,6 +1,7 @@
 {
   "observed_date": "2026-10-22",
-  "base_url": "http://10.27.66.12/v1",
+  "base_url": "REDACTED_INTERNAL_SERVICE_ENDPOINT",
+  "redaction_note": "2026-10-24归档时移除原内网服务地址；其余历史探测结果保留。",
   "model_list_advertised_embedding_id": "qwen3-vl-embedding-8b",
   "real_text_embedding_probe": {
     "inputs": 2,

@@ -13,8 +13,9 @@ from collections import Counter, defaultdict
 
 import numpy as np
 
-REPO = Path('D:/桌面/“人文薪火”智能体创新应用大赛/工作区/guance-policy-intelligence')
-SHARED = REPO/'rag库/向量化与存储工程'
+# 归档后仍以仓库根目录定位输入；不依赖作者本机绝对路径。
+REPO = Path(__file__).resolve().parents[3]
+SHARED = Path(__file__).resolve().parents[1]/'原向量化与存储工程'
 OUT = Path(__file__).resolve().parent
 sys.path.insert(0, str(SHARED))
 from vector_store.common import read_json, rows, file_hash, canonical, secrets, redact
@@ -196,7 +197,7 @@ def main():
     model=read_json(SHARED/'config.json')['model']
     vectors=query_embeddings(questions,private,model)
     all_results={}
-    for variant, project in [('legacy',SHARED),('oss',SHARED.with_name('向量化与存储工程（开源组件版）'))]:
+    for variant, project in [('legacy',SHARED),('oss',REPO/'rag库/向量化与存储工程（开源组件版）')]:
         all_results[variant]=metrics(questions,search(questions,vectors,private,variant,project))
     comparisons={}
     rng=np.random.default_rng(20261023)
@@ -224,5 +225,7 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as error:
-        print(type(error).__name__+': '+redact(str(error),secrets()),flush=True)
+        # 源码归档不携带历史凭证；缺少已移除版本时仍应返回原有明确提示。
+        private=secrets() if (SHARED/'secrets.local.json').is_file() else {}
+        print(type(error).__name__+': '+redact(str(error),private),flush=True)
         raise SystemExit(1)

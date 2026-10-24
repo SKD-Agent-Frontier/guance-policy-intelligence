@@ -1,0 +1,123 @@
+{
+  "diagram_type": "workflow",
+  "diagrams": [
+    {
+      "output": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\设计方案\\RAG方案流程图\\01-切块流程.html",
+      "specification": {
+        "sha256": "99179d6194114fa99203207abd7a79dbef3bedd3f262787784191f1de565613e",
+        "bytes": 5042
+      },
+      "artifact": {
+        "sha256": "1644b789bd13b94af132cd0e7b48e00c7582d36dd57b10507bf7b7674a0470b3",
+        "bytes": 714831
+      },
+      "validation": {
+        "checksPassed": 9,
+        "checkCount": 9,
+        "compositionProfile": "showcase",
+        "compositionStatus": "pass",
+        "errors": 0,
+        "warnings": 0
+      },
+      "visual_review": "passed",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1600,
+          1000
+        ],
+        [
+          1920,
+          1080
+        ],
+        [
+          2048,
+          1320
+        ]
+      ],
+      "visual_evidence": "01-切块流程.visual-check.json"
+    },
+    {
+      "output": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\设计方案\\RAG方案流程图\\02-向量化与存储流程.html",
+      "specification": {
+        "sha256": "c6052255948037befa6687d7a0a7dbf598df3f2eace28970c6bda88ef1b45775",
+        "bytes": 5005
+      },
+      "artifact": {
+        "sha256": "3dbb1df4ec5627aff9143b26b97e1fef33e00f00a2d792ac5e306865930b118e",
+        "bytes": 714863
+      },
+      "validation": {
+        "checksPassed": 9,
+        "checkCount": 9,
+        "compositionProfile": "showcase",
+        "compositionStatus": "pass",
+        "errors": 0,
+        "warnings": 0
+      },
+      "visual_review": "passed",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1600,
+          1000
+        ],
+        [
+          1920,
+          1080
+        ],
+        [
+          2048,
+          1320
+        ]
+      ],
+      "visual_evidence": "02-向量化与存储流程.visual-check.json"
+    },
+    {
+      "output": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\设计方案\\RAG方案流程图\\03-检索流程.html",
+      "specification": {
+        "sha256": "6880647feda83dd08b33849a549353a72446fea2a0dc1925ae8dad1f65e6a68b",
+        "bytes": 5402
+      },
+      "artifact": {
+        "sha256": "aeee57dc9c51ea6a7ebc605d84ef7ab7d7410447234ccb33e73b7e4b1fdc63ff",
+        "bytes": 716166
+      },
+      "validation": {
+        "checksPassed": 9,
+        "checkCount": 9,
+        "compositionProfile": "showcase",
+        "compositionStatus": "pass",
+        "errors": 0,
+        "warnings": 0
+      },
+      "visual_review": "passed",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1600,
+          1000
+        ],
+        [
+          1920,
+          1080
+        ],
+        [
+          2048,
+          1320
+        ]
+      ],
+      "visual_evidence": "03-检索流程.visual-check.json"
+    }
+  ],
+  "overview": "D:\\桌面\\“人文薪火”智能体创新应用大赛\\工作区\\guance-policy-intelligence\\rag库\\设计方案\\RAG库技术方案概要.md"
+}
