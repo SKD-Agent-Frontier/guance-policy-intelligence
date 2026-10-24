@@ -28,6 +28,13 @@
 
 跳过头部元数据及正文前面的空白，首字符记为0；从这里往后所有空格、换行和Markdown符号都保留并计数。body_start仍是元数据结束位置，不一定等于body_origin。数据库、切片、快照及原始ID保持不变；接口按正文原点统一换算。
 
+Agent接入原生文本时须遵守：
+
+- Agent不得自行读取原始Markdown计算坐标或重新清洗正文；原文统一通过`kb_read`（调用RAG同步`read`）取得，直接使用RAG返回的坐标。
+- `content`、`body_origin`、`char_start/end`及来源/版本信息须成组取自同一次响应；不得拿其他响应的原点或范围解释当前`content`，也不得重复换算坐标。分页续读仍按`next_offset`规则处理。
+
+下例仅用于RAG侧核验原文一致性，不是Agent自行打开Markdown的接入步骤。
+
 ```python
 body = source_text[body_origin:]
 assert content == body[char_start:char_end]

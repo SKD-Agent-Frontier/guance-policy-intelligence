@@ -130,6 +130,13 @@ image = kb.read_image(hit.source_id, document_id=hit.document_id,
 
 原生文字继续使用`contract_version=proposal-v0.3`，`offset_basis=body_first_non_whitespace`，`offset_unit=unicode_codepoint`。跳过元数据及正文前空白，以正文首字符为 0；之后所有字符保留，包括空格、CRLF、Markdown 和非 BMP 字符。坐标为 0 起点、左闭右开。`body_origin` 计算及缓存一次，内部数据库和原始 ID 不变。
 
+Agent接入原生文本时须遵守：
+
+- Agent不得自行读取原始Markdown计算坐标或重新清洗正文；原文统一通过`kb_read`（调用RAG同步`read`）取得，直接使用RAG返回的坐标。
+- `content`、`body_origin`、`char_start/end`及来源/版本信息须成组取自同一次响应；不得拿其他响应的原点或范围解释当前`content`，也不得重复换算坐标。分页续读仍按`next_offset`规则处理。
+
+下例仅用于RAG侧核验原文一致性，不是Agent自行打开Markdown的接入步骤。
+
 ```python
 body = frozen_md_bytes.decode("utf-8")[body_origin:]
 assert result.content == body[result.char_start:result.char_end]
