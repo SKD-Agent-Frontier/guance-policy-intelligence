@@ -6,6 +6,61 @@ from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
 # 段落级读时这些字段由 ChunkSpan 提供或只属于响应本身，不写进证据。
+COORD_BASES = frozenset({"body_first_non_whitespace"})
+COORD_UNITS = frozenset({"unicode_codepoint"})
+VERSION_FIELDS = ("document_version_id", "generation_id", "source_hash",
+                  "offset_basis", "offset_unit")
+
+
+def merge_ranges(ranges):
+    """合并重叠或相邻的码点区间，结果按起点升序且互不相交。"""
+    out: list[list[int]] = []
+    for start, end in sorted(ranges):
+        if out and start <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], end)
+        else:
+            out.append([start, end])
+    return [tuple(r) for r in out]
+
+
+def check_ref(ref) -> str | None:
+    """确定性校验证据坐标；返回违规原因，None 表示通过。"""
+    if ref.chunk_char_start is None or ref.chunk_char_end is None:
+        return None                      # mock 后端未提供完整块坐标，跳过块级检查
+    if ref.chunk_char_start >= ref.chunk_char_end:
+        return "完整块范围为空或倒置"
+    if not (ref.chunk_char_start <= ref.char_start and ref.char_end <= ref.chunk_char_end):
+        return "本次范围越出完整块"
+    if ref.section_char_start is not None and ref.section_char_end is not None:
+        if not (ref.section_char_start <= ref.chunk_char_start
+                and ref.chunk_char_end <= ref.section_char_end):
+            return "块越出所属章节范围"
+    if ref.offset_basis is not None and ref.offset_basis not in COORD_BASES:
+        return f"不支持的坐标基准：{ref.offset_basis}"
+    if ref.offset_unit is not None and ref.offset_unit not in COORD_UNITS:
+        return f"不支持的坐标单位：{ref.offset_unit}"
+    return None
+
+
+def same_source(a, b) -> bool:
+    """同一 chunk_id 的两条登记是否来自同一版本；双方都给的字段必须相等。"""
+    if a.planid != b.planid:
+        return False
+    for name in VERSION_FIELDS:
+        left, right = getattr(a, name), getattr(b, name)
+        if left is not None and right is not None and left != right:
+            return False
+    return True
+
+
+def covers(ref) -> bool:
+    """已见范围是否覆盖整个块。"""
+    if ref.chunk_char_start is None or ref.chunk_char_end is None:
+        return False
+    return any(start <= ref.chunk_char_start and ref.chunk_char_end <= end
+               for start, end in ref.observed_ranges)
+
+
 PASSAGE_ONLY = frozenset({"content", "chunks", "sections", "truncated", "is_index",
                           "read_scope", "next_offset", "char_start", "char_end",
                           "chunk_id", "chunk_char_start", "chunk_char_end"})
@@ -36,18 +91,41 @@ class EvidenceRegistry:
         self._refs: dict[str, EvidenceRef] = {}
         self._conflicted: set[str] = set()
         self.conflicts: list[str] = []
+        self.rejected: list[dict] = []
 
     def register(self, ref: EvidenceRef) -> None:
         if ref.chunk_id in self._conflicted:
             return
+        reason = check_ref(ref)
+        if reason:
+            self.rejected.append({"chunk_id": ref.chunk_id, "reason": reason})
+            return
+        ref = ref.model_copy(update={
+            "observed_ranges": merge_ranges([(ref.char_start, ref.char_end)]),
+            "complete": False,
+        })
+        ref = ref.model_copy(update={"complete": covers(ref)})
         existing = self._refs.get(ref.chunk_id)
-        if existing and existing.planid != ref.planid:
-            # ponytail: ownership compares planid only; add document_version_id when refs carry it.
+        if existing is None:
+            self._refs[ref.chunk_id] = ref
+        elif not same_source(existing, ref):
+            # 同一块出现不同版本，无法判断谁是真源：整条作废，避免引用指错政策。
             self._refs.pop(ref.chunk_id, None)
             self._conflicted.add(ref.chunk_id)
             self.conflicts.append(ref.chunk_id)
-            return
-        self._refs[ref.chunk_id] = ref
+        else:
+            self._refs[ref.chunk_id] = self._merge(existing, ref)
+
+    @staticmethod
+    def _merge(old: EvidenceRef, new: EvidenceRef) -> EvidenceRef:
+        """分页多次读取同一块时合并已见范围，不用后一页覆盖前一页。"""
+        merged = old.model_copy(update={
+            "observed_ranges": merge_ranges(old.observed_ranges + new.observed_ranges),
+            "char_start": min(old.char_start, new.char_start),
+            "char_end": max(old.char_end, new.char_end),
+            "source": new.source,
+        })
+        return merged.model_copy(update={"complete": covers(merged)})
 
     def get(self, chunk_id: str) -> EvidenceRef | None:
         return self._refs.get(chunk_id)
@@ -66,10 +144,9 @@ class EvidenceRegistry:
             return
         metadata = data.model_dump(exclude=PASSAGE_ONLY)
         for chunk in data.chunks:
-            # ponytail: complete 暂不参与登记；接入真实 RAG 时改为 observed_ranges 合并，
-            # 只登记本页真正可见的交集。
             self.register(EvidenceRef(**metadata, **chunk.model_dump(exclude={"complete"}),
                                       source=source))
+
 
 @dataclass
 class RunContext:

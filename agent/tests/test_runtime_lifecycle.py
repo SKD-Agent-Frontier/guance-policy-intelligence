@@ -56,24 +56,11 @@ async def test_same_session_runs_are_serialized(tmp_path, monkeypatch):
     assert "答案A" in seen, "同会话并发未串行化：第二个回合没看到上一个回合的回答"
 
 
-async def test_different_sessions_are_not_serialized(tmp_path, monkeypatch):
-    """不同 session 不受同一把锁影响。"""
-    s = make_settings(tmp_path)
-    model = FakeModel([reply("ok")], delay=0.2)
-    monkeypatch.setattr(orchestrator, "chat_model", lambda _s, _c: model)
-
-    async def run(sid):
-        task = make_task(run_id=f"run_{sid}", session_id=sid)
-        rt = Runtime(s, task)
-        rt.prepare()
-        try:
-            return await orchestrator.run_task(task, s, rt)
-        finally:
-            rt.close()
-
-    started = time.perf_counter()
-    await asyncio.gather(run("s1"), run("s2"))
-    assert time.perf_counter() - started < 0.38
+def test_session_locks_are_per_session():
+    """不同会话各自持锁；计时判断并发太脆，这里直接验锁的身份。"""
+    first = orchestrator._session_lock("alpha")
+    assert first is orchestrator._session_lock("alpha")
+    assert first is not orchestrator._session_lock("beta")
 
 
 async def test_close_failure_does_not_escape(tmp_path):

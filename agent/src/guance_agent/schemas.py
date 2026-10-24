@@ -112,6 +112,8 @@ class EvidenceRef(SourceMeta):
     chunk_char_end: int | None = None
     truncated: bool = False
     source: Literal["kb_search", "kb_read"]
+    observed_ranges: list[tuple[int, int]] = Field(default_factory=list)
+    complete: bool = False   # 已见范围是否覆盖完整块
 
 class RunError(BaseModel):
     code: str

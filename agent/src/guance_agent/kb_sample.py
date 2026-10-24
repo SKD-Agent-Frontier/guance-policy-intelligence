@@ -18,6 +18,10 @@ CONTRACT = ("document_id", "document_version_id", "generation_id", "source_hash"
             "offset_basis", "offset_unit", "body_origin", "contract_version")
 
 
+class SampleMissingPage(Exception):
+    """样例没有覆盖这一页。如实报错，绝不把第一页当成整章。"""
+
+
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -61,7 +65,19 @@ class SampleKB:
 
         section = _load(path("passage_section.json"))
         key = (section["planid"], section["section_idx"])
-        self.sections[key] = self._entry(section, section["content"])
+        self.sections[key] = {
+            "meta": {k: section.get(k) for k in META + CONTRACT},
+            "section_path": section.get("section_path") or "",
+            "section_idx": section["section_idx"],
+            "start": section["section_char_start"],      # 章节的完整范围
+            "end": section["section_char_end"],
+            "page_start": section["char_start"],         # 样例实际给出的那一页
+            "page_end": section["char_end"],
+            "next_offset": section.get("next_offset"),
+            "truncated": bool(section.get("truncated")),
+            "chunks": [ChunkSpan.model_validate(c) for c in section.get("chunks") or []],
+            "text": section["content"],
+        }
 
     # ---------- 检索 ----------
     def search(self, query, area, fyp, top_k):
@@ -97,7 +113,14 @@ class SampleKB:
             item = self.sections.get((planid, section_idx))
             if item is None:
                 raise KBNotFound(planid, section_idx)
-            return self._page(planid, item, offset, max_chars, "section", None)
+            if offset != 0:
+                raise SampleMissingPage(
+                    f"样例只覆盖该章节第 1 页（offset=0..{item['next_offset']}），offset={offset} 无数据")
+            return Passage(**item["meta"], section_idx=item["section_idx"],
+                           section_path=item["section_path"], content=item["text"],
+                           char_start=item["page_start"], char_end=item["page_end"],
+                           is_index=False, read_scope="section", truncated=item["truncated"],
+                           next_offset=item["next_offset"], chunks=item["chunks"])
         if planid not in {m["planid"] for m in self._metas()}:
             raise KBNotFound(planid)
         return Passage(**self._values(planid), section_idx=None, section_path="", content="",

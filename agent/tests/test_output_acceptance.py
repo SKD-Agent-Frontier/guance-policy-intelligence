@@ -118,10 +118,13 @@ async def test_context_conflict_poisons_chunk_id(env):
     assert ctx.evidence.get(first.chunk_id) is None
 
 
-async def test_context_same_plan_registration_overwrites(env):
+async def test_context_same_source_registration_merges_ranges(env):
+    """同一版本重复登记同一块时合并已见范围，而不是让后一页覆盖前一页。"""
     ctx = await _context(env)
     first = _ref(ctx)
-    replacement = first.model_copy(update={"section_path": first.section_path + "#v2"})
-    ctx.evidence.register(replacement)
-    assert ctx.evidence.get(first.chunk_id) == replacement
+    ctx.evidence.register(first.model_copy(update={"char_start": first.char_start + 2,
+                                                   "char_end": first.char_end + 5}))
+    merged = ctx.evidence.get(first.chunk_id)
     assert not ctx.evidence.conflicts
+    assert merged.char_end == first.char_end + 5
+    assert len(merged.observed_ranges) == 1, merged.observed_ranges
