@@ -94,3 +94,4 @@ class RunResult(BaseModel):
     dropped_chunk_ids: list[str]
     error: RunError | None
     meta: dict
+    warnings: list[str] = Field(default_factory=list)

@@ -51,9 +51,9 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
             parsed = AgentOutput.model_validate(raw)
     except (ValueError, TypeError):
         return build_result(task, None, ctx, meta, RunError(code="OUTPUT_PARSE", message=ERRORS["OUTPUT_PARSE"]))
-    refs, dropped, affected = {}, [], 0
+    refs, dropped, dropped_texts, partial = {}, [], [], 0
     for claim in parsed.claims:
-        valid, invalid = [], False
+        valid, had_invalid = [], False
         for chunk_id in claim.chunk_ids:
             ref = ctx.evidence.get(chunk_id) if ctx else None
             if ref:
@@ -61,44 +61,44 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
                 valid.append(chunk_id)
             else:
                 dropped.append(chunk_id)
-                invalid = True
-        affected += invalid
+                had_invalid = True
         if valid:
             result.claims.append(claim.model_copy(update={"chunk_ids": list(dict.fromkeys(valid))}))
-    result.meta["dropped_claims"] = len(parsed.claims) - len(result.claims)
+            partial += had_invalid
+        else:
+            dropped_texts.append(claim.text)
+    result.meta["dropped_claims"] = len(dropped_texts)
     result.dropped_chunk_ids = list(dict.fromkeys(dropped))
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
+    # 提示一律进 warnings：answer 保持模型原话，便于评测比对，也不依赖某个渲染器才可见。
+    if dropped_texts:
+        result.warnings.append("以下结论缺少可核验证据，未被采信：" + "；".join(dropped_texts))
+    if partial:
+        result.warnings.append(f"有 {partial} 条结论的部分引用无法核验，相关表述未经完整证实")
+    if parsed.insufficient:
+        result.warnings.append("本次证据不足，以上结论可能不完整")
     all_dropped = bool(parsed.claims) and not result.claims
-    incomplete = bool(result.dropped_chunk_ids or result.meta["dropped_claims"])
-    if incomplete and not all_dropped:
-        result.answer += f"\n\n（提示：有 {affected} 条结论因缺少有效证据，未被采信。）"
     if result.claims:
-        if incomplete or parsed.insufficient:
-            result.evidence_status = "insufficient"
-        else:
-            result.evidence_status = "verified"
-        if parsed.insufficient:
-            result.answer += "\n\n（提示：本次证据不足，以上结论可能不完整。）"
-    # 全部证据被丢弃时模型答案已不可信，保留替换文案；其余 insufficient 保留原话并追加提示。
+        result.evidence_status = ("insufficient"
+                                  if (dropped_texts or partial or parsed.insufficient) else "verified")
     elif all_dropped:
         result.evidence_status = "insufficient"
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
-    elif parsed.insufficient:
+    elif parsed.insufficient or (ctx and ctx.tool_calls):
         result.evidence_status = "insufficient"
-        result.answer += "\n\n（提示：本次证据不足，以上结论可能不完整。）"
-    elif ctx and ctx.tool_calls:
-        result.evidence_status = "insufficient"
-        result.answer = insufficient_message(ctx.tool_calls)
+        if not parsed.insufficient:
+            result.answer = insufficient_message(ctx.tool_calls)
     else:
         result.meta["no_tool_answer"] = True
+        result.warnings.append("本回答未引用政策原文，也未调用检索工具，结论未经核验，不构成政策依据")
     return result
 
 def to_markdown(r: RunResult) -> str:
     if r.error:
         return r.error.message
-    lines, refs = [], {ref.chunk_id: ref for ref in r.evidence_refs}
-    if r.evidence_status == "none":
-        lines.append("（警告：本回答未引用政策原文，且未调用检索工具，结论未经核验，请谨慎参考。）")
+    lines, refs = [f"⚠ {w}" for w in r.warnings], {ref.chunk_id: ref for ref in r.evidence_refs}
+    if lines:
+        lines.append("")
     lines.append(r.answer)
     for claim in r.claims:
         lines.append("\n" + claim.text)
@@ -111,6 +111,4 @@ def to_markdown(r: RunResult) -> str:
             lines.append(f"（规划库）《{ref.title}》·{ref.area or '地区未标注'}·"
                          f"{ref.fyp or '规划期未标注'}·planid={ref.planid}·"
                          f"{ref.section_path or '正文'}·片段编号 {chunk_id}")
-    if r.evidence_status == "insufficient":
-        lines.append("（本次证据不足，以上结论可能不完整）")
     return "\n".join(lines)

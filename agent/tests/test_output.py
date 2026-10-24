@@ -30,7 +30,7 @@ def test_valid_citation_and_source_recovery(env):
     out = AgentOutput(answer="回答", claims=[Claim(text="农业重点", chunk_ids=[ref.chunk_id, "bad"], quotes=["任意引文不作逐字检查"])])
     result = build_result(env[1], ExecOutcome(out, None), ctx, {})
     assert result.evidence_status == "insufficient" and result.claims[0].chunk_ids == [ref.chunk_id]
-    assert result.answer.startswith("回答") and "1 条结论" in result.answer
+    assert result.answer == "回答" and "1 条结论" in " ".join(result.warnings)
     md = to_markdown(result)
     assert all(value in md for value in (ref.title, ref.section_path, ref.chunk_id, out.claims[0].quotes[0]))
     p = ctx.kb.read(ref.planid, ref.section_idx, 6000)
@@ -97,7 +97,7 @@ def test_partial_invalid_reference_downgrades_and_warns(env):
     result = build_result(env[1], ExecOutcome(out, None), ctx, {})
     assert result.evidence_status == "insufficient"
     assert result.answer.startswith(out.answer)
-    assert "1 条结论因缺少有效证据，未被采信" in result.answer
+    assert any("未被采信" in w and "B市" in w for w in result.warnings)
     assert result.dropped_chunk_ids == ["FAKE"] and result.meta["dropped_claims"] == 1
 
 
@@ -108,7 +108,7 @@ def test_no_tool_answer_warning_precedes_answer(env):
     md = to_markdown(result)
     assert result.answer == answer
     assert result.evidence_status == "none" and result.meta["no_tool_answer"]
-    assert "本回答未引用政策原文" in md and md.index("警告") < md.index(answer)
+    assert "本回答未引用政策原文" in md and md.index("⚠") < md.index(answer)
 
 
 def test_citation_has_independent_planid(env):
@@ -134,7 +134,7 @@ def test_insufficient_preserves_answer_unless_all_evidence_dropped(env):
         answer="模型原话", claims=[Claim(text="结论", chunk_ids=[ref.chunk_id])],
         insufficient=True), None), ctx, {})
     assert kept.evidence_status == "insufficient"
-    assert kept.answer.startswith("模型原话") and "本次证据不足" in kept.answer
+    assert kept.answer.startswith("模型原话") and any("证据不足" in w for w in kept.warnings)
     dropped = build_result(env[1], ExecOutcome(AgentOutput(
         answer="不可信原话", claims=[Claim(text="结论", chunk_ids=["FAKE"])],
         insufficient=True), None), ctx, {})
@@ -148,7 +148,7 @@ def test_insufficient_without_claims_preserves_answer(env):
     out = AgentOutput(answer="模型已说明证据不足", claims=[], insufficient=True)
     result = build_result(env[1], ExecOutcome(out, None), ctx, {})
     assert result.evidence_status == "insufficient"
-    assert result.answer.startswith(out.answer) and "本次证据不足" in result.answer
+    assert result.answer.startswith(out.answer) and any("证据不足" in w for w in result.warnings)
 
 
 def test_markdown_marks_insufficient_and_verified(env):
