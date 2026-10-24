@@ -2,6 +2,7 @@
 
 入口只负责接收、校验和转交；模型调用、工具循环、证据上下文与结果装配都在这里完成。
 """
+import asyncio
 import time
 
 from .agent import build_agent, chat_model
@@ -12,6 +13,16 @@ from .output import ERRORS, build_result
 from .runner import execute
 from .runtime import Runtime
 from .schemas import RunError, RunResult, TaskRequest
+
+_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _session_lock(session_id: str) -> asyncio.Lock:
+    """同一会话的执行回合串行化；不同会话仍可并发。
+
+    ponytail: 只在进程内生效，多进程部署时需换成分布式锁。
+    """
+    return _LOCKS.setdefault(session_id, asyncio.Lock())
 
 
 async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
@@ -28,7 +39,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id)
         agent = build_agent(s, chat_model(s, rt.client))
-        outcome = await execute(agent, task, ctx, rt, deadline=deadline)
+        async with _session_lock(task.session_id):
+            outcome = await execute(agent, task, ctx, rt, deadline=deadline)
         result = build_result(task, outcome, ctx, rt.meta)
     try:
         rt.finish(result, ctx)

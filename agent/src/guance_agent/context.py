@@ -5,14 +5,18 @@ from .config import Settings
 from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
+MIN_SECRET_LEN = 8   # 过短的"密钥"（如测试用单字符）全局替换会误伤无关字段
+
 
 def sanitize_error_detail(detail, settings, question=None, limit=200) -> str:
-    text, hide = str(detail), [settings.llm_api_key, settings.llm_base_url]
-    if question and not settings.log_content:   # 用户输入同属敏感内容
-        hide.append(question)
-    for item in hide:
-        if item:
+    text = str(detail)
+    # 密钥/地址一定是长串，短于此的不当作机密，避免把 "kb_search" 这类普通词打码。
+    for item in (settings.llm_api_key, settings.llm_base_url):
+        if item and len(item) >= MIN_SECRET_LEN:
             text = text.replace(item, "[REDACTED]")
+    # 用户问题再短也是隐私，无条件替换。
+    if question and not settings.log_content:
+        text = text.replace(question, "[REDACTED]")
     return text if limit is None else text[:limit]
 def sanitize_error_fields(value, settings, key=None, question=None):
     if key == "error_detail" and value is not None:

@@ -172,17 +172,19 @@ async def test_log_privacy_and_linkage(env):
 
 
 def test_client_reused_without_unconfigured_parameters(env, monkeypatch):
-    from guance_agent.runtime import get_client
+    """缓存只按连接四项做键：其它配置变化不该重建客户端，也不该丢连接。"""
+    from guance_agent import client as client_mod
     calls = []
     def constructor(**kwargs):
         calls.append(kwargs)
         return object()
-    monkeypatch.setattr("guance_agent.runtime.AsyncOpenAI", constructor)
-    get_client.cache_clear()
+    monkeypatch.setattr(client_mod, "AsyncOpenAI", constructor)
+    client_mod.reset_for_tests()
     s = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
-    assert get_client(s) is get_client(s)
+    assert client_mod.get_client(s) is client_mod.get_client(s)
+    assert client_mod.get_client(replace(s, max_turns=3)) is client_mod.get_client(s)
     assert len(calls) == 1 and calls[0]["max_retries"] == 2 and calls[0]["timeout"] == 60
-    get_client.cache_clear()
+    client_mod.reset_for_tests()
 
 
 def test_tracing_disabled():
