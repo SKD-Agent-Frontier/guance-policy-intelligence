@@ -53,6 +53,9 @@ class ChunkSpan(BaseModel):
     complete: bool
     section_id: str | None = None
     section_path: str = ""
+    section_char_start: int | None = Field(default=None, ge=0)
+    section_char_end: int | None = Field(default=None, ge=0)
+    quality_warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_ranges(self):
@@ -70,6 +73,8 @@ class HitV03(SourceInfo):
     representation_id: str
     chunk_char_start: int = Field(ge=0)
     chunk_char_end: int = Field(ge=0)
+    section_char_start: int | None = Field(default=None, ge=0)
+    section_char_end: int | None = Field(default=None, ge=0)
     char_start: int = Field(ge=0)
     char_end: int = Field(ge=0)
     content: str

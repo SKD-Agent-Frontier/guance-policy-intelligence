@@ -129,13 +129,16 @@ class StoreBackend:
                     results[-1].quality_warnings.append("search_evidence_budget_reached")
                 break
             warnings = list(chunk.get("reasons", []))
+            warnings.extend(self.store.chunk_section_warnings(doc, chunk, section))
             if chunk.get("status") != "ready":
                 warnings.append("upstream_status:" + chunk.get("status", "unknown"))
             contexts, relations, context_warnings = self._contexts(doc, chunk, min(self.options.max_context_chars, remaining - (b - a)), seen_contexts)
             warnings.extend(context_warnings)
             result = HitV03(**self.store.metadata(doc, section), chunk_id=source, parent_id=chunk["parent_id"],
                             representation_id=rid, chunk_char_start=span["start"] - doc.origin,
-                            chunk_char_end=span["end"] - doc.origin, char_start=a - doc.origin,
+                            chunk_char_end=span["end"] - doc.origin,
+                            section_char_start=self.store.section_start(doc, section) - doc.origin,
+                            section_char_end=section["end"] - doc.origin, char_start=a - doc.origin,
                             char_end=b - doc.origin, content=doc.text[a:b], score=score,
                             truncated=a != span["start"] or b != span["end"], contexts=contexts,
                             media_sources=self.media.references(doc, a, b),
@@ -262,7 +265,7 @@ class StoreBackend:
             raise InvalidArgument("offset超出所选非空块或章节范围")
         a, end = whole["start"] + offset, whole["end"]
         b = min(end, a + max_chars)
-        intersections = []
+        intersections, boundary_warnings = [], []
         candidates = [(whole["start"], whole["end"], chunk["id"])] if chunk else [x for s in self.store.sections[doc.data["id"]] for x in self.store.section_chunks[s["id"]]]
         for start, stop, cid in sorted(candidates):
             left, right = max(start, a), min(stop, b)
@@ -271,11 +274,16 @@ class StoreBackend:
             source = self.store.object(cid)
             own_section = self.store.section(doc, chunk=source)
             own_meta = self.store.metadata(doc, own_section)
+            own_warnings = self.store.chunk_section_warnings(doc, source, own_section)
+            boundary_warnings.extend(w if chunk else w + ":" + cid for w in own_warnings)
             intersections.append(ChunkSpan(chunk_id=cid, chunk_char_start=start - doc.origin, chunk_char_end=stop - doc.origin,
                                            char_start=left - doc.origin, char_end=right - doc.origin,
                                            complete=left == start and right == stop,
-                                           section_id=own_section["id"], section_path=own_meta["section_path"]))
+                                           section_id=own_section["id"], section_path=own_meta["section_path"],
+                                           section_char_start=self.store.section_start(doc, own_section) - doc.origin,
+                                           section_char_end=own_section["end"] - doc.origin, quality_warnings=own_warnings))
         contexts, required, warnings = self._contexts(doc, chunk, self.options.max_context_chars, set()) if chunk else ([], [], [])
+        warnings.extend(boundary_warnings)
         if chunk and chunk.get("status") != "ready":
             warnings.append("upstream_status:" + chunk.get("status", "unknown"))
         self._deadline(deadline)

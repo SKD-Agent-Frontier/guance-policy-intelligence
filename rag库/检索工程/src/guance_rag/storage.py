@@ -241,6 +241,13 @@ class ReadStore:
             start = doc.origin
         return start
 
+    def chunk_section_warnings(self, doc, chunk, section):
+        """比较完整块与其登记章节；越界只提示，不改原文、范围或章节归属。"""
+        span = chunk["source_segments"][0]
+        if self.section_start(doc, section) <= span["start"] < span["end"] <= section["end"]:
+            return []
+        return ["chunk_outside_section"]
+
     def metadata(self, doc, section=None):
         data, m = doc.data, doc.data["metadata"]
         path = section.get("path", section.get("section_path", [])) if section else []

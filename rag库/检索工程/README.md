@@ -62,6 +62,7 @@ close() -> None
 - `read` 默认及配置上限为 6000 码点；`offset` 是所选块/章节内部的偏移，按 `next_offset` 续读。页内 `chunks` 同时保存完整块范围、实际交集和 `complete`；新增的可选 `section_id/section_path` 保留子块自身章节，根目录或父章节读页不会把子块改归到根。
 - `get_chunk_source` 为程序原文回看返回完整长块，不受 6000 字页预算限制；调用方不得把它直接无预算塞给模型。
 - `HitV03.content` 最多 300 码点，保持连续原文。长块的检索表示若对应中间片段，只有通过检索视图哈希及原文连续后缀核对后才换算预览位置。
+- 原生Hit和read的页内`chunks`均返回所属章节的`section_char_start/end`。按完整块检查`section_char_start <= chunk_char_start < chunk_char_end <= section_char_end`；恰好贴合边界合格，不能用300字预览或当前页代替完整块。越界保留内容及登记章节，并返回`chunk_outside_section`；按章读的顶层提示带`:chunk_id`，每个页内块保留自身章节范围和提示。Agent据此提醒“该块超出登记章节范围，可能跨章或归属异常”，不可直接认定为单章内容。原文/文档/父块真实性校验仍为硬校验；OCR坐标不参与此比较。
 - `area` 对真实 `area_name` 做包含匹配；`fyp` 将十一五至十五五常用别名规范到 `period_key`，其他值精确匹配。缺元数据不满足硬条件。两路均在 Top-K 前过滤，每路同 source 保留最佳原始名次后按 `Σ1/(60+rank)` 融合。score 只表示排序值。
 - 父块、补充 `parent_context` 和已解析的必要条件以独立 `contexts` 返回；同次 search 按来源范围去重。主 `content` 不混入标题前缀、条件或省略号。无法完整放入的上下文整体省略，并返回 `context_budget_exceeded:*`；未解决关联和原始 pending 状态保留质量提示。调用方须共同收集一批 Hit 的 contexts，不能把后续 Hit 的去重视为缺失来源。
 - 默认 search 主内容＋contexts 总预算 16000 码点，每条上下文预算 6000；read 主内容与 contexts 各受独立上限。这里控制的是字符，不是回答模型的 token，Agent 仍需按实际模型预算装配并保留不足提示。

@@ -1,4 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -99,6 +101,41 @@ def test_real_bm25_prefilter_contexts_and_shared_thread(options):
         assert kb.stats()["snapshot_loads"] == before["snapshot_loads"]
         hits[0].quality_warnings.append("caller_mutation")
         assert "caller_mutation" not in kb.search("养老服务", area="苏州")[0].quality_warnings
+
+
+@pytest.mark.parametrize(("section_start", "section_end", "outside"), [
+    (0, 20, False),  # 块恰好覆盖章节，属于包含关系。
+    (0, 10, True),  # 预览/首页仍在章内，但完整块已越过章尾。
+    (1, 20, True),  # 块起点早于章首。
+    (20, 30, True),  # 完全不重叠也属于章节归属范围异常。
+])
+def test_chunk_section_containment_uses_full_range(options, section_start, section_end, outside):
+    # 仅修改临时库的章节元数据；块仍逐字对应快照且在原父块内。
+    with sqlite3.connect(options.store_project / ".runtime/local/metadata.sqlite3") as db:
+        section = json.loads(db.execute("SELECT data FROM objects WHERE id='section_a'").fetchone()[0])
+        origin = section["start"]
+        section.update(start=origin + section_start, end=origin + section_end)
+        data = json.dumps(section, ensure_ascii=False)
+        db.execute("UPDATE objects SET data=?,data_hash=? WHERE id='section_a'",
+                   (data, hashlib.sha256(data.encode()).hexdigest()))
+    original = (options.store_project / "g1/doc_a.md").read_bytes().decode("utf-8")[origin:origin + 20]
+    with RagKnowledgeBase(replace(options, snippet_chars=4)) as kb:
+        hit = next(h for h in kb.search("养老服务", area="苏州", top_k=2) if h.chunk_id == "chunk_a_0")
+        page = kb.read("1001", chunk_id="chunk_a_0", max_chars=4)
+        full = kb.get_chunk_source("chunk_a_0")
+        for result in (hit, page, full):
+            assert (result.chunk_char_start, result.chunk_char_end) == (0, 20)
+            assert (result.section_char_start, result.section_char_end) == (section_start, section_end)
+            assert ("chunk_outside_section" in result.quality_warnings) == outside
+            assert result.section_id == "section_a"
+        assert hit.content == page.content == original[:4]
+        assert full.content == original  # 章节越界不裁剪原块。
+        root_page = kb.read("1001", section_idx=0, max_chars=4)
+        item = root_page.chunks[0]
+        assert item.chunk_id == "chunk_a_0" and item.section_id == "section_a"
+        assert (item.section_char_start, item.section_char_end) == (section_start, section_end)
+        assert ("chunk_outside_section" in item.quality_warnings) == outside
+        assert ("chunk_outside_section:chunk_a_0" in root_page.quality_warnings) == outside
 
 
 def test_quote_only_uses_observed_ranges(options):
