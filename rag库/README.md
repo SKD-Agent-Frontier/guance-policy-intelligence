@@ -46,6 +46,8 @@ Git保存源码、配置模板、依赖锁、契约、样例和验收摘要；�
 
 **克隆仓库不等于获得已经建好的RAG库。** 检索运行还需要本地存储工程中的`.runtime/local/`和当前发布引用的`outputs/prepared_*`、`media_*`、`local_generation_*`，以及匹配的tokenizer/模型profile；其中冻结Markdown和图片用于原文、原图回取。数据应通过备份/恢复单独交付，并核对文件哈希和清单中的路径，不能只传SQLite或只传向量文件。
 
+2026-10-24完整运行数据单独发布在[同仓库 Release：rag-v0.4.0-data-20261024-r1](https://github.com/SKD-Agent-Frontier/guance-policy-intelligence/releases/tag/rag-v0.4.0-data-20261024-r1)。附件为512MiB分卷（末卷较小）、交付清单和SHA-256；包含当前SQLite、Qdrant Local、BM25S、冻结原文／图片、OCR结果及当前输入向量缓存。使用[恢复工具](向量化与存储工程（降级版）/restore_delivery.py)恢复到新目录，详细步骤与验证边界见[运行数据交付说明](运行数据交付.md)。私有模型服务地址和密钥由接收方在本地配置，原文、图片、OCR正文及向量不重算。
+
 原始语料库用于重新切块和建库，继续与`rag库`同级，不在RAG模块下重复复制。冻结快照是已发布证据版本，承担回取和校验用途，不能因与原始资料相似就删除。
 
 ## 历史资料及本次整理边界

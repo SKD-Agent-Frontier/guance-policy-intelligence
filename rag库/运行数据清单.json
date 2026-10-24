@@ -1,0 +1,55 @@
+{
+  "format": "guance-rag-release-v1",
+  "created_at": "2026-10-24T20:44:28+0800",
+  "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+  "revision": 1,
+  "profile_id": "profile_45ca066e8e2ad0679c7ec9bb7f34686002319d62ed14be04cdd12a32c0f9e9fe",
+  "collection": "guance_local_3040f34d76751123c4af",
+  "counts": {
+    "documents": 506,
+    "native_chunks": 42516,
+    "vector_points": 47477,
+    "unique_cached_inputs": 45483,
+    "files": 93213,
+    "uncompressed_bytes": 4448244961
+  },
+  "partial": true,
+  "known_gaps": {
+    "missing_image_references": 285,
+    "ocr_failed_assets": 11,
+    "pending_ocr_chunks": 56
+  },
+  "sanitization": {
+    "credentials_included": false,
+    "private_service_urls": "local configuration required",
+    "author_paths": "portable placeholders",
+    "original_source_and_vectors_modified": false
+  },
+  "archive": {
+    "name": "rag-runtime-r1.zip",
+    "bytes": 1870494842,
+    "sha256": "97b92fc145319277bf0b64c93bededab7cab0065c0d3def81bf777cbd0b5a712"
+  },
+  "parts": [
+    {
+      "name": "rag-runtime-r1.zip.part001",
+      "bytes": 536870912,
+      "sha256": "f967dec98d466252962a81cdf41b012459528481fd1f5f9efadb3a62b3876eec"
+    },
+    {
+      "name": "rag-runtime-r1.zip.part002",
+      "bytes": 536870912,
+      "sha256": "b35eca60ff04218458ed5227bad1d6896ff56bf7a57c0d63f34eff9f39c5b949"
+    },
+    {
+      "name": "rag-runtime-r1.zip.part003",
+      "bytes": 536870912,
+      "sha256": "804bedbb986a85c0fef0a2850f25802b94bbb52c749a4c21df3aa6b3fe66e1ff"
+    },
+    {
+      "name": "rag-runtime-r1.zip.part004",
+      "bytes": 259882106,
+      "sha256": "4f933d244ffe3827366e10e365f5df29362dead790b79e524b8c22be25cc9cdf"
+    }
+  ]
+}
