@@ -166,3 +166,109 @@ async def test_rejected_tool_call_is_logged(tmp_path):
     events = [json.loads(line) for line in s.run_log.read_text(encoding="utf-8").splitlines()]
     rejected = [e for e in events if e["stage"] == "tool_rejected"]
     assert rejected and rejected[-1]["tool"] == "kb_search"
+
+
+# ---------------- 回归：回合边界截断 / 退出清理 / 关闭异常 ----------------
+
+def _turn(n):
+    """一轮完整对话，字段结构与 SDK 实际存储一致：
+
+    user 用 role；function_call / function_call_output 用 type + call_id。
+    """
+    return [
+        {"role": "user", "content": f"问{n}"},
+        {"type": "function_call", "call_id": f"c{n}", "name": "kb_search", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": f"c{n}", "output": "结果"},
+        {"role": "assistant", "content": [{"type": "output_text", "text": f"答{n}"}]},
+    ]
+
+
+def _pairs(items):
+    calls = {i["call_id"] for i in items if isinstance(i, dict) and i.get("type") == "function_call"}
+    outs = {i["call_id"] for i in items
+            if isinstance(i, dict) and i.get("type") == "function_call_output"}
+    return calls, outs
+
+
+async def test_history_trim_keeps_tool_pairs_intact(tmp_path):
+    """截断后起点必须是 user，绝不能把 function_call 与 output 拆开。"""
+    s = make_settings(tmp_path, max_history_items=5)
+    session, _ = open_session(s, "trim", "u")
+    await session.add_items(_turn(1) + _turn(2))
+    items = await session.get_items()
+    session.close()
+    assert items and items[0].get("role") == "user", items
+    calls, outs = _pairs(items)
+    assert calls == outs, f"工具调用被拆开: call={calls} output={outs}"
+
+
+async def test_history_trim_returns_empty_without_turn_boundary(tmp_path):
+    """窗口里没有 user 起点时宁可不给历史，也不给半条回合。"""
+    s = make_settings(tmp_path, max_history_items=2)
+    session, _ = open_session(s, "orphan", "u")
+    await session.add_items([
+        {"type": "function_call", "call_id": "c1", "name": "kb_search", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "c1", "output": "结果"},
+    ])
+    items = await session.get_items()
+    session.close()
+    assert items == []
+
+
+async def test_history_trim_survives_real_tool_turn(tmp_path, monkeypatch):
+    """真实跑一轮带工具的对话，截断后的历史仍然成对完整。"""
+    from tests.fake_model import FakeModel, tool
+    from tests.fake_model import answer as reply
+
+    s = make_settings(tmp_path, max_history_items=5)
+    model = FakeModel([[tool("kb_search", query="农业", area=None, fyp=None, top_k=2)], reply("好")])
+    monkeypatch.setattr(orchestrator, "chat_model", lambda _s, _c: model)
+    task = make_task(run_id="r1", session_id="real", question="甲市农业")
+    rt = Runtime(s, task)
+    rt.prepare()
+    try:
+        await orchestrator.run_task(task, s, rt)
+    finally:
+        rt.close()
+    session, _ = open_session(s, "real", task.user_id)   # 与 Runtime.prepare 使用同一归属
+    items = await session.get_items()
+    session.close()
+    assert items and items[0].get("role") == "user"
+    calls, outs = _pairs(items)
+    assert calls and calls == outs
+
+
+async def test_close_swallows_sqlite_error(tmp_path):
+    """sqlite3.Error 不是 OSError，清理阶段同样不能覆盖结果。"""
+    import sqlite3
+    s = make_settings(tmp_path)
+    rt = Runtime(s, make_task())
+    rt.prepare()
+
+    def boom():
+        raise sqlite3.ProgrammingError("closing a closed database")
+
+    rt.session.close = boom
+    rt.close()  # 不抛
+
+
+def test_cli_closes_shared_client_on_exit(env, monkeypatch):
+    """CLI 退出时必须关闭进程级共享客户端。"""
+    from guance_agent import cli
+    from guance_agent.output import build_result
+    from guance_agent.runner import ExecOutcome
+    from tests.fake_model import answer as reply
+
+    result = build_result(env[1], ExecOutcome(reply("好"), None), None, {})
+    closed = []
+
+    async def fake_submit(*_a, **_k):
+        return result
+
+    async def fake_close():
+        closed.append(True)
+
+    monkeypatch.setattr(cli, "submit", fake_submit)
+    monkeypatch.setattr(cli, "aclose_client", fake_close)
+    assert cli.main(["ask", "问题", "--json"]) == 0
+    assert closed == [True]

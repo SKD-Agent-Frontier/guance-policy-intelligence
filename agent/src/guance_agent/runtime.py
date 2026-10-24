@@ -5,7 +5,6 @@ from hashlib import sha256
 from time import perf_counter
 
 from agents import RunHooks, SQLiteSession, set_tracing_disabled
-from agents.memory import SessionSettings
 
 from .agent import prompt_version
 from .client import get_client
@@ -17,12 +16,31 @@ set_tracing_disabled(True)
 class ToolBudgetExceeded(Exception):
     """工具调用总数超过预算。"""
 
+class TrimmedSession(SQLiteSession):
+    """历史按回合边界截断：保留最后 N 条，但起点必须是 user 消息。
+
+    function_call 与其 function_call_output 按 call_id 成对出现，普通截断会把它们拆开，
+    所以宁可少给几轮上下文，也不从半条回合开始。
+    ponytail: 为找回合边界需要读全量历史；会话很长时应改成按回合存储。
+    """
+
+    def __init__(self, session_id, db_path, max_items):
+        super().__init__(session_id, db_path)
+        self.max_items = max_items
+
+    async def get_items(self, limit=None):
+        items = await super().get_items()
+        window = items[-limit:] if limit else items[-self.max_items:]
+        for index, item in enumerate(window):
+            role = item.get("role") if isinstance(item, dict) else getattr(item, "role", None)
+            if role == "user":
+                return window[index:]
+        return []
+
+
 def open_session(s, session_id, user_id):
     created = claim_session(s, session_id, user_id)
-    # ponytail: limit 按条数截断，可能切断工具调用组；接入长会话前需实测再调。
-    session = SQLiteSession(session_id, s.session_path,
-                            session_settings=SessionSettings(limit=s.max_history_items))
-    return session, created
+    return TrimmedSession(session_id, s.session_path, s.max_history_items), created
 
 
 class Runtime:
@@ -89,8 +107,7 @@ class Runtime:
             return
         try:
             self.session.close()
-        except OSError as exc:
-            # ponytail: 清理失败不覆盖结果，只记日志；进程级资源由 client.aclose_client 收尾。
+        except Exception as exc:   # noqa: BLE001 - 清理阶段任何异常都不应覆盖已生成的结果
             self.log("close_failed", error_detail=type(exc).__name__)
 
 class LogHooks(RunHooks):
