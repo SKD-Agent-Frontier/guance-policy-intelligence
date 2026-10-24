@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 import threading
 import time
 
@@ -28,6 +29,50 @@ class ControlledBackend:
     def close(self):
         assert threading.get_ident() == self.owner
         self.closed.set()
+
+
+@pytest.mark.parametrize(("operation", "arguments", "key", "replacement"), [
+    ("search", {"query": "养老服务", "source_types": ["text_chunk"]}, "source_types", ["visual_chunk"]),
+    ("verify_quote", {"chunk_id": "chunk_a", "quote": "养老", "observed_ranges": [[0, 8]]}, "observed_ranges", [0, 1]),
+    ("verify_media_quote", {"source_id": "visual_chunk_a", "quote": "养老", "observed_ranges": [[0, 8]]}, "observed_ranges", [0, 1]),
+])
+def test_queued_request_snapshots_mutable_arguments(monkeypatch, operation, arguments, key, replacement):
+    arguments = deepcopy(arguments)
+    class Backend(ControlledBackend):
+        def search(self, *, deadline, **arguments):
+            assert threading.get_ident() == self.owner
+            return arguments
+
+        verify_quote = verify_media_quote = search
+
+    holder = []
+    def factory(options):
+        backend = Backend(options)
+        holder.append(backend)
+        return backend
+
+    with RagKnowledgeBase(backend_factory=factory) as kb, ThreadPoolExecutor(2) as pool:
+        backend = holder[0]
+        slow = pool.submit(kb.read, "slow")
+        assert backend.entered.wait(1)
+        enqueued = threading.Event()
+        put = kb._queue.put_nowait
+        def track_enqueue(job):
+            put(job)
+            enqueued.set()
+        monkeypatch.setattr(kb._queue, "put_nowait", track_enqueue)
+        expected = deepcopy(arguments[key])
+        pending = pool.submit(getattr(kb, operation), **arguments)
+        try:
+            assert enqueued.wait(1)
+            if key == "observed_ranges":
+                arguments[key][0][:] = replacement  # 同时覆盖嵌套列表的隔离。
+            else:
+                arguments[key][:] = replacement
+        finally:
+            backend.release.set()
+        assert slow.result(1) == "slow"
+        assert pending.result(1)[key] == expected
 
 
 def test_running_timeout_keeps_resource_until_actual_completion():

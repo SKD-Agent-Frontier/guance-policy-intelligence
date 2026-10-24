@@ -1,5 +1,6 @@
 """启动预加载一次；所有库操作在同一线程内，超时不伪称任务已终止。"""
 from concurrent.futures import Future, TimeoutError as FutureTimeout
+from copy import deepcopy
 from dataclasses import dataclass, field
 import queue
 import threading
@@ -86,7 +87,8 @@ class RagKnowledgeBase:
                 self._state = "closed"
 
     def _submit(self, operation, **arguments):
-        job = _Job(operation, arguments, time.monotonic() + self.options.queue_timeout)
+        # 只复制本次请求参数；调用方后续修改列表不能改变排队任务，索引仍由库线程共享。
+        job = _Job(operation, deepcopy(arguments), time.monotonic() + self.options.queue_timeout)
         with self._state_lock:
             if self._state != "ready":
                 raise BackendError("RAG尚未就绪或已关闭")

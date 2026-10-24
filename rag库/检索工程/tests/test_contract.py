@@ -1,7 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 from pathlib import Path
 import sqlite3
+import subprocess
+import sys
+import threading
 
 import pytest
 
@@ -108,6 +112,58 @@ def test_quote_only_uses_observed_ranges(options):
             kb.verify_quote(source.chunk_id, "养老", [[a - 1, a + 4]])
         with pytest.raises(InvalidArgument):
             kb.verify_quote(source.chunk_id, "养老", None)
+
+
+def test_concurrent_searches_keep_filters_results_and_contexts_independent(options):
+    cases = [dict(query="养老服务", area="苏州", fyp="十四五", top_k=2),
+             dict(query="湖南财政补贴与就业支持", area="湖南", top_k=1),
+             dict(query="养老服务", area="湖南", top_k=2),
+             dict(query="养老服务", area="不存在地区"),
+             dict(query="养老服务", source_types=["image_occurrence"])]
+    with RagKnowledgeBase(options) as kb:
+        expected = [[hit.model_dump() for hit in kb.search(**case)] for case in cases]
+        assert {hit["planid"] for hit in expected[0]} == {"1001"}
+        assert any(hit["contexts"] for hit in expected[0])
+        assert {hit["planid"] for hit in expected[1]} == {"1002"}
+        assert expected[3] == expected[4] == []
+        before = kb.stats()
+        barrier = threading.Barrier(5)
+        def search(index):
+            barrier.wait(timeout=5)
+            hits = kb.search(**cases[index])
+            assert [hit.model_dump() for hit in hits] == expected[index]
+            for hit in hits:
+                hit.contexts.clear()
+                hit.required_relation_ids.clear()
+                hit.quality_warnings.append("caller_mutation")
+        with ThreadPoolExecutor(5) as pool:
+            list(pool.map(search, list(range(5)) * 4))
+        assert [hit.model_dump() for hit in kb.search(**cases[0])] == expected[0]
+        after = kb.stats()
+        for key in ("runtime_instance_id", "worker_thread_id", "metadata_loads", "bm25_loads", "snapshot_loads"):
+            assert after[key] == before[key]
+
+
+def test_second_process_cannot_reopen_shared_local_store(options):
+    script = """
+import sys
+from guance_rag import RagKnowledgeBase, RuntimeOptions
+from guance_rag.errors import BackendError
+try:
+    kb = RagKnowledgeBase(RuntimeOptions(store_project=sys.argv[1], cache_directory=sys.argv[2], mode="bm25"))
+except BackendError as error:
+    assert "本地库正在被其他" in str(error), str(error)
+    print("locked")
+else:
+    kb.close()
+    raise SystemExit("another process reopened the local store")
+"""
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src"), PYTHONIOENCODING="utf-8")
+    with RagKnowledgeBase(options):
+        child = subprocess.run([sys.executable, "-c", script, str(options.store_project), str(options.cache_directory)],
+                               env=env, capture_output=True, text=True, encoding="utf-8", timeout=20)
+        assert child.returncode == 0, child.stderr
+        assert child.stdout.strip() == "locked"
 
 
 def test_rrf_does_not_reward_duplicate_representations():
