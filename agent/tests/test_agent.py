@@ -25,7 +25,10 @@ def test_prompt_version_covers_effective_prompt():
     assert prompt_version(False) != prompt_version(True)
     for structured in (False, True):
         head, digest = prompt_version(structured).split("@")
-        assert head.startswith("system_v1:") and len(digest) == 8
+        assert head.startswith("qa:") and len(digest) == 8
+    # 不同任务类型必须是不同版本，否则日志里分不清用的是哪套提示词
+    assert prompt_version(False, "qa") != prompt_version(False, "extract")
+    assert prompt_version(False, "extract").startswith("extract:")
 
 
 def test_build_agent_uses_effective_prompt():

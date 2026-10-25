@@ -6,12 +6,17 @@ from pydantic import BaseModel, Field, model_validator
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
 
+DIMENSIONS = ("适用对象", "政策工具", "量化目标", "责任主体", "期限", "资金规模")
+
+
 class TaskRequest(BaseModel):
     run_id: str
     session_id: str
     user_id: str | None = None
     question: str
     created_at: str
+    task_type: str = "qa"                    # qa / extract
+    dimensions: list[str] = Field(default_factory=list)
 
 class SourceMeta(BaseModel):
     """proposal-v0.3 的来源与坐标信息；mock 可为 None，真实后端必须给全。"""
@@ -102,6 +107,8 @@ class Claim(BaseModel):
     text: str
     chunk_ids: list[str]
     quotes: list[str] = Field(default_factory=list)
+    # 要素提取时填；qa 时为 None。有了它，现有三层校验可以原样复用。
+    dimension: str | None = None
 
 class AgentOutput(BaseModel):
     answer: str = ""
@@ -158,3 +165,5 @@ class RunResult(BaseModel):
     error: RunError | None
     meta: dict
     warnings: list[str] = Field(default_factory=list)
+    task_type: str = "qa"
+    structured: dict | None = None   # 功能层产物：要素表 / 比较矩阵等

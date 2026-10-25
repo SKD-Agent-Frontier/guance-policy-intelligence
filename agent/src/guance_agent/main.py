@@ -33,8 +33,12 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
     return None
 
 async def submit(question: str, session_id: str | None = None,
-                 user_id: str | None = None, settings: Settings | None = None) -> RunResult:
+                 user_id: str | None = None, settings: Settings | None = None,
+                 task_type: str = "qa",
+                 dimensions: list[str] | None = None) -> RunResult:
     task = _build_task(question, session_id, user_id)
+    task = task.model_copy(update={"task_type": task_type,
+                                   "dimensions": list(dimensions or [])})
     rt = None
     try:
         try:

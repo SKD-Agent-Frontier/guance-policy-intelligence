@@ -183,7 +183,7 @@ def test_client_reused_without_unconfigured_parameters(env, monkeypatch):
     s = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
     assert client_mod.get_client(s) is client_mod.get_client(s)
     assert client_mod.get_client(replace(s, max_turns=3)) is client_mod.get_client(s)
-    assert len(calls) == 1 and calls[0]["max_retries"] == 2 and calls[0]["timeout"] == 60
+    assert len(calls) == 1 and calls[0]["max_retries"] == s.llm_max_retries and calls[0]["timeout"] == s.llm_request_timeout
     client_mod.reset_for_tests()
 
 

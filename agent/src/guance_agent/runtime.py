@@ -50,7 +50,7 @@ class Runtime:
         self.session = None
         self.log_error = None
         self.hooks = LogHooks(self)
-        self.meta = dict(model=s.llm_model, prompt_version=prompt_version(s.structured_output),
+        self.meta = dict(model=s.llm_model, prompt_version=prompt_version(s.structured_output, task.task_type),
                          tools=["kb_search", "kb_read"], kb_backend=s.kb_backend)
 
     @property

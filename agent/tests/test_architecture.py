@@ -9,7 +9,7 @@ def test_source_structure_and_dependencies():
     # 保留 SDK 导入边界与单向依赖两项结构性约束。
     source = ROOT / "src/guance_agent"
     modules = ("config schemas kb_rag kb kb_sample context tools agent client sessions "
-               "runtime runner output verify orchestrator main cli").split()
+               "runtime runner output verify extract orchestrator main cli").split()
     order = {name: i for i, name in enumerate(modules)}
     for path in source.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))

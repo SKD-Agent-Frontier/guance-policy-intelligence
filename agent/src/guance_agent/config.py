@@ -16,11 +16,11 @@ class Settings:
     llm_model: str = "qwen3.8-27b"
     structured_output: bool = False
     llm_temperature: float | None = None
-    llm_request_timeout: float = 60
-    llm_max_retries: int = 2
+    llm_request_timeout: float = 120   # 校内端点高峰单次可达 50s+，60 会诱发重试
+    llm_max_retries: int = 1   # 每次重试都很贵，整体仍受 run_timeout=180 约束
     max_input_chars: int = 4000
     max_user_id_chars: int = 64
-    max_turns: int = 8
+    max_turns: int = 12
     max_tool_calls: int = 20
     max_history_items: int = 40
     run_timeout: float = 180
