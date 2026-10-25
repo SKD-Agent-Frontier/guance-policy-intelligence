@@ -5,6 +5,8 @@
 import asyncio
 import re
 
+from .output import rebuild_trusted_answer
+
 MAX_QUOTES = 20   # 一次运行最多核这么多句，避免核验本身拖垮回合预算
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表，行首的 "1." "2、" 不是数据，先去掉再抽数字
@@ -17,50 +19,62 @@ async def verify_quotes(result, ctx) -> int:
     后端没有 verify_quote（mock/sample）时直接跳过：宁可少做，也不假装核过。
     """
     checker = getattr(ctx.kb, "verify_quote", None) if ctx else None
-    if checker is None or not result.claims:
+    if not result.claims:
         return 0
-    dropped, checked, skipped, kept_claims = 0, 0, 0, []
+    checked = approved_count = rejected = unverified = removed_claims = removed_quotes = 0
+    kept_claims = []
     for claim in result.claims:
         if not claim.quotes:
             kept_claims.append(claim)
             continue
-        if checked >= MAX_QUOTES:
-            skipped += len(claim.quotes)
-            kept_claims.append(claim)
-            continue
         approved = []
         for quote in claim.quotes:
+            if checker is None or checked >= MAX_QUOTES:
+                unverified += 1
+                continue
             checked += 1
             if await _approved(checker, ctx, claim, quote):
                 approved.append(quote)
+                approved_count += 1
             else:
-                dropped += 1
-            if checked >= MAX_QUOTES:
-                break
-        # 有引文但一句都没通过：这条结论失去原文支撑，整条不采信
-        if claim.quotes and not approved:
-            dropped += len(claim.quotes) - (1 if dropped else 0)
+                rejected += 1
+        # 一条结论的所有模型引句都必须逐字核验；否则不能保留其政策判断。
+        if len(approved) != len(claim.quotes):
+            removed_claims += 1
+            removed_quotes += len(claim.quotes)
             continue
-        kept_claims.append(claim.model_copy(update={"quotes": approved}))
-    if skipped:
-        result.warnings.append(f"有 {skipped} 句引文超出本次核验上限，未逐字核对")
-    if dropped:
+        kept_claims.append(claim)
+    result.meta["quote_verification"] = {
+        "checked": checked,
+        "approved": approved_count,
+        "rejected": rejected,
+        "unverified": unverified,
+        "removed_claims": removed_claims,
+        "removed_quotes": removed_quotes,
+    }
+    if unverified:
+        reason = "当前后端不支持逐字核验" if checker is None else "超出本次核验上限"
+        result.warnings.append(f"有 {unverified} 句引文{reason}，未逐字核对")
+    if rejected:
+        result.warnings.append(f"有 {rejected} 句引文未能在已提供的原文范围内逐字核对")
+    if removed_claims:
         result.claims = kept_claims
-        result.warnings.append(
-            f"有 {dropped} 句引文未能在已提供的原文范围内逐字核对，已移除")
-        if not result.claims:
-            result.evidence_status = "insufficient"
-    return dropped
+        result.warnings.append(f"为避免未核验引文被采信，已移除 {removed_claims} 条结论及其 {removed_quotes} 句引文")
+        rebuild_trusted_answer(result, ctx, "quote_verification")
+    return removed_quotes
 
 
 async def _approved(checker, ctx, claim, quote) -> bool:
-    """任一所引块能证明这句引文即通过；核验本身出错按不通过处理。"""
+    """任一同版本已见块能证明这句引文即通过；核验异常或超时按不通过。"""
     for chunk_id in claim.chunk_ids:
         ref = ctx.evidence.get(chunk_id)
         if ref is None or not ref.observed_ranges:
             continue
         try:
-            ok = await asyncio.to_thread(checker, chunk_id, quote, ref.observed_ranges)
+            ok = await asyncio.wait_for(
+                asyncio.to_thread(checker, chunk_id, quote, ref.observed_ranges,
+                                  document_id=ref.document_id, generation_id=ref.generation_id),
+                timeout=ctx.settings.tool_timeout)
         except Exception:                      # noqa: BLE001 - 核验失败按不通过
             continue
         if ok:
@@ -69,25 +83,21 @@ async def _approved(checker, ctx, claim, quote) -> bool:
 
 
 async def verify_numbers(result, ctx) -> int:
-    """数字必须与本条结论所引的原文对应，不能靠别的结论的证据蒙混过关。
-
-    只查数字，不查语义。三件事都必须做到：
-    1) 按 Claim 分别核对，只拿这条结论自己引的证据；
-    2) 任何数字对不上都降级，不区分是不是百分号；
-    3) 取不到原文时明确记为「核验未完成」，不能当成通过。
-    """
+    """核对每条结论自身证据中的数字字面量，不把字面存在误报为语义支持。"""
     getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
-    if getter is None or not result.claims:
+    if not result.claims:
         return 0
-    cache, failed, problems = {}, set(), 0
+    cache, failed, problems, rejected_claims = {}, set(), 0, []
     for claim in result.claims:
         tokens = _tokens(claim.text)
         if not tokens:
             continue
-        own = await _seen_text(ctx, getter, [claim], cache, failed)
+        result.meta["number_verification"] = "literal_only"
+        own = await _seen_text(ctx, getter, [claim], cache, failed) if getter else None
         if own is None:
             result.warnings.append("数字核验未完成：无法取回该结论所引证据的原文")
             problems += 1
+            rejected_claims.append(claim)
             continue
         missing = [token for token in tokens if not _present(token, own)]
         if missing:
@@ -95,23 +105,22 @@ async def verify_numbers(result, ctx) -> int:
                 "结论「" + _clip(claim.text) + "」中的 " + "、".join(missing[:6])
                 + " 未在其所引原文中出现")
             problems += len(missing)
+            rejected_claims.append(claim)
 
-    # 没有结论承接的数字（叙述性表述、章节编号等）：放宽到任一所引证据里找。
-    # 仍找不到才算问题——不能因为「没被某条 claim 复述」就一律判错。
+    # 答案中的数字必须被某条结论承接；不允许跨结论/跨证据作宽松匹配。
     bound = {token for claim in result.claims for token in _tokens(claim.text)}
     orphan = [token for token in _tokens(result.answer) if token not in bound]
     if orphan:
-        union = await _seen_text(ctx, getter, result.claims, cache, failed)
-        if union is None:
-            result.warnings.append("数字核验未完成：无法取回所引证据的原文")
-            problems += 1
-        else:
-            stray = [token for token in orphan if not _present(token, union)]
-            if stray:
-                result.warnings.append(
-                    "答案中的 " + "、".join(stray[:6]) + " 未在所引原文的已见范围内出现")
-                problems += len(stray)
+        result.meta["number_verification"] = "literal_only"
+        result.warnings.append("答案中的 " + "、".join(orphan[:6]) + " 未与任何结论绑定，无法核验")
+        problems += len(orphan)
+        rejected_claims = list(result.claims)
 
+    if rejected_claims:
+        rejected_ids = {id(claim) for claim in rejected_claims}
+        result.claims = [claim for claim in result.claims if id(claim) not in rejected_ids]
+        result.warnings.append("数字核验只确认字面存在，不代表其单独足以支持政策结论")
+        rebuild_trusted_answer(result, ctx, "number_verification")
     if problems:
         result.evidence_status = "insufficient"
     return problems
@@ -141,23 +150,29 @@ def _present(token: str, text: str) -> bool:
 
 
 async def _seen_text(ctx, getter, claims, cache, failed) -> str | None:
-    """只看这些结论自己引的证据；一个都取不到时返回 None，不能当成空串通过。"""
-    ids = dict.fromkeys(chunk_id for claim in claims for chunk_id in claim.chunk_ids)
+    """只看这些结论自己同版本的已见证据；取不到时不能当作通过。"""
+    refs = []
+    for claim in claims:
+        for chunk_id in dict.fromkeys(claim.chunk_ids):
+            ref = ctx.evidence.get(chunk_id)
+            if ref is not None and ref.observed_ranges:
+                refs.append(ref)
     parts = []
-    for chunk_id in ids:
-        ref = ctx.evidence.get(chunk_id)
-        if ref is None or not ref.observed_ranges:
-            continue
-        source = cache.get(chunk_id)
+    for ref in refs:
+        key = (ref.chunk_id, ref.document_id, ref.generation_id)
+        source = cache.get(key)
         if source is None:
-            if chunk_id in failed:
+            if key in failed:
                 continue
             try:
-                source = await asyncio.to_thread(getter, chunk_id)
-            except Exception:          # noqa: BLE001 - 取不到原文就不参与判断
-                failed.add(chunk_id)
+                source = await asyncio.wait_for(
+                    asyncio.to_thread(getter, ref.chunk_id, document_id=ref.document_id,
+                                      generation_id=ref.generation_id),
+                    timeout=ctx.settings.tool_timeout)
+            except Exception:                  # noqa: BLE001 - 不可读取就不参与判断
+                failed.add(key)
                 continue
-            cache[chunk_id] = source
+            cache[key] = source
         base = source.chunk_char_start or 0
         for start, end in ref.observed_ranges:
             parts.append(source.content[max(0, start - base):max(0, end - base)])

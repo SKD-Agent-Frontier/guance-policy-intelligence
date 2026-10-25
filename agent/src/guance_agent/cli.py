@@ -5,8 +5,8 @@ import runpy
 import sys
 
 from .client import aclose_client
-from .config import ROOT
-from .kb import close_kb
+from .config import ROOT, load_settings
+from .kb import close_kb, warm_up
 from .main import submit
 from .output import to_markdown
 
@@ -36,6 +36,10 @@ async def _interact(args):
 async def _run(args):
     """进程级资源由最外层统一收尾，单次任务不负责关闭共享客户端。"""
     try:
+        settings = load_settings()
+        if settings.kb_backend == "rag":
+            # 构造 RagKnowledgeBase 会阻塞，必须在接收请求前移到线程池完成预热。
+            await asyncio.to_thread(warm_up, settings)
         return await _interact(args)
     finally:
         close_kb()

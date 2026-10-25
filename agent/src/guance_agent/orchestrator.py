@@ -10,8 +10,8 @@ from .agent import build_agent, chat_model
 from .config import ConfigurationError, Settings
 from .context import RunContext
 from .extract import build_messages, retrieve
-from .kb import get_kb
-from .output import ERRORS, build_result, insufficient_message
+from .kb import RagNotWarmed, get_kb
+from .output import ERRORS, build_result, insufficient_message, rebuild_trusted_answer
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
 from .schemas import DIMENSIONS, RunError, RunResult, TaskRequest
@@ -95,8 +95,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                               RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
     else:
         try:
-            kb = get_kb(s)
-        except (ValueError, KeyError) as exc:
+            kb = get_kb(s, require_warm=True)
+        except (ValueError, KeyError, RagNotWarmed) as exc:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id)
         async with _session_lock(task.session_id):
@@ -107,9 +107,15 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                 agent = build_agent(s, chat_model(s, rt.client))
                 outcome = await execute(agent, task, ctx, rt, deadline=deadline)
         result = build_result(task, outcome, ctx, rt.meta)
-        # 引文与数字核验：后端没有对应能力（mock/sample）时自动跳过
-        await verify_quotes(result, ctx)
-        await verify_numbers(result, ctx)
+        # 执行、逐字核验和数字核验共享同一轮运行预算，不能在执行结束后无限等待。
+        try:
+            async with asyncio.timeout_at(deadline):
+                await verify_quotes(result, ctx)
+                await verify_numbers(result, ctx)
+        except TimeoutError:
+            result.warnings.append("证据核验超时，未完成的结论不作为可信输出展示")
+            result.claims = []
+            rebuild_trusted_answer(result, ctx, "verification_timeout")
         _attach(result, task)
     try:
         rt.finish(result, ctx)

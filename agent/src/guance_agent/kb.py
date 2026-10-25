@@ -136,6 +136,10 @@ def _build_kb(backend: str, path: str, snippet_chars: int) -> KnowledgeBase:
 _RAG_KB = None
 
 
+class RagNotWarmed(RuntimeError):
+    """真实请求未经过应用启动钩子预热时的明确失败。"""
+
+
 def warm_up(s: Settings) -> None:
     """进程启动时调用一次：真实 RAG 后端在这里加载，避免首个请求被启动阻塞。
 
@@ -158,9 +162,11 @@ def close_kb() -> None:
             _RAG_KB = None
 
 
-def get_kb(s: Settings) -> KnowledgeBase:
+def get_kb(s: Settings, *, require_warm: bool = False) -> KnowledgeBase:
     if s.kb_backend == "rag":
         if _RAG_KB is None:
-            warm_up(s)          # 冻加载兜底：没预热也能跑，但会阻塞当前请求
+            if require_warm:
+                raise RagNotWarmed("真实 RAG 尚未在应用启动阶段预热")
+            warm_up(s)  # 仅供直接库调用兼容；请求入口必须使用 require_warm=True。
         return _RAG_KB
     return _build_kb(s.kb_backend, str(s.mock_kb_path), s.search_snippet_chars)

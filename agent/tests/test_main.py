@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import replace
 
@@ -176,3 +177,25 @@ def test_chat_reuses_session(env, monkeypatch):
     monkeypatch.setattr(cli, "submit", fake)
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
     assert cli.main(["chat"]) == 0 and seen == [None, result.session_id]
+
+
+def test_cli_warms_real_rag_before_accepting_requests(env, monkeypatch):
+    from guance_agent.output import build_result
+    from guance_agent.runner import ExecOutcome
+
+    events = []
+    settings = replace(env[0], kb_backend="rag", rag_store_project="runtime-store")
+    result = build_result(env[1], ExecOutcome(answer(), None), None, {})
+
+    monkeypatch.setattr(cli, "load_settings", lambda: settings)
+    monkeypatch.setattr(cli, "warm_up", lambda received: events.append(("warm", received)))
+    monkeypatch.setattr(cli, "close_kb", lambda: events.append(("close", None)))
+    monkeypatch.setattr(cli, "aclose_client", lambda: asyncio.sleep(0))
+
+    async def fake_submit(*args, **kwargs):
+        events.append(("submit", None))
+        return result
+
+    monkeypatch.setattr(cli, "submit", fake_submit)
+    assert cli.main(["ask", "问题"]) == 0
+    assert [event[0] for event in events] == ["warm", "submit", "close"]

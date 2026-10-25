@@ -1,4 +1,5 @@
 """只接收本次证据 ID，确定性生成结果和出处。"""
+import json
 import re
 
 from .context import RunContext
@@ -30,6 +31,40 @@ def insufficient_message(calls):
         messages.append("本次检索结果中没有能够支撑回答的原文证据，暂无法给出有依据的结论。")
     return "\n".join(dict.fromkeys(messages))
 
+
+def _parse_nonstructured_output(raw: str) -> AgentOutput:
+    """从非结构化模型文本中识别唯一完整的 JSON 对象。
+
+    不能用首尾花括号切片：解释文字、示例和多段输出会扩大边界。逐个完整解码后
+    只接受唯一对象；有第二个对象或不完整对象均失败关闭，避免任意挑选模型答案。
+    """
+    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+    decoder, values, offset = json.JSONDecoder(), [], 0
+    while (start := cleaned.find("{", offset)) >= 0:
+        try:
+            value, end = decoder.raw_decode(cleaned[start:])
+        except json.JSONDecodeError:
+            offset = start + 1
+            continue
+        values.append(value)
+        offset = start + end
+    if len(values) != 1:
+        raise ValueError("需要唯一完整的 JSON 对象")
+    return AgentOutput.model_validate(values[0])
+
+
+def rebuild_trusted_answer(result, ctx, reason: str) -> None:
+    """证据被删除后只展示仍可追溯的结论，不能保留模型原始答案。"""
+    active_ids = {chunk_id for claim in result.claims for chunk_id in claim.chunk_ids}
+    result.evidence_refs = [ref for ref in result.evidence_refs if ref.chunk_id in active_ids]
+    result.evidence_status = "insufficient"
+    result.meta["answer_rebuilt"] = reason
+    if result.claims:
+        result.answer = "以下仅保留可追溯到已读原文的结论：\n" + "\n".join(
+            f"- {claim.text}" for claim in result.claims)
+    else:
+        result.answer = insufficient_message(ctx.tool_calls if ctx else [])
+
 def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext | None,
                  meta: dict, error: RunError | None = None) -> RunResult:
     meta = {"elapsed_ms": 0, "tool_calls": ctx.tool_calls if ctx else [], **meta}
@@ -45,8 +80,7 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     try:
         raw = outcome.final_output
         if isinstance(raw, str) and not (ctx and ctx.settings.structured_output):
-            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
-            parsed = AgentOutput.model_validate_json(raw[raw.index("{"):raw.rindex("}") + 1])
+            parsed = _parse_nonstructured_output(raw)
         else:
             parsed = AgentOutput.model_validate(raw)
     except (ValueError, TypeError) as exc:
@@ -97,6 +131,8 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     else:
         result.meta["no_tool_answer"] = True
         result.warnings.append("本回答未引用政策原文，也未调用检索工具，结论未经核验，不构成政策依据")
+    if dropped_texts or partial:
+        rebuild_trusted_answer(result, ctx, "unregistered_evidence")
     return result
 
 def to_markdown(r: RunResult) -> str:

@@ -199,8 +199,67 @@ async def test_unverifiable_quote_is_dropped(tmp_path):
     assert any("未能在已提供的原文范围内逐字核对" in w for w in result.warnings)
 
 
-async def test_no_verify_quote_backend_skips_silently(tmp_path):
-    """mock/sample 没有 verify_quote：跳过而不是假装核过。"""
+async def test_quote_verification_does_not_keep_the_twenty_first_unchecked_quote(tmp_path):
+    result, kb = await run_verify(tmp_path, True, [f"引文{i}" for i in range(21)])
+    assert len(kb.seen) == 20
+    assert result.claims == []
+    assert result.evidence_refs == []
+    assert result.evidence_status == "insufficient"
+    assert any("1 句引文超出本次核验上限" in warning for warning in result.warnings)
+
+
+async def test_quote_verification_binds_the_registered_document_version(tmp_path):
+    class VersionedKB:
+        def __init__(self):
+            self.kwargs = []
+
+        def verify_quote(self, chunk_id, quote, ranges, **kwargs):
+            self.kwargs.append(kwargs)
+            return True
+
+    reg = EvidenceRegistry()
+    reg.register(ref_dict(document_id="document-old", generation_id="generation-old"))
+    kb = VersionedKB()
+    ctx = RunContext(rag_settings(tmp_path), kb, "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="旧版本结论",
+                       claims=[Claim(text="结论", chunk_ids=[CID], quotes=["原句"])],
+                       evidence_refs=[reg.get(CID)], dropped_chunk_ids=[], error=None, meta={})
+    assert await verify_quotes(result, ctx) == 0
+    assert kb.kwargs == [{"document_id": "document-old", "generation_id": "generation-old"}]
+
+
+async def test_quote_failure_rebuilds_answer_and_prunes_unused_evidence(tmp_path):
+    good = "chunk_71bdac7c940d3baeb3864dd4724ef70f"
+    reg = EvidenceRegistry()
+    reg.register(ref_dict())
+    reg.register(ref_dict(chunk_id=good, char_start=2000, char_end=2010,
+                          chunk_char_start=2000, chunk_char_end=2020,
+                          section_char_start=2000, section_char_end=2020))
+
+    class SelectiveKB:
+        def verify_quote(self, chunk_id, quote, ranges, **_kwargs):
+            return quote == "可核验原句"
+
+    ctx = RunContext(rag_settings(tmp_path), SelectiveKB(), "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="可保留结论；不可信政策结论。",
+                       claims=[
+                           Claim(text="可保留结论", chunk_ids=[CID], quotes=["可核验原句"]),
+                           Claim(text="不可信政策结论", chunk_ids=[good], quotes=["伪造原句"]),
+                       ], evidence_refs=[reg.get(CID), reg.get(good)], dropped_chunk_ids=[],
+                       error=None, meta={})
+    await verify_quotes(result, ctx)
+    assert [claim.text for claim in result.claims] == ["可保留结论"]
+    assert [ref.chunk_id for ref in result.evidence_refs] == [CID]
+    assert "不可信政策结论" not in result.answer
+    assert result.evidence_status == "insufficient"
+
+
+async def test_no_verify_quote_backend_removes_unverified_claim(tmp_path):
+    """mock/sample 没有 verify_quote 时，不能把含引句的结论假装为已核验。"""
     reg = EvidenceRegistry()
     reg.register(ref_dict())
     ctx = RunContext(rag_settings(tmp_path), types.SimpleNamespace(), "r", "s")
@@ -209,8 +268,9 @@ async def test_no_verify_quote_backend_skips_silently(tmp_path):
                        evidence_status="verified", answer="a",
                        claims=[Claim(text="结论", chunk_ids=[CID], quotes=["任意"])],
                        evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
-    assert await verify_quotes(result, ctx) == 0
-    assert result.claims[0].quotes == ["任意"]
+    assert await verify_quotes(result, ctx) == 1
+    assert result.claims == [] and result.evidence_status == "insufficient"
+    assert any("当前后端不支持逐字核验" in warning for warning in result.warnings)
 
 
 async def test_orchestrator_actually_calls_verify_quotes(tmp_path, monkeypatch):
@@ -309,7 +369,7 @@ async def test_number_boundary_does_not_false_match(tmp_path):
     assert _present("93%", "达到193%") is False
 
 
-async def test_no_chunk_source_backend_skips(tmp_path):
+async def test_no_chunk_source_backend_removes_numeric_claim(tmp_path):
     from guance_agent.verify import verify_numbers
     reg = EvidenceRegistry()
     reg.register(ref_dict())
@@ -319,8 +379,9 @@ async def test_no_chunk_source_backend_skips(tmp_path):
                        evidence_status="verified", answer="达到 99%",
                        claims=[Claim(text="t", chunk_ids=[CID])],
                        evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
-    assert await verify_numbers(result, ctx) == 0
-    assert result.warnings == []
+    assert await verify_numbers(result, ctx) == 1
+    assert result.claims == [] and result.evidence_status == "insufficient"
+    assert any("未与任何结论绑定" in warning for warning in result.warnings)
 
 
 def test_rag_adapter_exposes_verification_entrypoints():
@@ -396,14 +457,42 @@ async def test_fetch_failure_is_recorded_not_treated_as_pass(tmp_path):
     assert result.evidence_status == "insufficient"
 
 
-async def test_orphan_number_found_in_any_evidence_passes(tmp_path):
-    """答案叙述里的数字只要在所引证据中出现，就不该因为没被 claim 复述而报错。"""
+async def test_number_verification_binds_the_registered_document_version(tmp_path):
+    from guance_agent.verify import verify_numbers
+
+    class VersionedKB:
+        def __init__(self):
+            self.kwargs = []
+
+        def get_chunk_source(self, chunk_id, **kwargs):
+            self.kwargs.append(kwargs)
+            return types.SimpleNamespace(content="完成 100 个项目。", chunk_char_start=1000)
+
+    reg = EvidenceRegistry()
+    reg.register(ref_dict(document_id="document-old", generation_id="generation-old",
+                          char_start=1000, char_end=1011,
+                          chunk_char_start=1000, chunk_char_end=1011,
+                          section_char_start=1000, section_char_end=1011))
+    kb = VersionedKB()
+    ctx = RunContext(rag_settings(tmp_path), kb, "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="完成 100 个项目。",
+                       claims=[Claim(text="完成 100 个项目。", chunk_ids=[CID])],
+                       evidence_refs=[reg.get(CID)], dropped_chunk_ids=[], error=None, meta={})
+    assert await verify_numbers(result, ctx) == 0
+    assert kb.kwargs == [{"document_id": "document-old", "generation_id": "generation-old"}]
+
+
+async def test_orphan_number_is_not_cross_verified_against_unrelated_evidence(tmp_path):
+    """答案中未绑定到结论的数字不能靠任意证据中的同一数字通过。"""
     body = "专栏2提出培训率达到100%"
     result, missing = await _numbers(tmp_path, body, 1000,
                                      "按专栏2，培训率达到100%。", 20,
                                      claim_text="加强培训。")
-    assert missing == 0, result.warnings
-    assert result.warnings == []
+    assert missing == 2
+    assert result.claims == [] and result.evidence_status == "insufficient"
+    assert any("未与任何结论绑定" in warning for warning in result.warnings)
 
 
 def test_agent_output_tolerates_null_fields():

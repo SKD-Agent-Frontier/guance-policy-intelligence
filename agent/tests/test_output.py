@@ -30,7 +30,8 @@ def test_valid_citation_and_source_recovery(env):
     out = AgentOutput(answer="回答", claims=[Claim(text="农业重点", chunk_ids=[ref.chunk_id, "bad"], quotes=["任意引文不作逐字检查"])])
     result = build_result(env[1], ExecOutcome(out, None), ctx, {})
     assert result.evidence_status == "insufficient" and result.claims[0].chunk_ids == [ref.chunk_id]
-    assert result.answer == "回答" and "1 条结论" in " ".join(result.warnings)
+    assert result.answer != "回答" and "农业重点" in result.answer
+    assert result.meta["answer_rebuilt"] == "unregistered_evidence"
     md = to_markdown(result)
     assert all(value in md for value in (ref.title, ref.section_path, ref.chunk_id, out.claims[0].quotes[0]))
     p = ctx.kb.read(ref.planid, ref.section_idx, 6000)
@@ -82,6 +83,31 @@ def test_parse_failure_and_order(env):
     assert message.startswith("检索服务暂时不可用") and message.count("无正文") == 1
 
 
+def test_nonstructured_json_ignores_braces_outside_the_payload(env):
+    """解释文字里的非 JSON 花括号不能扩大模型结果的截取范围。"""
+    raw = ('说明中的 {示例} 不是输出。\n<think>{隐藏}</think>\n```json\n'
+           '{"answer":"正文含 {花括号}","claims":[],"insufficient":false}\n```\n结束。')
+    result = build_result(env[1], ExecOutcome(raw, None), context(env), {})
+    assert result.error is None
+    assert result.answer == "正文含 {花括号}"
+
+
+def test_nonstructured_multiple_complete_payloads_are_rejected_as_ambiguous(env):
+    raw = ('{"answer":"第一个","claims":[],"insufficient":false}\n'
+           '{"answer":"第二个","claims":[],"insufficient":false}')
+    result = build_result(env[1], ExecOutcome(raw, None), context(env), {})
+    assert result.error and result.error.code == "OUTPUT_PARSE"
+
+
+@pytest.mark.parametrize("raw", [
+    '{"answer":"截断","claims":[]',
+    '{"answer": 42, "claims": [], "insufficient": false}',
+])
+def test_nonstructured_unrecoverable_or_schema_invalid_payload_fails_closed(env, raw):
+    result = build_result(env[1], ExecOutcome(raw, None), context(env), {})
+    assert result.error and result.error.code == "OUTPUT_PARSE"
+
+
 def test_new_error_messages():
     assert ERRORS["TOOL_BUDGET"] == "本次任务工具调用次数过多，已停止，请缩小问题范围"
     assert ERRORS["MODEL_UNAUTHORIZED"] == "模型服务认证失败，请检查接口密钥与权限"
@@ -96,7 +122,7 @@ def test_partial_invalid_reference_downgrades_and_warns(env):
         Claim(text="B市", chunk_ids=["FAKE"])])
     result = build_result(env[1], ExecOutcome(out, None), ctx, {})
     assert result.evidence_status == "insufficient"
-    assert result.answer.startswith(out.answer)
+    assert "B市" not in result.answer and "A市" in result.answer
     assert any("未被采信" in w and "B市" in w for w in result.warnings)
     assert result.dropped_chunk_ids == ["FAKE"] and result.meta["dropped_claims"] == 1
 
