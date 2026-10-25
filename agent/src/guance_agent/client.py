@@ -11,6 +11,17 @@ from .config import Settings
 _CLIENTS: list[AsyncOpenAI] = []
 
 
+def thinking_off(s: Settings) -> dict:
+    """关掉 qwen3 的思考模式。
+
+    实测校内端点：默认思考单次 22 秒且 800 token 全被推理吃掉、正文为空；
+    加上这个开关后同一请求 1.6 秒返回正常正文。
+    """
+    if not s.llm_disable_thinking:
+        return {}
+    return {"chat_template_kwargs": {"enable_thinking": False}}
+
+
 @lru_cache(maxsize=4)
 def _build(base_url: str, api_key: str, timeout: float, retries: int) -> AsyncOpenAI:
     # ponytail: 缓存键只取连接相关四项；进程退出时由 aclose_client 统一关闭。

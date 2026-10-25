@@ -7,6 +7,7 @@ import json
 import time
 
 from .agent import build_agent, chat_model
+from .client import thinking_off
 from .config import ConfigurationError, Settings
 from .context import RunContext
 from .extract import build_messages, retrieve
@@ -42,6 +43,7 @@ async def _run_extract(task: TaskRequest, s: Settings, ctx: RunContext, rt) -> E
     try:
         reply = await rt.client.chat.completions.create(
             model=s.llm_model, messages=messages, timeout=s.llm_request_timeout,
+            max_tokens=s.llm_max_output_tokens, extra_body=thinking_off(s),
             **({} if s.llm_temperature is None else {"temperature": s.llm_temperature}))
         return ExecOutcome(reply.choices[0].message.content, None)
     except Exception:                      # noqa: BLE001 - 统一走 MODEL_UNAVAILABLE

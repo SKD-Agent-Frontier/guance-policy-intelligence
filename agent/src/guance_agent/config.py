@@ -17,7 +17,9 @@ class Settings:
     structured_output: bool = False
     llm_temperature: float | None = None
     llm_request_timeout: float = 120   # 校内端点高峰单次可达 50s+，60 会诱发重试
-    llm_max_retries: int = 1   # 每次重试都很贵，整体仍受 run_timeout=180 约束
+    llm_max_retries: int = 1
+    llm_max_output_tokens: int = 2000
+    llm_disable_thinking: bool = True   # qwen3 默认思考会让单次调用变 20 秒以上且吃光输出额度   # 不设上限时模型会生成几千 token，直接把 180 秒烧光   # 每次重试都很贵，整体仍受 run_timeout=180 约束
     max_input_chars: int = 4000
     max_user_id_chars: int = 64
     max_turns: int = 12
@@ -38,12 +40,12 @@ class Settings:
     log_content: bool = False
     def __post_init__(self):
         for name in ("max_input_chars", "max_user_id_chars", "max_turns", "top_k_default", "top_k_max",
-                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls", "max_history_items"):
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls", "max_history_items", "llm_max_output_tokens"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_user_id_chars", "max_turns", "run_timeout",
                     "tool_timeout", "top_k_default", "top_k_max", "search_snippet_chars", "read_max_chars",
-                    "max_tool_calls", "max_history_items")
+                    "max_tool_calls", "max_history_items", "llm_max_output_tokens")
         for name in positive:
             value = getattr(self, name)
             if isinstance(value, bool) or not math.isfinite(value) or value <= 0:

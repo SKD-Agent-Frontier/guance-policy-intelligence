@@ -4,6 +4,7 @@ from pathlib import Path
 
 from agents import Agent, ModelSettings, OpenAIChatCompletionsModel
 
+from .client import thinking_off
 from .config import Settings
 from .context import RunContext
 from .schemas import AgentOutput
@@ -33,7 +34,9 @@ def chat_model(s: Settings, client):
 
 def build_agent(s: Settings, model, task_type: str = "qa") -> Agent[RunContext]:
     prompt = effective_prompt(s.structured_output, task_type)
-    parameters = {} if s.llm_temperature is None else {"temperature": s.llm_temperature}
+    parameters = {"max_tokens": s.llm_max_output_tokens, "extra_body": thinking_off(s)}
+    if s.llm_temperature is not None:
+        parameters["temperature"] = s.llm_temperature
     return Agent(name="管策智研", instructions=prompt, model=model,
                  tools=[kb_search, kb_read], model_settings=ModelSettings(**parameters),
                  output_type=AgentOutput if s.structured_output else None)
