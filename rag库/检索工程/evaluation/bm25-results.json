@@ -1,0 +1,730 @@
+{
+  "qrels_count": 21,
+  "modes": [
+    {
+      "mode": "bm25",
+      "query_count": 21,
+      "macro_metrics": {
+        "recall@5": 0.9047619047619048,
+        "recall@8": 0.9523809523809523,
+        "recall@20": 1.0,
+        "mrr": 0.7681216931216932
+      },
+      "queries": [
+        {
+          "query": "吉安市‘十四五’市场监管规划提出，怎样组合‘双随机、一公开’、重点监管和信用监管？双随机抽查范围与频次依据什么确定？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_25e13910f0dec9db054eb624aaa48e12"
+          ],
+          "retrieved_ids": [
+            "chunk_25e13910f0dec9db054eb624aaa48e12",
+            "chunk_5fee598c414827b6e7b9325f47e46b86",
+            "chunk_de2121cc75f250f908ab680c75d8c93f",
+            "chunk_ec2dc9efd9da7068734047ce331e2ca4",
+            "chunk_e5c8a0a761a51d6ce7c5693c17021aa7",
+            "chunk_e12e18498f5adc05041b34f0d44e6008",
+            "chunk_a2f2467862ea6aca41d0ab4f9fe5dd5a",
+            "chunk_0dd0e9a2e63cdd6c5efa1e5a4366a337",
+            "chunk_fc79857157bdbee844a97044896ea882",
+            "chunk_8b7f7459defcfd037dbbc439db27b19b",
+            "chunk_93c59f66d283cb669e51f41fa8bc21cc",
+            "chunk_f0bc92fb4bee346c3d127871738eca4c",
+            "chunk_f53d51d9f11d5aed50c0cc1603b8c17a",
+            "chunk_ba2e59886d63bb8d0451c91eabf8b85f",
+            "chunk_49a6df358b3fafe569e68cad27d603be",
+            "visual_chunk_fa6fd0371362657bf620d5d77eede38a5770c9e6a3f446b7091ee953c7dc7528",
+            "visual_chunk_c9b9320d4db2d30946c858a3609a5672073bd23563305148b74d45b70ca99e5d",
+            "chunk_a906379a6cb7969d5cee46c5e0270748",
+            "chunk_2f0d987db4701bf1a9dff7a2ef856d68",
+            "chunk_3fba91ddae7137cb87626a93208b9d09"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "江苏‘十四五’公共服务规划对长期护理保险试点的筹资、评估、支付和待遇标准提出哪些完善方向？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_398d890fc94400182b0c51a7d2cc66dd"
+          ],
+          "retrieved_ids": [
+            "chunk_398d890fc94400182b0c51a7d2cc66dd",
+            "chunk_d576845790bf139520c6065737fbde5a",
+            "chunk_4c87164a71917f70a34fd9e999912fdb",
+            "chunk_fd58434e7eb143c435d71ab295ec3a5c",
+            "chunk_3b7401f663b53f756f3a8e4d4d74325d",
+            "chunk_6ce4e633981513a7690ffac320730600",
+            "chunk_1f3d50e219b8e7d8fbb78198affdf2a5",
+            "chunk_33e319c801e1f4a5d28dba81c7dc267b",
+            "chunk_4559b57a0fa9160b67791b0fd513e5be",
+            "chunk_363517b98efc5158346856bc8cdfe302",
+            "chunk_d5f03a966dfa8ef065be6fba5ba87a2d",
+            "chunk_15a675c4a2b69d9b3840d60a012c7dd3",
+            "chunk_1c4224493f3028f5fededec509e7e1f2",
+            "chunk_80348621a6b131e31e0dc5dc46b28009",
+            "chunk_7e19568b1f5e62fc456e1f5d5a1e2ebe",
+            "chunk_3d0a9535d19d5f4ecbdee9f0e9da8136",
+            "chunk_78170d6b7fa79c6257021218c0a7e597"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "高州市‘十四五’教育规划怎样通过‘县管校聘’及编制、教师交流安排促进城乡教师资源均衡？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_98b88af8bc8aa4c29105f29ac7b01812"
+          ],
+          "retrieved_ids": [
+            "chunk_98b88af8bc8aa4c29105f29ac7b01812",
+            "chunk_79a6801631a1014e2d9aa31484ee5065",
+            "chunk_a1f13f080cb5eaacf99e0527af3e5e53",
+            "chunk_f2190d854fe968d130cc38fa0012e94f",
+            "chunk_65fba6b28a99b7f9f14df33079355f05",
+            "chunk_cdd6698edc3f0fa0106b67c488336452",
+            "chunk_8d2a3965235b5dda4c661063dcc87c4b",
+            "chunk_bf976180c70d10ab3db8eae83e2019a4",
+            "chunk_71e9b1c4409e3127f5c295beecba26ad",
+            "chunk_eb33e430ef3e33eed49a4470498cbd78",
+            "chunk_3a7660e9389d085eea554d7642ed7022",
+            "chunk_5df069998ffcf7af0caa93d32db6a405",
+            "visual_chunk_6b92c41d859e4be6ebc9eb0567c604d81db9e6de31873152cc84663376838843",
+            "chunk_53cd8435023d6d57c25a912ee0a63032",
+            "chunk_3fb6ae1cfd656824aa31e1324ea9417a",
+            "chunk_10af666bc29db08a77f6b4956aea12b0",
+            "chunk_9cbba5008ebf8dd2521941316804ebec",
+            "visual_chunk_e05f9e6e52a4f66291cab0bfd5a2eb3b3f549eb0792e4523aa500cfdb76b9f96",
+            "chunk_4171bf291f93bd22641de026ed78d3fb",
+            "chunk_6de95be6ec4b1dd09e49d7e6585260bf"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "渭南‘十四五’民政规划中，残疾人两项补贴拟扩大到哪些群体，资格申请还有什么便利安排？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_d065ce344525a337b7b497d7584528ea"
+          ],
+          "retrieved_ids": [
+            "visual_chunk_87b2c908a375ef8f0868d20efd9252f4d99b8745699c00cda290dd7d3053d493",
+            "chunk_d065ce344525a337b7b497d7584528ea",
+            "chunk_4cabc4ddece9635a5fb541097415f1ed",
+            "visual_chunk_bb593da52078308f8c99182e6d60506a8ffcd1a8aa3e84e60d681164afb10654",
+            "visual_chunk_bc60a7e1889483d522b1178d69febbcde6edb5552610b76c0eb9ade3ac16f2fc",
+            "chunk_fd29e4f7a57243eb7fe5936a30bc8483",
+            "chunk_631c137f2df1ae450d4239aafaae3de0",
+            "chunk_7aaf9d8458bfaa94ec449fed85256f88",
+            "chunk_d11b8fc541e7c4030ec633b9e8d2cd31",
+            "chunk_f2beb3dbd8bcedfea91db1d13c76c351",
+            "chunk_6da63d44d5700d1a100d37ab68b2feca",
+            "chunk_d0a7f018ad6d82b64e237d65cbdd91a1",
+            "chunk_1186b00434e836b33e95f0e41725436f",
+            "chunk_b367dbb3275e7df86e141719370ef364",
+            "visual_chunk_8d4685e3846ef0690db51eb9a67dbe705db887f779b95162cea491052e8f2ebb",
+            "chunk_321bd1ce456466499808c3b85348f525",
+            "chunk_3b6c3e3cf928bbf779ea0c19fdd3099c",
+            "visual_chunk_14f63b139a069c24b71ec2b1125f3456a9cc9f26a9a8c6751118dc92d4030541",
+            "visual_chunk_aa15c974381d6500b08a9b38760273e7822827bb3d19fcdba235203ff7b34698"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.5
+          }
+        },
+        {
+          "query": "台州市地质灾害防治‘十四五’规划如何评价‘隐患点+风险区’双控模式及当前监测预警短板？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_28da9d37a85a57f3c47d0fb5918226b1"
+          ],
+          "retrieved_ids": [
+            "chunk_28da9d37a85a57f3c47d0fb5918226b1",
+            "chunk_4d4487ee9093d9bc64337af6304705bb",
+            "chunk_9da2500a281e65f400915626a929f22f",
+            "visual_chunk_c9fed8eae9192e94a62bf329eaec9fd28a509b75c2a8afb171d9e6f8344e9b9e",
+            "visual_chunk_bd70ad0557302c6b55c1ad9e6f30871cb4687143467dabf6b145bbc01e42a069",
+            "visual_chunk_bfdd666657935c4014c2bff7db83db7785074f66f7d5cf82edd4029f72ea5e41",
+            "chunk_2f756cb411c1af5c76e9c638711f5e58",
+            "chunk_4339d70f46c86389cfaac936e16835e0",
+            "chunk_521b168b069ac2f16b366855c8121645",
+            "chunk_d992db1d21e128579c4e7bc8d006ac46",
+            "chunk_a9435630831057febd72fa943201d26e",
+            "chunk_80214870cfee494e0eaed3f32421ac81",
+            "chunk_daacc84a479417c601b85101f3705b3a",
+            "visual_chunk_f2ecf1828f17d456183d1795ffc2e84fb87c1b30e63947c01be00914fd213e73",
+            "visual_chunk_c22b8304f5e323f64780a720097262d22795799231cd8d136849ecc5b9f89358",
+            "visual_chunk_83b827d253280627572a60c49124db1eb36b8488a64e5048a86a5e4e1d5b5ba6",
+            "visual_chunk_6949638f78450949f75b29c99bc915def065f0db5d6b1862aa598b96222e6b28",
+            "chunk_55778846792c43dd671eaf1b36da74f1",
+            "chunk_2b238c58fe15d8992a845475ffd12cbd",
+            "chunk_58f9c4b67002e894c31118d7dcb77a85"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "宏伟区卫健局‘十四五’规划要求到期末如何加强职业病防治？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_62f5cd4c5e227267e6fb29f9280b2e8e"
+          ],
+          "retrieved_ids": [
+            "chunk_62f5cd4c5e227267e6fb29f9280b2e8e",
+            "chunk_71a1ee0a5d4b40821a266f75c48e1852",
+            "chunk_61ddf0e66b9bdd521b76982d3df94ea3",
+            "chunk_14c2437efb56050bb81eb8cc3fe8486a",
+            "chunk_7122ae8d5f66ee26fd33097e5fada314",
+            "chunk_13281f420da23991c58cda4f0bbc51f3",
+            "chunk_dc52c75092aa4b844b22ffd8d056f8fa",
+            "chunk_a190a7c3ad56b7ed646dc61cd99ceda7",
+            "chunk_84d4fa4943373ea95158900abc6cd390",
+            "chunk_32664035c5879b42752caf3aadbdc148",
+            "chunk_2645c451ce4b2a1e92ca57141c5b9323",
+            "chunk_f772093afa8a7e18434e60d6946cb653",
+            "chunk_4e537fee3fe35b78e3bc51c6543b2819",
+            "chunk_212113e5057fd4fd2d8d04218ed383c9",
+            "chunk_772dc8209dcc6a1f8c6046d95d09c4a1",
+            "chunk_afcd9c61c9b34bcb74c99080f5c21e63",
+            "chunk_133979c36a1b78ca631678bf4e7fb154",
+            "chunk_3a79b066f647220585b879bb19c11ffc",
+            "chunk_f380883190e1515dd076e366dacf4c90",
+            "chunk_71020564cc957eaf40e1c13b37e4f08d"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "国家突发事件应急体系‘十三五’规划对基层应急管理标准化和应急服务站点覆盖提出什么目标？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_21422e8f78a3f0ed049d80f889129d4c"
+          ],
+          "retrieved_ids": [
+            "chunk_8b04368e86dde19ada54d6ff1b106c0e",
+            "chunk_21422e8f78a3f0ed049d80f889129d4c",
+            "chunk_ce6555128f27072d2cc582dbf172956d",
+            "chunk_474c0429d70b1f6a62334092ae5d2fe8",
+            "chunk_c3a6623ac703350458dbea57088d7395",
+            "chunk_ab4ef0dc7dfffadb0d33374723d93213",
+            "chunk_36e1e239d418ed4d68a8c27b46d28499",
+            "chunk_8a107329a90a07d5318266ca32e4da19",
+            "chunk_aeb20f4e380ca17ecc4735c8f3d8aa68",
+            "chunk_843f60caa9dfd0ba98a00be552ee973b",
+            "chunk_51c2e4cfdb232628743c0c6f7314b3d5",
+            "chunk_22b47e4091d0d8034e05113294663ed9",
+            "chunk_eb6a86ad63ee3cafa7af7d643315cfdc",
+            "chunk_2829578a4b016313bcc2aa45c0652605",
+            "chunk_36f6c692116533a0db915b82498a7d75",
+            "chunk_52c14ea0b7aa38d6afa5089d4e659765",
+            "chunk_ae4076e0f54bbca9044279b3efe8b90d",
+            "chunk_bd616e7374a0a6d5160578c701bbb160",
+            "chunk_96c5fd3664b8e15e195eb7f54cd2eaba",
+            "chunk_0f85f9a051ce4ba30d54d6438cba6935"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.5
+          }
+        },
+        {
+          "query": "国家‘十四五’规划纲要给湿地保护率设定了什么目标，并提出哪些相关生态保护举措？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_3d24bafd001493de0cc5478bef860065"
+          ],
+          "retrieved_ids": [
+            "chunk_77239dc15956cd994ace14ae2af5e6fe",
+            "chunk_14052d9a8359d78828ed1edac4ec5496",
+            "chunk_cedadeeed214123814e898c4cb734fc2",
+            "chunk_952050c311c8ce198d9458882b369e79",
+            "chunk_17b4e0d7d52a22636b297549e73b966d",
+            "chunk_8e49d1fcf4549b71829117dd9aed0300",
+            "chunk_abe34965b8f9650b451453099ebc4c1b",
+            "chunk_3d24bafd001493de0cc5478bef860065",
+            "chunk_0091b21ffb2f8243153d54746e0acbee",
+            "chunk_747a578c18320b62c5fd86a34a5f4ec7",
+            "chunk_8cba0a1ece0f8957a05b87a4eceab5d9",
+            "chunk_f39bdfe4eb88fbccf2fc51d2eae96d72",
+            "chunk_579bf2f8cb8f5fc9108d84dbf2fa42ad",
+            "chunk_baaf08310093887c1ec0215c22b5bc5f",
+            "chunk_239a904d24edcde1f10ae78cc2e0813b",
+            "chunk_1b0aee171afcd96c3fa663b6e5548ad4",
+            "chunk_ca7b2b7bc857c15513a94d5482beabbd",
+            "chunk_44172900cd92ac08a841e39ee7fcef52"
+          ],
+          "metrics": {
+            "recall@5": 0.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.125
+          }
+        },
+        {
+          "query": "周口市‘十四五’市场监管规划要求食品生产经营者建立什么追溯与自查制度？到2025年自查率目标是多少？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_38af8afb92cd0f36da29cd45e4f0d9a0"
+          ],
+          "retrieved_ids": [
+            "chunk_38af8afb92cd0f36da29cd45e4f0d9a0",
+            "chunk_ad82e22724e8227db5385ddb90f97642",
+            "chunk_1d1f8ab1421811d7a43db109db80d534",
+            "chunk_3cca0f02f1fcbf9ce2b66957424a39f1",
+            "chunk_2daa572e99f680ec0363f6f09c198707",
+            "chunk_01417cfae551cb16ce28436a8c473555",
+            "chunk_b53ff346952fb8ed6441f03118bebcef",
+            "chunk_ad1fb556e44ce9e61a672cfd32b77ec9",
+            "chunk_4b67848eabb4445264a75f67ab1b620f",
+            "chunk_8fdc090c04f75ae60fb62d8eb245538d",
+            "chunk_85c1260901ee6f8c189954f108a5d82b",
+            "chunk_1e7da95c5c22c7f5397ab87274077a9c",
+            "chunk_55d2dffca9f1a945bd9fb0836127985f",
+            "chunk_c8f78772f495510a964340f2cab8c937",
+            "chunk_4c05a6e48d965ab280e82ae411b0e559",
+            "chunk_7fbb0da57ea80e4a58cb404cbf8a91ca",
+            "chunk_ffc3054ac38db24c2574142657b8cbc0",
+            "chunk_0545c1ba7fd2f3ffb4c684d6becd6c01",
+            "chunk_3f1645fb6f1d45702bc64cccd646c601",
+            "chunk_e7650b479d2e455e25fdb2b57c348432"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "宁都县‘十四五’促进就业规划记载，创业担保贷款累计发放多少、直接扶持多少人次并带动多少就业？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_192b8b5304253fe54d4c2b5f587e801f"
+          ],
+          "retrieved_ids": [
+            "chunk_192b8b5304253fe54d4c2b5f587e801f",
+            "chunk_de98d11aad01d154eb4d6a36225fbc9e",
+            "chunk_3f6974360149cb91345c2c8a6190e928",
+            "chunk_3f27232d09fb893378a40bc843690f91",
+            "chunk_af9dcf6087e0070b961aabb707138791",
+            "chunk_d16cb6333050d451a972971cc75d329a",
+            "chunk_2ee115216aac710e010dfe2317475abc",
+            "chunk_63c859c00d439faf16ff4a0cad4311a3",
+            "chunk_c3e9135d9733d3341b11e43cc8431f97",
+            "chunk_b471cf05270f8d7e7e899b6794eab813",
+            "chunk_83b87c711092600d439720dc938fe89e",
+            "chunk_eaeb42df384d8db3ac44c22a983ca567",
+            "chunk_8d563074750b642c967fe8db00ccd539",
+            "chunk_b4f0af40830576bc5ca932ece2b12ce2",
+            "chunk_19eb54aacf8c82ddc01abffd36329240",
+            "chunk_b1ed03afea67f264772e1c1fc8a7f7c0",
+            "chunk_4948def76e1f8836d256225927e5d482",
+            "chunk_51291f7f6e3a70eb9851389adc844df5",
+            "chunk_c50b49b9c086e2cb55277091a3d8ca4d",
+            "chunk_674c0b239e0544c1fc72c635991da050"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "池州市‘十四五’商务发展规划支持外贸企业拓展新业态时，提到发展哪些贸易形式和海外仓？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_e6c39a56c5b84818db97fdb928bfcb13"
+          ],
+          "retrieved_ids": [
+            "chunk_e6c39a56c5b84818db97fdb928bfcb13",
+            "chunk_cc3cef4bb180f4f92b962b403742adda",
+            "chunk_39ad7490a1348bb24cdbcd7de03f9e12",
+            "chunk_3302173e67d4a693f1ad2cf987a2d305",
+            "chunk_0560066569a22fa10611fe785e45d5ad",
+            "chunk_330f510e335c24acf762f27329cd39cf",
+            "chunk_4a3a1dfe420cec7d8d3ffb7f3a03211b",
+            "chunk_567f63cb16e8f71c789c71be03be7e7a",
+            "chunk_88c2bb1cf8899809ea857445f8ecc321",
+            "chunk_599566d8d25aecf7f2d83546ba42eed8",
+            "chunk_ca0c25897886890a194ff024a80ef836",
+            "chunk_858cc35547270b8702cabb44d3ae2648",
+            "chunk_1ea0e5172306de1254cde2c792195f35",
+            "chunk_185dbc96ce579a7309f096926d84009b",
+            "chunk_570cb6eb400b18dba5f80a480869b920",
+            "chunk_998b214f2cedaf59785e7aadcd581dab",
+            "chunk_ca813da13f96b46a01246d71931b4d00"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "襄阳市新型智慧城市‘十四五’规划如何落实网络安全等级保护，并保护政务云、物联网等新型基础设施？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_4b99c2255901097f9b1df7ec17cb19cc"
+          ],
+          "retrieved_ids": [
+            "chunk_4b99c2255901097f9b1df7ec17cb19cc",
+            "chunk_a81f119acaa2460c6722662ec0eb61ea",
+            "chunk_04b94a05abbbeed6e284aac10be55f7d",
+            "chunk_00fb0f8f313141caa54d469a6e515180",
+            "chunk_37bece55f777381a822f1d5282e76d7c",
+            "chunk_6669f674350568b33b169bc1c7782c68",
+            "chunk_8a47924e68e616f3be0b1287d81c2666",
+            "chunk_fd6df815028edee34950e9e827d7d857",
+            "chunk_d507a5e8b4968100a958f3543504cef5",
+            "chunk_d445a5ea554d23b7ddfcbf65768ced0e",
+            "chunk_b9bd30a222182b06a8db69241da52334",
+            "chunk_d4318ec26747e9fdf1ede0e12f6cba3d",
+            "chunk_e42644bc983dcf27814a0f6eb39ebb01",
+            "chunk_082f5301159d63e25e109162d12eeab4",
+            "chunk_577292b3759f4d3e671172d91209dbfe",
+            "chunk_6945f5dc4b87dc8ca3cb523542c57927",
+            "visual_chunk_c0bc3f78fceea63d4e58ddc5cb20dcfd12b02f76a671d2a10bf3cf22a0bc2f44",
+            "visual_chunk_e37c521a308d0236af4c116b95a54dbe3101202eeac10643afbf18a6ac5ab388",
+            "visual_chunk_20056f3f1f75119a65de1a759f739edf0be9ed5ad44a38f4f4460830f6b20eb0",
+            "visual_chunk_1bfd9d5eafa538b6ac7c8cacf6fce67eb72faa12167bb912edc4f92517a98936"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "宿城区农村生活污水专项规划修编采用‘双60’标准时，治理率的2022年和‘十四五’目标分别是多少？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_3a84beb88b2dea1f490093ad9319f1ae"
+          ],
+          "retrieved_ids": [
+            "chunk_13b33f84fc0a516f0cbb6eb6bd138f8a",
+            "chunk_3a84beb88b2dea1f490093ad9319f1ae",
+            "chunk_ee1e3015cbe0dbb81c12067b1a88379b",
+            "chunk_1676df8a931494e8fbf52fc83a7aae69",
+            "chunk_8082c4d6d3fc4397ec9c8859ea9a8b79",
+            "chunk_2f9ec6fe7206998cb0f82ae337dfa05a",
+            "chunk_d141b9d4ab4f92b07dc9c40a5edd83de",
+            "chunk_b9f748bd52312dc438ea985789583faa",
+            "chunk_35ad37d24cd116b973dc2d7ac53e62e4",
+            "chunk_4299bf001d9253049fbd115ba7ba7614",
+            "chunk_0babd7d4b77d46d951d8af2187c78400",
+            "chunk_61d8cc5afe134f41ee8967860bb843cb",
+            "chunk_b0671d0619a97e5a7be94e86654eaf67",
+            "chunk_52479c2a92176890af7d9b007f05d6c2",
+            "chunk_fe0df64fe77a5ba942374619b09293c8",
+            "chunk_22fd841fec839af79e076317e4b0be8e",
+            "chunk_372e3c3d82816816db6b6170dbdce368",
+            "chunk_8ea6d4ff4388307b7fd9143ca7418a34",
+            "chunk_86f78ec43d2c1cec6b126af1d9e79dd2",
+            "chunk_6e2c26c83c8f2220fc0b4bb1a5b4febc"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.5
+          }
+        },
+        {
+          "query": "山东省动物疫病防控‘十四五’规划如何改革强制免疫补助，并结合什么策略防控疫病？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_e04205f64c02b948054255b339e1564b"
+          ],
+          "retrieved_ids": [
+            "chunk_cd8035895c711a1515d53f36680adfa1",
+            "chunk_cd2764fe167208c0d118d6b9987c639e",
+            "chunk_21409bca0ae857e77eaf7c300821a274",
+            "chunk_e04205f64c02b948054255b339e1564b",
+            "chunk_e440fea1983d627e5120d0ad066f233b",
+            "chunk_0a0f5b0684fa0c3dc80cfd582bd4f283",
+            "chunk_dfab5416da5105b869c5fe4aedfdbad5",
+            "chunk_75cd875e1cfe3107c063947bc1b2f6f6",
+            "chunk_5ca28cac47b0860cebb89422dd5e3ffd",
+            "chunk_747a1c04307eb017d9b7d59646aa2e8d",
+            "chunk_8354728f5f7026865ea6021df125a826",
+            "chunk_39a5c9939a11460a9b35760c90a042b9",
+            "chunk_fc3659385440a49318b6191ca3083736",
+            "chunk_d08643c4562558dc65354b94e6dceec0",
+            "chunk_a5b98f353c5bcdec5ceed82845fc9e86",
+            "chunk_434fc6316e9128c9b506439a8837caa8",
+            "chunk_5a4645e6a63dae53a641f990b1d784f6",
+            "chunk_981908712c44b87e0dbd305195e17e7e",
+            "chunk_1a6593f88d9c2bebc01d66710a4475d5",
+            "chunk_fb2eee6d51799b5f6a013ef9c4351eb3"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.25
+          }
+        },
+        {
+          "query": "宿迁市气象灾害防御规划如何把上级突发公共事件预警信息转发传递给本地？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_b723f9261ec9cb115dddaa5baf81fe1b"
+          ],
+          "retrieved_ids": [
+            "chunk_b723f9261ec9cb115dddaa5baf81fe1b",
+            "chunk_af7fc3728784c9c0782af7341940540b",
+            "chunk_2a9fb582cc9eea05d3a8806b27b019fe",
+            "chunk_9cadfe8e8a6bed147c2ad51cb7903848",
+            "chunk_b9989980414720aaa471c24867d73541",
+            "chunk_47cec67c532367f12eb151e484ef109f",
+            "chunk_e31586c6c8dce5350599e5dba6ce75d3",
+            "chunk_d0928d75f39cf27349890565626baf84",
+            "chunk_1f3d5f1a58d05b530f7943f537d6bb7f",
+            "chunk_960557009af5e650ba91eefb5fc78353",
+            "chunk_6b085efd0b2f58d724fed640fde48639",
+            "chunk_a4d466805d52e570810fd6608205d952",
+            "chunk_6a860af9a6d47ccce26999eba3d9d620",
+            "chunk_6cae1b6c75f2f892bd0f3a8dd88a8ec1",
+            "chunk_2b9079cad32f1a1cd6f60d5b93209932",
+            "chunk_78e17c73c4c2f0e55b7baeea633c39a5",
+            "chunk_52a6b1ee8659615b20fe974d26f59b63",
+            "chunk_3b8b64409e3c81f51fb5ca88b82beeba",
+            "chunk_53209aed61e7322b889e39406c5d452a",
+            "chunk_93cc628667c4bfa34499e7384fff6eb5"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "立山区‘十四五’退役军人事业规划怎样通过街道、社区（村）服务站把政策服务送到基层？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_51e3e4e2e0e18ab25edbd1828cc3f83f"
+          ],
+          "retrieved_ids": [
+            "chunk_51e3e4e2e0e18ab25edbd1828cc3f83f",
+            "chunk_bc1229a78aeeefa481ef5fa2a65215b2",
+            "chunk_fe0d5a38be133dd7a934dcda19bc61f5",
+            "chunk_a8a41ecc789b264a9f28f161bbff324c",
+            "visual_chunk_9547a18aa7aa5f137ddf2de165848f0aaf3a500720147692889a930fb46501e1",
+            "chunk_f9cf4e06dab087c795b32268b8c2c7e0",
+            "chunk_7137128012b07408f4710aa1c24ab688",
+            "chunk_65c18260c314452fcfaf1f60a959eb59",
+            "chunk_cf494c8fbedabefa8a31f669828b93d7",
+            "chunk_202fa26dac9642c8e356d0a9ec132625",
+            "chunk_b68c020bc05b1fcdcf0e3b656cbd930a",
+            "chunk_dbceff8768caa01c19fc45d888de37c4",
+            "chunk_a246303c5a751422c36dc3387da788ed",
+            "visual_chunk_ece04cbc00c9414fef9419ce2d7d7d485f1e2daa7a6e42b65a95430ae0fca233",
+            "chunk_075c6c641a34af85df82c4a2fbd25914",
+            "chunk_c4272c2cfd3f926a20d6f73eda471911",
+            "chunk_3e94e055229f20cec053264deacd8974",
+            "chunk_1bf1a6fcc94ec4d806ef5a9f669017f3"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "泸州‘十四五’医保规划的DIP示范点与多元支付改革，还提出哪些长期住院支付和医共体结算安排？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_690873773d67697e6796276b1c5ff84a"
+          ],
+          "retrieved_ids": [
+            "chunk_690873773d67697e6796276b1c5ff84a",
+            "chunk_e218e06369a2e1e2761755b9668b65c8",
+            "chunk_42cd771d162618d4317890b86ffcd253",
+            "chunk_7ba4d337e2e3ae241850e0bcadcbd506",
+            "chunk_c7506965ab35a3ad7c848f3401524659",
+            "chunk_dce2e5f583dda516026c9d1ef4cb7264",
+            "chunk_651415737c7c4a48e0b0fb7794ce4f8b",
+            "chunk_a831e5620bac548e4095a664c8af2aac",
+            "chunk_48fa3b718886bcb89230fc51d2fc82b2",
+            "chunk_3b7401f663b53f756f3a8e4d4d74325d",
+            "chunk_d576845790bf139520c6065737fbde5a",
+            "chunk_fd58434e7eb143c435d71ab295ec3a5c",
+            "visual_chunk_70ad448feb19ad80f84c1ac8b1ef5b4ba608d800164c6d74417db9a78f0a1427",
+            "chunk_2daa8a28998732512fb00f2fa6cacc45",
+            "chunk_482b0ba1e99cf4fe4d777083b564c873",
+            "chunk_0ceb4415e2a8c2b06b56b2c9f2692269",
+            "chunk_4559b57a0fa9160b67791b0fd513e5be",
+            "chunk_dfcc189632ca341d1aef4598ca528828",
+            "chunk_47ac8037d7701ea4709f60c2028bfc62",
+            "chunk_60d86b43ea58f00f0216c84b919f3f45"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "金昌市‘十四五’服务业规划给2025年农产品网络零售额设定多少目标，并提出怎样的城乡流通方向？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_2eccbee5977c043c86b46440a2ea3e1b"
+          ],
+          "retrieved_ids": [
+            "chunk_2eccbee5977c043c86b46440a2ea3e1b",
+            "chunk_fc608db209e394aa6f737b019b31513c",
+            "chunk_fcf2968520604d274814651b20bc865f",
+            "chunk_c7dd354fd1d88ff6270cfc38f9030513",
+            "chunk_17f5f875b7a20232f0e3cdb2e83c1b74",
+            "chunk_31dbe457929bfb3b75b93df845a4b999",
+            "chunk_146a98f45e12d0a1a9a753380f81aae5",
+            "chunk_425551b3a1b6c17c1aa26647cda80fa6",
+            "chunk_2f17cf952fa9aa4a4d48d852db7e6d07",
+            "chunk_54c623bc75146eccf40797f977539b98"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "怒江州安全生产‘十三五’规划要求企业把法定代表人、实际控制人和岗位人员的责任具体落实为何种清单及追溯制度？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_895d01b275b01bc26f887774a8d06bce"
+          ],
+          "retrieved_ids": [
+            "chunk_895d01b275b01bc26f887774a8d06bce",
+            "chunk_1aeae99d5baf86b07ac4c99b38f31cb7",
+            "chunk_9645d03eb251acbaf44f71e2af438564",
+            "chunk_308b2ddcf25a8b4ecaeb107d60a53cca",
+            "chunk_b48fde6efe8a6a6497c2f8a160cd7e23",
+            "chunk_ed1db7e7c61fbbf51ed3ed073c5ab2a9",
+            "chunk_3e2aa8d7aea1cb21441dc42a275ab80e",
+            "chunk_ddda36924a41215f132cbdbd29484006",
+            "chunk_191fd6518a11d8c589f953c66f215568",
+            "chunk_01417cfae551cb16ce28436a8c473555",
+            "chunk_0fc8d7b2383048bb50e6fa24abf6a765",
+            "chunk_b11ccf4053a58a659b36c3bcf6719e06",
+            "chunk_e8fd6fc24b40cdc93c2a2f17b6482a44",
+            "chunk_9de29a01769bbb1d64475e2bbd6466d0",
+            "chunk_bd69f40ce6a0b02eb3f691ab773cbf19",
+            "chunk_ab85dfb6bc73cc63ca58ac579658f042",
+            "chunk_9b0323f834413852439e8ff9d78e17ac",
+            "chunk_38af8afb92cd0f36da29cd45e4f0d9a0",
+            "chunk_f0b2fdeafa8ff093b4b8e36540296aaa"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 1.0
+          }
+        },
+        {
+          "query": "成都‘十四五’水务规划中，中心城区‘5+1’区域的防洪与内涝防治标准分别达到多少年一遇？",
+          "identifier_field": "relevant_chunk_ids",
+          "relevant_ids": [
+            "chunk_60fd7286fa439942bb92d511048da0f6"
+          ],
+          "retrieved_ids": [
+            "chunk_b769c208dde9d52ddee5f0a39c23a417",
+            "chunk_a48d050b23956b8de3c42a77609ccc8c",
+            "chunk_4e15c510fb4fb5fa63e93b0b562870b1",
+            "chunk_3a4ddb412dc90c6a526397f69c339913",
+            "chunk_60fd7286fa439942bb92d511048da0f6",
+            "chunk_44bb1630350eee52f20b7e9f1a8433b6",
+            "chunk_5eb26541155014c7afeaad972e7b2712",
+            "chunk_f8ac4e6cc1487e978ef0415f22f70e7c",
+            "chunk_494b1195614bb8ed3f3bbfff7a16cd62",
+            "chunk_a967873f5cbf0461caa7dee8acd4652a",
+            "chunk_108b3dd5a50b4dc9e7bcf99287cbb510",
+            "chunk_a879623076a17b2771f6ecfd5ccaf98b",
+            "chunk_8f4315303cb26c9ad446e88460c63eae",
+            "chunk_8e1a2203471e7df8546135799ceab1ab",
+            "chunk_d9adadd7149d5105be9245d5f1e9181c",
+            "chunk_6e06c94c935a3ec859306a88d3d3972c",
+            "chunk_6e35ddcb2757266787b8866993481d52",
+            "chunk_18266d4cdd6f732f26cc7ba4ba33428e",
+            "chunk_ed02a8e3b90bfc73ae556e151ba0f9fd",
+            "chunk_5c5acf116fac6a4a6316c4a2f65214a8"
+          ],
+          "metrics": {
+            "recall@5": 1.0,
+            "recall@8": 1.0,
+            "recall@20": 1.0,
+            "mrr": 0.2
+          }
+        },
+        {
+          "query": "逝有所安重点工程 骨灰安放 殡仪馆",
+          "identifier_field": "relevant_source_ids",
+          "relevant_ids": [
+            "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76"
+          ],
+          "retrieved_ids": [
+            "visual_chunk_e1cb75b99fa2985075f634e6c1975db7e9c0507eaf5ac7b819353872fc5fa2cc",
+            "visual_chunk_665b1fb4ebbe439219d04bc6d0d8c83a18b592bc3ae712dddd9ce834b04b37c4",
+            "visual_chunk_f8c479a203199868ef8040d57290c8fc919e960141044bef47c03fcf04264b6b",
+            "visual_chunk_0f6dbfc1898c8fe3109907d9cc43c87fdff8da5e3cef319f52e552f3b9f2338c",
+            "visual_chunk_8ca40cd06378c9a3571148546fec87026d78563cf1890c419a6a9794a27f9297",
+            "visual_chunk_65496fcceb5368510174cdf5e43f2a15a1ff96bcb240597c1a814f000272471a",
+            "visual_chunk_6fc3aac47e6c4e39da83a8b5cd1bbbef16e1e82ce2b4091c45ad76fb62a1e4d6",
+            "visual_chunk_376844bd0f34d59d35de0687ee28c89bb765089441549addc97b74b9f6f78608",
+            "visual_chunk_a8c8fe5cfc8fe331d11bdd705e5e4e5967214003b43b07853a750462cbcad37b",
+            "visual_chunk_1131edc2e011f3b44259da51066328e18d106f833391d2b0d3eb42bd5a6e75f4",
+            "visual_chunk_21290e2375db48885c1e32e5bc440a94f62b907e341593b8abb798ea4570ed5b",
+            "visual_chunk_8e4a508ff4214b4102f14453b7ee570d7d41236b01d2f281f4e7342a1eeb2b5d",
+            "visual_chunk_2a2f77bd4e1f18ac99dde95a626445ffd273ae75e816c2d8d4ade554b92ebb16",
+            "visual_chunk_8e88a33b77f699d3d2a1233f726847e37c9872389be5a0f2698c1c5a28735516",
+            "visual_chunk_ea15a37d003491df952e197b390886aad53b19a22246abca2915494b577b75a7",
+            "visual_chunk_1e6f5d432566f2328cdbce42c8adc60428434267f4e7863e0d5d9b11a9b99842",
+            "visual_chunk_b6463a15e038ebcd4dba60219468d8f443edfb6ec3517b5fb0d3803c9c75956e",
+            "visual_chunk_2d7f1a17b95d298e1b043552f5efc52e14dc455132118fdd458134078338bf76",
+            "visual_chunk_0d885a9b32128ada96095bd044f04834d5ab3073386f1dcf4c87736d43876797",
+            "visual_chunk_d8e23c4199431246574ba82955bb793703fbeb6999367c7f04e0b1674b708a4b"
+          ],
+          "metrics": {
+            "recall@5": 0.0,
+            "recall@8": 0.0,
+            "recall@20": 1.0,
+            "mrr": 0.05555555555555555
+          }
+        }
+      ]
+    }
+  ]
+}

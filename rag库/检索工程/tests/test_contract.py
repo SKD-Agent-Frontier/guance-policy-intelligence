@@ -77,6 +77,36 @@ def test_read_paging_exact_reconstruction_and_versions(options):
         assert respond(kb, {"operation": "drop"})["status"] == "invalid_argument"
 
 
+def test_prepare_reasons_propagate_to_hits_chunk_spans_and_passages(options):
+    reasons = {
+        "chunk_a_0": ["prepare_warning_a", "prepare_warning_a"],
+        "chunk_a_1": ["prepare_warning_b", "prepare_warning_b"],
+    }
+    with sqlite3.connect(options.store_project / ".runtime/local/metadata.sqlite3") as db:
+        for chunk_id, chunk_reasons in reasons.items():
+            raw = db.execute("SELECT data FROM objects WHERE id=?", (chunk_id,)).fetchone()[0]
+            chunk = json.loads(raw)
+            chunk["reasons"] = chunk_reasons
+            data = json.dumps(chunk, ensure_ascii=False)
+            db.execute("UPDATE objects SET data=?,data_hash=? WHERE id=?",
+                       (data, hashlib.sha256(data.encode()).hexdigest(), chunk_id))
+
+    with RagKnowledgeBase(options) as kb:
+        hit = next(hit for hit in kb.search("养老服务", area="苏州", top_k=4) if hit.chunk_id == "chunk_a_0")
+        assert hit.quality_warnings.count("prepare_warning_a") == 1
+
+        chunk_passage = kb.get_chunk_source("chunk_a_0")
+        assert chunk_passage.quality_warnings.count("prepare_warning_a") == 1
+        assert chunk_passage.chunks[0].quality_warnings.count("prepare_warning_a") == 1
+
+        section_passage = kb.read("1001", section_idx=0, max_chars=6000)
+        chunk_warnings = {span.chunk_id: span.quality_warnings for span in section_passage.chunks}
+        assert chunk_warnings["chunk_a_0"].count("prepare_warning_a") == 1
+        assert chunk_warnings["chunk_a_1"].count("prepare_warning_b") == 1
+        assert section_passage.quality_warnings.count("prepare_warning_a") == 1
+        assert section_passage.quality_warnings.count("prepare_warning_b") == 1
+
+
 def test_real_bm25_prefilter_contexts_and_shared_thread(options):
     with RagKnowledgeBase(options) as kb:
         hits = kb.search("养老服务", area="苏州", fyp="十四五", top_k=2)

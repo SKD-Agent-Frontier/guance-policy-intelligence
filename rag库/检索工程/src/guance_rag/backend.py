@@ -265,7 +265,7 @@ class StoreBackend:
             raise InvalidArgument("offset超出所选非空块或章节范围")
         a, end = whole["start"] + offset, whole["end"]
         b = min(end, a + max_chars)
-        intersections, boundary_warnings = [], []
+        intersections, boundary_warnings, prepare_warnings = [], [], []
         candidates = [(whole["start"], whole["end"], chunk["id"])] if chunk else [x for s in self.store.sections[doc.data["id"]] for x in self.store.section_chunks[s["id"]]]
         for start, stop, cid in sorted(candidates):
             left, right = max(start, a), min(stop, b)
@@ -274,8 +274,11 @@ class StoreBackend:
             source = self.store.object(cid)
             own_section = self.store.section(doc, chunk=source)
             own_meta = self.store.metadata(doc, own_section)
-            own_warnings = self.store.chunk_section_warnings(doc, source, own_section)
-            boundary_warnings.extend(w if chunk else w + ":" + cid for w in own_warnings)
+            own_prepare_warnings = source.get("reasons", [])
+            prepare_warnings.extend(own_prepare_warnings)
+            own_section_warnings = self.store.chunk_section_warnings(doc, source, own_section)
+            own_warnings = list(dict.fromkeys(own_prepare_warnings + own_section_warnings))
+            boundary_warnings.extend(w if chunk else w + ":" + cid for w in own_section_warnings)
             intersections.append(ChunkSpan(chunk_id=cid, chunk_char_start=start - doc.origin, chunk_char_end=stop - doc.origin,
                                            char_start=left - doc.origin, char_end=right - doc.origin,
                                            complete=left == start and right == stop,
@@ -297,7 +300,7 @@ class StoreBackend:
                           next_offset=b - whole["start"] if b < end else None, chunks=intersections,
                           media_sources=self.media.references(doc, a, b),
                           contexts=contexts, required_relation_ids=required,
-                          quality_warnings=list(dict.fromkeys((chunk.get("reasons", []) if chunk else []) + warnings)))
+                          quality_warnings=list(dict.fromkeys((chunk.get("reasons", []) if chunk else prepare_warnings) + warnings)))
 
     def get_chunk_source(self, chunk_id, *, document_id=None, generation_id=None, deadline):
         self._identifier(chunk_id, "chunk_id")
