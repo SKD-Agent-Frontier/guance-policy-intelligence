@@ -12,7 +12,12 @@ class RagKB:
     name = "rag-local"
 
     def __init__(self, store_project: str = "", mode: str = "bm25"):
-        from guance_rag import RagKnowledgeBase, RuntimeOptions
+        try:
+            from guance_rag import RagKnowledgeBase, RuntimeOptions
+        except ImportError as exc:
+            raise ValueError(
+                "KB_BACKEND=rag 需要先安装 guance_rag："
+                "pip install -e rag库/检索工程") from exc
 
         options = RuntimeOptions(mode=mode, store_project=store_project) if store_project \
             else RuntimeOptions(mode=mode)

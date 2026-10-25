@@ -39,7 +39,11 @@ async def _run(args):
         settings = load_settings()
         if settings.kb_backend == "rag":
             # 构造 RagKnowledgeBase 会阻塞，必须在接收请求前移到线程池完成预热。
-            await asyncio.to_thread(warm_up, settings)
+            # 预热失败不在这里崩：让首个 submit 报出可读的配置错误。
+            try:
+                await asyncio.to_thread(warm_up, settings)
+            except Exception as exc:       # noqa: BLE001
+                print(f"预热失败：{exc}", file=sys.stderr)
         return await _interact(args)
     finally:
         close_kb()
