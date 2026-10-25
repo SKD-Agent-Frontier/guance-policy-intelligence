@@ -27,6 +27,7 @@ class SourceMeta(BaseModel):
     offset_unit: str | None = None
     body_origin: int | None = None
     contract_version: str | None = None
+    quality_warnings: list[str] = Field(default_factory=list)
 
 
 class Hit(SourceMeta):
@@ -48,6 +49,9 @@ class Hit(SourceMeta):
     truncated: bool = False
     score: float
     source_type: str | None = None
+    contexts: list[dict] = Field(default_factory=list)
+    required_relation_ids: list[str] = Field(default_factory=list)
+    media_sources: list[dict] = Field(default_factory=list)
 
 class ChunkSpan(BaseModel):
     chunk_id: str
@@ -56,6 +60,12 @@ class ChunkSpan(BaseModel):
     chunk_char_start: int | None = None
     chunk_char_end: int | None = None
     complete: bool = False   # 整块是否完整出现在本页；False 不能登记为已读完整块
+    # 块自身的章节归属，不能拿当前父章节范围替代
+    section_id: str | None = None
+    section_path: str | None = None
+    section_char_start: int | None = None
+    section_char_end: int | None = None
+    quality_warnings: list[str] = Field(default_factory=list)
 
 class Passage(SourceMeta):
     planid: str
@@ -79,6 +89,9 @@ class Passage(SourceMeta):
     next_offset: int | None = None           # 对象内下一页起点；读完为 None
     chunks: list[ChunkSpan] = Field(default_factory=list)
     sections: list[dict] | None = None
+    contexts: list[dict] = Field(default_factory=list)
+    required_relation_ids: list[str] = Field(default_factory=list)
+    media_sources: list[dict] = Field(default_factory=list)
 
 class ToolResult(BaseModel):
     status: ToolStatus
@@ -114,6 +127,7 @@ class EvidenceRef(SourceMeta):
     source: Literal["kb_search", "kb_read"]
     observed_ranges: list[tuple[int, int]] = Field(default_factory=list)
     complete: bool = False   # 已见范围是否覆盖完整块
+    out_of_section: bool = False   # 完整块越出登记章节：可引用，但不能当单章节证据
 
 class RunError(BaseModel):
     code: str

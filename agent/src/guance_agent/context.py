@@ -5,6 +5,7 @@ from .config import Settings
 from .kb import KnowledgeBase
 from .schemas import EvidenceRef, Hit, Passage
 
+# 确定性校验用的常量；证据字段白名单见下方 REF_FIELDS。
 # 段落级读时这些字段由 ChunkSpan 提供或只属于响应本身，不写进证据。
 COORD_BASES = frozenset({"body_first_non_whitespace"})
 COORD_UNITS = frozenset({"unicode_codepoint"})
@@ -48,6 +49,9 @@ def check_ref(ref) -> str | None:
     if ref.section_char_start is not None and ref.section_char_end is not None:
         if not (ref.section_char_start <= ref.chunk_char_start
                 and ref.chunk_char_end <= ref.section_char_end):
+            # 后端已自己标记越界：接受，但不能当单章节证据用
+            if "chunk_outside_section" in ref.quality_warnings:
+                return None
             return "块越出所属章节范围"
     if ref.offset_basis is not None and ref.offset_basis not in COORD_BASES:
         return f"不支持的坐标基准：{ref.offset_basis}"
@@ -75,9 +79,13 @@ def covers(ref) -> bool:
                for start, end in ref.observed_ranges)
 
 
-PASSAGE_ONLY = frozenset({"content", "chunks", "sections", "truncated", "is_index",
-                          "read_scope", "next_offset", "char_start", "char_end",
-                          "chunk_id", "chunk_char_start", "chunk_char_end"})
+# 证据只保留这些字段；段落级读时块自身的范围与章节由 ChunkSpan 覆盖。
+REF_FIELDS = ("planid", "chunk_id", "parent_id", "title", "area", "fyp", "admin_level",
+              "plantype_label", "section_idx", "section_path", "char_start", "char_end",
+              "chunk_char_start", "chunk_char_end", "truncated", "document_id",
+              "document_version_id", "generation_id", "source_hash", "section_id",
+              "section_char_start", "section_char_end", "offset_basis", "offset_unit",
+              "body_origin", "contract_version", "quality_warnings")
 MIN_SECRET_LEN = 8   # 过短的"密钥"（如测试用单字符）全局替换会误伤无关字段
 
 
@@ -116,7 +124,7 @@ class EvidenceRegistry:
             return
         ref = ref.model_copy(update={
             "observed_ranges": merge_ranges([(ref.char_start, ref.char_end)]),
-            "complete": False,
+            "out_of_section": "chunk_outside_section" in ref.quality_warnings,
         })
         ref = ref.model_copy(update={"complete": covers(ref)})
         existing = self._refs.get(ref.chunk_id)
@@ -138,6 +146,7 @@ class EvidenceRegistry:
             "char_start": min(old.char_start, new.char_start),
             "char_end": max(old.char_end, new.char_end),
             "source": new.source,
+            "out_of_section": old.out_of_section or new.out_of_section,
         })
         return merged.model_copy(update={"complete": covers(merged)})
 
@@ -166,7 +175,7 @@ class EvidenceRegistry:
         refs, problems = [], []
         if isinstance(data, list):
             for hit in data:
-                ref = EvidenceRef(**hit.model_dump(exclude={"content", "score"}), source=source)
+                ref = _to_ref(hit, source)
                 reason = check_span(hit.char_start, hit.char_end, hit.content) or check_ref(ref)
                 refs.append(ref)
                 if reason:
@@ -177,14 +186,34 @@ class EvidenceRegistry:
         reason = check_span(data.char_start, data.char_end, data.content)
         if reason:
             problems.append({"chunk_id": data.chunk_id or "", "reason": reason})
-        metadata = data.model_dump(exclude=PASSAGE_ONLY)
         for chunk in data.chunks:
-            ref = EvidenceRef(**metadata, **chunk.model_dump(exclude={"complete"}), source=source)
-            refs.append(ref)
+            # 块自身的章节归属优先；缺了才退回父章节，不能拿父章节范围冒充块章节
+            ref = _to_ref(
+                data, source,
+                chunk_id=chunk.chunk_id,
+                char_start=chunk.char_start,
+                char_end=chunk.char_end,
+                chunk_char_start=chunk.chunk_char_start,
+                chunk_char_end=chunk.chunk_char_end,
+                section_id=chunk.section_id or data.section_id,
+                section_path=chunk.section_path or data.section_path,
+                section_char_start=chunk.section_char_start,
+                section_char_end=chunk.section_char_end,
+                quality_warnings=list(chunk.quality_warnings),
+            )
             reason = check_ref(ref)
+            refs.append(ref)
             if reason:
                 problems.append({"chunk_id": ref.chunk_id, "reason": reason})
         return refs, problems
+
+
+def _to_ref(source_obj, source: str, **override) -> EvidenceRef:
+    """按白名单把后端对象转成证据；不认识的字段一律不进来。"""
+    values = {name: getattr(source_obj, name, None) for name in REF_FIELDS}
+    values.update(override)
+    values["quality_warnings"] = list(values.get("quality_warnings") or [])
+    return EvidenceRef(**values, source=source)
 
 
 @dataclass

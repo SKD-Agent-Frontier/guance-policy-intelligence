@@ -30,6 +30,8 @@ class Settings:
     search_snippet_chars: int = 300
     read_max_chars: int = 6000
     kb_backend: str = "mock"
+    rag_store_project: str = ""   # 留空则用 guance_rag 的默认存储工程路径
+    rag_mode: str = "bm25"
     mock_kb_path: Path = ROOT / "mock_data/kb.json"
     session_path: Path = ROOT / "data/sessions.sqlite"
     run_log: Path = ROOT / "data/runs.jsonl"
@@ -48,8 +50,10 @@ class Settings:
                 raise ValueError(f"{name} 必须为正数")
         if self.top_k_default > self.top_k_max or self.llm_max_retries < 0:
             raise ValueError("top_k_default / llm_max_retries 超出范围")
-        if self.kb_backend not in {"mock", "sample"}:
-            raise ValueError("KB_BACKEND 仅支持 mock 或 sample")
+        if self.kb_backend not in {"mock", "sample", "rag"}:
+            raise ValueError("KB_BACKEND 仅支持 mock、sample 或 rag")
+        if self.rag_mode not in {"bm25", "dense", "hybrid"}:
+            raise ValueError("RAG_MODE 仅支持 bm25、dense 或 hybrid")
         if self.llm_temperature is not None and not 0 <= self.llm_temperature <= 2:
             raise ValueError("LLM_TEMPERATURE 必须在 0..2")
         if not self.llm_model.strip():

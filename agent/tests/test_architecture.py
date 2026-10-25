@@ -8,8 +8,8 @@ def test_source_structure_and_dependencies():
     # 不再限制行数：行数不是复杂度的可靠代理，且会诱导为凑数字而牺牲可读性。
     # 保留 SDK 导入边界与单向依赖两项结构性约束。
     source = ROOT / "src/guance_agent"
-    modules = ("config schemas kb kb_sample context tools agent client sessions "
-               "runtime runner output orchestrator main cli").split()
+    modules = ("config schemas kb_rag kb kb_sample context tools agent client sessions "
+               "runtime runner output verify orchestrator main cli").split()
     order = {name: i for i, name in enumerate(modules)}
     for path in source.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))

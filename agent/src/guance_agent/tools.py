@@ -67,7 +67,19 @@ async def _call(ctx, name, fn, *args, **kwargs):
             detail = (f"{type(exc).__name__}: HTTP {exc.status_code}"
                       if isinstance(exc, APIStatusError) else f"{type(exc).__name__}: {exc}")
             detail = sanitize_error_detail(detail, ctx.settings)
-            result = ToolResult(status="backend_error", message="检索服务异常，暂时不可用（详情只写日志）")
+            # 真实 RAG 的业务异常带 .status，直接映射；其余才算后端故障
+            status = getattr(exc, "status", None)
+            if status == "not_found":
+                result = ToolResult(status="not_found", message=str(exc))
+            elif status == "no_text":
+                result = ToolResult(status="no_text", message="该篇目没有可用正文，无法引用原文")
+            elif status == "invalid_argument":
+                result = ToolResult(status="invalid_argument", message=f"参数不合法：{exc}")
+            elif status == "timeout":
+                result = ToolResult(status="timeout", message="检索超时，检索服务暂时不可用")
+            else:
+                result = ToolResult(status="backend_error",
+                                    message="检索服务异常，暂时不可用（详情只写日志）")
         else:
             # 返回类型必须与本次操作匹配，否则拒绝而不是悄悄登记为证据
             if not isinstance(data, list if name == "kb_search" else Passage):

@@ -131,7 +131,36 @@ def _build_kb(backend: str, path: str, snippet_chars: int) -> KnowledgeBase:
     if backend == "sample":
         from .kb_sample import SampleKB  # 延迟导入打破导入环
         return SampleKB()
-    raise ValueError("不支持的检索后端")
+    raise ValueError("不支持的检索后端: " + backend)
+
+_RAG_KB = None
+
+
+def warm_up(s: Settings) -> None:
+    """进程启动时调用一次：真实 RAG 后端在这里加载，避免首个请求被启动阻塞。
+
+    RagKnowledgeBase 构造会阻塞到 ready（BM25 约 11 秒，Hybrid 约 83 秒），
+    绝不能放进请求路径里。
+    """
+    global _RAG_KB
+    if s.kb_backend == "rag" and _RAG_KB is None:
+        from .kb_rag import RagKB
+        _RAG_KB = RagKB(s.rag_store_project, s.rag_mode)
+
+
+def close_kb() -> None:
+    """进程退出时调用：释放 RAG 的库线程与索引。"""
+    global _RAG_KB
+    if _RAG_KB is not None:
+        try:
+            _RAG_KB.close()
+        finally:
+            _RAG_KB = None
+
 
 def get_kb(s: Settings) -> KnowledgeBase:
+    if s.kb_backend == "rag":
+        if _RAG_KB is None:
+            warm_up(s)          # 冻加载兜底：没预热也能跑，但会阻塞当前请求
+        return _RAG_KB
     return _build_kb(s.kb_backend, str(s.mock_kb_path), s.search_snippet_chars)

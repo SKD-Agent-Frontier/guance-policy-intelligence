@@ -64,7 +64,9 @@ python -m pip install -e '.[dev]'
 | RUN_TIMEOUT、TOOL_TIMEOUT | 整次执行 180 秒、单次工具 20 秒 |
 | TOP_K_DEFAULT、TOP_K_MAX | 检索默认 8 条、上限 20 条 |
 | SEARCH_SNIPPET_CHARS、READ_MAX_CHARS | 检索片段最多 300 字、章节读取最多 6000 字 |
-| KB_BACKEND、MOCK_KB_PATH | mock、mock_data/kb.json |
+| KB_BACKEND | mock（默认）、sample、rag |
+| RAG_STORE_PROJECT、RAG_MODE | 留空用 guance_rag 默认路径；bm25（默认）、dense、hybrid |
+| MOCK_KB_PATH | mock_data/kb.json |
 | SESSION_PATH、RUN_LOG | data/sessions.sqlite、data/runs.jsonl |
 | LOG_CONTENT | off；on 仅用于本机调试，会额外记录问题与回答 |
 
@@ -138,7 +140,17 @@ python scripts/live_acceptance.py
 ## 检索接入与限制
 
 接口和样例位于 [contracts/kb_contract.md](contracts/kb_contract.md) 与 `contracts/samples/`。
-当前仅支持 MockKB；正式后端实现同一接口后，在 `get_kb()` 增加分支即可接入。
+支持三种后端：`mock`（默认，离线）、`sample`（用 RAG 交付的真实样例）、`rag`（真实检索工程）。
+
+`rag` 后端需要先安装 `rag库/检索工程`（`pip install -e rag库/检索工程`）并恢复运行数据。
+`RagKnowledgeBase` 构造会阻塞到索引就绪（BM25 约 11 秒，Hybrid 约 83 秒），因此
+**必须在进程启动时调用 `kb.warm_up(settings)`，不能留到首个请求**；退出时调用 `kb.close_kb()`。
+CLI 已在 `main()` 里接好这两步。首轮只取 `source_types=("text_chunk",)`，OCR 与图片留到第二阶段。
+
+证据诚信由三层确定性校验保证：坐标自洽（跨度非空、长度与坐标一致）、章节包含（块不得越出
+登记章节，除非后端已标 `chunk_outside_section`）、版本一致（版本/哈希/坐标基准）。后端提供
+`verify_quote` 时，`verify.py` 还会把每条引文换回原文逐字核对，只批准来自本次已见范围的句子。
+这一步只做字面核对，不判断语义是否支撑结论。
 正式接入前需要与 RAG 负责人确认字段、章节定位参数和规划期分类。
 
 只提供 `kb_search` 与 `kb_read` 两个只读工具，不提供 Web 服务、文档导出或真实语料检索。

@@ -75,6 +75,8 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
         result.warnings.append("以下结论缺少可核验证据，未被采信：" + "；".join(dropped_texts))
     if partial:
         result.warnings.append(f"有 {partial} 条结论的部分引用无法核验，相关表述未经完整证实")
+    if any(ref.out_of_section for ref in result.evidence_refs):
+        result.warnings.append("部分证据的完整块越出其登记章节，引用中的章节仅供定位参考")
     if parsed.insufficient:
         result.warnings.append("本次证据不足，以上结论可能不完整")
     all_dropped = bool(parsed.claims) and not result.claims

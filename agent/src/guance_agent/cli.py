@@ -6,6 +6,7 @@ import sys
 
 from .client import aclose_client
 from .config import ROOT
+from .kb import close_kb
 from .main import submit
 from .output import to_markdown
 
@@ -37,6 +38,7 @@ async def _run(args):
     try:
         return await _interact(args)
     finally:
+        close_kb()
         await aclose_client()
 
 
