@@ -1,7 +1,7 @@
 """工具契约与对外结果，不依赖 Agent SDK。"""
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
@@ -104,9 +104,22 @@ class Claim(BaseModel):
     quotes: list[str] = Field(default_factory=list)
 
 class AgentOutput(BaseModel):
-    answer: str
+    answer: str = ""
     claims: list[Claim] = Field(default_factory=list)
     insufficient: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_nulls(cls, data):
+        """模型常把 claims/answer 写成 null 或缺字段，容错成空值而不是整轮解析失败。"""
+        if isinstance(data, dict):
+            if data.get("claims") is None:
+                data["claims"] = []
+            if data.get("answer") is None:
+                data["answer"] = ""
+            if data.get("insufficient") is None:
+                data["insufficient"] = False
+        return data
 
 class EvidenceRef(SourceMeta):
     planid: str

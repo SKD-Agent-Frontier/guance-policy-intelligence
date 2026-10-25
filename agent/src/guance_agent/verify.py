@@ -19,9 +19,13 @@ async def verify_quotes(result, ctx) -> int:
     checker = getattr(ctx.kb, "verify_quote", None) if ctx else None
     if checker is None or not result.claims:
         return 0
-    dropped, checked, kept_claims = 0, 0, []
+    dropped, checked, skipped, kept_claims = 0, 0, 0, []
     for claim in result.claims:
-        if not claim.quotes or checked >= MAX_QUOTES:
+        if not claim.quotes:
+            kept_claims.append(claim)
+            continue
+        if checked >= MAX_QUOTES:
+            skipped += len(claim.quotes)
             kept_claims.append(claim)
             continue
         approved = []
@@ -38,6 +42,8 @@ async def verify_quotes(result, ctx) -> int:
             dropped += len(claim.quotes) - (1 if dropped else 0)
             continue
         kept_claims.append(claim.model_copy(update={"quotes": approved}))
+    if skipped:
+        result.warnings.append(f"有 {skipped} 句引文超出本次核验上限，未逐字核对")
     if dropped:
         result.claims = kept_claims
         result.warnings.append(
@@ -63,29 +69,61 @@ async def _approved(checker, ctx, claim, quote) -> bool:
 
 
 async def verify_numbers(result, ctx) -> int:
-    """答案正文里的数字必须出现在所引原文的已见范围内。
+    """数字必须与本条结论所引的原文对应，不能靠别的结论的证据蒙混过关。
 
-    只查数字，不查语义：数字是政策问答里最容易被编造、也最容易确定性核对的部分。
-    带百分号的数字缺失时降级为证据不足——这类数字几乎只能是凭空生成。
+    只查数字，不查语义。三件事都必须做到：
+    1) 按 Claim 分别核对，只拿这条结论自己引的证据；
+    2) 任何数字对不上都降级，不区分是不是百分号；
+    3) 取不到原文时明确记为「核验未完成」，不能当成通过。
     """
     getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
     if getter is None or not result.claims:
         return 0
-    tokens = list(dict.fromkeys(NUMBER.findall(LIST_MARKER.sub("", result.answer))))
-    if not tokens:
-        return 0
-    seen = await _seen_text(ctx, getter, result.claims)
-    if not seen:
-        return 0                      # 拿不到原文就不下结论，避免误报
-    missing = [token for token in tokens if not _present(token, seen)]
-    if not missing:
-        return 0
-    result.warnings.append(
-        f"答案中有 {len(missing)} 个数字未在所引原文的已见范围内出现："
-        + "、".join(missing[:8]))
-    if any("%" in token for token in missing):
+    cache, failed, problems = {}, set(), 0
+    for claim in result.claims:
+        tokens = _tokens(claim.text)
+        if not tokens:
+            continue
+        own = await _seen_text(ctx, getter, [claim], cache, failed)
+        if own is None:
+            result.warnings.append("数字核验未完成：无法取回该结论所引证据的原文")
+            problems += 1
+            continue
+        missing = [token for token in tokens if not _present(token, own)]
+        if missing:
+            result.warnings.append(
+                "结论「" + _clip(claim.text) + "」中的 " + "、".join(missing[:6])
+                + " 未在其所引原文中出现")
+            problems += len(missing)
+
+    # 没有结论承接的数字（叙述性表述、章节编号等）：放宽到任一所引证据里找。
+    # 仍找不到才算问题——不能因为「没被某条 claim 复述」就一律判错。
+    bound = {token for claim in result.claims for token in _tokens(claim.text)}
+    orphan = [token for token in _tokens(result.answer) if token not in bound]
+    if orphan:
+        union = await _seen_text(ctx, getter, result.claims, cache, failed)
+        if union is None:
+            result.warnings.append("数字核验未完成：无法取回所引证据的原文")
+            problems += 1
+        else:
+            stray = [token for token in orphan if not _present(token, union)]
+            if stray:
+                result.warnings.append(
+                    "答案中的 " + "、".join(stray[:6]) + " 未在所引原文的已见范围内出现")
+                problems += len(stray)
+
+    if problems:
         result.evidence_status = "insufficient"
-    return len(missing)
+    return problems
+
+
+def _tokens(text: str) -> list[str]:
+    """剥掉有序列表编号后抽数字，去重保序。"""
+    return list(dict.fromkeys(NUMBER.findall(LIST_MARKER.sub("", text))))
+
+
+def _clip(text: str, width: int = 24) -> str:
+    return text if len(text) <= width else text[:width] + "…"
 
 
 def _present(token: str, text: str) -> bool:
@@ -102,22 +140,25 @@ def _present(token: str, text: str) -> bool:
         start = index + 1
 
 
-async def _seen_text(ctx, getter, claims) -> str:
-    """把每条所引证据的已见范围拼成文本；取不到原文的块跳过。"""
-    ids = dict.fromkeys(cid for claim in claims for cid in claim.chunk_ids)
-    sources, parts = {}, []
+async def _seen_text(ctx, getter, claims, cache, failed) -> str | None:
+    """只看这些结论自己引的证据；一个都取不到时返回 None，不能当成空串通过。"""
+    ids = dict.fromkeys(chunk_id for claim in claims for chunk_id in claim.chunk_ids)
+    parts = []
     for chunk_id in ids:
         ref = ctx.evidence.get(chunk_id)
         if ref is None or not ref.observed_ranges:
             continue
-        source = sources.get(chunk_id)
+        source = cache.get(chunk_id)
         if source is None:
+            if chunk_id in failed:
+                continue
             try:
                 source = await asyncio.to_thread(getter, chunk_id)
             except Exception:          # noqa: BLE001 - 取不到原文就不参与判断
+                failed.add(chunk_id)
                 continue
-            sources[chunk_id] = source
+            cache[chunk_id] = source
         base = source.chunk_char_start or 0
         for start, end in ref.observed_ranges:
             parts.append(source.content[max(0, start - base):max(0, end - base)])
-    return "\n".join(parts)
+    return "\n".join(parts) if parts else None

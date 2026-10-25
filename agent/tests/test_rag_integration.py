@@ -250,7 +250,7 @@ class FakeSourceKB:
         return types.SimpleNamespace(content=self.content, chunk_char_start=self.base)
 
 
-async def _numbers(tmp_path, content, base, answer, observed, quotes=()):
+async def _numbers(tmp_path, content, base, answer, observed, quotes=(), claim_text=None):
     from guance_agent.verify import verify_numbers
     reg = EvidenceRegistry()
     end = base + len(content)
@@ -262,7 +262,8 @@ async def _numbers(tmp_path, content, base, answer, observed, quotes=()):
     ctx.evidence = reg
     result = RunResult(run_id="r", session_id="s", status="completed",
                        evidence_status="verified", answer=answer,
-                       claims=[Claim(text="t", chunk_ids=[CID], quotes=list(quotes))],
+                       claims=[Claim(text=claim_text if claim_text is not None else answer,
+                                     chunk_ids=[CID], quotes=list(quotes))],
                        evidence_refs=[reg.get(CID)], dropped_chunk_ids=[],
                        error=None, meta={})
     missing = await verify_numbers(result, ctx)
@@ -291,11 +292,12 @@ async def test_missing_percentage_downgrades_status(tmp_path):
     assert result.evidence_status == "insufficient"
 
 
-async def test_missing_plain_number_only_warns(tmp_path):
+async def test_missing_plain_number_also_downgrades(tmp_path):
+    """普通数字缺失同样降级，不再只对百分号严格。"""
     result, _ = await _numbers(tmp_path, "本规划没有具体指标", 1000,
                                "共安排 12 项重点工程。", 20)
     assert any("12" in w for w in result.warnings)
-    assert result.evidence_status == "verified"
+    assert result.evidence_status == "insufficient"
 
 
 async def test_number_boundary_does_not_false_match(tmp_path):
@@ -335,3 +337,79 @@ async def test_list_markers_are_not_treated_as_numbers(tmp_path):
     result, missing = await _numbers(tmp_path, body, 1000, answer, 20)
     assert missing == 0, missing
     assert result.warnings == []
+
+
+async def test_number_must_match_its_own_claim_evidence(tmp_path):
+    """A 政策的结论不能用 B 政策证据里的数字通过。"""
+    from guance_agent.verify import verify_numbers
+
+    other = "chunk_71bdac7c940d3baeb3864dd4724ef70f"
+    reg = EvidenceRegistry()
+    # A 政策的证据：只有 100
+    reg.register(ref_dict(char_start=1000, char_end=1020,
+                          chunk_char_start=1000, chunk_char_end=1040,
+                          section_char_start=1000, section_char_end=1040))
+    # B 政策的证据：有 200
+    reg.register(ref_dict(chunk_id=other, char_start=2000, char_end=2020,
+                          chunk_char_start=2000, chunk_char_end=2040,
+                          section_char_start=2000, section_char_end=2040))
+    content = {CID: "2025年完成100个项目。", other: "2025年完成200个项目。"}
+
+    class MultiKB:
+        def get_chunk_source(self, chunk_id, **_kw):
+            return types.SimpleNamespace(content=content[chunk_id],
+                                         chunk_char_start=1000 if chunk_id == CID else 2000)
+
+    ctx = RunContext(rag_settings(tmp_path), MultiKB(), "r", "s")
+    ctx.evidence = reg
+    # 结论只说 A 政策，但数字写成了 200（那是 B 政策的）
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="A 政策要求完成 200 个项目。",
+                       claims=[Claim(text="A 政策要求完成 200 个项目。", chunk_ids=[CID])],
+                       evidence_refs=[reg.get(CID)], dropped_chunk_ids=[], error=None, meta={})
+    missing = await verify_numbers(result, ctx)
+    assert missing >= 1
+    assert any("200" in w for w in result.warnings)
+    assert result.evidence_status == "insufficient"
+
+
+async def test_fetch_failure_is_recorded_not_treated_as_pass(tmp_path):
+    """取不到原文时必须显式记未完成核验，不能当成通过。"""
+    from guance_agent.verify import verify_numbers
+
+    class BrokenKB:
+        def get_chunk_source(self, chunk_id, **_kw):
+            raise RuntimeError("源文件不可读")
+
+    reg = EvidenceRegistry()
+    reg.register(ref_dict(char_start=1000, char_end=1020,
+                          chunk_char_start=1000, chunk_char_end=1040,
+                          section_char_start=1000, section_char_end=1040))
+    ctx = RunContext(rag_settings(tmp_path), BrokenKB(), "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="完成 100 个项目。",
+                       claims=[Claim(text="完成 100 个项目。", chunk_ids=[CID])],
+                       evidence_refs=[reg.get(CID)], dropped_chunk_ids=[], error=None, meta={})
+    assert await verify_numbers(result, ctx) >= 1
+    assert any("核验未完成" in w for w in result.warnings)
+    assert result.evidence_status == "insufficient"
+
+
+async def test_orphan_number_found_in_any_evidence_passes(tmp_path):
+    """答案叙述里的数字只要在所引证据中出现，就不该因为没被 claim 复述而报错。"""
+    body = "专栏2提出培训率达到100%"
+    result, missing = await _numbers(tmp_path, body, 1000,
+                                     "按专栏2，培训率达到100%。", 20,
+                                     claim_text="加强培训。")
+    assert missing == 0, result.warnings
+    assert result.warnings == []
+
+
+def test_agent_output_tolerates_null_fields():
+    """模型把 claims/answer 写成 null 时，不该让整轮变成 OUTPUT_PARSE。"""
+    from guance_agent.schemas import AgentOutput
+    parsed = AgentOutput.model_validate({"answer": None, "claims": None, "insufficient": None})
+    assert parsed.answer == "" and parsed.claims == [] and parsed.insufficient is False
+    partial = AgentOutput.model_validate({"answer": "好的"})
+    assert partial.claims == [] and partial.insufficient is False

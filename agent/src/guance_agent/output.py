@@ -49,7 +49,11 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
             parsed = AgentOutput.model_validate_json(raw[raw.index("{"):raw.rindex("}") + 1])
         else:
             parsed = AgentOutput.model_validate(raw)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as exc:
+        # 只在显式开启 LOG_CONTENT 时保存片段，避免把模型原文写进运行日志
+        if ctx and ctx.settings.log_content:
+            meta = {**meta, "parse_error": type(exc).__name__,
+                    "output_head": str(locals().get("raw", ""))[:300]}
         return build_result(task, None, ctx, meta, RunError(code="OUTPUT_PARSE", message=ERRORS["OUTPUT_PARSE"]))
     refs, dropped, dropped_texts, partial = {}, [], [], 0
     for claim in parsed.claims:
