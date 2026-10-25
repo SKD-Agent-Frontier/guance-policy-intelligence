@@ -28,6 +28,11 @@ class RagKB:
                             document_id=document_id, generation_id=generation_id)
         return Passage(**raw.model_dump())
 
+    def get_chunk_source(self, chunk_id, *, document_id=None, generation_id=None):
+        """取完整块原文，供引文与数字核对回看；不直接塞给模型。"""
+        return self._kb.get_chunk_source(chunk_id, document_id=document_id,
+                                         generation_id=generation_id)
+
     def verify_quote(self, chunk_id, quote, observed_ranges, *,
                      document_id=None, generation_id=None):
         """引句只能来自本次实际提供的已见范围。"""

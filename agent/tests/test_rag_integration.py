@@ -236,3 +236,102 @@ async def test_orchestrator_actually_calls_verify_quotes(tmp_path, monkeypatch):
         rt.close()
     # 无模型配置时走 MODEL_UNAVAILABLE 分支，不进入执行链；这里只验证接线存在
     assert hasattr(orch, "verify_quotes")
+
+
+# ---------------- 答案正文的数字核对（⑤-06） ----------------
+
+class FakeSourceKB:
+    """只提供 get_chunk_source，用来验证数字核对。"""
+
+    def __init__(self, content, base):
+        self.content, self.base = content, base
+
+    def get_chunk_source(self, chunk_id, **_kw):
+        return types.SimpleNamespace(content=self.content, chunk_char_start=self.base)
+
+
+async def _numbers(tmp_path, content, base, answer, observed, quotes=()):
+    from guance_agent.verify import verify_numbers
+    reg = EvidenceRegistry()
+    end = base + len(content)
+    seen_end = base + min(observed, len(content))
+    reg.register(ref_dict(char_start=base, char_end=seen_end,
+                          chunk_char_start=base, chunk_char_end=end,
+                          section_char_start=base, section_char_end=end))
+    ctx = RunContext(rag_settings(tmp_path), FakeSourceKB(content, base), "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer=answer,
+                       claims=[Claim(text="t", chunk_ids=[CID], quotes=list(quotes))],
+                       evidence_refs=[reg.get(CID)], dropped_chunk_ids=[],
+                       error=None, meta={})
+    missing = await verify_numbers(result, ctx)
+    return result, missing
+
+
+async def test_number_inside_observed_range_passes(tmp_path):
+    body = "岗前培训率达到100%"
+    result, missing = await _numbers(tmp_path, body, 1000, "培训率达到100%。", 20)
+    assert missing == 0 and result.warnings == []
+
+
+async def test_number_outside_observed_range_is_flagged(tmp_path):
+    """答案写了块里存在、但本次没读到的数字：必须提示。"""
+    body = "岗前培训率达到100%持证上岗率达到93%。"
+    # 只读前 11 字：够到 100%，够不到 93%
+    result, missing = await _numbers(tmp_path, body, 1000, "持证上岗率达到93%。", 11)
+    assert missing == 1
+    assert any("93%" in w for w in result.warnings)
+    assert result.evidence_status == "insufficient"
+
+
+async def test_missing_percentage_downgrades_status(tmp_path):
+    result, _ = await _numbers(tmp_path, "本规划没有具体指标", 1000,
+                               "培训率达到87%。", 20)
+    assert result.evidence_status == "insufficient"
+
+
+async def test_missing_plain_number_only_warns(tmp_path):
+    result, _ = await _numbers(tmp_path, "本规划没有具体指标", 1000,
+                               "共安排 12 项重点工程。", 20)
+    assert any("12" in w for w in result.warnings)
+    assert result.evidence_status == "verified"
+
+
+async def test_number_boundary_does_not_false_match(tmp_path):
+    """100 不能命中 1000。"""
+    from guance_agent.verify import _present
+    assert _present("100", "达到100%") is True
+    assert _present("100", "达到1000户") is False
+    assert _present("93%", "达到93%") is True
+    assert _present("93%", "达到193%") is False
+
+
+async def test_no_chunk_source_backend_skips(tmp_path):
+    from guance_agent.verify import verify_numbers
+    reg = EvidenceRegistry()
+    reg.register(ref_dict())
+    ctx = RunContext(rag_settings(tmp_path), types.SimpleNamespace(), "r", "s")
+    ctx.evidence = reg
+    result = RunResult(run_id="r", session_id="s", status="completed",
+                       evidence_status="verified", answer="达到 99%",
+                       claims=[Claim(text="t", chunk_ids=[CID])],
+                       evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
+    assert await verify_numbers(result, ctx) == 0
+    assert result.warnings == []
+
+
+def test_rag_adapter_exposes_verification_entrypoints():
+    """守卫：适配器必须把核对所需的方法都转发出来，缺一个核验就静默失效。"""
+    from guance_agent.kb_rag import RagKB
+    for name in ("search", "read", "get_chunk_source", "verify_quote", "close"):
+        assert callable(getattr(RagKB, name, None)), name
+
+
+async def test_list_markers_are_not_treated_as_numbers(tmp_path):
+    """模型用有序列表时，行首 1. 2. 3. 不能当成待核对的数据。"""
+    body = "岗前培训率达到100%"
+    answer = "1. 培训率达到100%。\n2. 完善政策制度。\n3. 推进专业培训。\n4. 加强人才引进。"
+    result, missing = await _numbers(tmp_path, body, 1000, answer, 20)
+    assert missing == 0, missing
+    assert result.warnings == []
