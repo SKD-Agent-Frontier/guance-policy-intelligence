@@ -1,9 +1,0 @@
-.venv/
-.cache/
-.runtime/
-*.local.json
-*.local.env
-__pycache__/
-.pytest_cache/
-outputs/*
-!outputs/README.md

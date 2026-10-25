@@ -1,8 +1,0 @@
-# 切分/输入指纹按字节计算，提交与工作区保持一致。
-*.py -text
-*.json -text whitespace=trailing-space,space-before-tab,cr-at-eol
-*.sql -text
-*.txt -text whitespace=trailing-space,space-before-tab,cr-at-eol
-*.md text eol=lf
-outputs/** -text
-outputs/README.md text eol=lf
