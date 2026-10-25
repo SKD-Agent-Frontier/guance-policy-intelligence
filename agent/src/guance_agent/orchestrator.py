@@ -13,6 +13,7 @@ from .output import ERRORS, build_result
 from .runner import execute
 from .runtime import Runtime
 from .schemas import RunError, RunResult, TaskRequest
+from .verify import verify_quotes
 
 _LOCKS: dict[str, asyncio.Lock] = {}
 
@@ -42,6 +43,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         async with _session_lock(task.session_id):
             outcome = await execute(agent, task, ctx, rt, deadline=deadline)
         result = build_result(task, outcome, ctx, rt.meta)
+        # 引文逐字核验：后端没有 verify_quote（mock/sample）时自动跳过
+        await verify_quotes(result, ctx)
     try:
         rt.finish(result, ctx)
     except OSError as exc:

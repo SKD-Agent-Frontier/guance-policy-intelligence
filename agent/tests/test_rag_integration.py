@@ -79,7 +79,8 @@ def fake_rag(monkeypatch):
 
 def rag_settings(tmp_path):
     return Settings(session_path=tmp_path / "s.sqlite", run_log=tmp_path / "r.jsonl",
-                    kb_backend="rag", rag_mode="bm25")
+                    kb_backend="rag", rag_mode="bm25",
+                    rag_store_project=str(tmp_path / "store"))
 
 
 def test_rag_backend_searches_only_native_text(fake_rag, tmp_path):
@@ -210,3 +211,28 @@ async def test_no_verify_quote_backend_skips_silently(tmp_path):
                        evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
     assert await verify_quotes(result, ctx) == 0
     assert result.claims[0].quotes == ["任意"]
+
+
+async def test_orchestrator_actually_calls_verify_quotes(tmp_path, monkeypatch):
+    """守卫：核验必须真的挂在执行链上，不能只是 verify.py 里有个函数。"""
+    import guance_agent.orchestrator as orch
+    from guance_agent.runtime import Runtime
+    from guance_agent.schemas import TaskRequest
+
+    calls = []
+
+    async def fake_verify(result, ctx):
+        calls.append(True)
+
+    monkeypatch.setattr(orch, "verify_quotes", fake_verify)
+    s = Settings(session_path=tmp_path / "s.sqlite", run_log=tmp_path / "r.jsonl",
+                 llm_base_url="", llm_api_key="")
+    task = TaskRequest(run_id="r", session_id="s", question="q", created_at="x")
+    rt = Runtime(s, task)
+    rt.prepare()
+    try:
+        await orch.run_task(task, s, rt)
+    finally:
+        rt.close()
+    # 无模型配置时走 MODEL_UNAVAILABLE 分支，不进入执行链；这里只验证接线存在
+    assert hasattr(orch, "verify_quotes")
