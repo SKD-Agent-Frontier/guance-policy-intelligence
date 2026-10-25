@@ -1,4 +1,5 @@
 {
+  "contract_version": "proposal-v0.3",
   "planid": "48787",
   "title": "杭州市商贸服务第十二个五年规划",
   "area": "杭州市",
@@ -9,15 +10,15 @@
   "document_version_id": "document_version_3fca1c5365c382196c889008a79d9a10a221f825b0003ddaf251e5f98196460d",
   "source_hash": "3287d901840438a492c4a04b6ee665222c884d2ddefdca46978073326fc68f1c",
   "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
-  "section_id": "section_834fd242cc4e4371d07a54dfd1e5b58e",
-  "section_idx": 37,
-  "section_path": "六、保障措施 / （七）深化行业中介组织建设和管理",
+  "source_path": "corpus/48787/48787.md",
+  "snapshot": "snapshots/3287d901840438a492c4a04b6ee665222c884d2ddefdca46978073326fc68f1c/48787.md",
   "offset_basis": "body_first_non_whitespace",
   "offset_unit": "unicode_codepoint",
   "body_start": 252,
-  "source_path": "corpus/48787/48787.md",
-  "snapshot": "snapshots/3287d901840438a492c4a04b6ee665222c884d2ddefdca46978073326fc68f1c/48787.md",
-  "contract_version": "proposal-v0.3",
+  "body_origin": 253,
+  "section_id": "section_834fd242cc4e4371d07a54dfd1e5b58e",
+  "section_idx": 37,
+  "section_path": "六、保障措施 / （七）深化行业中介组织建设和管理",
   "read_scope": "chunk",
   "chunk_id": "chunk_594a17c56902e7fdac2a38662282ebda",
   "parent_id": "parent_2d291968882035eaaf5d8b066f348e42",
@@ -38,14 +39,35 @@
       "chunk_char_end": 20815,
       "char_start": 20681,
       "char_end": 20815,
-      "complete": false
+      "complete": false,
+      "section_id": "section_834fd242cc4e4371d07a54dfd1e5b58e",
+      "section_path": "六、保障措施 / （七）深化行业中介组织建设和管理",
+      "section_char_start": 14285,
+      "section_char_end": 24040,
+      "quality_warnings": []
     }
   ],
-  "contexts": [],
+  "contexts": [
+    {
+      "source_id": "unit_b1388ba2e3a1a9c557935785e758f4ef",
+      "document_id": "doc_3fca1c5365c382196c889008a79d9a10",
+      "source_hash": "3287d901840438a492c4a04b6ee665222c884d2ddefdca46978073326fc68f1c",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "body_origin": 253,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "char_start": 14681,
+      "char_end": 14708,
+      "content": "表1 杭州市“十二五”时期商贸流通领域重点建设项目表\n",
+      "role": "table_context"
+    }
+  ],
   "required_relation_ids": [
     "relation_ff7fd30b2b5aa031e90e690fec27bfc0"
   ],
-  "quality_warnings": [],
+  "quality_warnings": [
+    "context_budget_exceeded:parent_2d291968882035eaaf5d8b066f348e42"
+  ],
   "sections": null,
-  "body_origin": 253
+  "media_sources": []
 }

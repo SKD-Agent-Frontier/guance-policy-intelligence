@@ -25,7 +25,7 @@ class Settings:
     max_history_items: int = 40
     run_timeout: float = 180
     tool_timeout: float = 20
-    top_k_default: int = 8
+    top_k_default: int = 20   # RAG 基准 Recall@8=95.2%、Recall@20=100%
     top_k_max: int = 20
     search_snippet_chars: int = 300
     read_max_chars: int = 6000

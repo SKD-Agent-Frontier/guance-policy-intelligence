@@ -19,9 +19,8 @@ SAMPLES = ROOT / "contracts/rag_samples"
 # proposal-v0.3 要求真实后端必须给全的来源字段
 REQUIRED_SOURCE = ("document_id", "document_version_id", "generation_id", "source_hash",
                    "offset_basis", "offset_unit", "body_origin", "contract_version",
-                   "section_id")
-# Passage 已有；Hit 还缺（已与 RAG 约定补充），见 test_hit_section_range_still_pending
-REQUIRED_SECTION_RANGE = ("section_char_start", "section_char_end")
+                   "section_id", "section_char_start", "section_char_end")
+REQUIRED_SECTION_RANGE = ()
 
 
 def load(name):
@@ -45,16 +44,6 @@ def test_hit_sample_maps_without_field_loss():
     # 坐标与文本长度必须自洽（右开区间）
     assert hit.char_end - hit.char_start == len(hit.content)
     assert hit.truncated is True
-
-
-def test_hit_section_range_still_pending():
-    """已知差距：Hit.json 尚无 section_char_start/end，已与 RAG 约定补充。
-
-    这是提醒用的绊线测试：样例一更新、这里就会失败，
-    届时删除本测试并把 REQUIRED_SECTION_RANGE 并入 REQUIRED_SOURCE。
-    """
-    hit = Hit.model_validate(load("hit.json"))
-    assert hit.section_char_start is None, "样例已补充章节范围，请更新契约测试"
 
 
 def test_passage_chunk_sample_returns_full_block():

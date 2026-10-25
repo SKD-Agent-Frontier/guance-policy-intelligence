@@ -143,6 +143,9 @@ python scripts/live_acceptance.py
 支持三种后端：`mock`（默认，离线）、`sample`（用 RAG 交付的真实样例）、`rag`（真实检索工程）。
 
 `rag` 后端需要先安装 `rag库/检索工程`（`pip install -e rag库/检索工程`）并恢复运行数据。
+`top_k` 默认 20：RAG 侧 21 题基准给出 Recall@5=90.5%、Recall@8=95.2%、Recall@20=100%、MRR=0.768，
+已知一条查询的相关来源排在第 18 位，取 8 会漏。政策场景漏检比多读几条片段代价更高。
+
 `RagKnowledgeBase` 构造会阻塞到索引就绪（BM25 约 11 秒，Hybrid 约 83 秒），因此
 **必须在进程启动时调用 `kb.warm_up(settings)`，不能留到首个请求**；退出时调用 `kb.close_kb()`。
 CLI 已在 `main()` 里接好这两步。首轮只取 `source_types=("text_chunk",)`，OCR 与图片留到第二阶段。

@@ -1,6 +1,5 @@
 """两个只读工具；超时和业务错误统一返回 ToolResult。"""
 import asyncio
-import json
 import re
 from time import perf_counter
 
@@ -111,11 +110,12 @@ async def _call(ctx, name, fn, *args, **kwargs):
 
 @function_tool(failure_error_function=None)
 async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
-                    area: str | None = None, fyp: str | None = None, top_k: int = 8) -> str:
-    """检索政策片段。area 可用地区简称；fyp 可用十四五；top_k 为 1–20。
+                    area: str | None = None, fyp: str | None = None,
+                    top_k: int | None = None) -> str:
+    """检索政策片段。area 可用地区简称；fyp 可用十四五；top_k 为 1–20，不填用服务默认值。
     返回 status 和片段列表，含 chunk_id、planid、篇名、地区、规划期、章节路径和原文。
     """
-    if "top_k" not in json.loads(getattr(ctx, "tool_arguments", '{"top_k":8}')):
+    if top_k is None:
         top_k = ctx.context.settings.top_k_default
     return await _call(ctx.context, "kb_search", ctx.context.kb.search, query, area, fyp, top_k)
 
