@@ -7,8 +7,8 @@ import re
 
 from .output import rebuild_trusted_answer
 
-MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免核验拖垮回合预算
-EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句引文，20 句明显不够
+MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免核验本身拖垮回合预算
+EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句，实测 20 句远远不够
 
 
 def quote_budget(result) -> int:
@@ -17,6 +17,62 @@ def quote_budget(result) -> int:
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表，行首的 "1." "2、" 不是数据，先去掉再抽数字
 LIST_MARKER = re.compile(r"(?m)^\s*\d+\s*[.．、)）]\s*")
+
+
+def _squash(text: str) -> tuple[str, list[int]]:
+    """去掉空白并记录每个字符在原串里的位置，用于把归一化命中映射回原坐标。"""
+    index = [i for i, ch in enumerate(text) if not ch.isspace()]
+    return "".join(text[i] for i in index), index
+
+
+def snap_quote(quote: str, text: str) -> str:
+    """把模型的引文回贴到原文：只吸收空白差异，找不到就原样返回。
+
+    不放松核验标准——回贴后存进结果的仍是原文的精确切片；
+    只是把「模型少打一个空格/多换一次行」这类误差吸收掉。
+    """
+    if not quote or not text or quote in text:
+        return quote
+    needle, _ = _squash(quote)
+    if len(needle) < 6:                 # 太短的片段不值得回贴，交给核验判
+        return quote
+    haystack, index = _squash(text)
+    at = haystack.find(needle)
+    if at < 0:
+        return quote
+    return text[index[at]: index[at + len(needle) - 1] + 1]
+
+
+def snap_claims(claims, ctx, getter) -> int:
+    """逐条把引文回贴到本条所引证据的已见范围；返回改写句数。"""
+    if getter is None or not claims:
+        return 0
+    changed = 0
+    for claim in claims:
+        for chunk_id in claim.chunk_ids:
+            ref = ctx.evidence.get(chunk_id)
+            if ref is None or not ref.observed_ranges:
+                continue
+            try:
+                source = getter(chunk_id, document_id=ref.document_id,
+                                generation_id=ref.generation_id)
+            except Exception:               # noqa: BLE001 - 取不到就跳过回贴
+                continue
+            base = source.chunk_char_start or 0
+            windows = [source.content[max(0, a - base):max(0, b - base)]
+                       for a, b in ref.observed_ranges]
+            for i, quote in enumerate(claim.quotes):
+                for window in windows:
+                    snapped = snap_quote(quote, window)
+                    if snapped != quote:
+                        claim.quotes[i] = snapped
+                        changed += 1
+                        break
+                else:
+                    continue
+                break
+    return changed
+
 
 
 async def verify_quotes(result, ctx) -> int:
@@ -28,8 +84,12 @@ async def verify_quotes(result, ctx) -> int:
     if not result.claims:
         return 0
     checked = approved_count = rejected = unverified = removed_claims = removed_quotes = 0
-    budget = quote_budget(result)
     kept_claims = []
+    budget = quote_budget(result)
+    # 先把引文回贴到原文，吸收空白差异；回贴后仍是原文的精确切片
+    snapped = snap_claims(result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None))
+    if snapped:
+        result.meta["quotes_snapped"] = snapped
     for claim in result.claims:
         if not claim.quotes:
             kept_claims.append(claim)
@@ -116,10 +176,7 @@ async def verify_numbers(result, ctx) -> int:
 
     # 答案中的数字必须被某条结论承接；不允许跨结论/跨证据作宽松匹配。
     bound = {token for claim in result.claims for token in _tokens(claim.text)}
-    # 用户自己写进问题的数字（planid、年份、指标）不是模型编的，不能当作无据数字
-    asked = set(_tokens(getattr(ctx, "question", "") or ""))
-    orphan = [token for token in _tokens(result.answer)
-              if token not in bound and token not in asked]
+    orphan = [token for token in _tokens(result.answer) if token not in bound]
     if orphan:
         result.meta["number_verification"] = "literal_only"
         result.warnings.append("答案中的 " + "、".join(orphan[:6]) + " 未与任何结论绑定，无法核验")
