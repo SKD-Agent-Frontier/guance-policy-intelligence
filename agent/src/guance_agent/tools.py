@@ -11,6 +11,14 @@ from .kb import KBNoText, KBNotFound, normalize_fyp
 from .schemas import Passage, ToolResult
 
 
+def out_of_scope(ctx, planid: str) -> str | None:
+    """路由限定范围时，读原文也只能读范围内的篇目，不能借读绕过范围。"""
+    scope = ctx.scope
+    if scope is not None and planid not in scope:
+        return f"planid={planid} 不在本轮取证范围内，请只读指定对象"
+    return None
+
+
 def _validate(s, name, args, kwargs):
     if name == "kb_search":
         query, area, fyp, top_k = args
@@ -142,6 +150,10 @@ async def kb_read(ctx: RunContextWrapper[RunContext], planid: str,
 
     section_idx 与 chunk_id 只能二选一。
     """
+    # 路由限定范围时，读原文也只能读范围内的篇目，不能借读绕过范围
+    blocked = out_of_scope(ctx.context, planid)
+    if blocked:
+        return ToolResult(status="invalid_argument", message=blocked).model_dump_json()
     return await _call(ctx.context, "kb_read", ctx.context.kb.read,
                        planid, section_idx, ctx.context.settings.read_max_chars,
                        chunk_id=chunk_id, offset=offset)

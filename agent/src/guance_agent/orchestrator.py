@@ -185,6 +185,10 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     for obj in objects:
         if not obj.get("planid"):
             continue
+        # 统一截止时间：剩余预算不足就停，不再开新对象，避免整体超时
+        if deadline - time.monotonic() < 5:
+            obj["status"] = "skipped_no_budget"
+            continue
         ctx.scope, ctx.object_label = (obj["planid"],), obj["label"]
         try:
             outcome = await _execute_once(task, s, ctx, rt, deadline)
@@ -194,6 +198,13 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         part = build_result(task, outcome, ctx, meta)
         if outcome.telemetry:
             obj["llm"] = outcome.telemetry
+        # 证据隔离：只保留确实引自本对象的结论，防止跨对象借证据
+        own = {cid for cid in (c for claim in part.claims for c in claim.chunk_ids)
+               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
+        part.claims = [claim for claim in part.claims
+                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]
+        if not part.claims and part.status == "completed":
+            part.status = "completed"
         obj["status"] = part.status if part.status != "completed" else "ok"
         obj["error_code"] = part.error.code if part.error else None
         if part.status == "completed" and part.claims:
@@ -220,6 +231,14 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     if missing:
         result.warnings.append("以下对象未取得证据：" + "；".join(
             f"{o['label']}({o.get('status')})" for o in missing))
+    llms = [o["llm"] for o in objects if o.get("llm")]
+    if llms:
+        result.meta["llm"] = {
+            "model_calls": sum(x.get("model_calls") or 0 for x in llms),
+            "input_tokens": sum(x.get("input_tokens") or 0 for x in llms),
+            "output_tokens": sum(x.get("output_tokens") or 0 for x in llms),
+            "per_call": [c for x in llms for c in x.get("per_call", [])],
+            "parse": "ok" if result.status == "completed" else "failed"}
     result.route = {**_route_head(decision), "objects": objects}
     return result
 

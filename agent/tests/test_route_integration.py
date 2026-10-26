@@ -109,3 +109,65 @@ async def test_area_and_period_filters_use_normalised_period(env, monkeypatch):
     result = await run_task(task, s, Runtime(s, task))
     assert result.route["fyps"] == ["第十四个五年规划"]
     assert result.route["areas"] == ["甲市"]
+
+
+# ---------------- 回归：遥测、范围约束、证据隔离 ----------------
+
+def test_usage_telemetry_reports_tokens_per_call():
+    """回归：成功路径曾漏传 telemetry，导致 meta.llm 恒为空。"""
+    import types
+
+    from guance_agent.runner import usage_telemetry
+
+    def resp(i, o):
+        return types.SimpleNamespace(usage=types.SimpleNamespace(input_tokens=i, output_tokens=o))
+
+    result = types.SimpleNamespace(raw_responses=[resp(1220, 63), resp(18519, 281)])
+    data = usage_telemetry(result)
+    assert data["model_calls"] == 2
+    assert data["input_tokens"] == 19739 and data["output_tokens"] == 344
+    assert data["per_call"] == [{"input": 1220, "output": 63}, {"input": 18519, "output": 281}]
+
+
+def test_kb_read_is_blocked_outside_route_scope():
+    from guance_agent.context import RunContext
+    from guance_agent.tools import out_of_scope
+
+    ctx = RunContext(None, None, "r", "s")
+    ctx.scope = ("TEST-001",)
+    assert out_of_scope(ctx, "TEST-001") is None      # 范围内可读
+    assert "不在本轮取证范围" in out_of_scope(ctx, "TEST-002")
+    ctx.scope = None
+    assert out_of_scope(ctx, "TEST-002") is None      # 开放主题不限制
+
+
+async def test_multi_object_claims_cannot_borrow_other_object_evidence(env, monkeypatch):
+    """每个对象的结论只能引用来自该对象的证据。"""
+    from guance_agent.tools import _call
+
+    s, task = _configured(env), env[1]
+    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
+    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
+
+    async def fake_execute(agent, task, ctx, rt, deadline=None):
+        await _call(ctx, "kb_search", ctx.kb.search, "农业", None, None, 3, planids=ctx.scope)
+        own = [cid for cid in ctx.evidence.ids()
+               if ctx.evidence.get(cid).planid in ctx.scope]
+        foreign = [cid for cid in ctx.evidence.ids()
+                   if ctx.evidence.get(cid).planid not in ctx.scope]
+        claims = [{"text": "来自本对象", "chunk_ids": own[:1], "quotes": []}]
+        if foreign:   # 故意引用别的对象的证据
+            claims.append({"text": "借用他人", "chunk_ids": foreign[:1], "quotes": []})
+        return ExecOutcome(json.dumps({"answer": "ok", "claims": claims, "insufficient": False}), None)
+
+    monkeypatch.setattr("guance_agent.orchestrator.execute", fake_execute)
+    q = task.model_copy(update={"question": "比较 planid TEST-001 与 planid TEST-002 的农业重点。"})
+    result = await run_task(q, s, Runtime(s, q))
+    for ref in result.evidence_refs:
+        assert ref.planid in {"TEST-001", "TEST-002"}
+    # 合并后的每条结论，其 chunk 必须全部属于同一篇
+    for claim in result.claims:
+        planids = {result.evidence_refs[[r.chunk_id for r in result.evidence_refs].index(c)].planid
+                   for c in claim.chunk_ids if c in [r.chunk_id for r in result.evidence_refs]}
+        assert len(planids) <= 1, claim.text
