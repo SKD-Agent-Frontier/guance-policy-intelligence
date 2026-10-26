@@ -109,6 +109,8 @@ class Claim(BaseModel):
     quotes: list[str] = Field(default_factory=list)
     # 要素提取时填；qa 时为 None。有了它，现有三层校验可以原样复用。
     dimension: str | None = None
+    # 提取时模型只给定位线索，不给引文；引文由程序从原文截取后写回 quotes
+    anchors: list[str] = Field(default_factory=list)
 
 class AgentOutput(BaseModel):
     answer: str = ""

@@ -58,8 +58,12 @@ def build_messages(question: str, dimensions: list[str], blocks: list[dict]) -> 
     parts += ["请按维度提取要素，只输出一个 JSON 对象，结构：",
               '{"answer":"一句话概括覆盖情况","claims":[{"dimension":"维度名",'
               '"text":"要素内容","chunk_ids":["片段里的 chunk_id"],'
-              '"quotes":["原文逐字片段"]}]}',
+              '"anchors":["能原样找到的定位线索"]}]}',
               "",
-              "硬性约束：chunk_ids 只能填上面出现过的 chunk_id；quotes 必须逐字摘自原文；",
-              "原文没写到的维度不要输出 claims，也不要猜。"]
+              "硬性约束：",
+              "1. chunk_ids 只能填上面出现过的 chunk_id。",
+              "2. **不要写 quotes**。改填 anchors：2–4 个能在这段原文里原样找到的定位线索",
+              "   （关键词、数字、专有名词）。程序会按 anchors 定位真正的证据句并截取原文。",
+              "3. anchors 每一项都必须能在该 chunk 原文中一字不差地找到，否则该要素会被丢弃。",
+              "4. 原文没写到的维度不要输出 claims，也不要猜。"]
     return [{"role": "user", "content": "\n".join(parts)}]

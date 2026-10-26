@@ -75,6 +75,69 @@ def snap_claims(claims, ctx, getter) -> int:
 
 
 
+SENTENCE = re.compile(r"[^。；;！？!?\n]{6,}")
+
+def _numbers(text: str) -> list[str]:
+    return NUMBER.findall(text or "")
+
+
+def locate_quotes(claim, ctx, getter) -> str | None:
+    """在 claim 所引 chunk 里定位支持该要素的原文句，返回原文精确切片。
+
+    支持性不是靠"文字能匹配"就算过：必须同时满足
+      1) 命中至少一个定位线索 anchors（模型说"这一段讲的是这个"）
+      2) 要素正文里的每个数字都出现在同一句（避免张冠李戴到同 chunk 的另一句）
+    找不到就返回 None，由调用方丢弃该要素，不强行保留。
+    """
+    anchors = [a for a in (claim.anchors or []) if a and len(a) >= 2]
+    if not anchors or getter is None:
+        return None
+    want_numbers = _numbers(claim.text)
+    for chunk_id in claim.chunk_ids:
+        ref = ctx.evidence.get(chunk_id)
+        if ref is None or not ref.observed_ranges:
+            continue
+        try:
+            source = getter(chunk_id, document_id=ref.document_id,
+                            generation_id=ref.generation_id)
+        except Exception:                   # noqa: BLE001 - 取不到原文就不定位
+            continue
+        base = source.chunk_char_start or 0
+        # 各已见范围用换行隔开：跨范围拼出来的"句子"在原文里并不连续，
+        # 逐字核验必然失败。换行让 SENTENCE 只在单段之内匹配。
+        for a, b in ref.observed_ranges:
+            window = source.content[max(0, a - base):max(0, b - base)]
+            for match in SENTENCE.finditer(window):
+                sentence = match.group(0)
+                if not any(anchor in sentence for anchor in anchors):
+                    continue
+                if any(number not in sentence for number in want_numbers):
+                    continue
+                return sentence        # 原样返回，不 strip，保证仍是精确子串
+    return None
+
+
+def fill_quotes_from_anchors(claims, ctx, getter) -> tuple[int, int]:
+    """把定位线索回填成原文引文；返回 (成功定位数, 丢弃要素数)。"""
+    if getter is None:
+        return 0, 0
+    filled = dropped = 0
+    kept = []
+    for claim in claims:
+        if claim.quotes:                    # 已有引文的（qa 等）原样保留
+            kept.append(claim)
+            continue
+        quote = locate_quotes(claim, ctx, getter)
+        if quote is None:
+            dropped += 1                    # 定位不到有效证据：不强行保留
+            continue
+        claim.quotes = [quote]
+        filled += 1
+        kept.append(claim)
+    claims[:] = kept
+    return filled, dropped
+
+
 async def verify_quotes(result, ctx) -> int:
     """剔除不合格引文，返回被丢弃的引文条数。
 
@@ -87,6 +150,11 @@ async def verify_quotes(result, ctx) -> int:
     kept_claims = []
     budget = quote_budget(result)
     # 先把引文回贴到原文，吸收空白差异；回贴后仍是原文的精确切片
+    filled, unfound = fill_quotes_from_anchors(
+        result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None))
+    if filled or unfound:
+        result.meta["quotes_located"] = filled
+        result.meta["elements_dropped_no_evidence"] = unfound
     snapped = snap_claims(result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None))
     if snapped:
         result.meta["quotes_snapped"] = snapped
@@ -176,7 +244,10 @@ async def verify_numbers(result, ctx) -> int:
 
     # 答案中的数字必须被某条结论承接；不允许跨结论/跨证据作宽松匹配。
     bound = {token for claim in result.claims for token in _tokens(claim.text)}
-    orphan = [token for token in _tokens(result.answer) if token not in bound]
+    # 用户自己写进问题的数字（planid、年份、指标）不是模型编的，不能当无据数字
+    asked = set(_tokens(getattr(ctx, "question", "") or ""))
+    orphan = [token for token in _tokens(result.answer)
+              if token not in bound and token not in asked]
     if orphan:
         result.meta["number_verification"] = "literal_only"
         result.warnings.append("答案中的 " + "、".join(orphan[:6]) + " 未与任何结论绑定，无法核验")
