@@ -166,4 +166,22 @@ class RunResult(BaseModel):
     meta: dict
     warnings: list[str] = Field(default_factory=list)
     task_type: str = "qa"
-    structured: dict | None = None   # 功能层产物：要素表 / 比较矩阵等
+    structured: dict | None = None
+    route: dict | None = None        # 本轮路由决定与逐对象结果   # 功能层产物：要素表 / 比较矩阵等
+
+
+class DocCandidate(BaseModel):
+    """文档定位候选；只描述身份，不携带正文证据。"""
+    planid: str
+    title: str
+    area: str | None = None
+    fyp: str | None = None
+    document_id: str
+    document_version_id: str | None = None
+    generation_id: str
+
+
+class TitleLookup(BaseModel):
+    """标题查询结果；matched 是真实匹配数量，不能看候选长度就称唯一。"""
+    matched: int = 0
+    candidates: list[DocCandidate] = Field(default_factory=list)

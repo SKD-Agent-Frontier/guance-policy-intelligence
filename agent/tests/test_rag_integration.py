@@ -40,8 +40,8 @@ class FakeRagKB:
     def __init__(self, options):
         self.options = options
 
-    def search(self, query, area, fyp, top_k, *, source_types=None):
-        FakeRagKB.calls.append(("search", source_types))
+    def search(self, query, area, fyp, top_k, *, source_types=None, planids=None):
+        FakeRagKB.calls.append(("search", source_types, planids))
         return [types.SimpleNamespace(model_dump=lambda: hit_dict())]
 
     def read(self, planid, section_idx, max_chars, *, chunk_id=None, offset=0,

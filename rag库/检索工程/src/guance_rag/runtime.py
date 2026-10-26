@@ -107,8 +107,13 @@ class RagKnowledgeBase:
             job.future.cancel()
             raise RetrievalTimeout("RAG执行等待超时；库线程仍拥有资源直到实际任务结束") from None
 
-    def search(self, query, area=None, fyp=None, top_k=8, *, source_types=None):
-        return self._submit("search", query=query, area=area, fyp=fyp, top_k=top_k, source_types=source_types)
+    def search(self, query, area=None, fyp=None, top_k=8, *, source_types=None, planids=None):
+        return self._submit("search", query=query, area=area, fyp=fyp, top_k=top_k,
+                            source_types=source_types, planids=planids)
+
+    def find_by_title(self, title, *, area=None, fyp=None):
+        """按标题精确定位当前发布中的文档，返回候选与真实匹配数量。"""
+        return self._submit("find_by_title", title=title, area=area, fyp=fyp)
 
     def read(self, planid, section_idx=None, max_chars=None, *, chunk_id=None, source_id=None, offset=0,
              document_id=None, generation_id=None):

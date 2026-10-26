@@ -224,3 +224,7 @@ class RunContext:
     session_id: str
     evidence: EvidenceRegistry = field(default_factory=EvidenceRegistry)
     tool_calls: list[dict] = field(default_factory=list)
+    # 路由决定在整轮任务内有效：每次 kb_search 都按 scope 限定，不是只在第一次生效
+    route: object | None = None
+    scope: tuple[str, ...] | None = None
+    object_label: str | None = None

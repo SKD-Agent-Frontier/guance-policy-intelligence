@@ -5,7 +5,7 @@ import time
 from filelock import FileLock, Timeout
 
 from .errors import BackendError, InvalidArgument, KBNoText, KBNotFound, RetrievalTimeout
-from .models import ChunkSpan, ContextSpan, HitV03, PassageV03
+from .models import ChunkSpan, ContextSpan, DocCandidate, HitV03, PassageV03, TitleLookup
 from .media import MediaLibrary, SOURCE_TYPES
 from .retrieval import DenseReader, LexicalReader, QueryEncoder, fuse_sources
 from .storage import ReadStore
@@ -64,7 +64,51 @@ class StoreBackend:
         if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value):
             raise InvalidArgument(name + "格式不正确")
 
-    def search(self, query, area, fyp, top_k, *, source_types=None, deadline):
+    @staticmethod
+    def _title_key(value):
+        """保守规范化：去首尾空白、剥一层书名号。不做包含或模糊匹配。"""
+        text = (value or "").strip()
+        for left, right in (("《", "》"), ("〈", "〉")):
+            if len(text) > len(left) + len(right) and text.startswith(left) and text.endswith(right):
+                return text[len(left):-len(right)].strip()
+        return text
+
+    def find_by_title(self, title, *, area=None, fyp=None, deadline):
+        """按标题精确定位当前发布中的文档；返回候选与真实匹配数量。
+
+        只遍历当前发布的文档元数据，不碰检索索引、不调模型。
+        零匹配就是零匹配，不能退回相似政策。
+        """
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+            raise InvalidArgument("title须为1–200字符")
+        for key, value in (("area", area), ("fyp", fyp)):
+            if value is not None and (not isinstance(value, str) or len(value) > 50):
+                raise InvalidArgument(key + "须为不超过50字符的字符串")
+        wanted = self._title_key(title)
+        if not wanted:
+            raise InvalidArgument("title规范化后为空")
+        area = (area.strip() or None) if area is not None else None
+        fyp = normalize_fyp(fyp.strip() or None) if fyp is not None else None
+        candidates = []
+        for did in sorted(self.store.current_documents):
+            self._deadline(deadline)
+            meta = self.store.metadata(self.store.document(did, self.store.generation))
+            if self._title_key(meta["title"]) != wanted:
+                continue
+            own_area, own_fyp = meta["area"], meta["fyp"]
+            if area is not None and not (own_area and area in own_area):
+                continue
+            # fyp_name 是展示名（十四五），过滤值已规范成期号，两边必须同口径比较
+            if fyp is not None and normalize_fyp(own_fyp or "") != fyp:
+                continue
+            candidates.append(DocCandidate(
+                planid=meta["planid"], title=meta["title"], area=own_area, fyp=own_fyp,
+                document_id=meta["document_id"],
+                document_version_id=meta["document_version_id"],
+                generation_id=meta["generation_id"]))
+        return TitleLookup(matched=len(candidates), candidates=candidates)
+
+    def search(self, query, area, fyp, top_k, *, source_types=None, planids=None, deadline):
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
             raise InvalidArgument("query须为1–200字符")
         for key, value in (("area", area), ("fyp", fyp)):
@@ -78,6 +122,12 @@ class StoreBackend:
               or any(not isinstance(s, str) or s not in SOURCE_TYPES for s in source_types)):
             raise InvalidArgument("source_types须为非空来源类型列表")
         source_types = set(source_types)
+        if planids is not None:
+            if (not isinstance(planids, (list, tuple)) or not planids
+                    or any(not isinstance(pid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", pid)
+                           for pid in planids)):
+                raise InvalidArgument("planids须为非空政策编号列表")
+            planids = set(planids)
         query = query.strip()
         area = (area.strip() or None) if area is not None else None
         fyp = normalize_fyp(fyp.strip() or None) if fyp is not None else None
@@ -85,7 +135,8 @@ class StoreBackend:
         allowed = {rid for rid, row in members.items()
                    if row["record"]["source_type"] in source_types
                    and (area is None or (row["payload"].get("area_name") and area in row["payload"]["area_name"]))
-                   and (fyp is None or row["payload"].get("period_key") == fyp)}
+                   and (fyp is None or row["payload"].get("period_key") == fyp)
+                   and (planids is None or row["payload"].get("planid") in planids)}
         self._deadline(deadline)
         if not allowed:
             return []

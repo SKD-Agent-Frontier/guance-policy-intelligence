@@ -295,3 +295,77 @@ def test_actual_qdrant_filters_before_top_k(tmp_path):
         assert reader.loads == 1
     finally:
         reader.close()
+
+
+# ---------------- 文档定位与范围过滤（检索路由所需的最小能力） ----------------
+
+def test_find_by_title_matches_exactly_and_never_substitutes(options):
+    """标题定位只做保守规范化后的精确匹配；零匹配不能退回相似政策。"""
+    with RagKnowledgeBase(options) as kb:
+        found = kb.find_by_title("测试规划a")
+        assert found.matched == 1
+        assert [c.planid for c in found.candidates] == ["1001"]
+        # 书名号只剥一层
+        assert kb.find_by_title("《测试规划a》").matched == 1
+        assert kb.find_by_title("《测试规划b》").matched == 1
+        # 不做前缀、包含、模糊匹配
+        assert kb.find_by_title("测试规划").matched == 0
+        assert kb.find_by_title("测试规划a副本").matched == 0
+        # 不存在的标题就是 0，不能拿别的政策顶上
+        assert kb.find_by_title("完全不存在的规划").matched == 0
+        assert kb.find_by_title("完全不存在的规划").candidates == []
+
+
+def test_find_by_title_applies_area_and_period_filters(options):
+    with RagKnowledgeBase(options) as kb:
+        assert kb.find_by_title("测试规划a", area="苏州").matched == 1
+        assert kb.find_by_title("测试规划a", area="湖南").matched == 0
+        assert kb.find_by_title("测试规划a", fyp="十四五").matched == 1
+        assert kb.find_by_title("测试规划a", fyp="十三五").matched == 0
+
+
+def test_find_by_title_returns_identity_only(options):
+    """定位结果只描述对象身份，不携带正文证据，避免把候选当证据。"""
+    with RagKnowledgeBase(options) as kb:
+        candidate = kb.find_by_title("测试规划a").candidates[0]
+        payload = candidate.model_dump()
+        assert set(payload) == {"planid", "title", "area", "fyp", "document_id",
+                                "document_version_id", "generation_id"}
+        assert not any(key in payload for key in ("content", "quotes", "chunk_ids"))
+
+
+@pytest.mark.parametrize("arguments", [dict(title=""), dict(title="   "), dict(title="a", area=123),
+                                       dict(title="a", fyp=123)])
+def test_find_by_title_rejects_invalid_arguments(options, arguments):
+    with RagKnowledgeBase(options) as kb:
+        with pytest.raises(InvalidArgument):
+            kb.find_by_title(**arguments)
+
+
+def test_search_planids_scopes_before_ranking(options):
+    """指定 planid 时只在该文档内检索；不能先做全库 Top-K 再事后筛选。"""
+    with RagKnowledgeBase(options) as kb:
+        scoped = kb.search("养老服务", top_k=8, planids=["1002"])
+        assert scoped and {hit.planid for hit in scoped} == {"1002"}
+        # 另一篇同样含关键词，但被范围排除
+        other = kb.search("养老服务", top_k=8, planids=["1001"])
+        assert other and {hit.planid for hit in other} == {"1001"}
+        # 限定到不存在的编号时必须返回空，不能退回全库结果
+        assert kb.search("养老服务", top_k=8, planids=["9999"]) == []
+
+
+def test_search_planids_can_narrow_to_a_cold_document(options):
+    """范围过滤在候选排名之前生效：即使某文档在全库排名靠后，限定后仍能正常检索。"""
+    with RagKnowledgeBase(options) as kb:
+        wide = {hit.planid for hit in kb.search("养老服务", top_k=8)}
+        assert wide == {"1001", "1002"}
+        cold = kb.search("养老服务", top_k=8, planids=["1002"])
+        assert cold and all(hit.planid == "1002" for hit in cold)
+        assert all(hit.score > 0 for hit in cold)
+
+
+@pytest.mark.parametrize("planids", [[], [" "], "1001", [1001], ["1001", ""]])
+def test_search_rejects_invalid_planids(options, planids):
+    with RagKnowledgeBase(options) as kb:
+        with pytest.raises(InvalidArgument):
+            kb.search("养老服务", planids=planids)

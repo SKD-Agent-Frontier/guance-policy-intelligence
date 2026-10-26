@@ -23,9 +23,15 @@ class RagKB:
             else RuntimeOptions(mode=mode)
         self._kb = RagKnowledgeBase(options)
 
-    def search(self, query, area, fyp, top_k):
-        raws = self._kb.search(query, area, fyp, top_k, source_types=list(SOURCE_TYPES))
+    def search(self, query, area, fyp, top_k, *, planids=None):
+        raws = self._kb.search(query, area, fyp, top_k,
+                               source_types=list(SOURCE_TYPES), planids=planids)
         return [Hit(**raw.model_dump()) for raw in raws]
+
+    def find_by_title(self, title, *, area=None, fyp=None):
+        """按标题精确定位；返回 (候选身份列表, 真实匹配数量)。"""
+        found = self._kb.find_by_title(title, area=area, fyp=fyp)
+        return ([c.model_dump() for c in found.candidates], found.matched)
 
     def read(self, planid, section_idx, max_chars, *, chunk_id=None, offset=0,
              document_id=None, generation_id=None):

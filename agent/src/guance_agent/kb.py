@@ -27,7 +27,10 @@ def normalize_fyp(fyp: str | None) -> str | None:
 class KnowledgeBase(Protocol):
     name: str
 
-    def search(self, query: str, area: str | None, fyp: str | None, top_k: int) -> list[Hit]: ...
+    def search(self, query: str, area: str | None, fyp: str | None, top_k: int, *,
+               planids: tuple[str, ...] | None = None) -> list[Hit]: ...
+    def find_by_title(self, title: str, *, area: str | None = None,
+                      fyp: str | None = None) -> tuple[list[dict], int]: ...
     def read(self, planid: str, section_idx: int | None, max_chars: int, *,
              chunk_id: str | None = None, offset: int = 0,
              document_id: str | None = None, generation_id: str | None = None) -> Passage: ...
@@ -45,11 +48,13 @@ class MockKB:
         if self.fail == operation:
             raise RuntimeError("mock backend fault")
 
-    def search(self, query, area, fyp, top_k):
+    def search(self, query, area, fyp, top_k, *, planids=None):
         self._fault("search")
+        # 模拟库同样在候选之前限定范围，保持与真实后端一致；这里只筛本次视图，不改库
+        visible = [d for d in self.docs if planids is None or d["planid"] in planids]
         grams = {query[i:i + 2] for i in range(len(query) - 1)}
         hits = []
-        for doc in self.docs:
+        for doc in visible:
             if area and area not in (doc["area"] or ""):
                 continue
             if fyp is not None and doc["fyp"] != fyp:

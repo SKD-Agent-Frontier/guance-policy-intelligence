@@ -127,3 +127,22 @@ class PassageV03(SourceInfo):
         if self.truncated != (self.next_offset is not None):
             raise ValueError("分页终止标志不一致")
         return self
+
+
+class DocCandidate(BaseModel):
+    """文档定位结果；只描述对象身份，不携带正文证据。"""
+    model_config = ConfigDict(extra="forbid")
+    planid: str
+    title: str
+    area: str | None
+    fyp: str | None
+    document_id: str
+    document_version_id: str | None
+    generation_id: str
+
+
+class TitleLookup(BaseModel):
+    """标题查询结果：matched 是真实匹配数量，不能只看候选列表长度就宣称唯一。"""
+    model_config = ConfigDict(extra="forbid")
+    matched: int = Field(ge=0)
+    candidates: list[DocCandidate] = Field(default_factory=list)

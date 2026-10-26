@@ -25,7 +25,14 @@ def _validate(s, name, args, kwargs):
             area = None
         if isinstance(fyp, str) and not fyp.strip():
             fyp = None
-        return (query.strip(), area, normalize_fyp(fyp), top_k), {}
+        planids = kwargs.get("planids")
+        if planids is not None:
+            if (not isinstance(planids, (tuple, list)) or not planids
+                    or any(not isinstance(p, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", p)
+                           for p in planids)):
+                raise ValueError("planids须为非空政策编号列表")
+            planids = tuple(planids)
+        return (query.strip(), area, normalize_fyp(fyp), top_k), ({"planids": planids} if planids else {})
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):
         raise ValueError("planid须为 1–64 位字母、数字、下划线或连字符")
@@ -117,7 +124,10 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     """
     if top_k is None:
         top_k = ctx.context.settings.top_k_default
-    return await _call(ctx.context, "kb_search", ctx.context.kb.search, query, area, fyp, top_k)
+    # 路由确定的范围在整轮任务内持续生效：每次检索都限定，不是只在第一次限定
+    scope = ctx.context.scope
+    return await _call(ctx.context, "kb_search", ctx.context.kb.search,
+                       query, area, fyp, top_k, planids=scope)
 
 @function_tool(failure_error_function=None)
 async def kb_read(ctx: RunContextWrapper[RunContext], planid: str,

@@ -80,7 +80,7 @@ class SampleKB:
         }
 
     # ---------- 检索 ----------
-    def search(self, query, area, fyp, top_k):
+    def search(self, query, area, fyp, top_k, *, planids=None):
         grams = {query[i:i + 2] for i in range(max(len(query) - 1, 0))} or {query}
         hits = []
         for chunk_id, item in self.chunks.items():
