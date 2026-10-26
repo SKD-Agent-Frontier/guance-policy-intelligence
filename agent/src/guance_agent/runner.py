@@ -32,6 +32,25 @@ class ExecOutcome:
     final_output: object | None
     error_code: str | None
     error_detail: str = ""
+    telemetry: dict | None = None   # 每次模型调用的 token / 次数，供事后定位慢与截断
+
+
+def usage_telemetry(result) -> dict:
+    """只记录 SDK 真正拿得到的东西：调用次数与各次 token 用量。
+
+    耗时由 LogHooks 逐轮记录；finish_reason 与重试次数 SDK 未暴露，这里不臆造。
+    """
+    per_call = []
+    for response in getattr(result, "raw_responses", None) or []:
+        usage = getattr(response, "usage", None)
+        per_call.append({"input": getattr(usage, "input_tokens", None),
+                         "output": getattr(usage, "output_tokens", None)})
+    return {"model_calls": len(per_call),
+            "input_tokens": sum(c["input"] or 0 for c in per_call),
+            "output_tokens": sum(c["output"] or 0 for c in per_call),
+            "per_call": per_call}
+
+
 async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadline: float | None = None) -> ExecOutcome:
     deadline = deadline if deadline is not None else time.monotonic() + rt.settings.run_timeout
     cm = asyncio.timeout_at(deadline)

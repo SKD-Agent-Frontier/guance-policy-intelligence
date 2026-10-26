@@ -91,11 +91,37 @@ def _attach(result, task: TaskRequest) -> RunResult:
 
 
 async def _execute_once(task, s, ctx, rt, deadline):
-    """单次取证：按任务类型走 Agent 循环或一次性提取。"""
+    """按任务类型选择取证方式。
+
+    extract 是「程序检索 + 单次模型调用」；其余（含 qa）保留 Agent 循环——
+    复杂问题需要模型自主多轮检索取证，压成单次会牺牲证据完整性。
+    """
     if task.task_type == "extract":
-        return await _run_extract(task, s, ctx, rt)
+        return await _run_oneshot(task, s, ctx, rt, build_messages)
     agent = build_agent(s, chat_model(s, rt.client))
     return await execute(agent, task, ctx, rt, deadline=deadline)
+
+
+async def _run_oneshot(task: TaskRequest, s: Settings, ctx: RunContext, rt, builder) -> ExecOutcome:
+    """程序检索 + 单次模型调用；多轮往返是延迟主因，这里压到 1 次。"""
+    blocks, found = await retrieve(ctx, task.question, s.top_k_default)
+    if not blocks:
+        return ExecOutcome(json.dumps({"answer": insufficient_message(ctx.tool_calls),
+                                       "claims": [], "insufficient": True},
+                                      ensure_ascii=False), None)
+    messages = builder(task.question, task.dimensions, blocks)
+    try:
+        reply = await rt.client.chat.completions.create(
+            model=s.llm_model, messages=messages, timeout=s.llm_request_timeout,
+            max_tokens=s.llm_max_output_tokens, extra_body=thinking_off(s),
+            **({} if s.llm_temperature is None else {"temperature": s.llm_temperature}))
+        usage = getattr(reply, "usage", None)
+        return ExecOutcome(reply.choices[0].message.content, None, telemetry={
+            "model_calls": 1, "input_tokens": getattr(usage, "prompt_tokens", None),
+            "output_tokens": getattr(usage, "completion_tokens", None),
+            "finish_reason": getattr(reply.choices[0], "finish_reason", None)})
+    except Exception:                      # noqa: BLE001 - 统一走 MODEL_UNAVAILABLE
+        return ExecOutcome(None, "MODEL_UNAVAILABLE")
 
 
 def _blocked(task, ctx, meta, decision) -> RunResult:
@@ -166,6 +192,8 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
             obj["status"] = f"failed:{type(exc).__name__}"
             continue
         part = build_result(task, outcome, ctx, meta)
+        if outcome.telemetry:
+            obj["llm"] = outcome.telemetry
         obj["status"] = part.status if part.status != "completed" else "ok"
         obj["error_code"] = part.error.code if part.error else None
         if part.status == "completed" and part.claims:
@@ -234,5 +262,8 @@ async def _run_single(task, s, ctx, rt, deadline, decision):
     ctx.scope = None
     outcome = await _execute_once(task, s, ctx, rt, deadline)
     result = build_result(task, outcome, ctx, rt.meta)
+    if outcome.telemetry:
+        result.meta["llm"] = {**outcome.telemetry,
+                              "parse": "ok" if result.status == "completed" else "failed"}
     result.route = _route_head(decision)
     return result

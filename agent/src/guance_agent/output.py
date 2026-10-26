@@ -2,7 +2,7 @@
 import json
 import re
 
-from .context import RunContext
+from .context import RunContext, sanitize_error_detail
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
@@ -86,8 +86,10 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     except (ValueError, TypeError) as exc:
         # 只在显式开启 LOG_CONTENT 时保存片段，避免把模型原文写进运行日志
         if ctx and ctx.settings.log_content:
+            # 只在本地显式开启时保留一段脱敏样本，用于区分格式错误 / 截断 / 解析器问题
             meta = {**meta, "parse_error": type(exc).__name__,
-                    "output_head": str(locals().get("raw", ""))[:300]}
+                    "output_sample": sanitize_error_detail(
+                        locals().get("raw", ""), ctx.settings, task.question, 200)}
         return build_result(task, None, ctx, meta, RunError(code="OUTPUT_PARSE", message=ERRORS["OUTPUT_PARSE"]))
     refs, dropped, dropped_texts, partial = {}, [], [], 0
     for claim in parsed.claims:

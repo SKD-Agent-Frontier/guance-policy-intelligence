@@ -78,7 +78,7 @@ def load_settings(env_file=None) -> Settings:
         raw = values.get(f.name.upper())
         if raw is None:
             continue
-        if f.name in ("structured_output", "log_content"):
+        if f.name in ("structured_output", "log_content", "llm_disable_thinking"):
             if raw not in ("on", "off"):
                 raise ValueError(f"{f.name} 只接受 on / off")
             value = raw == "on"

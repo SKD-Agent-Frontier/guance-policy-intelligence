@@ -24,8 +24,10 @@ def _clip(text: str, budget: int) -> str:
 
 async def retrieve(ctx: RunContext, question: str, top_k: int) -> tuple[list[dict], dict]:
     """程序侧检索并读回原文；返回可直接塞进提示词的片段列表。"""
+    # 路由确定的范围必须带下去，否则指定编号/多对象取证会被忽略
     found = json.loads(await _call(ctx, "kb_search", ctx.kb.search,
-                                   question, None, None, top_k))
+                                   question, None, None, top_k,
+                                   planids=ctx.scope))
     if found["status"] != "ok":
         return [], found
     blocks = []
