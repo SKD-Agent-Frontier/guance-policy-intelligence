@@ -59,7 +59,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
             result = await Runner.run(agent, task.question, context=ctx, session=rt.session,
                                       max_turns=rt.settings.max_turns, hooks=rt.hooks,
                                       run_config=RunConfig(tracing_disabled=True, tool_execution=ToolExecutionConfig(max_function_tool_concurrency=1)))
-        return ExecOutcome(result.final_output, None)
+        return ExecOutcome(result.final_output, None, telemetry=usage_telemetry(result))
     except asyncio.CancelledError:
         rt.log("run_end", status="failed", error_code="CANCELLED")
         raise
