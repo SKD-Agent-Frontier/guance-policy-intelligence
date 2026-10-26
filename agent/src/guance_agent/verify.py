@@ -7,7 +7,13 @@ import re
 
 from .output import rebuild_trusted_answer
 
-MAX_QUOTES = 20   # 一次运行最多核这么多句，避免核验本身拖垮回合预算
+MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免核验拖垮回合预算
+EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句引文，20 句明显不够
+
+
+def quote_budget(result) -> int:
+    """提取任务要核的引文天生比问答多，给它更大但仍有限的上限。"""
+    return EXTRACT_MAX_QUOTES if getattr(result, "task_type", "qa") == "extract" else MAX_QUOTES
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表，行首的 "1." "2、" 不是数据，先去掉再抽数字
 LIST_MARKER = re.compile(r"(?m)^\s*\d+\s*[.．、)）]\s*")
@@ -22,6 +28,7 @@ async def verify_quotes(result, ctx) -> int:
     if not result.claims:
         return 0
     checked = approved_count = rejected = unverified = removed_claims = removed_quotes = 0
+    budget = quote_budget(result)
     kept_claims = []
     for claim in result.claims:
         if not claim.quotes:
@@ -29,7 +36,7 @@ async def verify_quotes(result, ctx) -> int:
             continue
         approved = []
         for quote in claim.quotes:
-            if checker is None or checked >= MAX_QUOTES:
+            if checker is None or checked >= budget:
                 unverified += 1
                 continue
             checked += 1
@@ -109,7 +116,10 @@ async def verify_numbers(result, ctx) -> int:
 
     # 答案中的数字必须被某条结论承接；不允许跨结论/跨证据作宽松匹配。
     bound = {token for claim in result.claims for token in _tokens(claim.text)}
-    orphan = [token for token in _tokens(result.answer) if token not in bound]
+    # 用户自己写进问题的数字（planid、年份、指标）不是模型编的，不能当作无据数字
+    asked = set(_tokens(getattr(ctx, "question", "") or ""))
+    orphan = [token for token in _tokens(result.answer)
+              if token not in bound and token not in asked]
     if orphan:
         result.meta["number_verification"] = "literal_only"
         result.warnings.append("答案中的 " + "、".join(orphan[:6]) + " 未与任何结论绑定，无法核验")

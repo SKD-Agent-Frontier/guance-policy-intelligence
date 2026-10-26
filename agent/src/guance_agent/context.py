@@ -228,3 +228,4 @@ class RunContext:
     route: object | None = None
     scope: tuple[str, ...] | None = None
     object_label: str | None = None
+    question: str = ""      # 用户原问题；核验时据此排除用户自己给的数字

@@ -255,7 +255,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             kb = get_kb(s)
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
-        ctx = RunContext(s, kb, task.run_id, task.session_id)
+        ctx = RunContext(s, kb, task.run_id, task.session_id, question=task.question)
         decision = decide(task.question)
         ctx.route = decision
         async with _session_lock(task.session_id):
