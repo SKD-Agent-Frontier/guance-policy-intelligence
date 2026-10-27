@@ -4,3 +4,6 @@
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# 本地归档、运行数据和恢复备份不上传 GitHub
+/GitHub排除/
