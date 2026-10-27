@@ -9,7 +9,7 @@ from guance_agent.config import Settings
 from guance_agent.context import RunContext
 from guance_agent.kb import KBNoText, KBNotFound
 from guance_agent.routing import decide
-from guance_agent.schemas import Hit, Passage, TaskRequest, ToolResult
+from guance_agent.schemas import ChunkSpan, Hit, Passage, TaskRequest, ToolResult
 
 
 class MultiDocKB:
@@ -52,13 +52,18 @@ class MultiDocKB:
         hit = next((h for h in self.hits if h.chunk_id == chunk_id), None)
         if hit is None:
             raise KBNotFound(chunk_id)
+        span = ChunkSpan(chunk_id=hit.chunk_id, char_start=hit.char_start,
+                         char_end=hit.char_end, chunk_char_start=hit.chunk_char_start,
+                         chunk_char_end=hit.chunk_char_end, complete=True,
+                         section_char_start=hit.section_char_start,
+                         section_char_end=hit.section_char_end, section_path=hit.section_path)
         return Passage(**{k: v for k, v in hit.model_dump().items()
-                          if k in Passage.model_fields}, read_scope="chunk")
+                          if k in Passage.model_fields}, read_scope="chunk", chunks=[span])
 
     def read(self, planid, section_idx, max_chars, *, chunk_id=None, offset=0):
         self.read_calls.append((planid, chunk_id, offset))
         if planid in self.no_text:
-            raise KBNoText("mock document has no text")
+            raise KBNoText(planid, "mock document has no text")
         if planid in self.fail_reads:
             raise KBNotFound("mock document not found")
         passage = self.get_chunk_source(chunk_id)
@@ -116,7 +121,7 @@ class MockServices:
             return ToolResult(status=status)
         passage = self.ctx.kb.read(planid, None, 6000, chunk_id=chunk_id)
         if self.register_reads:
-            self.ctx.evidence.add_result(passage, "read")
+            self.ctx.evidence.add_result(passage, "kb_read")
         return ToolResult(status="ok", data=passage)
 
 
