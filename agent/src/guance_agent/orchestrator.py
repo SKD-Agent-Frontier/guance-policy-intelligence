@@ -19,6 +19,8 @@ from .runtime import Runtime
 from .schemas import DIMENSIONS, RunError, RunResult, TaskRequest
 from .verify import verify_numbers, verify_quotes
 
+SUPPORTED_TASKS = ("qa", "extract")   # 只有这两个 task_type 有实现，其余显式拒绝
+
 _LOCKS: dict[str, asyncio.Lock] = {}
 
 
@@ -133,6 +135,7 @@ def _blocked(task, ctx, meta, decision) -> RunResult:
     }[decision.blocked]
     result = build_result(task, None, ctx, meta)
     result.status, result.evidence_status = "completed", "none"
+    result.error = None   # 正常结束，不是内部错误
     result.answer = reason
     result.route = {"kind": decision.kind, "blocked": decision.blocked,
                     "sub_query_chars": len(decision.sub_query)}
@@ -177,6 +180,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     if any(obj.get("status") == "ambiguous" for obj in objects):
         result = build_result(task, None, ctx, meta)
         result.status, result.evidence_status = "completed", "none"
+        result.error = None   # 正常结束，不是内部错误
         result.answer = "标题对应多篇政策，请确认是哪一篇：" + "；".join(
             f"《{o['label']}》候选 planid={o['candidates']}" for o in objects if o.get("status") == "ambiguous")
         result.route = {**_route_head(decision), "objects": objects}
@@ -219,6 +223,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     if not runs:
         result = build_result(task, None, ctx, meta)
         result.status, result.evidence_status = "completed", "insufficient"
+        result.error = None   # 正常结束，不是内部错误
         result.answer = "以下对象都没有取得可用证据：" + "；".join(
             f"{o['label']}({o.get('status')})" for o in objects)
         result.route = {**_route_head(decision), "objects": objects}
@@ -256,6 +261,12 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id, question=task.question)
+        if task.task_type not in SUPPORTED_TASKS:
+            result = build_result(task, None, ctx, rt.meta, RunError(
+                code="INVALID_INPUT",
+                message="不支持的 task_type：" + task.task_type + "；目前只支持 qa / extract"))
+            rt.finish(result, ctx)
+            return result
         decision = decide(task.question)
         ctx.route = decision
         async with _session_lock(task.session_id):

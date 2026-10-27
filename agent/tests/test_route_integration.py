@@ -171,3 +171,45 @@ async def test_multi_object_claims_cannot_borrow_other_object_evidence(env, monk
         planids = {result.evidence_refs[[r.chunk_id for r in result.evidence_refs].index(c)].planid
                    for c in claim.chunk_ids if c in [r.chunk_id for r in result.evidence_refs]}
         assert len(planids) <= 1, claim.text
+
+
+# ---------------- 状态一致性：completed 不得与 INTERNAL 并存 ----------------
+
+async def test_unknown_task_type_is_rejected_explicitly(env, monkeypatch):
+    """未知 task_type 不能静默走 QA，必须显式失败。"""
+    s, base = _configured(env), env[1]
+    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
+    task = base.model_copy(update={"question": "随便问问", "task_type": "compare"})
+    result = await run_task(task, s, Runtime(s, task))
+    assert result.status == "failed"
+    assert result.error is not None and result.error.code == "INVALID_INPUT"
+    assert "compare" in result.error.message
+
+
+async def test_blocked_route_is_completed_without_internal_error(env, monkeypatch):
+    """超长问题走 blocked 分支：是正常结束，不能带 INTERNAL。"""
+    s, base = _configured(env), env[1]
+    task = base.model_copy(update={"question": "分析" * 300})
+    result = await run_task(task, s, Runtime(s, task))
+    assert result.route["blocked"] == "query_too_long"
+    assert result.status == "completed"
+    assert result.error is None, result.error
+    assert "没有检索" in result.answer
+
+
+async def test_no_evidence_objects_is_completed_without_internal_error(env, monkeypatch):
+    """所有对象都没取到证据：completed + insufficient，且不带 INTERNAL。"""
+    s, base = _configured(env), env[1]
+    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
+    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
+
+    async def empty_execute(agent, task, ctx, rt, deadline=None):
+        return ExecOutcome(json.dumps({"answer": "没有", "claims": [], "insufficient": True}), None)
+
+    monkeypatch.setattr("guance_agent.orchestrator.execute", empty_execute)
+    q = base.model_copy(update={"question": "planid TEST-999 的农业重点是什么？"})
+    result = await run_task(q, s, Runtime(s, q))
+    assert result.status == "completed"
+    assert result.error is None, result.error
+    assert result.evidence_status == "insufficient"
