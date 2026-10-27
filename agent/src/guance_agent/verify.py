@@ -75,7 +75,7 @@ def snap_claims(claims, ctx, getter) -> int:
 
 
 
-SENTENCE = re.compile(r"[^。；;！？!?\n]{6,}")
+SENTENCE = re.compile(r"[^。；;！？!?\n]{5,}[。；;！？!?]?")
 
 def _numbers(text: str) -> list[str]:
     return NUMBER.findall(text or "")
@@ -108,6 +108,10 @@ def locate_quotes(claim, ctx, getter) -> str | None:
         for a, b in ref.observed_ranges:
             window = source.content[max(0, a - base):max(0, b - base)]
             for match in SENTENCE.finditer(window):
+                # 窗口可能从句子中间开始：首个不完整的残句一律跳过，
+                # 只用从句子边界起算的完整句，避免引文从半句开始
+                if match.start() > 0 and window[match.start() - 1] not in "。；;！？!?\n":
+                    continue
                 sentence = match.group(0)
                 if not any(anchor in sentence for anchor in anchors):
                     continue
@@ -117,7 +121,7 @@ def locate_quotes(claim, ctx, getter) -> str | None:
     return None
 
 
-def fill_quotes_from_anchors(claims, ctx, getter) -> tuple[int, int]:
+def fill_quotes_from_anchors(claims, ctx, getter, result=None) -> tuple[int, int]:
     """把定位线索回填成原文引文；返回 (成功定位数, 丢弃要素数)。"""
     if getter is None:
         return 0, 0
@@ -135,6 +139,9 @@ def fill_quotes_from_anchors(claims, ctx, getter) -> tuple[int, int]:
         filled += 1
         kept.append(claim)
     claims[:] = kept
+    if dropped and result is not None:
+        # 要素被删掉后正文里可能还留着这些结论，必须同步重建，复用既有实现
+        rebuild_trusted_answer(result, ctx, "anchor_lookup")
     return filled, dropped
 
 
@@ -151,7 +158,7 @@ async def verify_quotes(result, ctx) -> int:
     budget = quote_budget(result)
     # 先把引文回贴到原文，吸收空白差异；回贴后仍是原文的精确切片
     filled, unfound = fill_quotes_from_anchors(
-        result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None))
+        result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None), result=result)
     if filled or unfound:
         result.meta["quotes_located"] = filled
         result.meta["elements_dropped_no_evidence"] = unfound
