@@ -15,6 +15,7 @@ from guance_agent.business import (
 from guance_agent.config import Settings
 from guance_agent.context import RunContext
 from guance_agent.kb import get_kb
+from guance_agent.routing import RouteDecision
 from guance_agent.runtime import Runtime
 
 
@@ -71,13 +72,25 @@ def test_registry_rejects_invalid_names(monkeypatch, name):
         register(_module(name))
 
 
-async def test_search_registers_evidence_and_respects_scope(business_ctx):
+async def test_search_registers_evidence_and_respects_scope(business_ctx, monkeypatch):
     _, _, ctx, rt = business_ctx
     ctx.scope = ("TEST-001",)
+    ctx.route = RouteDecision(kind="objects", areas=("北京市",), fyps=("十三五",))
+    seen = []
+    original = ctx.kb.search
+
+    def record_search(query, area, fyp, top_k, *, planids=None):
+        seen.append((area, fyp, planids))
+        return original(query, area, fyp, top_k, planids=planids)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
     services = BusinessServices(ctx, rt, time.monotonic() + 5)
     result = await services.search("农业", area="甲", fyp="十四五", top_k=2)
     assert result.status == "ok"
     assert result.data and all(hit.planid == "TEST-001" for hit in result.data)
+    assert services._discovery_hits == result.data
+    assert services._open_discovery is False
+    assert seen == [("甲", "第十四个五年规划", ("TEST-001",))]
     assert ctx.evidence.ids()
     assert ctx.tool_calls[-1]["name"] == "kb_search"
     assert rt.hooks.calls == 1
@@ -94,6 +107,214 @@ async def test_read_scope_rejected_and_search_validation_reused(business_ctx):
     assert invalid.status == "invalid_argument"
     assert not ctx.evidence.ids()
     assert [event["status"] for event in ctx.tool_calls] == ["invalid_argument", "invalid_argument"]
+
+
+async def test_open_search_inherits_routed_area_and_normalized_period(business_ctx, monkeypatch):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open", areas=("北京市",), fyps=("第十四个五年规划",))
+    seen = []
+    original = ctx.kb.search
+
+    def record_search(query, area, fyp, top_k, *, planids=None):
+        seen.append((area, fyp, planids))
+        return original(query, area, fyp, top_k, planids=planids)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+    inherited = await services.search("农业", top_k=1)
+    alias = await services.search("农业", area=" 北京市 ", fyp="十四五", top_k=1)
+
+    assert inherited.status == alias.status == "empty"
+    assert seen == [
+        ("北京市", "第十四个五年规划", None),
+        ("北京市", "第十四个五年规划", None),
+    ]
+    assert ctx.scope is None
+    assert ctx.tool_calls[-1]["status"] == "empty"
+    assert rt.hooks.calls == 2
+
+
+@pytest.mark.parametrize(
+    ("area", "fyp", "message_part"),
+    [
+        ("甲市", None, "地区"),
+        (" ", None, "地区"),
+        ("\t", None, "地区"),
+        (None, "十三五", "时期"),
+        (None, " ", "时期"),
+    ],
+)
+async def test_open_search_rejects_conflicting_or_blank_routed_filters(
+        business_ctx, monkeypatch, area, fyp, message_part):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open", areas=("北京市",), fyps=("十四五",))
+    calls = 0
+    original = ctx.kb.search
+
+    def record_search(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+    result = await services.search("农业", area=area, fyp=fyp, top_k=1)
+
+    assert result.status == "invalid_argument"
+    assert message_part in result.message
+    assert calls == 0
+    assert ctx.tool_calls[-1]["name"] == "kb_search"
+    assert ctx.tool_calls[-1]["status"] == "invalid_argument"
+    assert ctx.evidence.ids() == []
+    assert rt.hooks.calls == 1
+
+
+async def test_open_search_refuses_multiple_route_constraints(business_ctx, monkeypatch):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open", areas=("甲市", "乙市"), fyps=())
+    calls = 0
+    original = ctx.kb.search
+
+    def record_search(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+    result = await services.search("农业", area="甲市", top_k=1)
+
+    assert result.status == "invalid_argument"
+    assert "多个地区或时期" in result.message
+    assert calls == 0
+    assert ctx.tool_calls[-1]["status"] == "invalid_argument"
+    assert rt.hooks.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("area", "fyp"),
+    [(True, None), ({"area": "x"}, None), (None, True), (None, ["十四五"])],
+)
+async def test_open_search_invalid_filter_types_use_existing_validation(
+        business_ctx, monkeypatch, area, fyp):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open", areas=("北京市",), fyps=("十四五",))
+    calls = 0
+    original = ctx.kb.search
+
+    def record_search(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+    result = await services.search("农业", area=area, fyp=fyp, top_k=1)
+
+    assert result.status == "invalid_argument"
+    assert calls == 0
+    assert ctx.tool_calls[-1]["status"] == "invalid_argument"
+    assert rt.hooks.calls == 1
+
+
+async def test_open_search_without_route_filters_records_successful_hits(business_ctx):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open")
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+
+    result = await services.search("农业", top_k=10)
+
+    assert result.status == "ok"
+    assert result.data
+    assert all(hit.planid for hit in result.data)
+    assert services._discovery_hits == result.data
+    assert ctx.scope is None
+    assert ctx.evidence.ids()
+    assert rt.hooks.calls == 1
+
+
+async def test_failed_open_search_does_not_record_discovery(business_ctx, monkeypatch):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open")
+    monkeypatch.setattr(ctx.kb, "fail", "search")
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+
+    result = await services.search("农业", top_k=1)
+
+    assert result.status == "backend_error"
+    assert services._discovery_hits == []
+    assert ctx.evidence.ids() == []
+    assert ctx.tool_calls[-1]["status"] == "backend_error"
+    assert rt.hooks.calls == 1
+
+
+async def test_open_read_requires_discovery_and_does_not_narrow_later_search(
+        business_ctx, monkeypatch):
+    _, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open")
+    original_search, original_read = ctx.kb.search, ctx.kb.read
+    search_planids, read_calls = [], []
+
+    def record_search(query, area, fyp, top_k, *, planids=None):
+        search_planids.append(planids)
+        return original_search(query, area, fyp, top_k, planids=planids)
+
+    def record_read(*args, **kwargs):
+        read_calls.append(args[0])
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.kb, "search", record_search)
+    monkeypatch.setattr(ctx.kb, "read", record_read)
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+    first = await services.search("农业", top_k=10)
+    assert first.status == "ok" and first.data
+    known = first.data[0]
+
+    accepted = await services.read(known.planid, chunk_id=known.chunk_id)
+    rejected = await services.read("NOT-DISCOVERED", section_idx=0)
+    rejected_unhashable = await services.read({"planid": "not-discovered"})
+    second = await services.search("农业", top_k=10)
+
+    assert accepted.status == "ok"
+    assert ctx.evidence.get(known.chunk_id) is not None
+    assert rejected.status == "invalid_argument"
+    assert "未由本轮成功检索发现" in rejected.message
+    assert rejected_unhashable.status == "invalid_argument"
+    assert read_calls == [known.planid]
+    assert second.status == "ok" and second.data
+    assert set(hit.planid for hit in second.data) - {known.planid}
+    assert search_planids == [None, None]
+    assert ctx.scope is None
+    assert [event["status"] for event in ctx.tool_calls] == [
+        "ok", "ok", "invalid_argument", "invalid_argument", "ok"
+    ]
+    assert rt.hooks.calls == 5
+
+
+async def test_open_early_rejection_consumes_existing_tool_budget(business_ctx):
+    settings, _, ctx, rt = business_ctx
+    ctx.scope = None
+    ctx.route = RouteDecision(kind="open", areas=("北京市",), fyps=())
+    ctx.settings = Settings(session_path=settings.session_path, run_log=settings.run_log,
+                            max_tool_calls=1)
+    rt.settings = ctx.settings
+    services = BusinessServices(ctx, rt, time.monotonic() + 5)
+
+    result = await services.search("农业", area="甲市", top_k=1)
+    with pytest.raises(BusinessError) as budget:
+        await services.search("农业", area="甲市", top_k=1)
+
+    assert result.status == "invalid_argument"
+    assert budget.value.code == "TOOL_BUDGET"
+    assert [event["status"] for event in ctx.tool_calls] == ["invalid_argument"]
+    assert rt.hooks.calls == 2
 
 
 async def test_tool_budget_and_deadline(business_ctx):

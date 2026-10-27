@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from dataclasses import replace
+from datetime import date
 
 import pytest
 
@@ -113,6 +114,18 @@ class Module:
                                structured={"summary": "农业支持", "cells": [1]})
 
 
+class OpenTopic(Module):
+    requires_targets = False
+
+    def __init__(self):
+        super().__init__("organize")
+        self.raw_targets = "unset"
+
+    async def __call__(self, task, ctx, services):
+        self.raw_targets = task.targets
+        return await super().__call__(task, ctx, services)
+
+
 @pytest.fixture
 def setup(env, monkeypatch):
     from guance_agent import orchestrator, runtime
@@ -141,7 +154,8 @@ async def test_t01_registered_module_runs_once_with_complete_explicit_targets(
                           task_type="compare", targets=["T001", "T002"])
     assert result.status == "completed" and result.task_type == "compare"
     assert module.calls == [(["T001", "T002"], ("T001", "T002"), "请比较两份政策")]
-    assert result.structured == {"summary": "农业支持", "cells": [1]}
+    assert not result.claims and result.structured == {}
+    assert "农业支持" not in result.answer
 
 
 @pytest.mark.parametrize("task_type", [None, [], {}, "not-registered"])
@@ -181,6 +195,16 @@ async def test_registered_compare_requires_two_targets_but_unregistered_does_not
     assert one.error.code == "INVALID_INPUT"
     other = await submit("比较政策", settings=settings, task_type="other", targets=["T001"])
     assert other.error.code == "INVALID_INPUT" and "不支持" in other.answer
+
+
+async def test_compare_without_targets_still_prompts_for_two_objects(setup):
+    settings, _ = setup
+    module = register(Module("compare"))
+    result = await submit("比较农业科技创新政策", settings=settings, task_type="compare")
+    assert result.status == "completed" and result.error is None
+    assert "至少需要两个" in result.answer
+    assert result.route["targets"] is None
+    assert module.calls == []
 
 
 async def test_explicit_targets_override_other_ids_and_query_length_for_business(setup):
@@ -234,6 +258,18 @@ async def test_no_targets_resolves_all_titles_before_single_business_call(setup)
     assert module.calls[0][0:2] == (["T001", "T002"], ("T001", "T002"))
 
 
+@pytest.mark.parametrize("question", [
+    "比较 planid T001 与 planid T002 在北京市和上海市的农业政策",
+    "比较 planid T001 与 planid T002 在十四五和十五五期间的农业政策",
+])
+async def test_natural_planids_keep_complete_scope_with_multiple_filters(setup, question):
+    settings, _ = setup
+    module = register(Module("compare"))
+    result = await submit(question, settings=settings, task_type="compare")
+    assert result.status == "completed"
+    assert module.calls == [(["T001", "T002"], ("T001", "T002"), question)]
+
+
 @pytest.mark.parametrize("structured_output", [False, True])
 async def test_open_or_unresolved_business_request_prompts_without_execution(
         setup, structured_output):
@@ -245,6 +281,112 @@ async def test_open_or_unresolved_business_request_prompts_without_execution(
     assert "planid" in result.answer and module.calls == []
     missing = await submit("分析《不存在政策》", settings=settings, task_type="organize")
     assert missing.status == "completed" and "唯一定位" in missing.answer
+    assert module.calls == []
+
+
+async def test_open_topic_module_executes_once_with_none_scope_and_recognized_filters(setup):
+    settings, _ = setup
+    module = register(OpenTopic())
+    result = await submit("北京市第十四个五年规划科技创新", settings=settings,
+                          task_type="organize")
+    assert result.status == "completed" and result.error is None
+    assert module.calls == [([], None, "北京市第十四个五年规划科技创新")]
+    assert module.raw_targets is None and result.route["targets"] is None
+    assert result.route["kind"] == "open"
+    assert result.route["areas"] == ["北京市"]
+    assert result.route["fyps"] == ["第十四个五年规划"]
+    assert result.structured == {} and "科技创新" not in result.answer
+
+
+async def test_open_topic_search_returns_only_real_documents_in_recognized_scope(setup, monkeypatch):
+    settings, _ = setup
+    from guance_agent import orchestrator
+
+    class FilteredKB(FakeKB):
+        def _hit(self, planid):
+            hit = super()._hit(planid)
+            if planid == "T001":
+                return hit.model_copy(update={"area": "北京市", "fyp": "第十四个五年规划"})
+            if planid == "T002":
+                return hit.model_copy(update={"area": "上海市", "fyp": "第十五个五年规划"})
+            return hit
+
+        def search(self, query, area, fyp, top_k, *, planids=None):
+            hits = super().search(query, area, fyp, top_k, planids=planids)
+            return [hit for hit in hits if (area is None or hit.area == area)
+                    and (fyp is None or hit.fyp == fyp)]
+
+    kb = FilteredKB()
+    monkeypatch.setattr(orchestrator, "get_kb", lambda _: kb)
+
+    class SearchOpenTopic(OpenTopic):
+        async def __call__(self, task, ctx, services):
+            self.raw_targets = task.targets
+            self.scope = ctx.scope
+            found = await services.search("科技创新")
+            self.search_status = found.status
+            self.hits = found.data
+            return BusinessOutcome(answer="北京市相关政策已全面覆盖。", claims=[],
+                                   structured={"summary": "全部事实均已核实",
+                                               "documents": [{"planid": "FAKE"}]})
+
+    module = register(SearchOpenTopic())
+    question = "梳理十四五时期北京市科技创新领域的相关政策。"
+    result = await submit(question, settings=settings, task_type="organize")
+    assert result.status == "completed" and result.error is None
+    assert module.raw_targets is None and module.scope is None
+    assert module.search_status == "ok"
+    assert [hit.planid for hit in module.hits] == ["T001"]
+    assert kb.search_calls == [("科技创新", "北京市", "第十四个五年规划",
+                                settings.top_k_default, None)]
+    assert result.structured == {
+        "documents": [{"planid": "T001", "title": "甲政策", "area": "北京市",
+                        "fyp": "第十四个五年规划", "admin_level": "市",
+                        "plantype_label": "专项规划", "chunk_ids": ["T001-chunk"]}],
+        "verification": {"policy_facts": "unverified", "reason": "no_valid_claims"},
+    }
+    assert not result.claims and not result.evidence_refs
+    assert "全面覆盖" not in result.answer and "FAKE" not in str(result.structured)
+
+
+async def test_open_topic_long_question_bypasses_route_query_limit(setup):
+    settings, _ = setup
+    module = register(OpenTopic())
+    question = "北京市第十四个五年规划科技创新" + "有关背景和目标" * 35
+    result = await submit(question, settings=settings, task_type="organize")
+    assert result.status == "completed" and result.error is None
+    assert len(module.calls) == 1 and module.calls[0][0:2] == ([], None)
+
+
+@pytest.mark.parametrize("question", [
+    "北京市和上海市十四五科技创新",
+    "十四五和十五五科技创新",
+])
+async def test_open_topic_multiple_single_value_filters_require_narrowing(setup, question):
+    settings, _ = setup
+    module = register(OpenTopic())
+    result = await submit(question, settings=settings, task_type="organize")
+    assert result.status == "completed" and "不能同时限定多个" in result.answer
+    assert module.calls == []
+
+
+async def test_compare_open_filters_prompts_for_targets_and_narrower_scope(setup):
+    settings, _ = setup
+    module = register(Module("compare"))
+    result = await submit("比较北京市和上海市十四五的科技创新政策",
+                          settings=settings, task_type="compare")
+    assert result.status == "completed"
+    assert "至少需要两个" in result.answer
+    assert result.route["targets"] is None and module.calls == []
+
+
+async def test_opted_out_module_does_not_fall_back_from_ambiguous_explicit_title(setup):
+    settings, kb = setup
+    kb.ambiguous = True
+    module = register(OpenTopic())
+    result = await submit("分析《甲政策》并讨论农业", settings=settings,
+                          task_type="organize")
+    assert result.status == "completed" and "消除歧义" in result.answer
     assert module.calls == []
 
 
@@ -278,6 +420,153 @@ async def test_natural_language_target_overflow_is_rejected_before_module_call(s
     assert result.status == "failed" and result.error.code == "INVALID_INPUT"
     assert "最多支持 8 个" in result.answer
     assert module.calls == []
+
+
+async def test_no_claim_answer_and_module_documents_are_discarded_without_search(setup):
+    settings, _ = setup
+
+    class NoEvidence(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            return BusinessOutcome(
+                answer="已全面覆盖农业政策，所有对象均符合。", claims=[],
+                structured={"documents": [{"planid": "FAKE"}],
+                            "coverage": "complete", "summary": "全量事实"})
+
+    register(NoEvidence())
+    result = await submit("分析农业政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert not result.claims and not result.evidence_refs
+    assert result.structured == {}
+    assert "已全面覆盖" not in result.answer and "FAKE" not in str(result.structured)
+    assert "未经核验" in " ".join(result.warnings)
+
+
+async def test_no_claim_result_keeps_only_documents_from_successful_search(setup):
+    settings, kb = setup
+
+    class SearchOnly(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            found = await services.search("农业")
+            assert found.status == "ok"
+            return BusinessOutcome(answer="农业全覆盖且已核实。", claims=[],
+                                   structured={"documents": [{"planid": "FAKE"}],
+                                               "coverage": "complete"})
+
+    register(SearchOnly())
+    result = await submit("分析农业政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert result.structured["verification"] == {
+        "policy_facts": "unverified", "reason": "no_valid_claims"}
+    assert {doc["planid"] for doc in result.structured["documents"]} == {"T001"}
+    assert result.structured["documents"][0]["chunk_ids"] == ["T001-chunk"]
+    assert result.structured["documents"][0]["title"] == "甲政策"
+    assert set(result.structured) == {"documents", "verification"}
+    assert not result.claims and not result.evidence_refs
+    assert "农业全覆盖" not in result.answer and "FAKE" not in str(result.structured)
+    assert kb.search_calls
+
+
+@pytest.mark.parametrize("structured", [
+    {"nested": {1: "non-string key"}},
+    {"value": float("nan")},
+    {"value": {"invalid"}},
+    {"value": object()},
+    {"value": date(2026, 10, 27)},
+])
+async def test_non_json_structured_result_fails_with_output_parse(setup, structured):
+    settings, _ = setup
+
+    class InvalidStructured(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            return BusinessOutcome(answer="摘要", claims=[], structured=structured)
+
+    register(InvalidStructured())
+    result = await submit("分析政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert result.status == "failed" and result.error.code == "OUTPUT_PARSE"
+    assert result.task_type == "organize" and result.route["targets"] == ["T001"]
+    assert result.structured == {}
+
+
+async def test_structured_tuples_are_normalized_to_json_lists(setup):
+    settings, _ = setup
+
+    class TupleStructured(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            found = await services.search("农业")
+            hit = found.data[0]
+            await services.read(hit.planid, chunk_id=hit.chunk_id)
+            return BusinessOutcome(answer="政策支持农业发展，资金100万元。",
+                                   claims=[{"text": "政策支持农业发展，资金100万元。",
+                                            "chunk_ids": [hit.chunk_id], "quotes": [QUOTE]}],
+                                   structured={"rows": (1, 2)})
+
+    register(TupleStructured())
+    result = await submit("分析政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert result.claims and result.evidence_refs
+    assert result.structured == {"rows": [1, 2]}
+
+
+async def test_circular_structured_result_fails_with_output_parse(setup):
+    settings, _ = setup
+
+    class CircularStructured(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            outcome = BusinessOutcome(answer="摘要", claims=[])
+            circular = {}
+            circular["self"] = circular
+            object.__setattr__(outcome, "structured", circular)
+            return outcome
+
+    register(CircularStructured())
+    result = await submit("分析政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert result.status == "failed" and result.error.code == "OUTPUT_PARSE"
+    assert result.task_type == "organize" and result.structured == {}
+
+
+async def test_invalid_structured_output_failure_preserves_business_telemetry(setup, monkeypatch):
+    settings, _ = setup
+    from guance_agent.business.services import BusinessServices
+
+    async def call_model(services, messages, max_tokens=None):
+        services.telemetry.update(model_calls=1, input_tokens=3, output_tokens=2)
+        services.telemetry["per_call"].append({"status": "ok"})
+        return "model answer"
+
+    monkeypatch.setattr(BusinessServices, "call_model", call_model)
+
+    class InvalidAfterModel(Module):
+        def __init__(self):
+            super().__init__("organize")
+
+        async def __call__(self, task, ctx, services):
+            await services.call_model([{"role": "user", "content": "analyze"}])
+            return BusinessOutcome(answer="摘要", claims=[], structured={"bad": object()})
+
+    register(InvalidAfterModel())
+    result = await submit("分析政策", settings=settings, task_type="organize",
+                          targets=["T001"])
+    assert result.status == "failed" and result.error.code == "OUTPUT_PARSE"
+    assert result.task_type == "organize" and result.route["targets"] == ["T001"]
+    assert result.meta["business_telemetry"]["model_calls"] == 1
+    assert result.meta["business_telemetry"]["per_call"] == [{"status": "ok"}]
 
 
 async def test_t03_qa_uses_existing_agent_path(setup, monkeypatch):
@@ -572,10 +861,11 @@ async def test_t13_no_budget_is_limit_not_insufficient(setup, monkeypatch):
     assert result.status == "limit_reached" and result.error.code == "RUN_TIMEOUT"
 
 
-async def test_t14_business_structured_attaches_to_final_result(setup):
+async def test_t14_business_without_claims_discards_structured_facts(setup):
     settings, _ = setup
     register(Module())
     result = await submit("比较政策", settings=settings, task_type="compare",
                           targets=["T001", "T002"])
     assert result.task_type == "compare"
-    assert result.structured == {"summary": "农业支持", "cells": [1]}
+    assert result.structured == {} and not result.claims
+    assert "农业支持" not in result.answer

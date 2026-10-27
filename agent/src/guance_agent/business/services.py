@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from ..client import thinking_off
+from ..kb import normalize_fyp
 from ..runtime import ToolBudgetExceeded
-from ..schemas import ToolResult
+from ..schemas import Hit, ToolResult
 from ..tools import _call, out_of_scope
 from .contract import BusinessError
 
@@ -25,6 +26,8 @@ class BusinessServices:
         self.ctx = ctx
         self.rt = rt
         self.deadline = deadline
+        self._open_discovery = ctx.scope is None
+        self._discovery_hits: list[Hit] = []
         self.telemetry = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                           "per_call": []}
         self._model_calls = 0
@@ -93,15 +96,67 @@ class BusinessServices:
         if top_k is None:
             top_k = self.ctx.settings.top_k_default
         scope = self.ctx.scope
-        return await self._tool("kb_search", lambda: _call(
-            self.ctx, "kb_search", self.ctx.kb.search, query, area, fyp, top_k,
-            planids=scope))
+        message = None
+        if self._open_discovery:
+            area, fyp, message = self._discovery_filters(area, fyp)
+
+        async def invoke() -> str:
+            if message is not None:
+                return self._early_invalid("kb_search", message)
+            return await _call(self.ctx, "kb_search", self.ctx.kb.search,
+                               query, area, fyp, top_k, planids=scope)
+
+        result = await self._tool("kb_search", invoke)
+        if (result.status == "ok" and isinstance(result.data, list)
+                and all(isinstance(hit, Hit) for hit in result.data)):
+            self._discovery_hits.extend(result.data)
+        return result
+
+    def _discovery_filters(self, area: str | None, fyp: str | None):
+        route = self.ctx.route
+        areas = tuple(dict.fromkeys(
+            value.strip() for value in getattr(route, "areas", ())
+            if isinstance(value, str) and value.strip()))
+        fyps = tuple(dict.fromkeys(
+            normalize_fyp(value.strip()) for value in getattr(route, "fyps", ())
+            if isinstance(value, str) and value.strip()))
+        if len(areas) > 1 or len(fyps) > 1:
+            return area, fyp, "本轮路由包含多个地区或时期，不能由业务检索自行选择"
+
+        routed_area = areas[0] if areas else None
+        routed_fyp = fyps[0] if fyps else None
+        if routed_area is not None:
+            if area is not None:
+                if not isinstance(area, str):
+                    return area, fyp, None
+                if not area.strip() or area.strip() != routed_area:
+                    return area, fyp, "检索地区不能扩大或替换本轮路由范围"
+            area = routed_area
+        if routed_fyp is not None:
+            if fyp is not None:
+                if not isinstance(fyp, str):
+                    return area, fyp, None
+                if not fyp.strip() or normalize_fyp(fyp.strip()) != routed_fyp:
+                    return area, fyp, "检索时期不能扩大或替换本轮路由范围"
+            fyp = routed_fyp
+        return area, fyp, None
+
+    def _early_invalid(self, name: str, message: str) -> str:
+        result = ToolResult(status="invalid_argument", message=message)
+        self.ctx.tool_calls.append(dict(name=name, status=result.status,
+                                        message=result.message, elapsed_ms=0))
+        return result.model_dump_json()
 
     async def read(self, planid: str, section_idx: int | None = None,
                    chunk_id: str | None = None, offset: int = 0) -> ToolResult:
         async def invoke() -> str:
             started = time.perf_counter()
-            blocked = out_of_scope(self.ctx, planid)
+            if self._open_discovery:
+                discovered = any(hit.planid == planid for hit in self._discovery_hits)
+                blocked = None if discovered else (
+                    f"planid={planid} 未由本轮成功检索发现，只能读取已发现对象")
+            else:
+                blocked = out_of_scope(self.ctx, planid)
             if blocked:
                 result = ToolResult(status="invalid_argument", message=blocked)
                 self.ctx.tool_calls.append(dict(name="kb_read", status=result.status,

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from .contract import BusinessError, BusinessModule, BusinessOutcome
+from .documents import PolicyRef, group_by_document
 from .services import BusinessServices
 
 _MODULES: dict[str, BusinessModule] = {}
@@ -27,4 +28,4 @@ def get_module(name: str) -> BusinessModule | None:
 
 
 __all__ = ["BusinessServices", "BusinessModule", "BusinessOutcome", "BusinessError",
-           "get_module", "register"]
+           "PolicyRef", "group_by_document", "get_module", "register"]
