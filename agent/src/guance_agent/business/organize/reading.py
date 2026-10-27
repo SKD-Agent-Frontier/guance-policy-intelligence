@@ -43,8 +43,10 @@ class Reading:
 def _rank_chunks(found: Discovery, planid: str):
     ranked = sorted((h for h in found.hits if h.planid == planid),
                     key=lambda h: h.score, reverse=True)
-    unique = {h.chunk_id: h for h in reversed(ranked)}
-    ranked = sorted(unique.values(), key=lambda h: h.score, reverse=True)
+    unique = {}
+    for hit in ranked:
+        unique.setdefault(hit.chunk_id, hit)
+    ranked = list(unique.values())
     selected, sections = [], set()
     for hit in ranked:
         if hit.section_path not in sections:

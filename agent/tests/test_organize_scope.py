@@ -15,6 +15,7 @@ from .organize_fakes import mock_context
     ("梳理十四五时期的专项规划中有关数字经济的政策", "数字经济"),
     ("分析科技创新，按人才培养、平台建设分类", "科技创新"),
     ("梳理科技创新" + "相关政策" * 100, "科技创新"),
+    ("梳理中小企业科技创新政策", "中小企业科技创新"),
 ])
 def test_mock_topic_extraction(question, topic):
     task, ctx = mock_context(question)

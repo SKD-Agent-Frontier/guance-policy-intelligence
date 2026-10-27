@@ -15,7 +15,7 @@ TYPE_WORDS = {
 }
 NOISE = ("梳理", "整理", "归纳", "汇总", "分析", "查找", "列出", "请", "帮我",
          "一下", "相关", "有关", "领域", "方面", "政策", "文件", "文献", "的",
-         "时期", "期间", "中")
+         "时期", "期间")
 
 
 def _compact(text: str) -> str:
@@ -59,7 +59,7 @@ def parse_scope(task, ctx) -> OrganizeScope:
                  if any(word in stripped for word in words)]
     topic = CATEGORIES.sub(" ", stripped)
     for word in sorted({w for words in TYPE_WORDS.values() for w in words}, key=len, reverse=True):
-        topic = topic.replace(word, " ")
+        topic = re.sub(re.escape(word) + r"(?:中)?", " ", topic)
     for word in NOISE:
         topic = topic.replace(word, " ")
     topic = re.sub(r"\s+", "", _compact(topic)) or sub_query[:MAX_QUERY_CHARS]
