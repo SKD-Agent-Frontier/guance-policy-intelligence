@@ -19,7 +19,7 @@ class ComparisonPlan(BaseModel):
 class Fact(BaseModel):
     planid: str
     dimension: str
-    text: str
+    text: str = ""
     evidence_ids: list[str]
 
 
@@ -43,6 +43,11 @@ class SchemeAnalysis(BaseModel):
 
 class GeneratedComparison(BaseModel):
     facts: list[Fact] = Field(default_factory=list)
+    differences: list[Difference] = Field(default_factory=list)
+    scheme_analysis: list[SchemeAnalysis] = Field(default_factory=list)
+
+
+class GeneratedAnalysis(BaseModel):
     differences: list[Difference] = Field(default_factory=list)
     scheme_analysis: list[SchemeAnalysis] = Field(default_factory=list)
 

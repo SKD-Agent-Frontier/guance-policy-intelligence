@@ -15,8 +15,10 @@
 | coverage_notes | 本轮取证失败或覆盖限制说明，不能作为政策事实引用。 |
 
 每个 `matrix.cells` 项含 `cell_id`、`planid`、`status`。cell_id 为 `d{维度零基下标}:{planid}`。
-`found` 项另含 text、chunk_ids、quotes，三者与本轮对应 Claim 一致。quotes 由程序从已读取、
-与该政策绑定的原文精确切片回填，模型只引用内部证据编号，不自行填写原文。
+`found` 项另含 text、chunk_ids、quotes，三者与本轮对应 Claim 一致。事实采用原文选句，
+text 为所选原句以中文分号组合的文本，quotes 保存各原句；不采用模型自写正文，不改写主体或条件。
+模型概括只允许放在 analysis 判断中，不伪装成原文事实。source_contexts 保存所引原文的章节路径，
+便于核对本期目标与历史背景。模型引用内部证据编号，由程序核对对应政策和原文。
 
 - found：已取得有原文依据的事实，仍需基础层统一核验。
 - not_retrieved：本轮未取得相关正文，不能推断政策没有规定。

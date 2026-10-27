@@ -35,6 +35,8 @@ def audit_result(result, targets, *, scheme=False, missing=None):
             if cell["status"] == "found":
                 if not cell.get("text") or not cell.get("quotes") or not cell.get("chunk_ids"):
                     failures.append("found_cell_without_fact_payload")
+                if cell.get("text") != "；".join(cell.get("quotes", [])):
+                    failures.append("fact_cell_not_extractive")
                 if not any(claim.dimension == row["dimension"] and claim.text == cell["text"]
                            and claim.chunk_ids == cell["chunk_ids"] and claim.quotes == cell["quotes"]
                            for claim in result.claims):
@@ -107,6 +109,8 @@ async def run(args):
     settings = load_settings(args.env_file)
     if not settings.llm_base_url or not settings.llm_api_key:
         raise ValueError("missing_school_model_configuration")
+    # Settings会把相对会话路径基于agent目录解析，先固定到实际验收目录。
+    args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     settings = replace(settings, kb_backend="rag", rag_mode="bm25",
                        rag_store_project=str(args.store_project.resolve()),
@@ -115,7 +119,7 @@ async def run(args):
     cases = [
         ("policy", "compare", ["37982", "38366"], ["发展目标", "政策工具", "适用对象"]),
         ("schemes", "compare_plans", ["37982", "38366"], ["适用对象", "支持措施", "申请或执行条件"]),
-        ("cross_period", "compare", ["51506", "37982"], ["发展目标", "政策工具"]),
+        ("cross_period", "compare", ["57", "37982"], ["人才培养", "人才激励"]),
         ("controlled_missing", "compare", ["37982", "38366"], ["发展目标", "政策工具"]),
     ]
     report, samples = [], {}

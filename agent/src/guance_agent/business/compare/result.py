@@ -7,9 +7,17 @@ from ..contract import BusinessOutcome
 
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 ABSOLUTE_RANK = re.compile(r"最佳|最优|绝对优|全面优于|排名|评分|首选方案|无条件优|更推荐|推荐选择")
-ABSENCE = re.compile(r"没有(?:规定|措施|支持|提供)|未规定|不支持|不存在|缺乏|缺少|未提及|未明确|未涉及")
+ABSENCE = re.compile(r"没有(?:规定|措施|支持|提供)|未规定|不支持|不存在|缺乏|缺少|未提及|未明确|未涉及|未见")
 NEGATIVE_SOURCE = re.compile(r"不得|不予|不适用|不包含|不支持|禁止|未规定|没有|缺乏|缺少|未明确")
 QUANTITATIVE_ORDER = re.compile(r"更高|高于|低于|多于|更大|更小|更强|更优|增加了|降低了")
+PERSONAL_APPROVAL = re.compile(
+    r"(?:人才|申请人|个人).{0,24}(?:需|须|必须|应当).{0,24}(?:审议|审批|批准)"
+    r"|享受(?:支持|服务).{0,12}需.{0,24}(?:审议|审批|批准)"
+    r"|(?:需|必须)通过.{0,16}申报流程")
+PROGRESS_ASSERTION = re.compile(
+    r"尚未(?:完全)?(?:落地|实施|兑现|完成|建成)|尚未到.{0,8}(?:考核|验收)"
+    r"|已(?:经|全部|全面|完全)?(?:兑现|落地|完成|建成)")
+LINKED_REQUIREMENT = re.compile(r"相挂钩|相绑定|共同资格|必须同时满足")
 UNITS = re.compile(r"\d+(?:\.\d+)?\s*(亿元|万元|万人|千人|万家|元|人|家|项|个|%|％)")
 ALIASES = "甲乙丙丁戊己庚辛"
 
@@ -48,6 +56,9 @@ def _comparability(objects, cells, generated):
         reasons.append("部分文件性质尚不明确")
     if len(natures - {None}) > 1:
         reasons.append("文件性质不同，只作注明性质的内容对照，不视为同口径政策")
+    types = {obj.get("plantype_label") for obj in objects} - {None}
+    if len(types) > 1:
+        reasons.append("规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排")
     periods = {obj.get("fyp") for obj in objects}
     if None in periods:
         reasons.append("部分对象规划期或报告期缺失，不能确认相同时间口径")
@@ -58,24 +69,24 @@ def _comparability(objects, cells, generated):
         if title_periods and obj.get("fyp") not in title_periods:
             reasons.append("标题中的规划期与元数据不一致，不自行纠正或视为相同口径")
     quote_sets = ["\n".join(cell.get("quotes", [])) for cell in cells]
-    stages = {_stage(text) for text in quote_sets if text}
+    stages = {_stage(text) or (("规划安排",) if _nature(obj) == "规划计划" else ())
+              for obj, text in zip(objects, quote_sets) if text}
     if len(stages) > 1 or any(len(stage) > 1 for stage in stages):
         reasons.append("规划安排、推进过程或实际完成情况存在差别，不能混为一谈")
     unit_sets = {tuple(sorted(set(UNITS.findall(text)))) for text in quote_sets if text}
     if len(unit_sets) > 1:
         reasons.append("数量单位或指标表现不同，未作换算或直接大小排序")
-    if generated and not generated.comparable:
-        fact_text = "\n".join(cell.get("text", "") for cell in cells)
-        reason = generated.reason.strip()
-        reasons.append(reason if reason and _numbers_supported(reason, fact_text)
-                       and not ABSOLUTE_RANK.search(reason) and not ABSENCE.search(reason)
-                       else "原文不足以确认统一统计口径")
+    if generated and not generated.comparable and not reasons:
+        # 不把模型另写的经济基础、实施进展等说明当成已取证的口径事实。
+        reasons.append("原文不足以确认统一统计口径，仅作所列条款的文字内容对照")
     numeric = any(NUMBER.search(cell.get("text", "")) for cell in cells)
     if numeric:
         # 数字出现只证明字面有据，不能证明统计定义相同。
         reasons.append("数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序")
     return {"comparable": not reasons,
-            "reason": "；".join(dict.fromkeys(reasons)) or "可在所列维度作有据的文字内容对照"}
+            "reason": "；".join(dict.fromkeys(part for reason in reasons
+                                            for part in reason.split("；") if part))
+            or "可在所列维度作有据的文字内容对照"}
 
 
 def _judgment(judgment, cells, *, comparable=True):
@@ -90,6 +101,13 @@ def _judgment(judgment, cells, *, comparable=True):
     if not text or ABSOLUTE_RANK.search(text) or not _numbers_supported(text, fact_text):
         return None
     if ABSENCE.search(text) and not NEGATIVE_SOURCE.search(source):
+        return None
+    if (PERSONAL_APPROVAL.search(text) and re.search(r"各地各部门|各部门各单位|责任单位", source)
+            and not re.search(r"申请|申报", source)):
+        return None
+    if any(match.group() not in source for match in PROGRESS_ASSERTION.finditer(text)):
+        return None
+    if any(match.group() not in source for match in LINKED_REQUIREMENT.finditer(text)):
         return None
     if not comparable and QUANTITATIVE_ORDER.search(text):
         return None
@@ -106,13 +124,17 @@ def _fact_cells(task, plan, collection, generated):
         if fact.planid not in task.targets or fact.dimension not in plan.dimensions:
             continue
         refs = list(dict.fromkeys(fact.evidence_ids))
-        if (not refs or any(ref not in units or units[ref].planid != fact.planid for ref in refs)
-                or not fact.text.strip()):
+        if not refs or any(ref not in units or units[ref].planid != fact.planid for ref in refs):
             continue
-        quotes = list(dict.fromkeys(units[ref].text for ref in refs))
-        if not _numbers_supported(fact.text, "\n".join(quotes)):
+        historical_allowed = bool(re.match(r"历史|回顾|完成情况|成效|发展基础", fact.dimension))
+        if any(units[ref].historical for ref in refs) and not historical_allowed:
+            if "历史背景原文未作为本期政策事实使用。" not in collection.notes:
+                collection.notes.append("历史背景原文未作为本期政策事实使用。")
             continue
-        facts.setdefault((fact.dimension, fact.planid), []).append((fact, refs))
+        # 事实正文只由所选原句生成。模型即使另写text，也不进入事实、引文或最终回答。
+        for ref in refs:
+            facts.setdefault((fact.dimension, fact.planid), []).append(
+                (fact.model_copy(update={"text": units[ref].text}), [ref]))
     for index, dimension in enumerate(plan.dimensions):
         for pid in task.targets:
             cid = f"d{index}:{pid}"
@@ -123,7 +145,9 @@ def _fact_cells(task, plan, collection, generated):
                 cell.update(status="found", text="；".join(dict.fromkeys(
                     fact.text.strip() for fact, _ in accepted)),
                     chunk_ids=list(dict.fromkeys(units[ref].chunk_id for ref in refs)),
-                    quotes=list(dict.fromkeys(units[ref].text for ref in refs)))
+                    quotes=list(dict.fromkeys(fact.text for fact, _ in accepted)))
+                cell["source_contexts"] = list(dict.fromkeys(units[ref].section_path
+                                                             for ref in refs if units[ref].section_path))
                 claims.append(Claim(text=cell["text"], chunk_ids=cell["chunk_ids"],
                                     quotes=cell["quotes"], dimension=dimension))
             elif any(unit.planid == pid for unit in collection.units):

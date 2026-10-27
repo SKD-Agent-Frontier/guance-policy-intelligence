@@ -9,7 +9,7 @@ import pytest
 
 from guance_agent import business
 from guance_agent.business.compare import PolicyComparisonModule, SchemeComparisonModule
-from guance_agent.business.compare.evidence import Collection, EvidenceUnit
+from guance_agent.business.compare.evidence import Collection, EvidenceUnit, _segments
 from guance_agent.business.compare.models import (
     ComparisonPlan,
     GeneratedComparison,
@@ -56,6 +56,8 @@ class ComparisonModel:
     def __init__(self):
         self.calls = []
         self.mutate = None
+        self.mutate_analysis = None
+        self.mutate_review = None
         self.plan = {"dimensions": DIMENSIONS, "queries": ["人才 培训 补贴"],
                      "evaluation_criteria": []}
 
@@ -64,6 +66,32 @@ class ComparisonModel:
         messages = kwargs["messages"]
         if "你负责解析" in messages[0]["content"]:
             output = self.plan
+        elif "本轮审查草稿" in messages[0]["content"]:
+            payload = json.loads(messages[1]["content"])
+            output = payload["draft"]
+            if self.mutate_review:
+                self.mutate_review(output, payload)
+        elif "你负责比较分析" in messages[0]["content"]:
+            payload = json.loads(messages[1]["content"])
+            analyses = []
+            for obj in payload["objects"]:
+                own = [cell for row in payload["matrix"] for cell in row["cells"]
+                       if cell["planid"] == obj["planid"] and cell["status"] == "found"]
+                basis = [own[0]["cell_id"]] if own else []
+                analyses.append({"planid": obj["planid"],
+                    "advantages": [{"text": "在所列人才支持事项上提供了政策安排。", "supporting_cells": basis}],
+                    "limitations": [{"text": "分析结论仅适用于所列政策范围。", "supporting_cells": basis}],
+                    "applicability": [{"text": "可供与原文支持范围相符的对象进一步核对。", "supporting_cells": basis}]})
+            differences = [{"dimension": row["dimension"],
+                            "text": "两项政策均提出人才支持安排。",
+                            "supporting_cells": [c["cell_id"] for c in row["cells"]
+                                                 if c["status"] == "found"],
+                            "comparable": True, "reason": ""}
+                           for row in payload["matrix"]]
+            output = {"differences": differences, "scheme_analysis": analyses
+                      if payload["mode"] == "scheme_analysis" else []}
+            if self.mutate_analysis:
+                self.mutate_analysis(output, payload)
         else:
             payload = json.loads(messages[1]["content"])
             output = self.generate(payload)
@@ -83,7 +111,7 @@ class ComparisonModel:
                 units = [u for u in payload["evidence"] if u["planid"] == pid]
                 if units:
                     facts.append({"planid": pid, "dimension": dimension,
-                                  "text": "政策提出人才培养和支持安排。",
+                                  "text": units[0]["text"],
                                   "evidence_ids": [units[0]["id"]]})
                     ids.append(f"d{index}:{pid}")
             differences.append({"dimension": dimension, "text": "两项政策均提出人才支持安排。",
@@ -128,9 +156,11 @@ async def test_actual_submit_builds_two_sided_matrix(compare_setup, task_type):
         assert [c["planid"] for c in row["cells"]] == ["T001", "T002"]
         for cell in row["cells"]:
             assert cell["status"] == "found"
-            assert cell["quotes"] == [kb.documents[cell["planid"]]["body"]]
+            assert cell["quotes"] and all(q in kb.documents[cell["planid"]]["body"]
+                                          for q in cell["quotes"])
+            assert all(q.endswith(("。","；",";","！","!","？","?")) for q in cell["quotes"])
             assert all(cid.startswith(cell["planid"]) for cid in cell["chunk_ids"])
-    assert len(model.calls) == 2
+    assert len(model.calls) == 4
     assert all(call[-1] == ("T001", "T002") for call in kb.search_calls)
     assert result.route["targets"] == ["T001", "T002"]
     if task_type == "compare_plans":
@@ -171,7 +201,8 @@ async def test_invalid_fact_reference_cannot_enter_claims(compare_setup, corrupt
             fact["text"] = "安排资金999万元。"
     model.mutate = mutate
     result = await submit("比较政策", settings=settings, task_type="compare", targets=["T001", "T002"])
-    assert result.structured["matrix"][0]["cells"][0]["status"] == "insufficient"
+    assert result.structured["matrix"][0]["cells"][0]["status"] == (
+        "found" if corruption == "new_number" else "insufficient")
     assert all("999" not in claim.text for claim in result.claims)
 
 
@@ -254,8 +285,8 @@ def test_cross_period_and_nature_cannot_be_silently_treated_as_comparable():
             EvidenceUnit("e0", "A", "a", "目标为新增人才100人。"),
             EvidenceUnit("e1", "B", "b", "已完成人才引进200人。")])
     generated = GeneratedComparison.model_validate({"facts": [
-        {"planid": "A", "dimension": "目标", "text": "目标新增人才100人。", "evidence_ids": ["e0"]},
-        {"planid": "B", "dimension": "目标", "text": "已引进人才200人。", "evidence_ids": ["e1"]}],
+        {"planid": "A", "dimension": "目标", "text": "目标为新增人才100人。", "evidence_ids": ["e0"]},
+        {"planid": "B", "dimension": "目标", "text": "已完成人才引进200人。", "evidence_ids": ["e1"]}],
         "differences": [{"dimension": "目标", "text": "乙的目标高于甲。",
                          "supporting_cells": ["d0:A", "d0:B"]}]})
     outcome = build_outcome(task, plan, collection, generated, scheme=False)
@@ -270,7 +301,7 @@ async def test_absolute_winner_and_unfounded_absence_are_not_retained(compare_se
     def mutate(output, _):
         output["scheme_analysis"][0]["advantages"][0]["text"] = "甲是最佳方案。"
         output["scheme_analysis"][0]["limitations"][0]["text"] = "甲没有支持措施。"
-    model.mutate = mutate
+    model.mutate_analysis = mutate
     result = await submit("分析两个方案", settings=settings, task_type="compare_plans",
                           targets=["T001", "T002"])
     first = result.structured["scheme_analysis"][0]
@@ -314,7 +345,7 @@ async def test_relative_advantage_requires_evidence_for_other_scheme_too(compare
     settings, _, model = compare_setup
     def mutate(output, _):
         output["scheme_analysis"][0]["advantages"][0]["text"] = "相比乙，甲更适合人才发展。"
-    model.mutate = mutate
+    model.mutate_analysis = mutate
     result = await submit("分析两个方案", settings=settings, task_type="compare_plans",
                           targets=["T001", "T002"])
     assert result.structured["scheme_analysis"][0]["advantages"] == []
@@ -377,3 +408,184 @@ async def test_hit_metadata_none_is_not_backfilled_from_catalog(compare_setup, m
     result = await submit("比较", settings=settings, task_type="compare", targets=["T001", "T002"])
     assert all(obj["fyp"] is None for obj in result.structured["objects"])
     assert "时间口径" in result.structured["comparability"]["reason"]
+
+
+@pytest.mark.parametrize("question",["比较本期发展目标","不要把历史成绩当成本期发展目标"])
+def test_historical_background_cannot_be_used_as_current_plan_objective(question):
+    task = TaskRequest(run_id="r", session_id="s", created_at="", question=question, targets=["A", "B"])
+    plan = ComparisonPlan(dimensions=["发展目标"])
+    collection = Collection(objects=[{"planid":"A","title":"甲市十四五规划","fyp":"十四五"},
+                                     {"planid":"B","title":"乙市十四五规划","fyp":"十四五"}],units=[
+        EvidenceUnit("e0","A","a","十三五人才总量已达到10万人。","一、发展背景 / 现实基础"),
+        EvidenceUnit("e1","B","b","十四五目标新增人才20万人。","二、主要目标")])
+    generated=GeneratedComparison.model_validate({"facts":[
+        {"planid":"A","dimension":"发展目标","text":"十三五人才总量已达到10万人。","evidence_ids":["e0"]},
+        {"planid":"B","dimension":"发展目标","text":"十四五目标新增人才20万人。","evidence_ids":["e1"]}]})
+    outcome=build_outcome(task,plan,collection,generated,scheme=False)
+    assert outcome.structured["matrix"][0]["cells"][0]["status"] == "insufficient"
+    assert outcome.structured["matrix"][0]["cells"][1]["status"] == "found"
+    assert all("10万人" not in claim.text for claim in outcome.claims)
+
+
+def test_basic_research_section_is_not_historical_background():
+    unit=EvidenceUnit("e0","A","a","培养基础研究人才。","三、主要任务 / 基础研究人才队伍")
+    assert not unit.historical
+
+
+async def test_catalog_goal_and_implementation_sections_are_prioritized(compare_setup, monkeypatch):
+    settings, _, _ = compare_setup
+    class CatalogKB(ComparisonKB):
+        def read(self,planid,section_idx,max_chars,**kwargs):
+            passage=super().read(planid,section_idx,max_chars,**kwargs)
+            if section_idx is None and kwargs.get("chunk_id") is None:
+                return passage.model_copy(update={"is_index":True,"sections":[
+                    {"idx":1,"path":"二、主要目标"},{"idx":2,"path":"六、实施保障"}]})
+            return passage
+    kb=CatalogKB()
+    monkeypatch.setattr("guance_agent.orchestrator.get_kb",lambda _:kb)
+    result=await submit("比较目标及执行条件",settings=settings,task_type="compare",
+                        targets=["T001","T002"],dimensions=["发展目标","执行条件"])
+    assert result.status == "completed"
+    for pid in ["T001","T002"]:
+        sections=[idx for target,idx,_,_ in kb.read_calls if target==pid and idx is not None]
+        assert sections[:2] == [1,2]
+
+
+@pytest.mark.parametrize("task_type",["compare","compare_plans"])
+async def test_one_bounded_format_repair_keeps_evidence_checks(compare_setup, monkeypatch, task_type):
+    settings,_,model=compare_setup
+    original=model.create
+    saved=None
+    async def broken_once(**kwargs):
+        nonlocal saved
+        if "只修正" in kwargs['messages'][0]['content']:
+            model.calls.append(kwargs)
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=saved),finish_reason='stop')],usage=None)
+        reply=await original(**kwargs)
+        if saved is None and '本轮只生成事实' in kwargs['messages'][0]['content']:
+            saved=reply.choices[0].message.content
+            reply.choices[0].message.content='{broken'
+        return reply
+    monkeypatch.setattr(model,'create',broken_once)
+    result=await submit('比较人才政策',settings=settings,task_type=task_type,targets=['T001','T002'])
+    assert result.structured and len(result.claims)==6
+    assert len(model.calls)==5
+
+
+async def test_format_repair_is_not_repeated_across_stages(compare_setup, monkeypatch):
+    settings,_,model=compare_setup
+    calls=[]
+    async def reply(**kwargs):
+        calls.append(kwargs)
+        raw=json.dumps(model.plan) if len(calls)==2 else '{broken'
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=raw),finish_reason='stop')],usage=None)
+    monkeypatch.setattr(model,'create',reply)
+    result=await submit('比较人才政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert result.error.code=='OUTPUT_PARSE' and len(calls)==3
+
+
+def test_department_reporting_cannot_be_rewritten_as_personal_eligibility():
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较执行条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    text='各地各部门各单位重点工作事项，及时按程序报人才工作领导小组研究审议。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','A','a',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'A','dimension':'执行条件',
+        'text':'人才个人必须报人才工作领导小组审议后才能享受支持。','evidence_ids':['e0']}]})
+    result=build_outcome(task,plan,collection,generated,scheme=False)
+    assert result.claims[0].text == text
+    assert result.structured['matrix'][0]['cells'][0]['status']=='found'
+    assert '人才个人必须' not in result.answer
+
+
+async def test_completed_chunk_is_not_reread_after_its_section(compare_setup,monkeypatch):
+    settings,_,_=compare_setup
+    class SectionKB(ComparisonKB):
+        def read(self,planid,section_idx,max_chars,**kwargs):
+            passage=super().read(planid,section_idx,max_chars,**kwargs)
+            if section_idx is None and kwargs.get('chunk_id') is None:
+                return passage.model_copy(update={'is_index':True,'sections':[{'idx':1,'path':'主要目标'}]})
+            return passage
+    kb=SectionKB()
+    monkeypatch.setattr('guance_agent.orchestrator.get_kb',lambda _:kb)
+    result=await submit('比较目标',settings=settings,task_type='compare',targets=['T001','T002'],dimensions=['发展目标'])
+    assert result.structured
+    assert len(kb.read_calls)==4
+    assert not any(chunk for _,_,chunk,_ in kb.read_calls)
+
+
+def test_scheme_analysis_cannot_turn_department_reporting_into_personal_approval():
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较执行条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    text='各地各部门各单位重点工作事项，及时按程序报人才工作领导小组研究审议。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','A','a',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'A','dimension':'执行条件',
+        'text':text,'evidence_ids':['e0']}],'scheme_analysis':[{'planid':'A','limitations':[
+        {'text':'申请人必须报人才工作领导小组审议后才能享受支持。','supporting_cells':['d0:A']}]}]})
+    outcome=build_outcome(task,plan,collection,generated,scheme=True)
+    assert outcome.structured['scheme_analysis'][0]['limitations']==[]
+
+
+def test_evidence_keeps_cross_line_sentences_and_drops_partial_chunk_edges():
+    text='上一句残尾。各地各部门重点工作事项，\n及时按程序报领导小组研究审议。后句未完'
+    units=_segments(text,['工作事项'],1800,start_complete=False)
+    assert units==['各地各部门重点工作事项，\n及时按程序报领导小组研究审议。']
+    assert not _segments('超过预算的完整原句不得截成假句子。',['原句'],8)
+
+
+def test_plan_context_does_not_mislabel_unmarked_clauses_as_completed_results():
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较目标',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['目标'])
+    collection=Collection(objects=[{'planid':pid,'title':f'{pid}市十四五规划','fyp':'十四五'}
+                                   for pid in ['A','B']],units=[
+        EvidenceUnit('e0','A','a','目标是培养技术人才。'),
+        EvidenceUnit('e1','B','b','支持人才创业团队。')])
+    generated=GeneratedComparison.model_validate({'facts':[
+        {'planid':pid,'dimension':'目标','evidence_ids':[f'e{i}']}
+        for i,pid in enumerate(['A','B'])]})
+    outcome=build_outcome(task,plan,collection,generated,scheme=False)
+    reason=outcome.structured['matrix'][0]['comparability']['reason']
+    assert '完成情况存在差别' not in reason
+
+
+def test_cultivation_period_sentence_keeps_its_own_target_context():
+    text='围绕民营企业遴选培养优秀青年企业家。培养期内在信贷和培训方面给予支持。'
+    units=_segments(text,['培养期内'],1800)
+    assert units[0] == text
+    assert not _segments('培养期内在信贷和培训方面给予支持。',['培养期内'],1800)
+
+
+@pytest.mark.parametrize('unsupported', ['尚未到考核节点。','尚未完全落地。','已全面建成人才平台。'])
+async def test_analysis_cannot_invent_current_implementation_status(compare_setup,unsupported):
+    settings,_,model=compare_setup
+    def mutate(output,_):
+        output['differences'][0]['text']=unsupported
+        output['differences'][0].update(comparable=False,reason='两地经济发展阶段不同。')
+    model.mutate_analysis=mutate
+    result=await submit('比较政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert result.structured['matrix'][0]['difference']['status']=='insufficient'
+    assert unsupported not in result.answer
+    assert '经济发展阶段不同' not in result.answer
+
+
+async def test_analysis_review_uses_the_same_canonical_facts_without_rewriting_them(compare_setup):
+    settings,_,model=compare_setup
+    def initial(output,_):
+        output['scheme_analysis'][0]['advantages'][0]['text']='住房补贴与人才培养相挂钩。'
+    def review(output,payload):
+        assert payload['matrix'][0]['cells'][0]['text'] in BODY_A
+        output['scheme_analysis'][0]['advantages'][0]['text']='所列条款提出人才培养支持安排。'
+    model.mutate_analysis=initial
+    model.mutate_review=review
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.structured['scheme_analysis'][0]['advantages'][0]['text']=='所列条款提出人才培养支持安排。'
+    assert '相挂钩' not in result.answer
+    assert len(model.calls)==4
+
+
+async def test_unsupported_linking_of_separate_measures_is_withdrawn(compare_setup):
+    settings,_,model=compare_setup
+    def mutate(output,_):
+        output['scheme_analysis'][0]['advantages'][0]['text']='住房补贴与人才培养相挂钩。'
+    model.mutate_analysis=mutate
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.structured['scheme_analysis'][0]['advantages']==[]
