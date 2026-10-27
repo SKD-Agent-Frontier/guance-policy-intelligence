@@ -52,8 +52,8 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
                        for target in targets)
                 or len(set(targets)) != len(targets)):
             return "targets须为 1–8 个不重复的有效 planid 列表"
-        if task_type == "compare" and len(targets) < 2:
-            return "compare任务至少需要两个不同的 targets"
+        if task_type in ("compare", "compare_plans") and len(targets) < 2:
+            return "比较任务至少需要两个不同的 targets"
     return None
 
 async def submit(question: str, session_id: str | None = None,

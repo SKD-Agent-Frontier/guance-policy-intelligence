@@ -347,8 +347,13 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
         return [], "请缩小问题范围后重试；当前无法确定业务分析对象。"
     if decision.kind != "objects":
         return [], "请提供明确的政策 planid 或唯一政策标题后重试。"
+    title_decision = decision
     if decision.titles and (len(decision.areas) > 1 or len(decision.fyps) > 1):
-        return [], "标题定位不能同时限定多个地区或多个规划期，请缩小范围后重试。"
+        if task.task_type not in ("compare", "compare_plans"):
+            return [], "标题定位不能同时限定多个地区或多个规划期，请缩小范围后重试。"
+        # 比较中的不同标题可分属不同地区/时期；分别唯一定位，绝不挑选首个候选。
+        title_decision = RouteDecision(kind=decision.kind, titles=decision.titles,
+                                       sub_query=decision.sub_query)
     targets = list(decision.planids)
     unresolved = []
     for title in decision.titles:
@@ -356,7 +361,7 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
         if remaining <= 0:
             raise TimeoutError
         pid, status, candidates = await _lookup_title(
-            ctx, title, decision, min(s.tool_timeout, remaining))
+            ctx, title, title_decision, min(s.tool_timeout, remaining))
         if status == "ok":
             targets.append(pid)
         else:
@@ -377,7 +382,7 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
     if time.monotonic() >= deadline:
         return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
-    if task.task_type == "compare" and task.targets is None and decision.kind == "open":
+    if task.task_type in ("compare", "compare_plans") and task.targets is None and decision.kind == "open":
         return _business_prompt(task, ctx, rt.meta, decision,
                                 "比较任务至少需要两个不同的政策对象。", [])
     if message:
@@ -389,7 +394,7 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         return _business_failure(task, ctx, rt, decision, "INVALID_INPUT",
                                  targets=targets,
                                  message="业务任务最多支持 8 个政策对象，请缩小对象范围。")
-    if task.task_type == "compare" and targets is not None and len(targets) < 2:
+    if task.task_type in ("compare", "compare_plans") and targets is not None and len(targets) < 2:
         return _business_prompt(task, ctx, rt.meta, decision,
                                 "比较任务至少需要两个不同的政策对象。", targets)
 

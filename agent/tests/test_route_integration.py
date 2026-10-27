@@ -179,11 +179,11 @@ async def test_unknown_task_type_is_rejected_explicitly(env, monkeypatch):
     """未知 task_type 不能静默走 QA，必须显式失败。"""
     s, base = _configured(env), env[1]
     monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    task = base.model_copy(update={"question": "随便问问", "task_type": "compare"})
+    task = base.model_copy(update={"question": "随便问问", "task_type": "unimplemented_business"})
     result = await run_task(task, s, Runtime(s, task))
     assert result.status == "failed"
     assert result.error is not None and result.error.code == "INVALID_INPUT"
-    assert "compare" in result.error.message
+    assert "unimplemented_business" in result.error.message
 
 
 async def test_blocked_route_is_completed_without_internal_error(env, monkeypatch):

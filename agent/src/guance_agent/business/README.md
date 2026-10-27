@@ -4,7 +4,7 @@
 
 业务模块通过 Agent 统一入口使用现有工具、模型客户端、运行预算和证据核验。模块只返回业务结果，不构造最终 `RunResult`，也不自行初始化 RAG Store 或模型客户端。
 
-注册表当前为空。`qa`、`extract` 保留现有路径；未注册的任务类型会被拒绝。不得为测试或占位目的注册 echo、compare、organize 等模块。
+注册表当前包含政策比较 `compare` 与多方案分析 `compare_plans`，实现及输出契约见 [compare/README.md](compare/README.md)。`qa`、`extract` 保留现有路径；未注册的任务类型会被拒绝。不得注册测试或占位模块。
 
 ## 二、模块签名与结果
 
@@ -39,7 +39,7 @@ await services.call_model(messages, max_tokens=None)  # -> str
 
 ## 四、目标对象与证据要求
 
-入口 `submit(question, session_id=None, user_id=None, settings=None, task_type="qa", dimensions=None, targets=None)` 中，显式 `targets` 接受 1–8 个不重复有效 planid，并优先于问题中的自然语言线索。编排层把完整目标集合一次传给模块，并将 `ctx.scope` 固定到该集合；不得逐对象调用后再拼结果。`compare` 始终至少需要两个对象，即使模块允许开放主题也不例外。
+入口 `submit(question, session_id=None, user_id=None, settings=None, task_type="qa", dimensions=None, targets=None)` 中，显式 `targets` 接受 1–8 个不重复有效 planid，并优先于问题中的自然语言线索。编排层把完整目标集合一次传给模块，并将 `ctx.scope` 固定到该集合；不得逐对象调用后再拼结果。`compare`、`compare_plans` 始终至少需要两个对象，即使模块允许开放主题也不例外。比较任务中的多个唯一标题可分别跨地区或规划期定位；存在歧义仍要求澄清，不取首个候选。
 
 没有传 `targets` 时，模块默认要求目标对象；只有在能唯一定位对象时才调用模块，否则返回提示。模块可以显式声明 `requires_targets = False` 接受开放主题；未声明时默认为 `True`。开放主题下 `task.targets is None` 且 `ctx.scope is None`。开放主题或需要按标题定位时，编排路由中唯一的地区和规划期会自动用于 `services.search`；业务不得用互相冲突的 `area` 或 `fyp` 覆盖它们。此类路由含多个地区或规划期时，系统要求缩小范围，不会悄悄挑第一个。若自然语言 planid 已唯一确定对象，或显式 `targets` 已确定对象集合，可按这些对象跨地区或规划期比较。开放主题的 `services.read` 只允许读取本轮成功 `services.search` 已发现的 planid。所有检索与回读仍走现有预算和证据登记流程。未知且未注册的 `task_type` 返回 `INVALID_INPUT`。
 

@@ -12,8 +12,9 @@ EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句�
 
 
 def quote_budget(result) -> int:
-    """提取任务要核的引文天生比问答多，给它更大但仍有限的上限。"""
-    return EXTRACT_MAX_QUOTES if getattr(result, "task_type", "qa") == "extract" else MAX_QUOTES
+    """提取及多对象比较的引文多于普通问答，复用较大且仍有限的上限。"""
+    return (EXTRACT_MAX_QUOTES if getattr(result, "task_type", "qa")
+            in ("extract", "compare", "compare_plans") else MAX_QUOTES)
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表，行首的 "1." "2、" 不是数据，先去掉再抽数字
 LIST_MARKER = re.compile(r"(?m)^\s*\d+\s*[.．、)）]\s*")

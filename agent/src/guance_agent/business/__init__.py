@@ -1,8 +1,9 @@
-"""Explicit registry for implemented business modules; intentionally empty."""
+"""显式注册已实现的业务模块；未注册名称仍然拒绝。"""
 from __future__ import annotations
 
 import re
 
+from .compare import PolicyComparisonModule, SchemeComparisonModule
 from .contract import BusinessError, BusinessModule, BusinessOutcome
 from .documents import PolicyRef, group_by_document
 from .services import BusinessServices
@@ -25,6 +26,10 @@ def register(module: BusinessModule) -> None:
 
 def get_module(name: str) -> BusinessModule | None:
     return _MODULES.get(name)
+
+
+register(PolicyComparisonModule())
+register(SchemeComparisonModule())
 
 
 __all__ = ["BusinessServices", "BusinessModule", "BusinessOutcome", "BusinessError",
