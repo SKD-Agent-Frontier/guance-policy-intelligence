@@ -122,6 +122,32 @@ async def test_mock_e_invalid_points_are_removed_before_foundation_verification(
     assert result.meta["quote_verification"]["rejected"] == 0
 
 
+async def test_mock_truncated_number_cannot_borrow_digit_elsewhere_in_source(mock_setup, monkeypatch):
+    from guance_agent.business.organize import prompt
+
+    _, state = mock_setup
+    cap = 120
+    partial = "建设科技创新平台2"
+    prefix = "甲" * (cap - len(partial) - 1) + "。"
+    # The real value is 20. A separate sentence has 2, so the foundation's
+    # whole-observed-range numeric check alone cannot reject the wrong claim.
+    content = prefix + "建设科技创新平台20个。另安排资金2万元。"
+    hit = state.kb.hits[0]
+    state.kb.hits[0] = hit.model_copy(update=dict(
+        content=content, char_end=len(content), chunk_char_end=len(content),
+        section_char_end=len(content)))
+    monkeypatch.setattr(prompt, "CHUNK_SHOW_CHARS", cap)
+    state.payload["policies"][0]["points"][0]["text"] = "建设科技创新平台2个"
+    result = await run_mock(mock_setup)
+    assert content[:cap] == prefix + partial
+    assert prefix + partial + "\n\n" in state.messages[0][1]["content"]
+    assert result.evidence_status == "verified" and len(result.claims) == 3
+    assert result.structured["coverage"]["documents_summarized"] == 3
+    assert result.structured["policies"][0]["read_status"] == "read_no_valid_points"
+    assert "answer_rebuilt" not in result.meta
+    assert result.meta["quote_verification"]["approved"] == 3
+
+
 async def test_mock_f_targets_fixed_and_missing_target_has_no_fabricated_metadata(mock_setup):
     _, state = mock_setup
     result = await run_mock(mock_setup, targets=["P000", "P001", "missing"])

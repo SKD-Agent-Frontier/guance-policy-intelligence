@@ -85,6 +85,11 @@ def _locate_quote(window, text, anchors):
         if match.start() == 0 and (passage.char_start or 0) > (passage.section_char_start or 0):
             continue
         sentence = match.group(0)
+        # A display cap can split a sentence (even a number). The absence of
+        # another digit at shown's edge must not turn that prefix into evidence.
+        if (len(shown) < len(passage.content) and match.end() == len(shown)
+                and sentence[-1] not in BOUNDARIES):
+            continue
         if any(a in sentence for a in anchors) and all(_number_present(n, sentence) for n in numbers):
             return sentence
     return None

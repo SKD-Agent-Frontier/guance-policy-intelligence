@@ -88,6 +88,48 @@ async def test_mock_numeric_substring_and_duplicate_quote_rejected():
     assert len(validate(payload, reading, ctx, scope).points) == 1
 
 
+@pytest.mark.parametrize(("shown", "text"), [
+    ("建设科技创新平台2", "建设科技创新平台2个"),
+    ("建设科技创新平台20", "建设科技创新平台20个"),
+])
+async def test_mock_truncated_tail_cannot_support_claim(monkeypatch, shown, text):
+    from guance_agent.business.organize import prompt
+
+    ctx, scope, _, reading, payload = await prepare_mock(count=1)
+    monkeypatch.setattr(prompt, "CHUNK_SHOW_CHARS", len(shown))
+    build_messages(scope, reading)
+    assert reading.windows[0].shown == shown
+    assert len(shown) < len(reading.windows[0].passage.content)
+    payload["policies"][0]["points"][0]["text"] = text
+    assert not validate(payload, reading, ctx, scope).points
+
+
+async def test_mock_complete_sentence_before_truncated_tail_is_preserved(monkeypatch):
+    from guance_agent.business.organize import prompt
+
+    ctx, scope, _, reading, payload = await prepare_mock(count=1)
+    quote = "建设科技创新平台20个。"
+    monkeypatch.setattr(prompt, "CHUNK_SHOW_CHARS", len(quote + "培养科研人才1"))
+    build_messages(scope, reading)
+    assert reading.windows[0].shown == quote + "培养科研人才1"
+    points = validate(payload, reading, ctx, scope).points
+    assert len(points) == 1 and points[0].claim.quotes == [quote]
+
+
+@pytest.mark.parametrize(("content", "shown", "quote"), [
+    ("建设科技创新平台20个。后续其他内容", "建设科技创新平台20个。", "建设科技创新平台20个。"),
+    ("建设科技创新平台20个\n后续其他内容", "建设科技创新平台20个\n", "建设科技创新平台20个"),
+    ("建设科技创新平台20个", "建设科技创新平台20个", "建设科技创新平台20个"),
+])
+def test_mock_terminated_or_untruncated_tail_is_still_usable(content, shown, quote):
+    from guance_agent.business.organize.synthesis import _locate_quote
+
+    kb = MultiDocKB(count=1)
+    passage = kb.get_chunk_source(kb.hits[0].chunk_id).model_copy(update={"content": content})
+    window = EvidenceWindow(passage.planid, passage.chunk_id, passage, shown)
+    assert _locate_quote(window, "建设科技创新平台20个", ["科技创新"]) == quote
+
+
 @pytest.mark.parametrize(("label", "expected"), [
     (" 创新，平台 ", "创新平台"), ("A.I.平台", "AI平台"),
     ("创新一平台", "创新一平台"), ("创新²平台", None), ("单", None),
