@@ -17,6 +17,7 @@ class TaskRequest(BaseModel):
     created_at: str
     task_type: str = "qa"                    # qa / extract
     dimensions: list[str] = Field(default_factory=list)
+    targets: list[str] | None = None
 
 class SourceMeta(BaseModel):
     """proposal-v0.3 的来源与坐标信息；mock 可为 None，真实后端必须给全。"""

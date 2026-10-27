@@ -131,6 +131,9 @@ def fill_quotes_from_anchors(claims, ctx, getter, result=None) -> tuple[int, int
         if claim.quotes:                    # 已有引文的（qa 等）原样保留
             kept.append(claim)
             continue
+        if not claim.anchors and getattr(result, "task_type", "qa") != "extract":
+            kept.append(claim)               # qa/业务无引文路径不要求 anchor 回填
+            continue
         quote = locate_quotes(claim, ctx, getter)
         if quote is None:
             dropped += 1                    # 定位不到有效证据：不强行保留

@@ -7,16 +7,19 @@ import json
 import time
 
 from .agent import build_agent, chat_model
+from .business import get_module, group_by_document
+from .business.contract import BusinessError, BusinessOutcome, normalize_structured
+from .business.services import BusinessServices
 from .client import thinking_off
 from .config import ConfigurationError, Settings
 from .context import RunContext
 from .extract import build_messages, retrieve
 from .kb import get_kb
-from .output import ERRORS, build_result, insufficient_message
-from .routing import decide
+from .output import ERRORS, LIMIT_CODES, build_result, insufficient_message, rebuild_trusted_answer
+from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
-from .schemas import DIMENSIONS, RunError, RunResult, TaskRequest
+from .schemas import DIMENSIONS, AgentOutput, RunError, RunResult, TaskRequest
 from .verify import verify_numbers, verify_quotes
 
 SUPPORTED_TASKS = ("qa", "extract")   # 只有这两个 task_type 有实现，其余显式拒绝
@@ -192,12 +195,14 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         # 统一截止时间：剩余预算不足就停，不再开新对象，避免整体超时
         if deadline - time.monotonic() < 5:
             obj["status"] = "skipped_no_budget"
+            obj["error_code"] = "RUN_TIMEOUT"
             continue
         ctx.scope, ctx.object_label = (obj["planid"],), obj["label"]
         try:
             outcome = await _execute_once(task, s, ctx, rt, deadline)
         except Exception as exc:            # noqa: BLE001 - 单个对象失败不拖垮整体
             obj["status"] = f"failed:{type(exc).__name__}"
+            obj["error_code"] = "INTERNAL"
             continue
         part = build_result(task, outcome, ctx, meta)
         if outcome.telemetry:
@@ -221,6 +226,25 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
             obj["status"] = "no_evidence"
     ctx.scope = None
     if not runs:
+        failures = [obj for obj in objects if obj.get("error_code")]
+        budget_stops = [obj for obj in objects
+                        if obj.get("status") == "skipped_no_budget"
+                        or obj.get("error_code") in LIMIT_CODES]
+        if budget_stops:
+            code = next((obj.get("error_code") for obj in budget_stops
+                         if obj.get("error_code") in LIMIT_CODES), "RUN_TIMEOUT")
+            result = build_result(task, None, ctx, meta,
+                                  RunError(code=code, message=ERRORS[code]))
+            result.route = {**_route_head(decision), "objects": objects}
+            return result
+        if failures:
+            code = failures[0]["error_code"]
+            if code not in ERRORS:
+                code = "INTERNAL"
+            result = build_result(task, None, ctx, meta,
+                                  RunError(code=code, message=ERRORS[code]))
+            result.route = {**_route_head(decision), "objects": objects}
+            return result
         result = build_result(task, None, ctx, meta)
         result.status, result.evidence_status = "completed", "insufficient"
         result.error = None   # 正常结束，不是内部错误
@@ -251,6 +275,13 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
 async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
     """先路由，再按单对象/多对象/开放主题取证；结束时统一落运行日志。"""
     deadline = time.monotonic() + s.run_timeout
+    module = None if task.task_type in SUPPORTED_TASKS else get_module(task.task_type)
+    if task.task_type not in SUPPORTED_TASKS and module is None:
+        result = build_result(task, None, None, rt.meta, RunError(
+            code="INVALID_INPUT", message="不支持的 task_type：" + task.task_type))
+        result.task_type = task.task_type
+        rt.finish(result, None)
+        return result
     if not s.llm_base_url or not s.llm_api_key:
         ctx = None
         result = build_result(task, None, None, rt.meta,
@@ -261,29 +292,197 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id, question=task.question)
-        if task.task_type not in SUPPORTED_TASKS:
-            result = build_result(task, None, ctx, rt.meta, RunError(
-                code="INVALID_INPUT",
-                message="不支持的 task_type：" + task.task_type + "；目前只支持 qa / extract"))
-            rt.finish(result, ctx)
-            return result
         decision = decide(task.question)
+        if task.targets is not None:
+            decision = RouteDecision(kind="objects", planids=tuple(task.targets),
+                                     areas=decision.areas, fyps=decision.fyps,
+                                     sub_query=decision.sub_query, blocked=decision.blocked)
         ctx.route = decision
         async with _session_lock(task.session_id):
-            if decision.blocked:
+            if module is not None:
+                result = await _run_business(task, s, rt, ctx, deadline, decision, module)
+            elif decision.blocked:
                 result = _blocked(task, ctx, rt.meta, decision)
             elif decision.kind == "objects":
                 result = await _run_objects(task, s, ctx, rt, decision, deadline)
             else:
                 result = await _run_single(task, s, ctx, rt, deadline, decision)
-        if result.status == "completed":
+        result.task_type = task.task_type
+        if result.status == "completed" and module is None:
             await verify_quotes(result, ctx)
             await verify_numbers(result, ctx)
-        _attach(result, task)
+        if module is None:
+            _attach(result, task)
+    result.task_type = task.task_type
     try:
         rt.finish(result, ctx)
     except OSError as exc:
         result.meta["finish_failed"] = type(exc).__name__
+    return result
+
+
+def _business_prompt(task, ctx, meta, decision, answer, targets=()) -> RunResult:
+    output = AgentOutput(answer=answer, claims=[], insufficient=True)
+    result = build_result(task, ExecOutcome(output, None), ctx, meta)
+    result.status, result.evidence_status, result.error = "completed", "none", None
+    result.task_type = task.task_type
+    result.route = {**_route_head(decision),
+                    "targets": None if task.targets is None and decision.kind == "open" and not targets
+                    else list(targets)}
+    return result
+
+
+async def _business_targets(task, s, ctx, decision, deadline, module):
+    if task.targets is not None:
+        return list(task.targets), None
+    requires_targets = getattr(module, "requires_targets", True) is not False
+    if decision.kind == "open":
+        if decision.blocked == "empty_query":
+            return [], "问题为空，请补充要研究的具体内容。"
+        if len(decision.areas) > 1 or len(decision.fyps) > 1:
+            return [], "当前检索接口不能同时限定多个地区或多个规划期，请缩小范围后重试。"
+        if not requires_targets:
+            return None, None
+    if decision.blocked:
+        return [], "请缩小问题范围后重试；当前无法确定业务分析对象。"
+    if decision.kind != "objects":
+        return [], "请提供明确的政策 planid 或唯一政策标题后重试。"
+    if decision.titles and (len(decision.areas) > 1 or len(decision.fyps) > 1):
+        return [], "标题定位不能同时限定多个地区或多个规划期，请缩小范围后重试。"
+    targets = list(decision.planids)
+    unresolved = []
+    for title in decision.titles:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        pid, status, candidates = await _lookup_title(
+            ctx, title, decision, min(s.tool_timeout, remaining))
+        if status == "ok":
+            targets.append(pid)
+        else:
+            unresolved.append({"title": title, "status": status,
+                               "candidates": candidates})
+    if time.monotonic() >= deadline:
+        raise TimeoutError
+    if unresolved:
+        return [], "有政策标题无法唯一定位，请补充 planid 或消除歧义：" + json.dumps(
+            unresolved, ensure_ascii=False)
+    return list(dict.fromkeys(targets)), None
+
+
+async def _run_business(task, s, rt, ctx, deadline, decision, module):
+    try:
+        targets, message = await _business_targets(task, s, ctx, decision, deadline, module)
+    except TimeoutError:
+        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
+    if time.monotonic() >= deadline:
+        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
+    if task.task_type == "compare" and task.targets is None and decision.kind == "open":
+        return _business_prompt(task, ctx, rt.meta, decision,
+                                "比较任务至少需要两个不同的政策对象。", [])
+    if message:
+        return _business_prompt(task, ctx, rt.meta, decision, message, targets)
+    if targets == []:
+        return _business_prompt(task, ctx, rt.meta, decision,
+                                "请提供至少一个明确政策对象。", targets)
+    if targets is not None and len(targets) > 8:
+        return _business_failure(task, ctx, rt, decision, "INVALID_INPUT",
+                                 targets=targets,
+                                 message="业务任务最多支持 8 个政策对象，请缩小对象范围。")
+    if task.task_type == "compare" and targets is not None and len(targets) < 2:
+        return _business_prompt(task, ctx, rt.meta, decision,
+                                "比较任务至少需要两个不同的政策对象。", targets)
+
+    ctx.scope = tuple(targets) if targets is not None else None
+    effective_task = task.model_copy(update={"targets": targets})
+    services = BusinessServices(ctx, rt, deadline)
+    try:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        outcome = await asyncio.wait_for(module(effective_task, ctx, services), timeout=remaining)
+        if not isinstance(outcome, BusinessOutcome):
+            raise TypeError("业务模块必须返回 BusinessOutcome")
+        try:
+            outcome.structured = normalize_structured(outcome.structured)
+        except (TypeError, ValueError) as exc:
+            raise BusinessError("OUTPUT_PARSE") from exc
+    except BusinessError as exc:
+        code = exc.code if exc.code in ERRORS else "INTERNAL"
+        return _business_failure(task, ctx, rt, decision, code, services, targets)
+    except TimeoutError:
+        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT", services, targets)
+    except Exception as exc:  # noqa: BLE001 - 业务模块失败统一映射为 INTERNAL
+        rt.log("business_error", task_type=task.task_type,
+               error_detail=f"{type(exc).__name__}: {exc}")
+        return _business_failure(task, ctx, rt, decision, "INTERNAL", services, targets)
+
+    original_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in outcome.claims]
+    output = AgentOutput(answer=outcome.answer, claims=outcome.claims,
+                         insufficient=outcome.insufficient)
+    result = build_result(effective_task, ExecOutcome(output, None), ctx, rt.meta)
+    result.task_type = task.task_type
+    result.structured = outcome.structured
+    result.route = {**_route_head(decision),
+                    "targets": list(targets) if targets is not None else None}
+    if isinstance(services.telemetry, dict) and services.telemetry:
+        result.meta["business_telemetry"] = dict(services.telemetry)
+    if not result.claims and outcome.insufficient:
+        result.evidence_status = "insufficient" if ctx.tool_calls else "none"
+
+    try:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        await asyncio.wait_for(verify_quotes(result, ctx), timeout=remaining)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        await asyncio.wait_for(verify_numbers(result, ctx), timeout=remaining)
+    except TimeoutError:
+        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT", services, targets)
+
+    final_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in result.claims]
+    if final_claims != original_claims or result.meta.get("answer_rebuilt"):
+        result.structured = {}
+        result.warnings.append("部分结论或引用未通过统一核验，已清空业务结构化结果")
+    if not result.claims or not result.evidence_refs:
+        if result.claims and not result.evidence_refs:
+            result.claims = []
+            result.structured = {}
+        elif not original_claims and not result.meta.get("answer_rebuilt"):
+            result.structured = _business_document_metadata(services)
+        rebuild_trusted_answer(result, ctx, "no_valid_claims")
+        result.warnings.append("未形成可核验的有效结论；原始回答和业务事实已移除，正文事实未经核验")
+    return result
+
+
+def _business_document_metadata(services):
+    hits = services._discovery_hits
+    if not hits:
+        return {}
+    documents = group_by_document(hits)
+    if not documents:
+        return {}
+    return {
+        "documents": [document.model_dump(mode="json") for document in documents],
+        "verification": {"policy_facts": "unverified", "reason": "no_valid_claims"},
+    }
+
+
+def _business_failure(task, ctx, rt, decision, code, services=None, targets=None, message=None):
+    if code not in ERRORS:
+        code = "INTERNAL"
+    if targets is None and task.targets is not None:
+        targets = task.targets
+    result = build_result(task, None, ctx, rt.meta,
+                          RunError(code=code, message=message or ERRORS[code]))
+    result.task_type = task.task_type
+    result.structured = {}
+    result.route = {**_route_head(decision),
+                    "targets": list(targets) if targets is not None else None}
+    if services is not None and isinstance(services.telemetry, dict) and services.telemetry:
+        result.meta["business_telemetry"] = dict(services.telemetry)
     return result
 
 
