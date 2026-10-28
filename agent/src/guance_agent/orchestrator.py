@@ -333,6 +333,11 @@ def _business_prompt(task, ctx, meta, decision, answer, targets=()) -> RunResult
 
 
 async def _business_targets(task, s, ctx, decision, deadline, module):
+    """确定业务的完整对象集合；任一标题有歧义时不执行部分比较。
+
+    显式 targets 优先。否则逐标题唯一定位，再一次性交给业务模块。逐标题定位
+    只为识别身份，和把业务按单对象重复执行后拼接结果是两种不同的操作。
+    """
     if task.targets is not None:
         return list(task.targets), None
     requires_targets = getattr(module, "requires_targets", True) is not False
@@ -351,7 +356,9 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
     if decision.titles and (len(decision.areas) > 1 or len(decision.fyps) > 1):
         if task.task_type not in ("compare", "compare_plans"):
             return [], "标题定位不能同时限定多个地区或多个规划期，请缩小范围后重试。"
-        # 比较中的不同标题可分属不同地区/时期；分别唯一定位，绝不挑选首个候选。
+        # 比较中的不同标题可分属不同地区/时期。为身份查找去掉冲突的单值过滤，
+        # 用完整标题分别唯一定位；仍然有歧义就要求补充对象，不取首个候选。
+        # 这里不修改原 decision，也不扩大后续已确定 targets 的正文读取范围。
         title_decision = RouteDecision(kind=decision.kind, titles=decision.titles,
                                        sub_query=decision.sub_query)
     targets = list(decision.planids)
@@ -376,6 +383,7 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
 
 
 async def _run_business(task, s, rt, ctx, deadline, decision, module):
+    """一次调用业务模块，并统一检查结果形状、引文、数字与降级一致性。"""
     try:
         targets, message = await _business_targets(task, s, ctx, decision, deadline, module)
     except TimeoutError:
@@ -398,6 +406,8 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         return _business_prompt(task, ctx, rt.meta, decision,
                                 "比较任务至少需要两个不同的政策对象。", targets)
 
+    # 冻结完整对象范围并构造本次有效任务；共享服务据此约束所有 search/read。
+    # 比较模块只调用一次，不能在这里按对象循环后把独立结果拼成矩阵。
     ctx.scope = tuple(targets) if targets is not None else None
     effective_task = task.model_copy(update={"targets": targets})
     services = BusinessServices(ctx, rt, deadline)
@@ -422,6 +432,8 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
                error_detail=f"{type(exc).__name__}: {exc}")
         return _business_failure(task, ctx, rt, decision, "INTERNAL", services, targets)
 
+    # 保存业务事实及来源的快照。structured 可能包含依赖它们的矩阵/分析，
+    # 不能在核验删改事实后继续原样展示这些派生内容。
     original_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in outcome.claims]
     output = AgentOutput(answer=outcome.answer, claims=outcome.claims,
                          insufficient=outcome.insufficient)
@@ -448,9 +460,13 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT", services, targets)
 
     final_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in result.claims]
+    # 当前共享契约采用整份 structured 清空的保守策略；引句空白回贴本身不是
+    # 事实正文或来源变化，不单独触发此条件。业务模块不得绕过清空后重放旧矩阵。
     if final_claims != original_claims or result.meta.get("answer_rebuilt"):
         result.structured = {}
         result.warnings.append("部分结论或引用未通过统一核验，已清空业务结构化结果")
+    # 没有有效正文事实时只允许保留本轮真实发现的身份元数据，不保留未经核验的
+    # 业务回答。显式 targets 只是输入，不是自动获得信任的检索证据。
     if not result.claims or not result.evidence_refs:
         if result.claims and not result.evidence_refs:
             result.claims = []

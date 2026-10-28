@@ -1,4 +1,9 @@
-"""比较模块的离线集成测试；合成政策与模型响应，不冒充真实验收。"""
+"""比较功能的离线单元/集成回归，政策和模型均为明确的测试替身。
+
+经真实 submit 路由、业务模块、证据登记和核验检查结果；FakeKB/ComparisonModel
+只控制上游内容与故障。测试不能证明真实语料覆盖或模型语义正确性，真实验收报告
+保存在 agent/reports/compare/，不与这里的合成结果混淆。
+"""
 import json
 import runpy
 from dataclasses import replace
@@ -12,6 +17,7 @@ from guance_agent.business.compare import PolicyComparisonModule, SchemeComparis
 from guance_agent.business.compare.evidence import Collection, EvidenceUnit, _segments
 from guance_agent.business.compare.models import (
     ComparisonPlan,
+    GeneratedAnalysis,
     GeneratedComparison,
     parse_model,
     resolve_plan,
@@ -29,6 +35,8 @@ BODY_B = "规划目标是引进人才。政策通过补贴支持企业技术人�
 
 
 class ComparisonKB(FakeKB):
+    """可扩展到八对象的合成语料，并提供空检索、坏引文等可控故障。"""
+
     def __init__(self, count=2):
         super().__init__()
         self.documents = {f"T{i + 1:03}": {
@@ -53,6 +61,12 @@ class ComparisonKB(FakeKB):
 
 
 class ComparisonModel:
+    """四阶段模型替身；mutate 钩子用于检验不合规输出是否真的被生产代码拒绝。
+
+    calls 记录实际调用数，从而验证一次格式修正预算没有按步骤无限放大。
+    不伪装模型的推理能力；复核阶段默认回传草稿，只有专门用例才提供修正结果。
+    """
+
     def __init__(self):
         self.calls = []
         self.mutate = None
@@ -103,6 +117,8 @@ class ComparisonModel:
 
     @staticmethod
     def generate(payload):
+        # 故意在选择响应中夹带旧式 text 和分析，用集成断言确认生产流程会重新
+        # 用原文填事实，并只接受后续专门分析/复核步骤产生的判断。
         facts, differences, schemes = [], [], []
         for index, dimension in enumerate(payload["dimensions"]):
             ids = []
@@ -130,6 +146,7 @@ class ComparisonModel:
 
 @pytest.fixture
 def compare_setup(env, monkeypatch):
+    """只替换外部 KB/模型连接；保留生产入口和业务注册，使范围与降级测试有意义。"""
     from guance_agent import orchestrator, runtime
     settings = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="test-key")
     kb, model = ComparisonKB(), ComparisonModel()
@@ -144,6 +161,7 @@ def compare_setup(env, monkeypatch):
 
 @pytest.mark.parametrize("task_type", ["compare", "compare_plans"])
 async def test_actual_submit_builds_two_sided_matrix(compare_setup, task_type):
+    # “完整 JSON”还不够：同时核对单元格顺序、逐字引文、来源对象及统一核验状态。
     settings, kb, model = compare_setup
     result = await submit("比较两项人才政策", settings=settings, task_type=task_type,
                           targets=["T001", "T002"])
@@ -207,6 +225,7 @@ async def test_invalid_fact_reference_cannot_enter_claims(compare_setup, corrupt
 
 
 async def test_base_quote_rejection_clears_matrix_and_dependent_analysis(compare_setup):
+    # 用后端明确拒绝引句，验证基础层会同时撤回矩阵和派生分析，而非仅删正文引用。
     settings, kb, _ = compare_setup
     kb.bad_quote = True
     result = await submit("比较政策", settings=settings, task_type="compare_plans",
@@ -453,6 +472,7 @@ async def test_catalog_goal_and_implementation_sections_are_prioritized(compare_
 
 @pytest.mark.parametrize("task_type",["compare","compare_plans"])
 async def test_one_bounded_format_repair_keeps_evidence_checks(compare_setup, monkeypatch, task_type):
+    # 在证据选择阶段制造截断，只有语法修正响应回传；之后仍走完整事实与依赖校验。
     settings,_,model=compare_setup
     original=model.create
     saved=None
@@ -618,3 +638,43 @@ async def test_acceptance_reports_and_private_session_paths_are_separate(env,tmp
     assert captured[0].session_path == tmp_path/'private/sessions.sqlite'
     assert captured[0].run_log == tmp_path/'private/runs.jsonl'
     assert captured[0].log_content is False
+
+
+@pytest.mark.parametrize('raw', ['{}', '{"facts":[]}'])
+def test_analysis_response_requires_its_own_stage_field(raw):
+    # 语法合法但属于错误阶段的对象不能利用默认空数组静默变成“证据不足”。
+    with pytest.raises(BusinessError) as exc:
+        parse_model(raw, GeneratedAnalysis)
+    assert exc.value.code == 'OUTPUT_PARSE'
+
+
+def test_analysis_explicitly_empty_differences_remain_valid():
+    # 单侧缺证时明确返回空差异是正常降级，不应触发格式修正或伪造配对结论。
+    assert parse_model('{"differences":[]}', GeneratedAnalysis).differences == []
+
+
+@pytest.mark.parametrize('review', [False, True])
+async def test_wrong_stage_analysis_json_uses_one_shared_format_repair(compare_setup,monkeypatch,review):
+    settings,_,model=compare_setup
+    original=model.create
+    saved=None
+
+    async def misplaced_once(**kwargs):
+        nonlocal saved
+        system=kwargs['messages'][0]['content']
+        if '只修正' in system:
+            model.calls.append(kwargs)
+            return SimpleNamespace(choices=[SimpleNamespace(
+                message=SimpleNamespace(content=saved),finish_reason='stop')],usage=None)
+        reply=await original(**kwargs)
+        if (saved is None and '你负责比较分析' in system
+                and ('本轮审查草稿' in system) == review):
+            saved=reply.choices[0].message.content
+            reply.choices[0].message.content='{"facts":[]}'
+        return reply
+
+    monkeypatch.setattr(model,'create',misplaced_once)
+    result=await submit('比较人才政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert result.evidence_status == 'verified'
+    assert all(row['difference']['status']=='supported' for row in result.structured['matrix'])
+    assert len(model.calls) == 5

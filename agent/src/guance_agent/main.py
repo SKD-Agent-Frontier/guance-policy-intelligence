@@ -52,6 +52,8 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
                        for target in targets)
                 or len(set(targets)) != len(targets)):
             return "targets须为 1–8 个不重复的有效 planid 列表"
+        # 显式对象可以立即校验，避免为单对象“比较”启动检索或模型调用。
+        # 未传 targets 时先留给路由唯一定位，再由业务编排检查定位后的对象数。
         if task_type in ("compare", "compare_plans") and len(targets) < 2:
             return "比较任务至少需要两个不同的 targets"
     return None

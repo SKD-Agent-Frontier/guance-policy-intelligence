@@ -6,6 +6,8 @@
 | --- | --- |
 | [pytest-agent.xml](pytest-agent.xml) | 原功能交付的完整离线回归：449 passed，无失败、错误或跳过；仅去除本机 hostname。 |
 | [publication-checks.xml](publication-checks.xml) | 调整报告与私有会话目录后的完整离线回归：450 passed，含新增路径隔离测试；仅去除本机 hostname。 |
+| [comment-review-checks.xml](comment-review-checks.xml) | 详细注释及解析形状复查后的完整离线回归：455 passed；仅去除本机 hostname。 |
+| [comment-review-structure.json](comment-review-structure.json) | 对照旧提交检查 AST、模型定义和提示词构造，并重放保存的 16 份真实响应；没有发起新的真实模型调用。 |
 | [acceptance.json](acceptance.json) | 最终同一次真实 Qwen + RAG 运行，四个场景全部通过结构与字面核验。 |
 | [policy.json](policy.json) | 政策对比的完整实际 RunResult。 |
 | [schemes.json](schemes.json) | 多方案分析的完整实际 RunResult。 |

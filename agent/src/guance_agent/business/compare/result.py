@@ -1,10 +1,17 @@
-"""从有效事实组装矩阵；分析判断与原文事实分离，依赖缺失时保守降级。"""
+"""将本轮证据与模型判断转换为业务结果。
+
+数据方向固定为 EvidenceUnit → 原文单元格/Claim → 有依据的分析判断 → BusinessOutcome。
+模型不能反向改写原文事实。这里执行编号、依赖与部分字面风险检查；基础层随后才做
+已读范围内的逐字引文与数字核验。因此本模块的 found/supported 不是语义正确性保证。
+"""
 import re
 
 from ...routing import parse_fyps
 from ...schemas import Claim
 from ..contract import BusinessOutcome
 
+# 这些表达式是有限的字面拦截规则。它们不能覆盖所有换算、反事实、语义否定或
+# 隐含条件；命中规则时保守撤回分析，未命中也不等于已经证明分析得到原文支持。
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 ABSOLUTE_RANK = re.compile(r"最佳|最优|绝对优|全面优于|排名|评分|首选方案|无条件优|更推荐|推荐选择")
 ABSENCE = re.compile(r"没有(?:规定|措施|支持|提供)|未规定|不支持|不存在|缺乏|缺少|未提及|未明确|未涉及|未见")
@@ -23,11 +30,17 @@ ALIASES = "甲乙丙丁戊己庚辛"
 
 
 def _numbers_supported(text, source):
+    """检查阿拉伯数字 token 是否出现在当前依据内，不做单位换算或统计定义核验。
+
+    数字两侧不能紧接其他数字，避免把“10”从“110”中宽松匹配出来；诸如人次、
+    人年、人数之间的含义仍须依赖原文上下文和分析复核，不能由这个函数证明。
+    """
     return all(re.search(rf"(?<!\d){re.escape(token)}(?!\d)", source)
                for token in NUMBER.findall(text))
 
 
 def _nature(obj):
+    """从已取得的身份元数据判断粗粒度文件性质，只用于说明比较限制。"""
     title = obj.get("title") or ""
     if "政府工作报告" in title or obj.get("fyp") == "政府工作报告":
         return "政府工作报告"
@@ -37,6 +50,10 @@ def _nature(obj):
 
 
 def _stage(text):
+    """识别原句中的规划、推进、完成措辞，允许一段话同时包含多个状态。
+
+    这是文本口径提示，不根据当前日期推断某个规划目标是否已经实现，也不回写语料。
+    """
     states = set()
     if re.search(r"已完成|已经|已建成|累计完成|实现了|新增了|过去.{0,6}年", text):
         states.add("完成情况")
@@ -48,6 +65,12 @@ def _stage(text):
 
 
 def _comparability(objects, cells, generated):
+    """返回本维度的可比状态及保守说明，objects 与 cells 必须按同一对象顺序排列。
+
+    comparable=False 表示不能视为已确认的同口径比较；仍允许有据的文字异同。
+    检查身份、规划期、文件类型、实施措辞和计量单位；有数字时始终提示未独立核实
+    统计定义，防止“数字能回贴”被误解为“可以比大小”。模型只能增加保守限制。
+    """
     reasons = []
     if any(cell["status"] != "found" for cell in cells):
         reasons.append("部分对象未取得该维度的充分证据，无法作完整比较")
@@ -65,10 +88,12 @@ def _comparability(objects, cells, generated):
     if len(periods - {None}) > 1:
         reasons.append("规划期或报告期不同，不作为同一年度目标或完成值比较")
     for obj in objects:
+        # 标题与元数据冲突只提示，不自行选择一方修复源数据。
         title_periods = parse_fyps(obj.get("title") or "")
         if title_periods and obj.get("fyp") not in title_periods:
             reasons.append("标题中的规划期与元数据不一致，不自行纠正或视为相同口径")
     quote_sets = ["\n".join(cell.get("quotes", [])) for cell in cells]
+    # 规划中的未标记条款沿用规划安排语境，避免把“未命中状态词”误称为实际完成值。
     stages = {_stage(text) or (("规划安排",) if _nature(obj) == "规划计划" else ())
               for obj, text in zip(objects, quote_sets) if text}
     if len(stages) > 1 or any(len(stage) > 1 for stage in stages):
@@ -90,11 +115,17 @@ def _comparability(objects, cells, generated):
 
 
 def _judgment(judgment, cells, *, comparable=True):
-    """校验判断依赖，拒绝新增无据数字、绝对排名和由检索缺失推出的否定事实。"""
+    """校验一项分析，返回可交付字典；触发约束或缺少依赖时返回 None。
+
+    依赖检查是硬约束：任何一个单元格不存在或非 found，整项判断撤回，不偷偷
+    删去部分引用后保留原判断。字面规则再拦截绝对排名、无据数字、部分无据否定、
+    进度和条件绑定措辞。剩余语义仍需模型复核及业务审阅，不能标记为逐字事实。
+    """
     ids = list(dict.fromkeys(judgment.supporting_cells))
     if not ids or any(cid not in cells or cells[cid]["status"] != "found" for cid in ids):
         return None
     text = judgment.text.strip()
+    # 只能在这项判断自己声明的依据内找数字和措辞，不能借全矩阵其他事实来背书。
     source = "\n".join(cells[cid]["text"] + "\n" + "\n".join(cells[cid]["quotes"])
                        for cid in ids)
     fact_text = "\n".join(cells[cid]["text"] for cid in ids)
@@ -111,6 +142,7 @@ def _judgment(judgment, cells, *, comparable=True):
         return None
     if not comparable and QUANTITATIVE_ORDER.search(text):
         return None
+    # “更适合/相比”等相对结论要有至少两份政策的依据；只引本方案不能比较对方。
     if (re.search(r"相比|相较|优于|高于|低于|更适合|更有利|更具", text)
             and len({cells[cid]["planid"] for cid in ids}) < 2):
         return None
@@ -118,14 +150,23 @@ def _judgment(judgment, cells, *, comparable=True):
 
 
 def _fact_cells(task, plan, collection, generated):
+    """生成所有“维度 × 对象”单元格，并为 found 单元格创建共享 Claim。
+
+    返回 (cells, claims)，cells 以 d{维度下标}:{planid} 为键。证据选择响应中的
+    text 始终被忽略，只有属于当前政策、当前 Collection 的原句编号可产生事实。
+    这保证矩阵显示文字、Claim 正文、quotes 和 chunk_ids 来自同一次组装过程。
+    """
     units = {unit.id: unit for unit in collection.units}
     facts, claims, cells = {}, [], {}
     for fact in generated.facts:
         if fact.planid not in task.targets or fact.dimension not in plan.dimensions:
             continue
         refs = list(dict.fromkeys(fact.evidence_ids))
+        # 一项选择夹带未知或跨对象编号时整体拒绝，避免留下丢失关键上下文的半项事实。
         if not refs or any(ref not in units or units[ref].planid != fact.planid for ref in refs):
             continue
+        # 只依据维度本身判断是否允许历史事实；不扫描整句问题，防止“不要把历史成绩
+        # 当目标”这样的否定要求反而因含“历史”二字而放开背景引证。
         historical_allowed = bool(re.match(r"历史|回顾|完成情况|成效|发展基础", fact.dimension))
         if any(units[ref].historical for ref in refs) and not historical_allowed:
             if "历史背景原文未作为本期政策事实使用。" not in collection.notes:
@@ -135,12 +176,15 @@ def _fact_cells(task, plan, collection, generated):
         for ref in refs:
             facts.setdefault((fact.dimension, fact.planid), []).append(
                 (fact.model_copy(update={"text": units[ref].text}), [ref]))
+    # 所有请求位置都要保留，缺证时不能删行/删对象，让消费者误以为已完成完整比较。
     for index, dimension in enumerate(plan.dimensions):
         for pid in task.targets:
             cid = f"d{index}:{pid}"
             accepted = facts.get((dimension, pid), [])
             cell = {"cell_id": cid, "planid": pid, "status": "not_retrieved"}
             if accepted:
+                # 去重保持首次出现顺序。一个 Claim 对应一个单元格，多个原句以
+                # 分号连接；并不把不同原句拼成一条伪造的原文 quote。
                 refs = list(dict.fromkeys(ref for _, values in accepted for ref in values))
                 cell.update(status="found", text="；".join(dict.fromkeys(
                     fact.text.strip() for fact, _ in accepted)),
@@ -151,6 +195,7 @@ def _fact_cells(task, plan, collection, generated):
                 claims.append(Claim(text=cell["text"], chunk_ids=cell["chunk_ids"],
                                     quotes=cell["quotes"], dimension=dimension))
             elif any(unit.planid == pid for unit in collection.units):
+                # 此对象读到过正文，但没有通过本维度检查的事实，和“没读到正文”分开。
                 cell.update(status="insufficient", reason="已读取部分原文，但未形成该维度的充分证据")
             else:
                 cell["reason"] = "本轮未取得相关正文，不能推断政策没有该项规定"
@@ -159,13 +204,19 @@ def _fact_cells(task, plan, collection, generated):
 
 
 def _render(task, plan, matrix, schemes):
-    """正文使用对象别名；完整文献身份由出处层展示，避免身份数字冒充政策结论。"""
+    """把同一份已组装矩阵渲染成可读答案，不再调用模型或引入新的事实。
+
+    对象按输入顺序使用甲乙等别名；完整篇名和来源仍在 structured/出处层。
+    这样标题年份、planid 等身份数字不会混入答案成为未绑定政策结论的数字。
+    """
     allowed = "\n".join(cell.get("text", "") for row in matrix for cell in row["cells"])
     allowed += "\n" + task.question
     headers = ["比较维度"] + [f"政策{ALIASES[i]}" for i in range(len(task.targets))] + ["主要异同"]
     lines = ["各政策按输入顺序排列，完整篇名和原文见引用出处。", "",
              "| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
     for row in matrix:
+        # 显式维度仍原样保存在 structured；这里只避免一个未绑定的标签数字
+        # 触发基础层答案数字核验，导致整份业务结构被清空。
         label = row["dimension"] if _numbers_supported(row["dimension"], allowed) else "用户指定维度"
         # 表格分隔符和换行必须转义，不能让政策文本破坏矩阵布局。
         values = [label] + [cell.get("text") or "证据不足，无法判断" for cell in row["cells"]]
@@ -186,6 +237,12 @@ def _render(task, plan, matrix, schemes):
 
 
 def build_outcome(task, plan, collection, generated, *, scheme):
+    """在事实和判断之间建立依赖，再返回基础层能统一核验的 BusinessOutcome。
+
+    先确定每格事实，再检查逐行异同，最后检查每方案的三类分析。比较口径受限
+    不等于证据不足：只有事实/判断缺失或被撤回才设置 insufficient。
+    不构造 RunResult 或 EvidenceRef；基础层用 Claim 的 chunk_ids 查本轮证据登记。
+    """
     cells, claims = _fact_cells(task, plan, collection, generated)
     differences = {item.dimension: item for item in generated.differences}
     matrix = []
@@ -195,6 +252,7 @@ def build_outcome(task, plan, collection, generated, *, scheme):
         comparable = _comparability(collection.objects, row_cells, proposed)
         judgment = _judgment(proposed, cells, comparable=comparable["comparable"]) if proposed else None
         # 行级差异必须覆盖每个对象、且只能引用本维度单元格。
+        # 即使其他维度有充分证据，也不能拿来填补本维度缺失的一侧。
         required = {cell["cell_id"] for cell in row_cells}
         if judgment and set(judgment["supporting_cells"]) != required:
             judgment = None
@@ -214,11 +272,15 @@ def build_outcome(task, plan, collection, generated, *, scheme):
                 for item in getattr(proposal, field, []) if proposal else []:
                     judgment = _judgment(item, cells, comparable=all(
                         row["comparability"]["comparable"] for row in matrix))
+                    # 别人的事实不能单独支撑本方案的优势/限制；相对判断的另一侧
+                    # 依据则由 _judgment 额外要求，二者同时成立才保留。
                     if judgment and any(cells[cid]["planid"] == pid
                                         for cid in judgment["supporting_cells"]):
                         accepted.append(judgment)
                 analysis[field] = accepted
             schemes.append(analysis)
+    # “运行 completed”与“证据完整”分开；缺一格、缺一项必要分析均标注不足。
+    # 结构仍保留已形成的事实，最终是否因引文核验而整体清空由基础层决定。
     incomplete = any(cell["status"] != "found" for cell in cells.values())
     incomplete |= any(row["difference"]["status"] != "supported" for row in matrix)
     if scheme:
