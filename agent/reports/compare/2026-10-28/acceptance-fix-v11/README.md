@@ -17,7 +17,7 @@
 
 合计27次引文检查全部通过，无拒绝、未核验或被基础层删除的 Claim。每个场景均为4次模型调用；
 本批没有触发额外纠正。v11原批次的502项完整 Agent 离线回归通过，包含101项比较测试；0失败、0错误、0跳过。
-材料清理后另行复跑完整 Agent 回归：506 passed，13.28秒，0失败；比较测试105项，其中新增 `compare` / `compare_plans` ×120/121 四个边界场景。Ruff 输出为 `All checks passed`。这次复跑没有调用学校模型或真实 RAG，因此六个真实场景及27次引文检查仍是 v11 原批次证据。引文字面核验与分析语义审阅分别记录：
+材料清理后另行复跑完整 Agent 回归：507 passed，16.13秒，0失败；比较测试106项，其中 `compare` / `compare_plans` ×120/121 四个边界场景仍为4项。新增1项兼容测试确认 business 普通导入无注册副作用，并确认 main 入口注册 `compare` / `compare_plans`。Ruff 输出为 `All checks passed`。这次复跑没有调用学校模型或真实 RAG，因此六个真实场景及27次引文检查仍是 v11 原批次证据。引文字面核验与分析语义审阅分别记录：
 [自动检查](acceptance.json)、[证据汇总及源码指纹](evidence-audit.json)、[AI助手逐项审阅](review.json)、
 [静态检查](../acceptance-fix-v11-checks/ruff.txt)。原始 JUnit XML 未纳入公开材料，因为测试用例名称含测试 URL 参数；清理后的复跑结果与 v11 原批次真实场景分开记录。
 

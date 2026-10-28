@@ -3,7 +3,8 @@ import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from .business import get_module
+from .business import get_module, register
+from .business.compare import PolicyComparisonModule, SchemeComparisonModule
 from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_task
 from .output import ERRORS, build_result
@@ -11,6 +12,9 @@ from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+register(PolicyComparisonModule())
+register(SchemeComparisonModule())
 
 def _build_task(question: str, session_id, user_id, task_type, dimensions, targets) -> TaskRequest:
     return TaskRequest(

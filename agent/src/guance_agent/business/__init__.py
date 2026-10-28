@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import re
 
-from .compare import PolicyComparisonModule, SchemeComparisonModule
 from .contract import BusinessError, BusinessModule, BusinessOutcome
 from .documents import PolicyRef, group_by_document
 from .services import BusinessServices
@@ -26,12 +25,6 @@ def register(module: BusinessModule) -> None:
 
 def get_module(name: str) -> BusinessModule | None:
     return _MODULES.get(name)
-
-
-# 只注册已实现且经过集成验证的类。实例本身只保存模块行为，不持有模型客户端或
-# RAG；实际能力在每次调用时由基础层注入，因此导入注册表不需要模型凭据或运行库。
-register(PolicyComparisonModule())
-register(SchemeComparisonModule())
 
 
 __all__ = ["BusinessServices", "BusinessModule", "BusinessOutcome", "BusinessError",

@@ -6,6 +6,8 @@
 """
 import json
 import runpy
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -452,7 +454,26 @@ async def test_acceptance_validator_checks_actual_claim_cell_binding(compare_set
     assert "cell_without_matching_claim" in audit(result, ["T001", "T002"])
 
 
-def test_production_registry_has_both_comparison_modules():
+def test_business_registration_is_deferred_to_main_entry():
+    code = "\n".join([
+        "from importlib import import_module",
+        "from importlib.util import find_spec",
+        "from guance_agent import business",
+        "assert business._MODULES == {}",
+        "if find_spec('guance_agent.business.organize') is not None:",
+        "    import_module('guance_agent.business.organize')",
+        "assert business.get_module('organize') is None",
+        "assert business._MODULES == {}",
+        "import guance_agent.main",
+        "assert {'compare', 'compare_plans'} <= set(business._MODULES)",
+        "assert business.get_module('compare').name == 'compare'",
+        "assert business.get_module('compare_plans').name == 'compare_plans'",
+    ])
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)
+
+
+def test_main_entry_registers_both_comparison_modules():
+    assert {"compare", "compare_plans"} <= set(business._MODULES)
     assert isinstance(business.get_module("compare"), PolicyComparisonModule)
     assert isinstance(business.get_module("compare_plans"), SchemeComparisonModule)
 
