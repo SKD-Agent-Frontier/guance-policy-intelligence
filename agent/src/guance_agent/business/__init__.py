@@ -1,4 +1,4 @@
-"""Explicit registry for implemented business modules; intentionally empty."""
+"""显式注册已实现的业务模块；未注册名称仍然拒绝。"""
 from __future__ import annotations
 
 import re

@@ -1,0 +1,35 @@
+{
+  "private_configuration_value_leaks": 0,
+  "regression_tests": 502,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "approved_quote_checks": 27,
+  "json_parse_and_markdown_links": "passed",
+  "branch": "政策比较分析开发",
+  "main_and_origin_main": "a2c821765a2ef1d1ac9d1c8a67d054c1ccbfa1b8",
+  "private_exclusion_directory_tracked_files": 0,
+  "original_delivery_audit_passed": true,
+  "change_files_checked_at_original_delivery": 120,
+  "source_fingerprints_recomputed_after_cleanup": true,
+  "sample_batch_match_check": "Previously recorded as matching; not re-run after run/session identifier redaction.",
+  "junit_xml_removed_due_test_url_fixture": true,
+  "after_cleanup": {
+    "regression_tests": 507,
+    "duration_seconds": 16.13,
+    "failures": 0,
+    "compare_tests": 106,
+    "new_boundary_cases": 4,
+    "registry_compatibility_cases": 1,
+    "boundary_case_matrix": "compare/compare_plans × 120/121",
+    "ruff": "All checks passed",
+    "tests_rerun": true,
+    "real_model_or_rag_rerun": false
+  },
+  "publication_cleanup": {
+    "historical_artifacts_removed": 126,
+    "run_id_values_redacted": 14,
+    "session_id_values_redacted": 8,
+    "tests_rerun": true
+  }
+}

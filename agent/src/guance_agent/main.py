@@ -3,7 +3,8 @@ import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from .business import get_module
+from .business import get_module, register
+from .business.compare import PolicyComparisonModule, SchemeComparisonModule
 from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_task
 from .output import ERRORS, build_result
@@ -11,6 +12,9 @@ from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+register(PolicyComparisonModule())
+register(SchemeComparisonModule())
 
 def _build_task(question: str, session_id, user_id, task_type, dimensions, targets) -> TaskRequest:
     return TaskRequest(
@@ -52,8 +56,10 @@ def _reject_reason(question: str, task: TaskRequest, session_id, user_id, s: Set
                        for target in targets)
                 or len(set(targets)) != len(targets)):
             return "targets须为 1–8 个不重复的有效 planid 列表"
-        if task_type == "compare" and len(targets) < 2:
-            return "compare任务至少需要两个不同的 targets"
+        # 显式对象可以立即校验，避免为单对象“比较”启动检索或模型调用。
+        # 未传 targets 时先留给路由唯一定位，再由业务编排检查定位后的对象数。
+        if task_type in ("compare", "compare_plans") and len(targets) < 2:
+            return "比较任务至少需要两个不同的 targets"
     return None
 
 async def submit(question: str, session_id: str | None = None,
