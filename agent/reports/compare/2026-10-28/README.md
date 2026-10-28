@@ -5,7 +5,8 @@
 **最新状态：本轮受控后端功能验收通过。** 最终候选502项离线回归和静态检查通过；
 同一版本的六个真实场景通过结构、27次引文字面检查及AI助手逐项语义审阅。
 详见 [最终验收报告](acceptance-fix-v11/README.md)。普通比较、方案、跨期和跨专题有据输出，
-两类缺证按预期降级。开发分支未推送，PR未创建。
+两类缺证按预期降级。后续用户已授权创建[PR #3](https://github.com/SKD-Agent-Frontier/guance-policy-intelligence/pull/3)，
+创建时为OPEN、未合并；见[交付记录](acceptance-fix-v11/DELIVERY.md)。
 
 [retest-110430](retest-110430/README.md)及acceptance-fix-v2至v10均保留各自原始结果和未通过原因。
 下表原有文件是更早的历史记录，不能替代最终候选的证据。
