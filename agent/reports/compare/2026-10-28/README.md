@@ -2,13 +2,17 @@
 
 这些文件来自实际测试，已从本机排除目录移入仓库，可随开发分支推送到 GitHub。
 
+**最新重新测试：真实业务验收整体未通过。** 当前代码的 455 项离线测试及静态检查通过，
+但方案分析缺少限制项，政策比较存在一格缺证，并发现实施状态关键词误判。
+详见 [retest-110430 独立报告](retest-110430/README.md)。下表原有真实验收文件是此前成功运行的历史记录。
+
 | 文件 | 内容 |
 | --- | --- |
 | [pytest-agent.xml](pytest-agent.xml) | 原功能交付的完整离线回归：449 passed，无失败、错误或跳过；仅去除本机 hostname。 |
 | [publication-checks.xml](publication-checks.xml) | 调整报告与私有会话目录后的完整离线回归：450 passed，含新增路径隔离测试；仅去除本机 hostname。 |
 | [comment-review-checks.xml](comment-review-checks.xml) | 详细注释及解析形状复查后的完整离线回归：455 passed；仅去除本机 hostname。 |
 | [comment-review-structure.json](comment-review-structure.json) | 对照旧提交检查 AST、模型定义和提示词构造，并重放保存的 16 份真实响应；没有发起新的真实模型调用。 |
-| [acceptance.json](acceptance.json) | 最终同一次真实 Qwen + RAG 运行，四个场景全部通过结构与字面核验。 |
+| [acceptance.json](acceptance.json) | 此前同一次真实 Qwen + RAG 运行，四个场景通过结构与字面核验；不代表最新复测结果。 |
 | [policy.json](policy.json) | 政策对比的完整实际 RunResult。 |
 | [schemes.json](schemes.json) | 多方案分析的完整实际 RunResult。 |
 | [cross_period.json](cross_period.json) | 跨规划期和文件类型对比的实际结果。 |

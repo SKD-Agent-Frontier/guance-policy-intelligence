@@ -1,0 +1,55 @@
+{
+  "passed": false,
+  "cases": [
+    {
+      "case": "policy",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 32721,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "schemes",
+      "passed": false,
+      "failures": [
+        "missing_evidence_backed_limitations"
+      ],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 37726,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_period",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "57",
+        "37982"
+      ],
+      "elapsed_ms": 16183,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "controlled_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 11217,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    }
+  ]
+}
