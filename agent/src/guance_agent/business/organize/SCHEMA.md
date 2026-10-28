@@ -127,3 +127,10 @@ python scripts/organize_real_run.py
 脚本只在当前进程注册模块，顺序运行三道验收问题。完整真实结果存入被忽略的
 `agent/data/organize_runs/`；主问题通过真实多文献核验后生成本目录 `sample.json`。
 未配置真实后端或运行未通过时，不生成或覆盖 sample。mock 测试输出不是 sample。
+
+`sample.json` 是统一 `submit()` 返回的完整 `RunResult`，`organize/1` 业务结构位于
+`structured` 字段；顶层 `status`、`evidence_status`、`claims`、`evidence_refs`、`meta`
+等字段属于共享运行契约，`run_meta` 仅记录本次真实验收环境与指标，不属于
+`organize/1` 字段契约。当前样例来自真实 BM25 RAG 与学校模型运行；提交前仅将
+`run_id`、`session_id` 替换为脱敏占位值，政策内容、证据和验收指标保持原样。样例保留了
+未摘要候选及 `full_text_covered=false`，不得据此宣称覆盖全库或任一政策全文。
