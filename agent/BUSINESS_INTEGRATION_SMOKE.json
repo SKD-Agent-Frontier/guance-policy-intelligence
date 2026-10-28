@@ -1,0 +1,149 @@
+{
+  "first_five": {
+    "passed": false,
+    "cases": [
+      {
+        "case": "qa",
+        "status": "failed",
+        "evidence_status": "none",
+        "claims": 0,
+        "evidence_refs": 0,
+        "quote_verification": {
+          "approved": 0,
+          "rejected": 0,
+          "unverified": 0
+        },
+        "elapsed_ms": 51087,
+        "checks": {
+          "run_result_json_roundtrip": true,
+          "claims_reference_registered_evidence": true,
+          "no_error": false,
+          "task_type_matches": true,
+          "route_targets_match": true,
+          "quotes_match_claims_and_are_verified": false,
+          "completed_with_verified_claims": false,
+          "qa_has_no_structured_payload": true
+        },
+        "passed": false
+      },
+      {
+        "case": "extract",
+        "status": "completed",
+        "evidence_status": "verified",
+        "claims": 3,
+        "evidence_refs": 2,
+        "quote_verification": {
+          "approved": 3,
+          "rejected": 0,
+          "unverified": 0
+        },
+        "elapsed_ms": 5319,
+        "checks": {
+          "run_result_json_roundtrip": true,
+          "claims_reference_registered_evidence": true,
+          "no_error": true,
+          "task_type_matches": true,
+          "route_targets_match": true,
+          "quotes_match_claims_and_are_verified": true,
+          "completed_with_verified_claims": true,
+          "extract_structure_matches_claims": true
+        },
+        "passed": true
+      },
+      {
+        "case": "organize",
+        "status": "completed",
+        "evidence_status": "verified",
+        "claims": 9,
+        "evidence_refs": 9,
+        "quote_verification": {
+          "approved": 9,
+          "rejected": 0,
+          "unverified": 0
+        },
+        "elapsed_ms": 19795,
+        "checks": {
+          "run_result_json_roundtrip": true,
+          "claims_reference_registered_evidence": true,
+          "no_error": true,
+          "task_type_matches": true,
+          "route_targets_match": true,
+          "quotes_match_claims_and_are_verified": true,
+          "organize_acceptance": true
+        },
+        "passed": true
+      },
+      {
+        "case": "compare",
+        "status": "completed",
+        "evidence_status": "verified",
+        "claims": 6,
+        "evidence_refs": 6,
+        "quote_verification": {
+          "approved": 6,
+          "rejected": 0,
+          "unverified": 0
+        },
+        "elapsed_ms": 19919,
+        "checks": {
+          "run_result_json_roundtrip": true,
+          "claims_reference_registered_evidence": true,
+          "no_error": true,
+          "task_type_matches": true,
+          "route_targets_match": true,
+          "quotes_match_claims_and_are_verified": true,
+          "comparison_acceptance": true
+        },
+        "passed": true
+      },
+      {
+        "case": "compare_plans",
+        "status": "completed",
+        "evidence_status": "verified",
+        "claims": 6,
+        "evidence_refs": 4,
+        "quote_verification": {
+          "approved": 6,
+          "rejected": 0,
+          "unverified": 0
+        },
+        "elapsed_ms": 35097,
+        "checks": {
+          "run_result_json_roundtrip": true,
+          "claims_reference_registered_evidence": true,
+          "no_error": true,
+          "task_type_matches": true,
+          "route_targets_match": true,
+          "quotes_match_claims_and_are_verified": true,
+          "comparison_acceptance": true
+        },
+        "passed": true
+      }
+    ]
+  },
+  "qa_focused_diagnostic": {
+    "case": "qa_focused",
+    "status": "completed",
+    "evidence_status": "verified",
+    "claims": 1,
+    "evidence_refs": 1,
+    "quote_verification": {
+      "approved": 1,
+      "rejected": 0,
+      "unverified": 0
+    },
+    "elapsed_ms": 15174,
+    "checks": {
+      "run_result_json_roundtrip": true,
+      "claims_reference_registered_evidence": true,
+      "no_error": true,
+      "task_type_matches": true,
+      "route_targets_match": true,
+      "quotes_match_claims_and_are_verified": true,
+      "completed_with_verified_claims": true,
+      "qa_has_no_structured_payload": true
+    },
+    "passed": true
+  },
+  "diagnostic_scope": "separate_from_first_five"
+}

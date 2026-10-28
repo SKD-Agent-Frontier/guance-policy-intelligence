@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from .business import get_module, register
 from .business.compare import PolicyComparisonModule, SchemeComparisonModule
+from .business.organize import OrganizeModule
 from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_task
 from .output import ERRORS, build_result
@@ -15,6 +16,7 @@ SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 register(PolicyComparisonModule())
 register(SchemeComparisonModule())
+register(OrganizeModule())
 
 def _build_task(question: str, session_id, user_id, task_type, dimensions, targets) -> TaskRequest:
     return TaskRequest(

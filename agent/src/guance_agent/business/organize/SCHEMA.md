@@ -1,7 +1,8 @@
 # organize/1 结构化结果
 
 `OrganizeModule` 通过共享 `BusinessOutcome` 返回 `answer`、`claims`、`structured`、
-`insufficient`。仅导出模块，不自动注册。开放主题与指定 targets 均支持；多地区、
+`insufficient`。导入本模块只导出类，不自动注册；生产统一入口 `guance_agent.main`
+负责显式注册 `organize`、`compare` 与 `compare_plans`。开放主题与指定 targets 均支持；多地区、
 多规划期的开放主题由底座要求缩小范围。以下内容是字段契约，不是真实运行结果。
 
 ## 顶层字段

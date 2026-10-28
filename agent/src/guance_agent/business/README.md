@@ -4,7 +4,7 @@
 
 业务模块通过 Agent 统一入口使用现有工具、模型客户端、运行预算和证据核验。模块只返回业务结果，不构造最终 `RunResult`，也不自行初始化 RAG Store 或模型客户端。
 
-普通 `import guance_agent.business` 只加载契约，注册表保持为空。已验收的政策比较 `compare` 与多方案分析 `compare_plans` 由统一入口 `guance_agent.main` 显式注册；实现及输出契约见 [compare/README.md](compare/README.md)。`qa`、`extract` 保留现有路径；未注册的任务类型会被拒绝。不得注册测试或占位模块。
+普通 `import guance_agent.business` 只加载契约，注册表保持为空；导入 `guance_agent.business.organize` 或 `guance_agent.business.compare` 也只导出模块类，不注册模块。统一入口 `guance_agent.main` 显式注册政策整理 `organize`、政策比较 `compare` 与多方案分析 `compare_plans`；实现及输出契约见 [organize/SCHEMA.md](organize/SCHEMA.md) 与 [compare/README.md](compare/README.md)。`qa`、`extract` 保留现有路径；未注册的任务类型会被拒绝。不得注册测试或占位模块。
 
 ## 二、模块签名与结果
 
@@ -73,9 +73,9 @@ documents = [doc.model_dump(mode="json") for doc in group_by_document(hits)]
 
 ## 五、模块注册与文件归属
 
-模块仅在统一入口加载时显式注册。普通 `import guance_agent.business` 只加载契约，注册表保持为空；导入统一入口 `guance_agent.main` 时，集成方显式导入已验收模块并调用 `register(instance)`。当前统一入口注册 `compare`、`compare_plans`；业务作者不构造 Runtime 或 BusinessServices。`get_module(name)` 对未注册名称返回 `None`。名称须匹配小写字母开头、后接小写字母/数字/下划线/连字符，长度不超过 64；`qa`、`extract` 和重复名称被拒绝。
+模块仅在统一入口加载时显式注册。普通 `import guance_agent.business` 或单独导入 organize/compare 包只加载契约与模块类，注册表保持为空；导入统一入口 `guance_agent.main` 时，集成方显式导入已验收模块并调用 `register(instance)`。当前统一入口恰好注册 `organize`、`compare`、`compare_plans`；业务作者不构造 Runtime 或 BusinessServices。`get_module(name)` 对未注册名称返回 `None`。名称须匹配小写字母开头、后接小写字母/数字/下划线/连字符，长度不超过 64；`qa`、`extract` 和重复名称被拒绝。
 
-组员 A 在 `business/organize/` 实现自己的模块，组员 B 在 `business/compare/` 实现自己的模块。各目录应包含 `SCHEMA.md` 和 `sample.json`，记录 structured 字段与案例。未经集成方协调，不修改 `contract.py`、`services.py`、`__init__.py`、统一 Schema、编排和核验文件；共享接口需求通过变更请求提出。
+`business/organize/` 与 `business/compare/` 分别提供政策整理、政策比较与多方案分析模块。各目录应包含 `SCHEMA.md` 和 `sample.json`，记录 structured 字段与案例。未经集成方协调，不修改 `contract.py`、`services.py`、`__init__.py`、统一 Schema、编排和核验文件；共享接口需求通过变更请求提出。
 
 ## 六、验收与完成标准
 

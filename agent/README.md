@@ -169,9 +169,19 @@ CLI 会在接收请求前的 `_run()` 阶段在线程池中完成真实 RAG 预�
 模型若不调工具直接回答政策问题，结果只能标为“未引用政策原文”。
 章节超长时只返回开头部分；工具超时会停止等待，但不能强制终止后端线程，正式后端仍需自身查询超时。
 
-## 政策比较与多方案分析
+## 政策整理、比较与多方案分析
 
-通过 Python 统一入口选择 `task_type="compare"` 或 `"compare_plans"`，指定 2–8 个政策对象及可选维度。
+统一入口 `guance_agent.main` 显式注册 `organize`、`compare` 和 `compare_plans`；普通导入业务包或单个模块不会注册。政策整理支持开放主题，也可传入明确的 `targets`：
+
+```python
+result = await submit(
+    "梳理十四五时期的科技创新政策",
+    task_type="organize",
+    settings=settings,
+)
+```
+
+政策比较通过 Python 统一入口选择 `task_type="compare"` 或 `"compare_plans"`，指定 2–8 个政策对象及可选维度。
 两个模块共享模型客户端、RAG、调用预算和证据核验，输出事实矩阵、逐维口径说明、主要异同；
 多方案任务另输出有依据的优势、限制和适用条件。没有评价标准不自动评分或排名。
 

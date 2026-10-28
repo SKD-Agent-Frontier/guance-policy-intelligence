@@ -12,8 +12,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from guance_agent import business
-from guance_agent.business.organize import OrganizeModule
 from guance_agent.business.organize.constants import MAX_MODEL_CALLS, MIN_SUMMARIZED_DOCS
 from guance_agent.config import ROOT, load_settings
 from guance_agent.kb import close_kb, warm_up
@@ -97,9 +95,6 @@ async def acceptance(env_file=None):
     if missing:
         print("真实运行未开始：缺少或未启用 " + "、".join(missing) + "。sample.json 待真实环境运行后补交。")
         return 2
-    if business.get_module("organize") is not None:
-        print("真实运行未开始：organize 已注册；请在独立脚本进程运行以确认模块来源。")
-        return 2
     preheat_start = time.monotonic()
     initialized_client = False
     try:
@@ -110,7 +105,6 @@ async def acceptance(env_file=None):
             print(f"真实 RAG 预热失败（{type(exc).__name__}）；未生成 sample.json。")
             return 2
         preheat_ms = round((time.monotonic() - preheat_start) * 1000)
-        business.register(OrganizeModule())
         revision = git_metadata()
         sample_written, all_completed = False, True
         for index, question in enumerate(QUESTIONS):
