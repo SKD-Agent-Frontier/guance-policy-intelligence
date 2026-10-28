@@ -1,6 +1,7 @@
 # 比较业务输出契约
 
-入口为 `submit(..., task_type="compare" | "compare_plans", targets=[...], dimensions=[...])`。
+生产入口 `guance_agent.main` 显式注册 `compare` 与 `compare_plans`；导入本模块只导出类，不会注册。
+调用方式为 `submit(..., task_type="compare" | "compare_plans", targets=[...], dimensions=[...])`。
 两类任务均需 2–8 个不同的明确政策对象。显式 targets 优先；唯一标题可定位，歧义必须澄清。
 不修改共享 BusinessOutcome、Claim、EvidenceRef。下列字段属于最终 RunResult.structured。
 

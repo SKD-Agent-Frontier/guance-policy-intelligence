@@ -155,9 +155,6 @@ def compare_setup(env, monkeypatch):
     client = SimpleNamespace(chat=SimpleNamespace(completions=model))
     monkeypatch.setattr(orchestrator, "get_kb", lambda _: kb)
     monkeypatch.setattr(runtime, "get_client", lambda _: client)
-    monkeypatch.setattr(business, "_MODULES", {})
-    business.register(PolicyComparisonModule())
-    business.register(SchemeComparisonModule())
     return settings, kb, model
 
 
@@ -465,17 +462,20 @@ def test_business_registration_is_deferred_to_main_entry():
         "assert business.get_module('organize') is None",
         "assert business._MODULES == {}",
         "import guance_agent.main",
-        "assert {'compare', 'compare_plans'} <= set(business._MODULES)",
+        "assert set(business._MODULES) == {'compare', 'compare_plans', 'organize'}",
         "assert business.get_module('compare').name == 'compare'",
         "assert business.get_module('compare_plans').name == 'compare_plans'",
+        "assert business.get_module('organize').name == 'organize'",
     ])
     subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)
 
 
-def test_main_entry_registers_both_comparison_modules():
-    assert {"compare", "compare_plans"} <= set(business._MODULES)
+def test_main_entry_registers_each_production_module_once():
+    assert set(business._MODULES) == {"compare", "compare_plans", "organize"}
     assert isinstance(business.get_module("compare"), PolicyComparisonModule)
     assert isinstance(business.get_module("compare_plans"), SchemeComparisonModule)
+    from guance_agent.business.organize import OrganizeModule
+    assert isinstance(business.get_module("organize"), OrganizeModule)
 
 
 async def test_hit_metadata_none_is_not_backfilled_from_catalog(compare_setup, monkeypatch):
