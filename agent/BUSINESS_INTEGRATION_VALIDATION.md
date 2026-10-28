@@ -16,9 +16,9 @@
 
 首轮五项真实场景的汇总为 **4/5 通过**，首轮整体标记为未通过。QA 场景返回 `failed` / `OUTPUT_PARSE`，0 条 Claim、0 个 EvidenceRef；Extract、Organize、Compare、Compare Plans 均为 `completed` / `verified`。各场景计数与核验项见[脱敏冒烟摘要](BUSINESS_INTEGRATION_SMOKE.json)。
 
-另行运行的聚焦 QA 使用相同原配置和 Prompt 参数，结果为 `completed` / `verified`，1 条 Claim、1 个 EvidenceRef、1 条通过引文。该诊断与首轮五项分开记录，不能替代或改写首轮 QA 失败。首轮 QA 的运行元信息显示输出触及 2000 token 上限；这是诊断线索，尚不能据此确认失败根因。
+另行运行的聚焦 QA 使用相同原配置和 Prompt 参数，结果为 `completed` / `verified`，1 条 Claim、1 个 EvidenceRef、1 条通过引文。该诊断与首轮五项分开记录，不能替代或改写首轮 QA 失败。首轮 QA 的运行元信息显示输出触及 2000 token 上限；其后续调查与结论见第六节。
 
-**真实首轮未全通过。** 因而整体真实业务验收标准尚未达成。当前仅能确认四个首轮场景通过和聚焦 QA 单独通过；不能将五项首轮标记为全通过。广泛 QA 问题的输出容量是当前需明确的边界，根因仍待确认。
+**首轮批次未全通过。** 首轮五项中 4/5 通过，QA 的 `OUTPUT_PARSE` 失败事实保留；后续针对性调查结论见第六节。首轮批次不得改记为全通过，也不得将聚焦 QA 或后续复测并入首轮计数。
 
 ## 四、既有真实验收材料及限制
 
@@ -41,4 +41,17 @@
 
 ## 五、结论与后续
 
-入口注册及离线验证已通过；真实首轮五项没有全部通过，尤其 QA 场景失败仍需保留并处理。最终总验收不得表述为首轮全通过，也不得将聚焦 QA 诊断合并进首轮计数。
+入口注册及离线验证已通过；真实首轮五项没有全部通过，QA 场景失败记录继续保留。后续调查未发现确定性的集成回归证据，现有证据不支持将该历史失败单独作为 PR 4 合并阻塞项。首轮与后续验证分开计数，不能表述为首轮全通过。
+
+## 六、QA `OUTPUT_PARSE` 定向调查
+
+对首轮 QA 原始记录的定向调查恢复到一条 3547 字符的 assistant 响应。`json.loads` 在位置 3521 报未闭合字符串；生产 parser 也拒绝了该响应，未能形成唯一完整的顶层 JSON 对象。首轮三次模型调用的输出 token 分别为 67、201、2000；原始记录没有 `finish_reason`。输出触及 2000 token 上限与末尾未闭合相符，但只能作为最可能的截断解释，不能据此声称原始调用的 `finish_reason=length`。
+
+对原问题进行了两次复测，均使用原有运行环境和模型、RAG、Prompt 设置，总超时保持 180 秒，未修改默认参数：
+
+- 标准 2000 token 上限：`stop`，输出 1605 tokens，`completed` / `insufficient`，2 条 Claim、2 个 EvidenceRef；引文核验 3 条 approved、6 条 rejected、0 条 unverified；耗时 45.506 秒。
+- 仅将上限设为 4000：`stop`，输出 1370 tokens，`completed` / `insufficient`，4 条 Claim、4 个 EvidenceRef；引文核验 4 条 approved、3 条 rejected、0 条 unverified；耗时 44.180 秒。
+
+两次复测均产生完整 JSON，且生产 parser 解析成功。标准上限下原问题可以完成，另有此前使用标准设置并达到 `verified` 的聚焦 QA，因此现有证据未显示确定性的集成回归，也未证明需要提高生产 token 上限。没有修改生产参数、源码或 QA / Extract 路径。
+
+首轮 4/5 与 QA `OUTPUT_PARSE` 失败继续作为历史事实保留，不计作通过；基于后续调查，该历史失败不单独阻塞 PR 4 合并。复测结果为 `insufficient`，引文核验存在 rejected 项，这仍是已知质量限制；本记录不表示引文全部通过，也不证明任意 QA 输入均可靠。
