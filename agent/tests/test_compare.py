@@ -589,3 +589,32 @@ async def test_unsupported_linking_of_separate_measures_is_withdrawn(compare_set
     model.mutate_analysis=mutate
     result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
     assert result.structured['scheme_analysis'][0]['advantages']==[]
+
+
+async def test_acceptance_reports_and_private_session_paths_are_separate(env,tmp_path,monkeypatch):
+    script=runpy.run_path(str(Path(__file__).parents[1] / 'scripts/live_compare_acceptance.py'))
+    run=script['run']
+    settings=replace(env[0],llm_base_url='https://example.invalid/v1',llm_api_key='test-key')
+    env_file=tmp_path/'model.env'
+    env_file.write_text('',encoding='utf-8')
+    args=SimpleNamespace(env_file=env_file,output_dir=Path('reports'),private_dir=Path('private'),
+                         store_project=tmp_path/'store')
+    captured=[]
+    class StopBeforeRag(RuntimeError):
+        pass
+    def stop(settings):
+        captured.append(settings)
+        raise StopBeforeRag()
+    async def close():
+        pass
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(run.__globals__,'load_settings',lambda _:settings)
+    monkeypatch.setitem(run.__globals__,'warm_up',stop)
+    monkeypatch.setitem(run.__globals__,'close_kb',lambda:None)
+    monkeypatch.setitem(run.__globals__,'aclose_client',close)
+    with pytest.raises(StopBeforeRag):
+        await run(args)
+    assert args.output_dir == tmp_path/'reports'
+    assert captured[0].session_path == tmp_path/'private/sessions.sqlite'
+    assert captured[0].run_log == tmp_path/'private/runs.jsonl'
+    assert captured[0].log_content is False

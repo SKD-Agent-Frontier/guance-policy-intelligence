@@ -1,4 +1,4 @@
-"""真实学校模型 + 真实RAG的比较验收；配置与原始日志只写本机排除目录。"""
+"""真实学校模型 + 真实RAG比较验收；正式报告可入Git，配置和原始日志仅存本机。"""
 import argparse
 import asyncio
 import json
@@ -111,11 +111,13 @@ async def run(args):
         raise ValueError("missing_school_model_configuration")
     # Settings会把相对会话路径基于agent目录解析，先固定到实际验收目录。
     args.output_dir = args.output_dir.resolve()
+    args.private_dir = args.private_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.private_dir.mkdir(parents=True, exist_ok=True)
     settings = replace(settings, kb_backend="rag", rag_mode="bm25",
                        rag_store_project=str(args.store_project.resolve()),
-                       session_path=args.output_dir / "sessions.sqlite",
-                       run_log=args.output_dir / "runs.jsonl", log_content=False)
+                       session_path=args.private_dir / "sessions.sqlite",
+                       run_log=args.private_dir / "runs.jsonl", log_content=False)
     cases = [
         ("policy", "compare", ["37982", "38366"], ["发展目标", "政策工具", "适用对象"]),
         ("schemes", "compare_plans", ["37982", "38366"], ["适用对象", "支持措施", "申请或执行条件"]),
@@ -165,7 +167,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--store-project", type=Path, default=REPO / "GitHub排除/比较分析运行库-verified")
-    parser.add_argument("--output-dir", type=Path, default=REPO / "GitHub排除/比较分析验收")
+    parser.add_argument("--output-dir", type=Path, default=REPO / "agent/reports/compare/latest",
+                        help="可纳入Git的正式报告目录")
+    parser.add_argument("--private-dir", type=Path, default=REPO / "GitHub排除/比较分析验收/runtime",
+                        help="本地会话数据库和运行日志目录")
     parser.add_argument("--sample-output", type=Path)
     args = parser.parse_args()
     try:

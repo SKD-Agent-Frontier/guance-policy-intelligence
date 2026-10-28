@@ -1,0 +1,27 @@
+{
+  "scope": "real_rag_business_services_collection_no_model",
+  "objects": [
+    {
+      "planid": "37982",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "plantype_label": "专项规划"
+    },
+    {
+      "planid": "38366",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "plantype_label": "专项规划"
+    }
+  ],
+  "units_by_policy": {
+    "37982": 10,
+    "38366": 8
+  },
+  "tool_calls": 11,
+  "all_collected_units_verified": true,
+  "coverage_notes": [],
+  "passed": true
+}

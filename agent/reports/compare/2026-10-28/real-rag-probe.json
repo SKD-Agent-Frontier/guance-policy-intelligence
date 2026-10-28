@@ -1,0 +1,30 @@
+{
+  "scope": "real_rag_only_no_model",
+  "objects": [
+    {
+      "planid": "37982",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "fyp": "第十四个五年规划",
+      "hits": 8,
+      "read_chars": 540,
+      "quote_verified": true
+    },
+    {
+      "planid": "38366",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "fyp": "第十四个五年规划",
+      "hits": 9,
+      "read_chars": 1090,
+      "quote_verified": true
+    },
+    {
+      "planid": "51506",
+      "title": "陕西省国民经济和社会发展第十个五年计划人事人才重点专项规划",
+      "fyp": "第十个五年计划",
+      "hits": 2,
+      "read_chars": 404,
+      "quote_verified": true
+    }
+  ],
+  "passed": true
+}

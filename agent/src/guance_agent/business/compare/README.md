@@ -44,6 +44,9 @@ result = await submit(
 单元测试位于 `agent/tests/test_compare.py`，使用明确标注的合成数据和模拟模型。
 真实验收脚本为 `agent/scripts/live_compare_acceptance.py`；需本机学校模型配置、恢复后的真实运行库，
 依次执行两类功能、跨期和受控缺证场景。成功后才写入真实 `sample.json`。
+正式报告默认写入 `agent/reports/compare/latest/`，可纳入 Git；本轮归档见
+[2026-10-28 测试报告](../../../../reports/compare/2026-10-28/README.md)。
+`--private-dir` 单独指定会话数据库与运行日志目录，默认仍在 `GitHub排除/`，不会与正式报告混存。
 
 ## 已知限制与维护记录
 
