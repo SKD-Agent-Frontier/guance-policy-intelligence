@@ -23,9 +23,9 @@ from guance_agent.business.compare.models import (
     resolve_plan,
 )
 from guance_agent.business.compare.result import _stage, build_outcome
-from guance_agent.business.contract import BusinessError
+from guance_agent.business.contract import BusinessError, BusinessOutcome
 from guance_agent.main import submit
-from guance_agent.schemas import TaskRequest
+from guance_agent.schemas import Claim, TaskRequest
 
 from .test_business_integration import FakeKB
 
@@ -255,6 +255,51 @@ async def test_multi_object_coverage_and_quote_budget(compare_setup, monkeypatch
     assert len(result.claims) == count * 3
     assert {ref.planid for ref in result.evidence_refs} == set(targets)
     assert len(kb.read_calls) + len(kb.search_calls) <= settings.max_tool_calls
+
+
+@pytest.mark.parametrize("task_type", ["compare", "compare_plans"])
+@pytest.mark.parametrize("quote_count", [120, 121])
+async def test_comparison_quote_budget_boundary(compare_setup, monkeypatch, task_type, quote_count):
+    settings, _, _ = compare_setup
+
+    class QuoteBudgetModule:
+        name = task_type
+
+        async def __call__(self, task, ctx, services):
+            found = await services.search("policy", top_k=1)
+            assert found.status == "ok"
+            hit = found.data[0]
+            read = await services.read(hit.planid, chunk_id=hit.chunk_id)
+            assert read.status == "ok"
+            claims = [Claim(text="claim-" + "x" * index,
+                            chunk_ids=[hit.chunk_id], quotes=[BODY_A])
+                      for index in range(1, quote_count + 1)]
+            return BusinessOutcome(
+                answer="\n".join(claim.text for claim in claims),
+                claims=claims,
+                structured={"claim_count": quote_count},
+            )
+
+    monkeypatch.setitem(business._MODULES, task_type, QuoteBudgetModule())
+    result = await submit("compare policies", settings=settings, task_type=task_type,
+                          targets=["T001", "T002"])
+
+    verification = result.meta["quote_verification"]
+    assert verification["checked"] == 120
+    assert verification["approved"] == 120
+    if quote_count == 120:
+        assert len(result.claims) == 120
+        assert verification["unverified"] == 0
+        assert result.structured == {"claim_count": 120}
+        assert result.evidence_status == "verified"
+    else:
+        assert len(result.claims) == 120
+        assert verification["unverified"] == 1
+        assert verification["removed_claims"] == 1
+        assert result.structured == {}
+        assert "claim-" + "x" * 121 not in result.answer
+        assert "claim-" + "x" * 120 in result.answer
+        assert result.evidence_status == "insufficient"
 
 
 @pytest.mark.parametrize("task_type", ["compare", "compare_plans"])

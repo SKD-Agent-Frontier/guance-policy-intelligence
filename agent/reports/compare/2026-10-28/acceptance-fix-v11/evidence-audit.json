@@ -1,6 +1,6 @@
 {
   "source_base_commit": "097ea00408b2ad70e6fe039b6fce3838647d19de",
-  "source_state": "working tree snapshot before local task commit",
+  "source_state": "committed source snapshot at HEAD; fingerprints recomputed during publication cleanup",
   "source_sha256": {
     "agent/src/guance_agent/business/compare/models.py": "efe7c2d05a8e6c7fafbc0585fec2b83363dad5d5043aabd5cb16985e0e36af7d",
     "agent/src/guance_agent/business/compare/evidence.py": "68c1874e1396cefe223a62ed6c91a0a199744065d902bd2cc46bf8c813daa3cd",
@@ -14,7 +14,7 @@
   "cases": [
     {
       "case": "policy",
-      "run_id": "run_129bc06224cc40b383a983b95661ac1a",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "verified",
       "elapsed_ms": 21613,
@@ -37,7 +37,7 @@
     },
     {
       "case": "schemes",
-      "run_id": "run_be8780c77d4c44fb88f5efc1abb190f8",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "verified",
       "elapsed_ms": 31379,
@@ -60,7 +60,7 @@
     },
     {
       "case": "cross_period",
-      "run_id": "run_117747780f7b474f8dcf45715cec2ef7",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "verified",
       "elapsed_ms": 14762,
@@ -83,7 +83,7 @@
     },
     {
       "case": "cross_topic",
-      "run_id": "run_706431774290444c9da1491e54575abb",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "verified",
       "elapsed_ms": 22086,
@@ -106,7 +106,7 @@
     },
     {
       "case": "controlled_missing",
-      "run_id": "run_d69352b53af44ca8aec1e484e6ace647",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "insufficient",
       "elapsed_ms": 9122,
@@ -142,7 +142,7 @@
     },
     {
       "case": "schemes_missing",
-      "run_id": "run_129bc76437374f31a809283b932cc74a",
+      "run_id": "<RUN_ID>",
       "passed": true,
       "evidence_status": "insufficient",
       "elapsed_ms": 12515,
