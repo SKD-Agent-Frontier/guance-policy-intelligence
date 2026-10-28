@@ -1,0 +1,187 @@
+{
+  "run_id": "run_522e9ea844824675926ff219e3683e2b",
+  "session_id": "s_7f28db4d1c204b6eb54ea1a46fe05d4b",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "本次检索结果中没有能够支撑回答的原文证据，暂无法给出有依据的结论。",
+  "claims": [],
+  "evidence_refs": [],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 3132,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 92
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 86
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 2,
+      "input_tokens": 3745,
+      "output_tokens": 103,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 97,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1718
+        },
+        {
+          "input_tokens": 3490,
+          "output_tokens": 6,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1093
+        }
+      ]
+    },
+    "answer_rebuilt": "no_valid_claims"
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整",
+    "未形成可核验的有效结论；原始回答和业务事实已移除，正文事实未经核验"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "documents": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "admin_level": "区县",
+        "plantype_label": "专项规划",
+        "chunk_ids": [
+          "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+          "chunk_958c8db19659ab2e04e72354c33c290f",
+          "chunk_fc9ba1d8258e639483b8121d84eb2809",
+          "chunk_90a7af8c8aea64cbbc50b6ee6f893ca3",
+          "chunk_fb3ecc07d1adb5b7c4ff9b7b7b8777fa",
+          "chunk_946912c97ca3621eafd98a98a5c1ea68",
+          "chunk_8dafdf1ad3536d11cbd7f1174e4307cf",
+          "chunk_a7a3fa89ef214b40dd74f2fbd73506d3",
+          "chunk_e114869ff3b8d9729411cb840d367ac2",
+          "chunk_5436b61f6ef49c93ce4f98b1f974197a",
+          "chunk_f13e265889407a8ba3be11086af9a89f",
+          "chunk_0a1afb2e1608b5df8a4e80370f04adef",
+          "chunk_b662d0ac4e50c643e9a216fa1fe76746",
+          "chunk_5611e05a2b313672bd65194ce376674a",
+          "chunk_3ba02f33982ae980e8e623d53999fd1d",
+          "chunk_a70a56841aa348d74d3fc46a81ee236b",
+          "chunk_2be38b4488504045c3017c706a4263ae"
+        ]
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "admin_level": "市",
+        "plantype_label": "专项规划",
+        "chunk_ids": [
+          "chunk_53d1294be5a6d3b76a04c8f14c6d5ca3",
+          "chunk_e7fd2f3ba68ba6237045421c650a83c6",
+          "chunk_05b1b25242c5f5604ad9eef3f20c485f",
+          "chunk_802ecb9c0d50fbf4d35312e2edac2fcc",
+          "chunk_9a757076f6509298029cd44768f968b6",
+          "chunk_31a2c891488dbabb8da101971474d2e1",
+          "chunk_358b399c6af108e51fd0ba63687ec8ef",
+          "chunk_37b3a8d85bf8499e0cd33cc0dbbe7f21",
+          "chunk_57bf71e9c5fc8493cca6bc1f15060a3b",
+          "chunk_8012dd29c68db615acf4821504d3c4e3",
+          "chunk_6b17ff32da67ae17485b7e6e0a047fd4",
+          "chunk_78087f8616b1fb2e4856f4f691e3936e",
+          "chunk_7b252989eaa4b4591abf624f02db7423"
+        ]
+      }
+    ],
+    "verification": {
+      "policy_facts": "unverified",
+      "reason": "no_valid_claims"
+    }
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

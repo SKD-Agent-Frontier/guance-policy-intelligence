@@ -1,0 +1,536 @@
+{
+  "run_id": "run_bbb29936334b4ec99f061a0cc2b710cf",
+  "session_id": "s_54c27f5db27c4603938e4321cb84ca74",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 支持措施 | 整合盘活现有公共租赁住房，以小户型单身公寓为主新建6000套人才租赁住房，公用配套部分面积不低于地上总建筑面积的10%，将人才租赁住房工作纳入人才工作目标责任制考核。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 申请或执行条件 | 对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n\n政策甲的方案分析（分析判断）：\n优势：在人才住房与岗位安排上具有较清晰的条件化支持：对符合首购房且未享受过相关住房优惠政策的人才提供房票补贴、购房补助或租房补贴；对省级领军人才及以上的事业单位引进可设立特设岗位，突破了部分常规岗位比例限制。\n限制：上述措施主要限定于特定条件的人才：住房支持要求“来我区工作后首次购房”且“未享受过住房优惠政策或房改政策”；事业单位特设岗位支持仅针对“省级领军人才及以上层次”的引进对象，不能据此推断所有层次人才均适用。\n适用条件：住房补贴/补助条款适用于：到柯桥区工作后首次购房，且在柯桥区未享受过住房优惠政策或房改政策的人才。；事业单位特设岗位条款适用于：由柯桥区事业单位引进的省级领军人才及以上层次人才，用于突破岗位总量、最高等级与结构比例的限制。\n\n政策乙的方案分析（分析判断）：\n优势：相关原文证据不足，不能据此判断政策没有规定\n限制：相关原文证据不足，不能据此判断政策没有规定\n适用条件：相关原文证据不足，不能据此判断政策没有规定",
+  "claims": [
+    {
+      "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+      "chunk_ids": [
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+        "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+      ],
+      "quotes": [
+        "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+        "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "整合盘活现有公共租赁住房，以小户型单身公寓为主新建6000套人才租赁住房，公用配套部分面积不低于地上总建筑面积的10%，将人才租赁住房工作纳入人才工作目标责任制考核。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+      "chunk_ids": [
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+      ],
+      "quotes": [
+        "整合盘活现有公共租赁住房，以小户型单身公寓为主新建6000套人才租赁住房，公用配套部分面积不低于地上总建筑面积的10%，将人才租赁住房工作纳入人才工作目标责任制考核。",
+        "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+      "chunk_ids": [
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+        "chunk_b684d006a241fac82c42c869ac87c663"
+      ],
+      "quotes": [
+        "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+        "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_5bb4cf35ce24fc6979685f170c9d88c5",
+      "section_char_start": 15303,
+      "section_char_end": 15560,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+      "parent_id": "parent_6711b6ec316a12927e7f41c461b9624e",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 32,
+      "section_path": "七、人才服务重点实事 / （一）建设人才住房安居体系",
+      "char_start": 15318,
+      "char_end": 15560,
+      "chunk_char_start": 15318,
+      "chunk_char_end": 15560,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15318,
+          15560
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_a81e3f153ce42a898e67f5b7827e6f0b",
+      "section_char_start": 14542,
+      "section_char_end": 14760,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_0a1afb2e1608b5df8a4e80370f04adef",
+      "parent_id": "parent_d586128c2f982c7d52664ac2c394f4c1",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 28,
+      "section_path": "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式",
+      "char_start": 14565,
+      "char_end": 14760,
+      "chunk_char_start": 14565,
+      "chunk_char_end": 14760,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14565,
+          14760
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b1fce18b516288c6d73b0dc7a4f2ab66",
+      "section_char_start": 17357,
+      "section_char_end": 17558,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_b684d006a241fac82c42c869ac87c663",
+      "parent_id": null,
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 37,
+      "section_path": "八、实施保障 / （三）推动整体智治",
+      "char_start": 17368,
+      "char_end": 17558,
+      "chunk_char_start": 17368,
+      "chunk_char_end": 17558,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          17368,
+          17558
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 25429,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 99
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6328,
+      "output_tokens": 1690,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 91,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1625
+        },
+        {
+          "input_tokens": 2288,
+          "output_tokens": 184,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2719
+        },
+        {
+          "input_tokens": 1431,
+          "output_tokens": 612,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 10203
+        },
+        {
+          "input_tokens": 2354,
+          "output_tokens": 803,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 10593
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 6,
+      "approved": 6,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": "literal_only"
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+            "chunk_ids": [
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+              "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+            ],
+            "quotes": [
+              "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+              "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+            ],
+            "source_contexts": [
+              "七、人才服务重点实事 / （一）建设人才住房安居体系",
+              "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "整合盘活现有公共租赁住房，以小户型单身公寓为主新建6000套人才租赁住房，公用配套部分面积不低于地上总建筑面积的10%，将人才租赁住房工作纳入人才工作目标责任制考核。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+            "chunk_ids": [
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+            ],
+            "quotes": [
+              "整合盘活现有公共租赁住房，以小户型单身公寓为主新建6000套人才租赁住房，公用配套部分面积不低于地上总建筑面积的10%，将人才租赁住房工作纳入人才工作目标责任制考核。",
+              "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。"
+            ],
+            "source_contexts": [
+              "七、人才服务重点实事 / （一）建设人才住房安居体系"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+            "chunk_ids": [
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+              "chunk_b684d006a241fac82c42c869ac87c663"
+            ],
+            "quotes": [
+              "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+              "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+            ],
+            "source_contexts": [
+              "七、人才服务重点实事 / （一）建设人才住房安居体系",
+              "八、实施保障 / （三）推动整体智治"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "部分对象未取得该维度的充分证据，无法作完整比较；部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+    },
+    "coverage_notes": [
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "部分政策尚未取得正文证据，不作缺失条款或优劣判断。"
+    ],
+    "analysis_gaps": [
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "适用对象"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "支持措施"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "申请或执行条件"
+      },
+      {
+        "field": "advantages",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "limitations",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "applicability",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      }
+    ],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "在人才住房与岗位安排上具有较清晰的条件化支持：对符合首购房且未享受过相关住房优惠政策的人才提供房票补贴、购房补助或租房补贴；对省级领军人才及以上的事业单位引进可设立特设岗位，突破了部分常规岗位比例限制。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "上述措施主要限定于特定条件的人才：住房支持要求“来我区工作后首次购房”且“未享受过住房优惠政策或房改政策”；事业单位特设岗位支持仅针对“省级领军人才及以上层次”的引进对象，不能据此推断所有层次人才均适用。",
+            "supporting_cells": [
+              "d0:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "住房补贴/补助条款适用于：到柯桥区工作后首次购房，且在柯桥区未享受过住房优惠政策或房改政策的人才。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          },
+          {
+            "text": "事业单位特设岗位条款适用于：由柯桥区事业单位引进的省级领军人才及以上层次人才，用于突破岗位总量、最高等级与结构比例的限制。",
+            "supporting_cells": [
+              "d0:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [],
+        "limitations": [],
+        "applicability": []
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

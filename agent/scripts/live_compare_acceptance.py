@@ -1,6 +1,6 @@
 """真实学校模型 + 真实 RAG 的受控比较验收入口。
 
-复用生产 submit 路由、业务模块和核验流程，覆盖政策对比、多方案、跨期与单侧缺证。
+复用生产 submit 路由、业务模块和核验流程，覆盖政策对比、多方案、跨期、跨专题与单侧缺证。
 正式报告写 output-dir，可纳入 Git；模型凭据从本机 env-file 读取，SQLite 和运行日志
 另写 private-dir。脚本不把原始提示词或模型草稿加入正式报告，也不重建语料索引。
 """
@@ -35,7 +35,18 @@ def audit_result(result, targets, *, scheme=False, missing=None):
         failures.append("object_identity_or_order")
     if any(not obj.get("title") for obj in data.get("objects", [])):
         failures.append("missing_document_title")
+    if any(not {"planid", "title", "area", "fyp", "plantype_label"}.issubset(obj)
+           for obj in data.get("objects", [])):
+        failures.append("missing_identity_fields")
     rows = data.get("matrix", [])
+    if [row.get("dimension") for row in rows] != data.get("dimensions"):
+        failures.append("matrix_dimension_order")
+    if (not isinstance(data.get("dimensions"), list)
+            or any(not isinstance(d, str) for d in data["dimensions"])):
+        failures.append("invalid_dimensions")
+    comparability = data.get("comparability", {})
+    if not isinstance(comparability.get("comparable"), bool) or not comparability.get("reason"):
+        failures.append("invalid_comparability")
     refs = {ref.chunk_id: ref for ref in result.evidence_refs}
     cells, complete = {}, 0
     for row in rows:
@@ -63,6 +74,9 @@ def audit_result(result, targets, *, scheme=False, missing=None):
         if judgment.get("kind") != "analysis":
             failures.append("difference_misrepresented_as_literal_fact")
         if judgment["status"] == "supported":
+            if (judgment.get("scope") != "supporting_cells_only"
+                    or not judgment["text"].startswith("就本次所列条款而言，")):
+                failures.append("analysis_scope_not_explicit")
             if set(judgment["supporting_cells"]) != {cell["cell_id"] for cell in row["cells"]}:
                 failures.append("difference_without_complete_basis")
             if any(cell["status"] != "found" for cell in row["cells"]):
@@ -79,6 +93,10 @@ def audit_result(result, targets, *, scheme=False, missing=None):
             failures.append("controlled_missing_source_still_found")
         if any(row["difference"]["status"] == "supported" for row in rows):
             failures.append("comparison_survived_missing_side")
+        if result.evidence_status != "insufficient":
+            failures.append("missing_source_not_marked_insufficient")
+        if not any(cell["status"] == "found" and cell["planid"] != missing for cell in cells.values()):
+            failures.append("available_policy_facts_lost")
     if scheme:
         analyses = data.get("scheme_analysis", [])
         if [item["planid"] for item in analyses] != targets:
@@ -96,6 +114,27 @@ def audit_result(result, targets, *, scheme=False, missing=None):
                         failures.append("scheme_analysis_without_own_policy")
                     if judgment.get("kind") != "analysis":
                         failures.append("scheme_judgment_misrepresented_as_literal_fact")
+                    if judgment.get("scope") != "supporting_cells_only":
+                        failures.append("scheme_scope_not_explicit")
+                    if judgment.get("derivation") == "extractive_support_features":
+                        if any(quote not in judgment["text"] for cid in support if cid in cells
+                               for quote in cells[cid].get("quotes", [])):
+                            failures.append("unsupported_support_feature_fallback")
+                    if field == "limitations" and len(support) != 1:
+                        failures.append("merged_limitation_scopes")
+                    if field == "applicability":
+                        if judgment.get("derivation") != "extractive_conditions":
+                            failures.append("non_extractive_applicability")
+                        if any(quote not in judgment["text"] for cid in support if cid in cells
+                               for quote in cells[cid].get("quotes", [])):
+                            failures.append("lost_applicability_condition")
+                if item["planid"] == missing:
+                    if item[field]:
+                        failures.append("missing_scheme_analysis_not_withdrawn")
+                    if not any(gap.get("planid") == missing and gap.get("field") == field
+                               and gap.get("reason") == "source_evidence_missing"
+                               for gap in data.get("analysis_gaps", [])):
+                        failures.append("missing_scheme_gap_not_explained")
     verification = result.meta.get("quote_verification", {})
     # 此处依赖生产基础层实际执行的核验遥测，不能用离线 mock 的结果冒充真实核验。
     if verification.get("approved", 0) < 1 or verification.get("unverified", 0):
@@ -146,7 +185,9 @@ async def run(args):
         ("policy", "compare", ["37982", "38366"], ["发展目标", "政策工具", "适用对象"]),
         ("schemes", "compare_plans", ["37982", "38366"], ["适用对象", "支持措施", "申请或执行条件"]),
         ("cross_period", "compare", ["57", "37982"], ["人才培养", "人才激励"]),
+        ("cross_topic", "compare", ["23132", "37982"], ["发展目标", "政策工具", "适用对象"]),
         ("controlled_missing", "compare", ["37982", "38366"], ["发展目标", "政策工具"]),
+        ("schemes_missing", "compare_plans", ["37982", "38366"], ["适用对象", "支持措施", "申请或执行条件"]),
     ]
     report, samples = [], {}
     try:
@@ -154,12 +195,13 @@ async def run(args):
         await asyncio.to_thread(warm_up, settings)
         real_kb = get_kb(settings, require_warm=True)
         for name, task_type, targets, dimensions in cases:
-            masked = targets[1] if name == "controlled_missing" else None
+            masked = targets[1] if name in {"controlled_missing", "schemes_missing"} else None
             backend = MissingBody(real_kb, masked) if masked else real_kb
             # 只替换该场景的后端获取入口。业务、工具证据登记和基础层核验仍是生产实现。
             with patch("guance_agent.orchestrator.get_kb", return_value=backend):
                 result = await submit(
-                    "按指定维度比较这些人才政策，说明口径限制；"
+                    ("对照数字经济规划与人才规划的所列条款，说明不同专题、地区和对象边界；"
+                     if name == "cross_topic" else "按指定维度比较这些人才政策，说明口径限制；") +
                     "分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
                     task_type=task_type, targets=targets, dimensions=dimensions, settings=settings)
             failures = audit_result(result, targets, scheme=task_type == "compare_plans", missing=masked)

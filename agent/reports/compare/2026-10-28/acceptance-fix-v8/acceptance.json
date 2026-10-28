@@ -1,0 +1,77 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "policy",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 32898,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "schemes",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 44068,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_period",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "57",
+        "37982"
+      ],
+      "elapsed_ms": 16073,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_topic",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "23132",
+        "37982"
+      ],
+      "elapsed_ms": 26155,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "controlled_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 10404,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    },
+    {
+      "case": "schemes_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 20349,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    }
+  ]
+}

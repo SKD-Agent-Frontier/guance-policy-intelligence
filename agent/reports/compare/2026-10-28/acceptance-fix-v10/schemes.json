@@ -1,0 +1,630 @@
+{
+  "run_id": "run_5a9feb5015b942c9aa3c79e2732db5ac",
+  "session_id": "s_7e95a446973047c08dc4333f34bf9e1f",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。 | 实施劳务输出品牌计划，围绕地方特色劳务群体，建立技能培训体系和评价体系，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平，培育一批叫得响的农民工劳务输出品牌。 | 就本次所列条款而言，政策甲针对高层次人才创业团队及重大产业化人才项目提供服务和扶持；政策乙围绕地方特色劳务群体建立技能体系，旨在提升从业者职业技能及劳务输出品牌。两者适用的劳动力类型分别为高层次创业团队与特色劳务群体，服务对象和层级不同。 |\n\n口径说明：原文不足以确认统一统计口径，仅作所列条款的文字内容对照\n| 支持措施 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。 | 实施引进人才创办企业奖励制度。 | 就本次所列条款而言，政策甲提出围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，并对重大产业化人才项目给予“一人一策”政策扶持；政策乙提出实施引进人才创办企业奖励制度。政策甲的措施涵盖多维度的全周期支持及针对重大项目的特定扶持，政策乙的措施表述为奖励制度。 |\n\n口径说明：原文不足以确认统一统计口径，仅作所列条款的文字内容对照\n| 申请或执行条件 | 鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。 | 实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。 | 就本次所列条款而言，政策甲针对我区事业单位引进省级领军人才及以上层次人才，允许设立特设岗位，不受岗位总量、最高等级和结构比例限制；政策乙针对实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。前者侧重事业单位引才的编制突破条件，后者侧重后备人才工程的重点支持条件。 |\n\n口径说明：原文不足以确认统一统计口径，仅作所列条款的文字内容对照\n\n政策甲的方案分析（分析判断）：\n优势：创业团队的全周期服务不能改写为所有创业项目的支持资格\n限制：就本次所列条款而言，设立特设岗位及突破岗位总量、最高等级和结构比例限制的条件，仅适用于我区事业单位引进省级领军人才及以上层次人才，不涵盖其他层级人才或非事业单位引进情形。\n适用条件：就本次所列条款而言，适用对象及条件须分别按以下原文核对，不合并为共同资格：“鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。”\n\n政策乙的方案分析（分析判断）：\n优势：就本次所列条款而言，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，建立技能培训和评价体系，旨在普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平。\n限制：就本次所列条款而言，重点支持的条件限定为国家级、省级后备人才培养工程中，基础研究、工程技术等领域有望实现突破性创新成果的人才，不直接涵盖其他领域或未达该成果预期的人才。\n适用条件：就本次所列条款而言，适用对象及条件须分别按以下原文核对，不合并为共同资格：“实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。”",
+  "claims": [
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "实施劳务输出品牌计划，围绕地方特色劳务群体，建立技能培训体系和评价体系，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平，培育一批叫得响的农民工劳务输出品牌。",
+      "chunk_ids": [
+        "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+      ],
+      "quotes": [
+        "实施劳务输出品牌计划，围绕地方特色劳务群体，建立技能培训体系和评价体系，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平，培育一批叫得响的农民工劳务输出品牌。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "实施引进人才创办企业奖励制度。",
+      "chunk_ids": [
+        "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+      ],
+      "quotes": [
+        "实施引进人才创办企业奖励制度。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+      "chunk_ids": [
+        "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+      ],
+      "quotes": [
+        "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    },
+    {
+      "text": "实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。",
+      "chunk_ids": [
+        "chunk_05b1b25242c5f5604ad9eef3f20c485f"
+      ],
+      "quotes": [
+        "实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_0796ad1453f708a34466341cc0754743",
+      "section_char_start": 14702,
+      "section_char_end": 15696,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_802ecb9c0d50fbf4d35312e2edac2fcc",
+      "parent_id": "parent_bcd82cf7e347009c8518b24b7500e735",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 7,
+      "section_path": "五、政策措施",
+      "char_start": 14710,
+      "char_end": 15696,
+      "chunk_char_start": 14710,
+      "chunk_char_end": 15696,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14710,
+          15696
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_a81e3f153ce42a898e67f5b7827e6f0b",
+      "section_char_start": 14542,
+      "section_char_end": 14760,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_0a1afb2e1608b5df8a4e80370f04adef",
+      "parent_id": "parent_d586128c2f982c7d52664ac2c394f4c1",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 28,
+      "section_path": "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式",
+      "char_start": 14565,
+      "char_end": 14760,
+      "chunk_char_start": 14565,
+      "chunk_char_end": 14760,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14565,
+          14760
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_23b68f9047369ecfe1eafbaa03a01d53",
+      "section_char_start": 12975,
+      "section_char_end": 14702,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_05b1b25242c5f5604ad9eef3f20c485f",
+      "parent_id": "parent_6c8af591a3311af3db68f6208613e626",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 6,
+      "section_path": "四、重点计划",
+      "char_start": 12983,
+      "char_end": 14073,
+      "chunk_char_start": 12983,
+      "chunk_char_end": 14073,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          12983,
+          14073
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 35360,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 59
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 64
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 66
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 73
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 8218,
+      "output_tokens": 2328,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 127,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2187
+        },
+        {
+          "input_tokens": 3756,
+          "output_tokens": 146,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2718
+        },
+        {
+          "input_tokens": 1569,
+          "output_tokens": 1000,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 13969
+        },
+        {
+          "input_tokens": 2638,
+          "output_tokens": 1055,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 16078
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 6,
+      "approved": 6,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "实施劳务输出品牌计划，围绕地方特色劳务群体，建立技能培训体系和评价体系，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平，培育一批叫得响的农民工劳务输出品牌。",
+            "chunk_ids": [
+              "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+            ],
+            "quotes": [
+              "实施劳务输出品牌计划，围绕地方特色劳务群体，建立技能培训体系和评价体系，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平，培育一批叫得响的农民工劳务输出品牌。"
+            ],
+            "source_contexts": [
+              "五、政策措施"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "就本次所列条款而言，政策甲针对高层次人才创业团队及重大产业化人才项目提供服务和扶持；政策乙围绕地方特色劳务群体建立技能体系，旨在提升从业者职业技能及劳务输出品牌。两者适用的劳动力类型分别为高层次创业团队与特色劳务群体，服务对象和层级不同。",
+          "supporting_cells": [
+            "d0:37982",
+            "d0:38366"
+          ],
+          "kind": "analysis",
+          "scope": "supporting_cells_only",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "实施引进人才创办企业奖励制度。",
+            "chunk_ids": [
+              "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+            ],
+            "quotes": [
+              "实施引进人才创办企业奖励制度。"
+            ],
+            "source_contexts": [
+              "五、政策措施"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "就本次所列条款而言，政策甲提出围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，并对重大产业化人才项目给予“一人一策”政策扶持；政策乙提出实施引进人才创办企业奖励制度。政策甲的措施涵盖多维度的全周期支持及针对重大项目的特定扶持，政策乙的措施表述为奖励制度。",
+          "supporting_cells": [
+            "d1:37982",
+            "d1:38366"
+          ],
+          "kind": "analysis",
+          "scope": "supporting_cells_only",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+            "chunk_ids": [
+              "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+            ],
+            "quotes": [
+              "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+            ],
+            "source_contexts": [
+              "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。",
+            "chunk_ids": [
+              "chunk_05b1b25242c5f5604ad9eef3f20c485f"
+            ],
+            "quotes": [
+              "实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。"
+            ],
+            "source_contexts": [
+              "四、重点计划"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "就本次所列条款而言，政策甲针对我区事业单位引进省级领军人才及以上层次人才，允许设立特设岗位，不受岗位总量、最高等级和结构比例限制；政策乙针对实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。前者侧重事业单位引才的编制突破条件，后者侧重后备人才工程的重点支持条件。",
+          "supporting_cells": [
+            "d2:37982",
+            "d2:38366"
+          ],
+          "kind": "analysis",
+          "scope": "supporting_cells_only",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": [
+      {
+        "field": "advantages",
+        "reason": "unsupported_support_subject",
+        "message": "创业团队的全周期服务不能改写为所有创业项目的支持资格",
+        "planid": "37982"
+      }
+    ],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [],
+        "limitations": [
+          {
+            "text": "就本次所列条款而言，设立特设岗位及突破岗位总量、最高等级和结构比例限制的条件，仅适用于我区事业单位引进省级领军人才及以上层次人才，不涵盖其他层级人才或非事业单位引进情形。",
+            "supporting_cells": [
+              "d2:37982"
+            ],
+            "kind": "analysis",
+            "scope": "supporting_cells_only"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "就本次所列条款而言，适用对象及条件须分别按以下原文核对，不合并为共同资格：“鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。”",
+            "supporting_cells": [
+              "d2:37982"
+            ],
+            "kind": "analysis",
+            "scope": "supporting_cells_only",
+            "derivation": "extractive_conditions"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [
+          {
+            "text": "就本次所列条款而言，通过完善行业标准、建设专家工作室、邀请专家授课、举办技能比赛等途径，建立技能培训和评价体系，旨在普遍提升从业者职业技能，提高劳务输出的组织化、专业化、标准化水平。",
+            "supporting_cells": [
+              "d0:38366"
+            ],
+            "kind": "analysis",
+            "scope": "supporting_cells_only"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "就本次所列条款而言，重点支持的条件限定为国家级、省级后备人才培养工程中，基础研究、工程技术等领域有望实现突破性创新成果的人才，不直接涵盖其他领域或未达该成果预期的人才。",
+            "supporting_cells": [
+              "d2:38366"
+            ],
+            "kind": "analysis",
+            "scope": "supporting_cells_only"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "就本次所列条款而言，适用对象及条件须分别按以下原文核对，不合并为共同资格：“实施国家级、省级后备人才培养工程，对基础研究、工程技术等领域有望实现突破性创新成果的人才给予重点支持。”",
+            "supporting_cells": [
+              "d2:38366"
+            ],
+            "kind": "analysis",
+            "scope": "supporting_cells_only",
+            "derivation": "extractive_conditions"
+          }
+        ]
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

@@ -1,0 +1,630 @@
+{
+  "run_id": "run_c0e15185cfcf418b96f00041c07bbf38",
+  "session_id": "s_3f3d0afd3a4c44aa9ec2638b8ad834a5",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 基金主要投向在柯桥落户的省级以上领军人才、省领军型创新创业团队、绍兴“名士之乡”英才计划等高层次人才创办的处于种子期、初创期的企业，通过基金加快孵化，构建人才创业良好金融生态。 | 支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。 | 政策甲的对象具体限定为“在柯桥落户”的省级以上领军人才等及其创办的“种子期、初创期”企业；政策乙的对象涵盖高校、科研院所及其他企事业单位引进培养的“高端人才”及“专家人才”。甲侧重于特定层级与落户条件的创业主体，乙侧重于各类单位的高端及专家人才。 |\n| 支持措施 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。 | 支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。 | 政策甲提出围绕项目启动、场地补助等提供“全周期”服务，对重大产业化项目实行“一人一策”，并落实零门槛落户与住房保障；政策乙主要措施为支持“一事一议”引进培养、专家成果转化及创新创业，并保障同级人才计划顺利实施。甲侧重具体的创业服务链条与生活保障，乙侧重个案机制与成果支持。 |\n| 申请或执行条件 | 建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。 | 各级组织部门严格履行牵头抓总职责；；支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。 | 政策甲提出建立权利责任及需求清单，规范简化行政审批流程以提高兑现效率；政策乙要求各级组织部门履行牵头抓总职责，并依托“一事一议”及同级人才计划实施来确保工作落实。甲强调行政流程的优化与简化，乙强调部门职责履行及既有计划与个案机制的执行。 |\n\n政策甲的方案分析（分析判断）：\n优势：规划提出针对高层次人才创业提供涵盖启动、场地、融资等的全周期服务，并落实落户及住房保障，旨在解决人才后顾之忧并构建金融生态。\n限制：基金投向明确限定为“在柯桥落户”的特定层级人才创办的“种子期、初创期”企业，且措施集中于创业孵化与基础生活保障。\n适用条件：适用于在柯桥落户的省级以上领军人才、省领军型创新创业团队等创办的种子期/初创期企业，以及需要享受零门槛落户和住房保障的高层次人才。\n\n政策乙的方案分析（分析判断）：\n优势：规划提出采用“一事一议”机制支持高校、科研院所及企事业单位引进培养高端人才，并明确支持专家人才的成果转化与创新创业。\n限制：支持措施主要体现为“一事一议”的个案安排及保障同级人才计划实施，未在所列条款中明确具体的标准化补贴细则或全周期服务清单。\n适用条件：适用于高校、科研院所及其他企事业单位通过“一事一议”引进培养的高端人才，以及需支持其进行成果转化和创新创业的专家人才。",
+  "claims": [
+    {
+      "text": "基金主要投向在柯桥落户的省级以上领军人才、省领军型创新创业团队、绍兴“名士之乡”英才计划等高层次人才创办的处于种子期、初创期的企业，通过基金加快孵化，构建人才创业良好金融生态。",
+      "chunk_ids": [
+        "chunk_fb3ecc07d1adb5b7c4ff9b7b7b8777fa"
+      ],
+      "quotes": [
+        "基金主要投向在柯桥落户的省级以上领军人才、省领军型创新创业团队、绍兴“名士之乡”英才计划等高层次人才创办的处于种子期、初创期的企业，通过基金加快孵化，构建人才创业良好金融生态。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+      "chunk_ids": [
+        "chunk_9a757076f6509298029cd44768f968b6"
+      ],
+      "quotes": [
+        "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+      "chunk_ids": [
+        "chunk_9a757076f6509298029cd44768f968b6"
+      ],
+      "quotes": [
+        "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+      "chunk_ids": [
+        "chunk_b684d006a241fac82c42c869ac87c663"
+      ],
+      "quotes": [
+        "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    },
+    {
+      "text": "各级组织部门严格履行牵头抓总职责；；支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+      "chunk_ids": [
+        "chunk_9a757076f6509298029cd44768f968b6"
+      ],
+      "quotes": [
+        "各级组织部门严格履行牵头抓总职责；",
+        "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_61b5b9d0253baab28dbffc1fe6cb7bf8",
+      "section_char_start": 15560,
+      "section_char_end": 16115,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_fb3ecc07d1adb5b7c4ff9b7b7b8777fa",
+      "parent_id": "parent_72c30d8932607ec9dce5d0022bb7b801",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 33,
+      "section_path": "七、人才服务重点实事 / （二）创新人才发展金融支持",
+      "char_start": 15575,
+      "char_end": 16115,
+      "chunk_char_start": 15575,
+      "chunk_char_end": 16115,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15575,
+          16115
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_fd1dcccc29a4e0b268e52e6976eac812",
+      "section_char_start": 15696,
+      "section_char_end": 16821,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_9a757076f6509298029cd44768f968b6",
+      "parent_id": "parent_5dd764665d52e7e1d8dada9c9f655c11",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 8,
+      "section_path": "六、实施保障",
+      "char_start": 15704,
+      "char_end": 16821,
+      "chunk_char_start": 15704,
+      "chunk_char_end": 16821,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15704,
+          16821
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b1fce18b516288c6d73b0dc7a4f2ab66",
+      "section_char_start": 17357,
+      "section_char_end": 17558,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_b684d006a241fac82c42c869ac87c663",
+      "parent_id": "parent_3f60b861a834a9e38bcdd91adc6014e7",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 40,
+      "section_path": "八、实施保障 / （三）推动整体智治",
+      "char_start": 17368,
+      "char_end": 17558,
+      "chunk_char_start": 17368,
+      "chunk_char_end": 17558,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          17368,
+          17558
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 42171,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 95
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 108
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 96
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 89
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 8231,
+      "output_tokens": 2576,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 120,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2343
+        },
+        {
+          "input_tokens": 3653,
+          "output_tokens": 152,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2782
+        },
+        {
+          "input_tokens": 1564,
+          "output_tokens": 1177,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 18515
+        },
+        {
+          "input_tokens": 2759,
+          "output_tokens": 1127,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 17938
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 8,
+      "approved": 8,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "基金主要投向在柯桥落户的省级以上领军人才、省领军型创新创业团队、绍兴“名士之乡”英才计划等高层次人才创办的处于种子期、初创期的企业，通过基金加快孵化，构建人才创业良好金融生态。",
+            "chunk_ids": [
+              "chunk_fb3ecc07d1adb5b7c4ff9b7b7b8777fa"
+            ],
+            "quotes": [
+              "基金主要投向在柯桥落户的省级以上领军人才、省领军型创新创业团队、绍兴“名士之乡”英才计划等高层次人才创办的处于种子期、初创期的企业，通过基金加快孵化，构建人才创业良好金融生态。"
+            ],
+            "source_contexts": [
+              "七、人才服务重点实事 / （二）创新人才发展金融支持"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+            "chunk_ids": [
+              "chunk_9a757076f6509298029cd44768f968b6"
+            ],
+            "quotes": [
+              "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+            ],
+            "source_contexts": [
+              "六、实施保障"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲的对象具体限定为“在柯桥落户”的省级以上领军人才等及其创办的“种子期、初创期”企业；政策乙的对象涵盖高校、科研院所及其他企事业单位引进培养的“高端人才”及“专家人才”。甲侧重于特定层级与落户条件的创业主体，乙侧重于各类单位的高端及专家人才。",
+          "supporting_cells": [
+            "d0:37982",
+            "d0:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+            "chunk_ids": [
+              "chunk_9a757076f6509298029cd44768f968b6"
+            ],
+            "quotes": [
+              "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+            ],
+            "source_contexts": [
+              "六、实施保障"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲提出围绕项目启动、场地补助等提供“全周期”服务，对重大产业化项目实行“一人一策”，并落实零门槛落户与住房保障；政策乙主要措施为支持“一事一议”引进培养、专家成果转化及创新创业，并保障同级人才计划顺利实施。甲侧重具体的创业服务链条与生活保障，乙侧重个案机制与成果支持。",
+          "supporting_cells": [
+            "d1:37982",
+            "d1:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+            "chunk_ids": [
+              "chunk_b684d006a241fac82c42c869ac87c663"
+            ],
+            "quotes": [
+              "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+            ],
+            "source_contexts": [
+              "八、实施保障 / （三）推动整体智治"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "各级组织部门严格履行牵头抓总职责；；支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+            "chunk_ids": [
+              "chunk_9a757076f6509298029cd44768f968b6"
+            ],
+            "quotes": [
+              "各级组织部门严格履行牵头抓总职责；",
+              "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。"
+            ],
+            "source_contexts": [
+              "六、实施保障"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲提出建立权利责任及需求清单，规范简化行政审批流程以提高兑现效率；政策乙要求各级组织部门履行牵头抓总职责，并依托“一事一议”及同级人才计划实施来确保工作落实。甲强调行政流程的优化与简化，乙强调部门职责履行及既有计划与个案机制的执行。",
+          "supporting_cells": [
+            "d2:37982",
+            "d2:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": true,
+      "reason": "可在所列维度作有据的文字内容对照"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": [],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "规划提出针对高层次人才创业提供涵盖启动、场地、融资等的全周期服务，并落实落户及住房保障，旨在解决人才后顾之忧并构建金融生态。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "基金投向明确限定为“在柯桥落户”的特定层级人才创办的“种子期、初创期”企业，且措施集中于创业孵化与基础生活保障。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "适用于在柯桥落户的省级以上领军人才、省领军型创新创业团队等创办的种子期/初创期企业，以及需要享受零门槛落户和住房保障的高层次人才。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [
+          {
+            "text": "规划提出采用“一事一议”机制支持高校、科研院所及企事业单位引进培养高端人才，并明确支持专家人才的成果转化与创新创业。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "支持措施主要体现为“一事一议”的个案安排及保障同级人才计划实施，未在所列条款中明确具体的标准化补贴细则或全周期服务清单。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "适用于高校、科研院所及其他企事业单位通过“一事一议”引进培养的高端人才，以及需支持其进行成果转化和创新创业的专家人才。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366",
+              "d2:38366"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

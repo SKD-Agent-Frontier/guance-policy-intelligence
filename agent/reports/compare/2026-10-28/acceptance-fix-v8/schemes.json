@@ -1,0 +1,722 @@
+{
+  "run_id": "run_3f32caf9620945e7b7dce715967ecc18",
+  "session_id": "s_9590735789834fed932fddfe3e8f8877",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。 | 支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。；围绕重点工程领域遴选培养技能人才，打造地方技能人才品牌，分系列在技能人才队伍中评选一批政治素质高、技能水平高、企业认可度高、社会影响好的“毕节工匠”。 | 政策甲支持对象包括高层次人才创业团队、重大产业化人才项目以及青年人才专项；政策乙支持对象涵盖高校科研院所等企事业单位引进培养的高端人才、专家人才以及重点工程领域遴选培养的“毕节工匠”技能人才。 |\n| 支持措施 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。 | 围绕科技创新、科技创业、军民融合、哲学社会科学、教学、临床等重点领域，培养一批领军人才和青年拔尖人才。培养期内在研发经费、科研平台、人才团队及产业配套、金融信贷等方面给予政策支持。；建立重大项目“揭榜挂帅”引才制度，制定重大项目引才支持措施。 | 政策甲提及对人才创业团队提供“全周期”服务，对重大产业化项目给予“一人一策”扶持，并为符合条件的人才提供住房补贴；政策乙提及在特定领域培养期内提供研发经费、科研平台等政策支持，并建立重大项目“揭榜挂帅”引才制度。 |\n| 申请或执行条件 | 建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。 | 各级组织部门严格履行牵头抓总职责； | 政策甲提出建立人才管理服务清单、规范简化行政审批流程以提高兑现效率；政策乙强调各级组织部门需严格履行牵头抓总职责。 |\n\n政策甲的方案分析（分析判断）：\n优势：规划提出为高层次人才创业团队提供涵盖项目启动、场地补助、融资支持等的“全周期”服务，并针对重大产业化人才项目实施“一人一策”政策扶持。\n限制：住房补贴支持措施限定了具体申请条件，即须为来区工作后首次购房且在区内未享受过住房优惠政策或房改政策的人才。\n适用条件：所列条款分别适用于计划或已在柯桥发展的高层次人才创业团队、重大产业化人才项目相关主体，以及符合特定住房条件的购房或租房人才。\n\n政策乙的方案分析（分析判断）：\n优势：规划提出围绕重点领域培养领军人才和青年拔尖人才，在培养期内提供研发经费、科研平台及产业配套等政策支持，并建立重大项目“揭榜挂帅”引才制度。\n限制：研发经费、科研平台等支持措施在文本中被限定为“培养期内”提供；部分支持采用“一事一议”和“揭榜挂帅”机制，意味着具体的执行依据需依个案或项目而定。\n适用条件：所列条款适用于高校、科研院所及其他企事业单位“一事一议”引进培养的高端人才，在重点工程领域遴选培养的技能人才，以及参与“揭榜挂帅”重大项目的人才。",
+  "claims": [
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "实施专家举荐制，设立青年人才专项。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。；围绕重点工程领域遴选培养技能人才，打造地方技能人才品牌，分系列在技能人才队伍中评选一批政治素质高、技能水平高、企业认可度高、社会影响好的“毕节工匠”。",
+      "chunk_ids": [
+        "chunk_9a757076f6509298029cd44768f968b6",
+        "chunk_e7fd2f3ba68ba6237045421c650a83c6"
+      ],
+      "quotes": [
+        "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+        "围绕重点工程领域遴选培养技能人才，打造地方技能人才品牌，分系列在技能人才队伍中评选一批政治素质高、技能水平高、企业认可度高、社会影响好的“毕节工匠”。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f",
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "围绕科技创新、科技创业、军民融合、哲学社会科学、教学、临床等重点领域，培养一批领军人才和青年拔尖人才。培养期内在研发经费、科研平台、人才团队及产业配套、金融信贷等方面给予政策支持。；建立重大项目“揭榜挂帅”引才制度，制定重大项目引才支持措施。",
+      "chunk_ids": [
+        "chunk_05b1b25242c5f5604ad9eef3f20c485f"
+      ],
+      "quotes": [
+        "围绕科技创新、科技创业、军民融合、哲学社会科学、教学、临床等重点领域，培养一批领军人才和青年拔尖人才。培养期内在研发经费、科研平台、人才团队及产业配套、金融信贷等方面给予政策支持。",
+        "建立重大项目“揭榜挂帅”引才制度，制定重大项目引才支持措施。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+      "chunk_ids": [
+        "chunk_b684d006a241fac82c42c869ac87c663"
+      ],
+      "quotes": [
+        "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    },
+    {
+      "text": "各级组织部门严格履行牵头抓总职责；",
+      "chunk_ids": [
+        "chunk_9a757076f6509298029cd44768f968b6"
+      ],
+      "quotes": [
+        "各级组织部门严格履行牵头抓总职责；"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_fd1dcccc29a4e0b268e52e6976eac812",
+      "section_char_start": 15696,
+      "section_char_end": 16821,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_9a757076f6509298029cd44768f968b6",
+      "parent_id": "parent_5dd764665d52e7e1d8dada9c9f655c11",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 8,
+      "section_path": "六、实施保障",
+      "char_start": 15704,
+      "char_end": 16821,
+      "chunk_char_start": 15704,
+      "chunk_char_end": 16821,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15704,
+          16821
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_23b68f9047369ecfe1eafbaa03a01d53",
+      "section_char_start": 12975,
+      "section_char_end": 14702,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_e7fd2f3ba68ba6237045421c650a83c6",
+      "parent_id": "parent_6c8af591a3311af3db68f6208613e626",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 6,
+      "section_path": "四、重点计划",
+      "char_start": 14074,
+      "char_end": 14701,
+      "chunk_char_start": 14074,
+      "chunk_char_end": 14701,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14074,
+          14701
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_5bb4cf35ce24fc6979685f170c9d88c5",
+      "section_char_start": 15303,
+      "section_char_end": 15560,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+      "parent_id": "parent_6711b6ec316a12927e7f41c461b9624e",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 32,
+      "section_path": "七、人才服务重点实事 / （一）建设人才住房安居体系",
+      "char_start": 15318,
+      "char_end": 15560,
+      "chunk_char_start": 15318,
+      "chunk_char_end": 15560,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15318,
+          15560
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_23b68f9047369ecfe1eafbaa03a01d53",
+      "section_char_start": 12975,
+      "section_char_end": 14702,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_05b1b25242c5f5604ad9eef3f20c485f",
+      "parent_id": "parent_6c8af591a3311af3db68f6208613e626",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 6,
+      "section_path": "四、重点计划",
+      "char_start": 12983,
+      "char_end": 14073,
+      "chunk_char_start": 12983,
+      "chunk_char_end": 14073,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          12983,
+          14073
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b1fce18b516288c6d73b0dc7a4f2ab66",
+      "section_char_start": 17357,
+      "section_char_end": 17558,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_b684d006a241fac82c42c869ac87c663",
+      "parent_id": null,
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 37,
+      "section_path": "八、实施保障 / （三）推动整体智治",
+      "char_start": 17368,
+      "char_end": 17558,
+      "chunk_char_start": 17368,
+      "chunk_char_end": 17558,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          17368,
+          17558
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 44068,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 51
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 47
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 52
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 44
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 5,
+      "input_tokens": 9239,
+      "output_tokens": 2815,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 104,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1938
+        },
+        {
+          "input_tokens": 3703,
+          "output_tokens": 166,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 3000
+        },
+        {
+          "input_tokens": 813,
+          "output_tokens": 333,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 4172
+        },
+        {
+          "input_tokens": 1625,
+          "output_tokens": 1156,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 19766
+        },
+        {
+          "input_tokens": 2843,
+          "output_tokens": 1056,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 14875
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 10,
+      "approved": 10,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "实施专家举荐制，设立青年人才专项。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。；围绕重点工程领域遴选培养技能人才，打造地方技能人才品牌，分系列在技能人才队伍中评选一批政治素质高、技能水平高、企业认可度高、社会影响好的“毕节工匠”。",
+            "chunk_ids": [
+              "chunk_9a757076f6509298029cd44768f968b6",
+              "chunk_e7fd2f3ba68ba6237045421c650a83c6"
+            ],
+            "quotes": [
+              "支持高校、科研院所及其他企事业单位“一事一议”引进培养高端人才，支持专家人才成果转化、创新创业等，确保同级人才计划（工程、项目）和重点人才工作顺利实施。",
+              "围绕重点工程领域遴选培养技能人才，打造地方技能人才品牌，分系列在技能人才队伍中评选一批政治素质高、技能水平高、企业认可度高、社会影响好的“毕节工匠”。"
+            ],
+            "source_contexts": [
+              "六、实施保障",
+              "四、重点计划"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲支持对象包括高层次人才创业团队、重大产业化人才项目以及青年人才专项；政策乙支持对象涵盖高校科研院所等企事业单位引进培养的高端人才、专家人才以及重点工程领域遴选培养的“毕节工匠”技能人才。",
+          "supporting_cells": [
+            "d0:37982",
+            "d0:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f",
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策",
+              "七、人才服务重点实事 / （一）建设人才住房安居体系"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "围绕科技创新、科技创业、军民融合、哲学社会科学、教学、临床等重点领域，培养一批领军人才和青年拔尖人才。培养期内在研发经费、科研平台、人才团队及产业配套、金融信贷等方面给予政策支持。；建立重大项目“揭榜挂帅”引才制度，制定重大项目引才支持措施。",
+            "chunk_ids": [
+              "chunk_05b1b25242c5f5604ad9eef3f20c485f"
+            ],
+            "quotes": [
+              "围绕科技创新、科技创业、军民融合、哲学社会科学、教学、临床等重点领域，培养一批领军人才和青年拔尖人才。培养期内在研发经费、科研平台、人才团队及产业配套、金融信贷等方面给予政策支持。",
+              "建立重大项目“揭榜挂帅”引才制度，制定重大项目引才支持措施。"
+            ],
+            "source_contexts": [
+              "四、重点计划"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲提及对人才创业团队提供“全周期”服务，对重大产业化项目给予“一人一策”扶持，并为符合条件的人才提供住房补贴；政策乙提及在特定领域培养期内提供研发经费、科研平台等政策支持，并建立重大项目“揭榜挂帅”引才制度。",
+          "supporting_cells": [
+            "d1:37982",
+            "d1:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+            "chunk_ids": [
+              "chunk_b684d006a241fac82c42c869ac87c663"
+            ],
+            "quotes": [
+              "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+            ],
+            "source_contexts": [
+              "八、实施保障 / （三）推动整体智治"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "各级组织部门严格履行牵头抓总职责；",
+            "chunk_ids": [
+              "chunk_9a757076f6509298029cd44768f968b6"
+            ],
+            "quotes": [
+              "各级组织部门严格履行牵头抓总职责；"
+            ],
+            "source_contexts": [
+              "六、实施保障"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲提出建立人才管理服务清单、规范简化行政审批流程以提高兑现效率；政策乙强调各级组织部门需严格履行牵头抓总职责。",
+          "supporting_cells": [
+            "d2:37982",
+            "d2:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": true,
+      "reason": "可在所列维度作有据的文字内容对照"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": [],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "规划提出为高层次人才创业团队提供涵盖项目启动、场地补助、融资支持等的“全周期”服务，并针对重大产业化人才项目实施“一人一策”政策扶持。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "住房补贴支持措施限定了具体申请条件，即须为来区工作后首次购房且在区内未享受过住房优惠政策或房改政策的人才。",
+            "supporting_cells": [
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "所列条款分别适用于计划或已在柯桥发展的高层次人才创业团队、重大产业化人才项目相关主体，以及符合特定住房条件的购房或租房人才。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [
+          {
+            "text": "规划提出围绕重点领域培养领军人才和青年拔尖人才，在培养期内提供研发经费、科研平台及产业配套等政策支持，并建立重大项目“揭榜挂帅”引才制度。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "研发经费、科研平台等支持措施在文本中被限定为“培养期内”提供；部分支持采用“一事一议”和“揭榜挂帅”机制，意味着具体的执行依据需依个案或项目而定。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "所列条款适用于高校、科研院所及其他企事业单位“一事一议”引进培养的高端人才，在重点工程领域遴选培养的技能人才，以及参与“揭榜挂帅”重大项目的人才。",
+            "supporting_cells": [
+              "d0:38366",
+              "d1:38366"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

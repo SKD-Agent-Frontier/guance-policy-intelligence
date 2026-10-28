@@ -1,0 +1,92 @@
+{
+  "passed": false,
+  "cases": [
+    {
+      "case": "policy",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 26256,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "schemes",
+      "passed": false,
+      "failures": [
+        "invalid_comparability",
+        "invalid_dimensions",
+        "less_than_two_supported_dimensions",
+        "matrix_dimension_order",
+        "missing_scheme_analysis",
+        "object_identity_or_order",
+        "quotes_not_verified"
+      ],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 3132,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_period",
+      "passed": false,
+      "failures": [
+        "invalid_comparability",
+        "invalid_dimensions",
+        "less_than_two_supported_dimensions",
+        "matrix_dimension_order",
+        "object_identity_or_order",
+        "quotes_not_verified"
+      ],
+      "targets": [
+        "57",
+        "37982"
+      ],
+      "elapsed_ms": 4629,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_topic",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "23132",
+        "37982"
+      ],
+      "elapsed_ms": 17778,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "controlled_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 4781,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    },
+    {
+      "case": "schemes_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 17557,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    }
+  ]
+}

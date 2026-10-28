@@ -1,0 +1,86 @@
+{
+  "passed": false,
+  "cases": [
+    {
+      "case": "policy",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 27510,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "schemes",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 42171,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_period",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "57",
+        "37982"
+      ],
+      "elapsed_ms": 19272,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "cross_topic",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "23132",
+        "37982"
+      ],
+      "elapsed_ms": 22349,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": null
+    },
+    {
+      "case": "controlled_missing",
+      "passed": true,
+      "failures": [],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 5357,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    },
+    {
+      "case": "schemes_missing",
+      "passed": false,
+      "failures": [
+        "available_policy_facts_lost",
+        "invalid_comparability",
+        "invalid_dimensions",
+        "less_than_two_supported_dimensions",
+        "matrix_dimension_order",
+        "missing_scheme_analysis",
+        "object_identity_or_order",
+        "quotes_not_verified"
+      ],
+      "targets": [
+        "37982",
+        "38366"
+      ],
+      "elapsed_ms": 4245,
+      "verification_scope": "real_model_real_rag_structural_and_literal",
+      "controlled_mask": "second_policy_body_reads"
+    }
+  ]
+}

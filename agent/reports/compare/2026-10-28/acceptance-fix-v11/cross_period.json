@@ -1,0 +1,405 @@
+{
+  "run_id": "run_117747780f7b474f8dcf45715cec2ef7",
+  "session_id": "s_9850d725ed7f4959929f5ce85936c9db",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 人才培养 | 发挥政府投入引导作用，鼓励人才资源开发和人才引进。 | 精准完善人才引进培育政策。 | 就本次所列条款而言，政策甲规划提出发挥政府投入引导作用，鼓励人才资源开发和人才引进，侧重于政府引导机制；政策乙规划提出精准完善人才引进培育政策，侧重于政策体系的精准化完善。 |\n\n口径说明：规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排；规划期或报告期不同，不作为同一年度目标或完成值比较\n| 人才激励 | 保障人才以知识、技能、管理等创新要素参与利益分配，以市场价值回报人才价值，强化对人才的物质和精神激励，鼓励人才弘扬奉献精神。 | 建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。 | 就本次所列条款而言，政策甲规划提出保障人才以知识、技能、管理等创新要素参与利益分配，强调市场价值回报，并强化物质和精神激励，鼓励弘扬奉献精神；政策乙规划提出建立实用人才奖励政策，具体包括探索开展企业实用人才贡献积分评价奖励制度，以及在建筑、黄酒等传统行业率先开展新型职业职称评定。两者激励路径不同，前者侧重要素分配与综合激励导向，后者侧重特定行业实用人才的评价与职称制度。 |\n\n口径说明：规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排；规划期或报告期不同，不作为同一年度目标或完成值比较",
+  "claims": [
+    {
+      "text": "发挥政府投入引导作用，鼓励人才资源开发和人才引进。",
+      "chunk_ids": [
+        "chunk_d47aa9ff21cc0dfe38dcc8a671246707"
+      ],
+      "quotes": [
+        "发挥政府投入引导作用，鼓励人才资源开发和人才引进。"
+      ],
+      "dimension": "人才培养",
+      "anchors": []
+    },
+    {
+      "text": "精准完善人才引进培育政策。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "精准完善人才引进培育政策。"
+      ],
+      "dimension": "人才培养",
+      "anchors": []
+    },
+    {
+      "text": "保障人才以知识、技能、管理等创新要素参与利益分配，以市场价值回报人才价值，强化对人才的物质和精神激励，鼓励人才弘扬奉献精神。",
+      "chunk_ids": [
+        "chunk_d47aa9ff21cc0dfe38dcc8a671246707"
+      ],
+      "quotes": [
+        "保障人才以知识、技能、管理等创新要素参与利益分配，以市场价值回报人才价值，强化对人才的物质和精神激励，鼓励人才弘扬奉献精神。"
+      ],
+      "dimension": "人才激励",
+      "anchors": []
+    },
+    {
+      "text": "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。"
+      ],
+      "dimension": "人才激励",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_0a960869b09de903edc103bc59069e36",
+      "document_version_id": "document_version_0a960869b09de903edc103bc59069e36900d6734a2907c0614910f8f3aa0b11b",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "f2c4ae79ebc8f771c2fc6b41d97759883f9c6157f0779b3132b998832eede673",
+      "section_id": "section_63cf97306c4ae9d7dc0a68ad6976110a",
+      "section_char_start": 8503,
+      "section_char_end": 8838,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "57",
+      "chunk_id": "chunk_d47aa9ff21cc0dfe38dcc8a671246707",
+      "parent_id": "parent_97f77537efcd633fc632cddff0a0d0f5",
+      "title": "中华人民共和国国民经济和社会发展第十三个五年规划纲要",
+      "area": "中华人民共和国",
+      "fyp": "第十三个五年规划",
+      "admin_level": "国家",
+      "plantype_label": "总体规划纲要",
+      "section_idx": 23,
+      "section_path": "第二篇　实施创新驱动发展战略 / 第九章　实施人才优先发展战略 / 第三节　营造良好的人才发展环境",
+      "char_start": 8524,
+      "char_end": 8838,
+      "chunk_char_start": 8524,
+      "chunk_char_end": 8838,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          8524,
+          8838
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 14762,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 57
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 59
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 88
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6245,
+      "output_tokens": 908,
+      "per_call": [
+        {
+          "input_tokens": 242,
+          "output_tokens": 112,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2344
+        },
+        {
+          "input_tokens": 3318,
+          "output_tokens": 86,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2250
+        },
+        {
+          "input_tokens": 1055,
+          "output_tokens": 361,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 5047
+        },
+        {
+          "input_tokens": 1630,
+          "output_tokens": 349,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 4781
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 4,
+      "approved": 4,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [],
+  "task_type": "compare",
+  "structured": {
+    "objects": [
+      {
+        "planid": "57",
+        "title": "中华人民共和国国民经济和社会发展第十三个五年规划纲要",
+        "area": "中华人民共和国",
+        "fyp": "第十三个五年规划",
+        "plantype_label": "总体规划纲要"
+      },
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "人才培养",
+      "人才激励"
+    ],
+    "matrix": [
+      {
+        "dimension": "人才培养",
+        "cells": [
+          {
+            "cell_id": "d0:57",
+            "planid": "57",
+            "status": "found",
+            "text": "发挥政府投入引导作用，鼓励人才资源开发和人才引进。",
+            "chunk_ids": [
+              "chunk_d47aa9ff21cc0dfe38dcc8a671246707"
+            ],
+            "quotes": [
+              "发挥政府投入引导作用，鼓励人才资源开发和人才引进。"
+            ],
+            "source_contexts": [
+              "第二篇　实施创新驱动发展战略 / 第九章　实施人才优先发展战略 / 第三节　营造良好的人才发展环境"
+            ]
+          },
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "精准完善人才引进培育政策。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "精准完善人才引进培育政策。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "就本次所列条款而言，政策甲规划提出发挥政府投入引导作用，鼓励人才资源开发和人才引进，侧重于政府引导机制；政策乙规划提出精准完善人才引进培育政策，侧重于政策体系的精准化完善。",
+          "supporting_cells": [
+            "d0:57",
+            "d0:37982"
+          ],
+          "kind": "analysis",
+          "scope": "supporting_cells_only",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排；规划期或报告期不同，不作为同一年度目标或完成值比较"
+        }
+      },
+      {
+        "dimension": "人才激励",
+        "cells": [
+          {
+            "cell_id": "d1:57",
+            "planid": "57",
+            "status": "found",
+            "text": "保障人才以知识、技能、管理等创新要素参与利益分配，以市场价值回报人才价值，强化对人才的物质和精神激励，鼓励人才弘扬奉献精神。",
+            "chunk_ids": [
+              "chunk_d47aa9ff21cc0dfe38dcc8a671246707"
+            ],
+            "quotes": [
+              "保障人才以知识、技能、管理等创新要素参与利益分配，以市场价值回报人才价值，强化对人才的物质和精神激励，鼓励人才弘扬奉献精神。"
+            ],
+            "source_contexts": [
+              "第二篇　实施创新驱动发展战略 / 第九章　实施人才优先发展战略 / 第三节　营造良好的人才发展环境"
+            ]
+          },
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "就本次所列条款而言，政策甲规划提出保障人才以知识、技能、管理等创新要素参与利益分配，强调市场价值回报，并强化物质和精神激励，鼓励弘扬奉献精神；政策乙规划提出建立实用人才奖励政策，具体包括探索开展企业实用人才贡献积分评价奖励制度，以及在建筑、黄酒等传统行业率先开展新型职业职称评定。两者激励路径不同，前者侧重要素分配与综合激励导向，后者侧重特定行业实用人才的评价与职称制度。",
+          "supporting_cells": [
+            "d1:57",
+            "d1:37982"
+          ],
+          "kind": "analysis",
+          "scope": "supporting_cells_only",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排；规划期或报告期不同，不作为同一年度目标或完成值比较"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "规划或文件类型不同，只对照所列条款，不视为同一层面的政策安排；规划期或报告期不同，不作为同一年度目标或完成值比较"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "57",
+      "37982"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "57",
+      "37982"
+    ]
+  }
+}

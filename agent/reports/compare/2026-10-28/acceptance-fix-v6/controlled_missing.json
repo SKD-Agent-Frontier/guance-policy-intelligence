@@ -1,0 +1,382 @@
+{
+  "run_id": "run_fbc63d89af644946980c075c3ebb48f5",
+  "session_id": "s_047ef1ef0e5b4e068b4620e79c9b80f5",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 发展目标 | 到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 政策工具 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较",
+  "claims": [
+    {
+      "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。",
+      "chunk_ids": [
+        "chunk_65bbe88fb9e9fde63773370913e291a7"
+      ],
+      "quotes": [
+        "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+        "其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。"
+      ],
+      "dimension": "发展目标",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。"
+      ],
+      "dimension": "政策工具",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_8aa275c4e0c7be2d954171c03bc649c3",
+      "section_char_start": 4547,
+      "section_char_end": 6385,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_65bbe88fb9e9fde63773370913e291a7",
+      "parent_id": null,
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 7,
+      "section_path": "二、指导思想和总体目标 / （三）主要目标",
+      "char_start": 4556,
+      "char_end": 5390,
+      "chunk_char_start": 4556,
+      "chunk_char_end": 5390,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          4556,
+          5390
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 5357,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 87
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 88
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 91
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 4879,
+      "output_tokens": 202,
+      "per_call": [
+        {
+          "input_tokens": 245,
+          "output_tokens": 63,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1547
+        },
+        {
+          "input_tokens": 2054,
+          "output_tokens": 58,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1266
+        },
+        {
+          "input_tokens": 1082,
+          "output_tokens": 70,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1312
+        },
+        {
+          "input_tokens": 1498,
+          "output_tokens": 11,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 781
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 4,
+      "approved": 4,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": "literal_only"
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "发展目标",
+      "政策工具"
+    ],
+    "matrix": [
+      {
+        "dimension": "发展目标",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。",
+            "chunk_ids": [
+              "chunk_65bbe88fb9e9fde63773370913e291a7"
+            ],
+            "quotes": [
+              "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+              "其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。"
+            ],
+            "source_contexts": [
+              "二、指导思想和总体目标 / （三）主要目标"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "政策工具",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序；部分对象未取得该维度的充分证据，无法作完整比较"
+    },
+    "coverage_notes": [
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "部分政策尚未取得正文证据，不作缺失条款或优劣判断。"
+    ],
+    "analysis_gaps": [
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "发展目标"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "政策工具"
+      }
+    ]
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

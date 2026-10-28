@@ -1,0 +1,545 @@
+{
+  "run_id": "run_c4752501765942d287841743bc7c408d",
+  "session_id": "s_f4681546210a4e08bfc2c3c1f211cf87",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；优化人才绩效支出，对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 支持措施 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 申请或执行条件 | 实施专家举荐制，设立青年人才专项。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n\n政策甲的方案分析（分析判断）：\n优势：规划提出围绕项目启动、场地补助等提供“全周期”服务，并实施专家举荐制，拟支持青年人才专项。\n限制：“一人一策”政策扶持明确限定于重大产业化人才项目，收入分配倾斜仅提及可针对急需紧缺的高层次人才单独制定。\n适用条件：全周期服务及“一人一策”扶持明确适用于在柯桥发展的高层次人才创业团队及重大产业化人才项目。\n\n政策乙的方案分析（分析判断）：\n优势：相关原文证据不足，不能据此判断政策没有规定\n限制：相关原文证据不足，不能据此判断政策没有规定\n适用条件：相关原文证据不足，不能据此判断政策没有规定",
+  "claims": [
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；优化人才绩效支出，对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f",
+        "chunk_a7a3fa89ef214b40dd74f2fbd73506d3"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "优化人才绩效支出，对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "实施专家举荐制，设立青年人才专项。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "实施专家举荐制，设立青年人才专项。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f",
+        "chunk_b684d006a241fac82c42c869ac87c663"
+      ],
+      "quotes": [
+        "实施专家举荐制，设立青年人才专项。",
+        "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b6d872073195cd0bf4425133f183f19c",
+      "section_char_start": 14940,
+      "section_char_end": 15238,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_a7a3fa89ef214b40dd74f2fbd73506d3",
+      "parent_id": "parent_5c0adfbea27accd39a8039ccdb9c70a3",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 30,
+      "section_path": "六、人才发展体制机制重点改革 / （五）形成合理分配、收益到位的人才激励手段",
+      "char_start": 14963,
+      "char_end": 15238,
+      "chunk_char_start": 14963,
+      "chunk_char_end": 15238,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14963,
+          15238
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b1fce18b516288c6d73b0dc7a4f2ab66",
+      "section_char_start": 17357,
+      "section_char_end": 17558,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_b684d006a241fac82c42c869ac87c663",
+      "parent_id": "parent_3f60b861a834a9e38bcdd91adc6014e7",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 40,
+      "section_path": "八、实施保障 / （三）推动整体智治",
+      "char_start": 17368,
+      "char_end": 17558,
+      "chunk_char_start": 17368,
+      "chunk_char_end": 17558,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          17368,
+          17558
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 20349,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 39
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 43
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 50
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 44
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 0
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 0
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6844,
+      "output_tokens": 1314,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 97,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1750
+        },
+        {
+          "input_tokens": 2517,
+          "output_tokens": 151,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2532
+        },
+        {
+          "input_tokens": 1474,
+          "output_tokens": 747,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 11062
+        },
+        {
+          "input_tokens": 2598,
+          "output_tokens": 319,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 4703
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 6,
+      "approved": 6,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；优化人才绩效支出，对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f",
+              "chunk_a7a3fa89ef214b40dd74f2fbd73506d3"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "优化人才绩效支出，对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策",
+              "六、人才发展体制机制重点改革 / （五）形成合理分配、收益到位的人才激励手段"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；实施专家举荐制，设立青年人才专项。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "实施专家举荐制，设立青年人才专项。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "实施专家举荐制，设立青年人才专项。；建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f",
+              "chunk_b684d006a241fac82c42c869ac87c663"
+            ],
+            "quotes": [
+              "实施专家举荐制，设立青年人才专项。",
+              "建立人才管理服务权利、责任及人才需求清单，规范和简化人才管理各环节行政审批流程，提高各项政策兑现效率。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策",
+              "八、实施保障 / （三）推动整体智治"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+    },
+    "coverage_notes": [
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "部分政策尚未取得正文证据，不作缺失条款或优劣判断。"
+    ],
+    "analysis_gaps": [
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "适用对象"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "支持措施"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "申请或执行条件"
+      },
+      {
+        "field": "advantages",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "limitations",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "applicability",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      }
+    ],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "规划提出围绕项目启动、场地补助等提供“全周期”服务，并实施专家举荐制，拟支持青年人才专项。",
+            "supporting_cells": [
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "“一人一策”政策扶持明确限定于重大产业化人才项目，收入分配倾斜仅提及可针对急需紧缺的高层次人才单独制定。",
+            "supporting_cells": [
+              "d0:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "全周期服务及“一人一策”扶持明确适用于在柯桥发展的高层次人才创业团队及重大产业化人才项目。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [],
+        "limitations": [],
+        "applicability": []
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

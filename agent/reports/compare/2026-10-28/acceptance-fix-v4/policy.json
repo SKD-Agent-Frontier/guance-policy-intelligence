@@ -1,0 +1,640 @@
+{
+  "run_id": "run_975d14fb639f4583bce51b9557031b73",
+  "session_id": "s_b5ebe0924c7d4c72bcaa1872055eedfb",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 发展目标 | 到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。 | （%1） 总体目标  到2025年，培养和造就一支规模宏大、素质优良、结构优化、布局合理的人才队伍。；主要劳动年龄人口受高等教育的比例达到 11.2%，全市高层次人才达2.6万人。 | 政策甲规划提出到2025年人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上，每万名就业人员中研发人员达到190人年以上，技能人才总量30万人且高技能人才占比35%；政策乙规划提出到2025年主要劳动年龄人口受高等教育的比例达到11.2%，全市高层次人才达2.6万人，并确立规模宏大、素质优良、结构优化、布局合理的总体方向。两方所列指标名称与统计维度不同，政策甲侧重总量、入学率及研发人员与技能人才指标，政策乙侧重劳动年龄人口受教育比例及高层次人才总量。由于指标定义、单位及统计范围存在差异，无法直接进行数值优劣排序。 |\n\n口径说明：数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 政策工具 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。 | 认真贯彻落实高端人才培养引进20条措施，大力实施党政人才、专业技术人才、技能人才和企业经营管理人才四大培养工程和“制造能手”“种养能人”“经营人才”“贴心天使”“家庭管家”“自强先锋”六大培养工程，切实壮大人才队伍。 | 政策甲规划提出鼓励高层次人才创业团队发展，提供项目启动、场地补助、融资支持等“全周期”服务，对重大产业化人才项目给予“一人一策”扶持，并突出用好人才创业投资基金提供精准融资支持；政策乙规划提出贯彻落实高端人才培养引进20条措施，实施党政、专业技术、技能、企业经营管理人才四大培养工程及“制造能手”等六大培养工程以壮大队伍。政策甲侧重创业环节的基金使用与个性化政策扶持，政策乙侧重多类别人才的分类培养工程体系，两者政策手段的侧重点与实施路径不同。 |\n\n口径说明：原文不足以确认统一统计口径，仅作所列条款的文字内容对照；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 适用对象 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。 | 到2025年，遴选培养50名民营青年企业家人才。；到2025年，遴选培养12名农业技术应用推广优秀青年人才。 | 政策甲规划所列适用对象包括在柯桥发展的高层次人才创业团队、重大产业化人才项目负责人，以及区事业单位拟引进的省级领军人才及以上层次人才（涉及特设岗位设置）；政策乙规划所列适用对象包括拟遴选培养的民营青年企业家人才和农业技术应用推广优秀青年人才。两者针对的人才群体类型不同，前者涵盖高层次创新创业团队及事业单位引进的领军人才，后者明确指向民营青年企业家及农业领域青年人才。因选句范围限制，无法判断各自政策对其他未列出人群的覆盖情况。 |\n\n口径说明：原文不足以确认统一统计口径，仅作所列条款的文字内容对照；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序",
+  "claims": [
+    {
+      "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。",
+      "chunk_ids": [
+        "chunk_65bbe88fb9e9fde63773370913e291a7"
+      ],
+      "quotes": [
+        "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+        "其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。"
+      ],
+      "dimension": "发展目标",
+      "anchors": []
+    },
+    {
+      "text": "（%1） 总体目标\n\n到2025年，培养和造就一支规模宏大、素质优良、结构优化、布局合理的人才队伍。；主要劳动年龄人口受高等教育的比例达到 11.2%，全市高层次人才达2.6万人。",
+      "chunk_ids": [
+        "chunk_5093943dfdbc1e4eec1eb0b4105d42ad"
+      ],
+      "quotes": [
+        "（%1） 总体目标\n\n到2025年，培养和造就一支规模宏大、素质优良、结构优化、布局合理的人才队伍。",
+        "主要劳动年龄人口受高等教育的比例达到 11.2%，全市高层次人才达2.6万人。"
+      ],
+      "dimension": "发展目标",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。"
+      ],
+      "dimension": "政策工具",
+      "anchors": []
+    },
+    {
+      "text": "认真贯彻落实高端人才培养引进20条措施，大力实施党政人才、专业技术人才、技能人才和企业经营管理人才四大培养工程和“制造能手”“种养能人”“经营人才”“贴心天使”“家庭管家”“自强先锋”六大培养工程，切实壮大人才队伍。",
+      "chunk_ids": [
+        "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+      ],
+      "quotes": [
+        "认真贯彻落实高端人才培养引进20条措施，大力实施党政人才、专业技术人才、技能人才和企业经营管理人才四大培养工程和“制造能手”“种养能人”“经营人才”“贴心天使”“家庭管家”“自强先锋”六大培养工程，切实壮大人才队伍。"
+      ],
+      "dimension": "政策工具",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f",
+        "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "到2025年，遴选培养50名民营青年企业家人才。；到2025年，遴选培养12名农业技术应用推广优秀青年人才。",
+      "chunk_ids": [
+        "chunk_e7fd2f3ba68ba6237045421c650a83c6"
+      ],
+      "quotes": [
+        "到2025年，遴选培养50名民营青年企业家人才。",
+        "到2025年，遴选培养12名农业技术应用推广优秀青年人才。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_8aa275c4e0c7be2d954171c03bc649c3",
+      "section_char_start": 4547,
+      "section_char_end": 6385,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_65bbe88fb9e9fde63773370913e291a7",
+      "parent_id": null,
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 7,
+      "section_path": "二、指导思想和总体目标 / （三）主要目标",
+      "char_start": 4556,
+      "char_end": 5390,
+      "chunk_char_start": 4556,
+      "chunk_char_end": 5390,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          4556,
+          5390
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_31013eb9a26a9df4070d816a76bad66c",
+      "section_char_start": 2508,
+      "section_char_end": 4286,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_5093943dfdbc1e4eec1eb0b4105d42ad",
+      "parent_id": null,
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 3,
+      "section_path": "二、指导思想、原则和总体目标 / （一）指导思想",
+      "char_start": 2517,
+      "char_end": 3676,
+      "chunk_char_start": 2517,
+      "chunk_char_end": 3676,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          2517,
+          3676
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_0796ad1453f708a34466341cc0754743",
+      "section_char_start": 14702,
+      "section_char_end": 15696,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_802ecb9c0d50fbf4d35312e2edac2fcc",
+      "parent_id": "parent_bcd82cf7e347009c8518b24b7500e735",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 7,
+      "section_path": "五、政策措施",
+      "char_start": 14710,
+      "char_end": 15696,
+      "chunk_char_start": 14710,
+      "chunk_char_end": 15696,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14710,
+          15696
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_a81e3f153ce42a898e67f5b7827e6f0b",
+      "section_char_start": 14542,
+      "section_char_end": 14760,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_0a1afb2e1608b5df8a4e80370f04adef",
+      "parent_id": "parent_d586128c2f982c7d52664ac2c394f4c1",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 28,
+      "section_path": "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式",
+      "char_start": 14565,
+      "char_end": 14760,
+      "chunk_char_start": 14565,
+      "chunk_char_end": 14760,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14565,
+          14760
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_8ce51254f7378c340d26fb20b95a0ab4",
+      "document_version_id": "document_version_8ce51254f7378c340d26fb20b95a0ab4779cb3a2dd0a1306652fb0f18a83a62f",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "72541569938571674dcc3441170fadcf6ab10045bacd89c49550c6dd87449f01",
+      "section_id": "section_23b68f9047369ecfe1eafbaa03a01d53",
+      "section_char_start": 12975,
+      "section_char_end": 14702,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "38366",
+      "chunk_id": "chunk_e7fd2f3ba68ba6237045421c650a83c6",
+      "parent_id": "parent_6c8af591a3311af3db68f6208613e626",
+      "title": "毕节市“十四五”人才发展专项规划",
+      "area": "毕节市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 6,
+      "section_path": "四、重点计划",
+      "char_start": 14074,
+      "char_end": 14701,
+      "chunk_char_start": 14074,
+      "chunk_char_end": 14701,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14074,
+          14701
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 26256,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 65
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 68
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 81
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 3
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 7476,
+      "output_tokens": 1783,
+      "per_call": [
+        {
+          "input_tokens": 249,
+          "output_tokens": 102,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2000
+        },
+        {
+          "input_tokens": 3690,
+          "output_tokens": 323,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 4593
+        },
+        {
+          "input_tokens": 1347,
+          "output_tokens": 659,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 9641
+        },
+        {
+          "input_tokens": 2190,
+          "output_tokens": 699,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 9578
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 11,
+      "approved": 11,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": "literal_only"
+  },
+  "warnings": [],
+  "task_type": "compare",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "发展目标",
+      "政策工具",
+      "适用对象"
+    ],
+    "matrix": [
+      {
+        "dimension": "发展目标",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。",
+            "chunk_ids": [
+              "chunk_65bbe88fb9e9fde63773370913e291a7"
+            ],
+            "quotes": [
+              "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+              "其中，高层次创新创业人才大幅增加，到2025年，每万名就业人员中研发人员达到190人年以上，全区技能人才总量达到30万人，高技能人才占比达到35%，技能人才总量和高技能人才数量领跑全市。"
+            ],
+            "source_contexts": [
+              "二、指导思想和总体目标 / （三）主要目标"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "（%1） 总体目标\n\n到2025年，培养和造就一支规模宏大、素质优良、结构优化、布局合理的人才队伍。；主要劳动年龄人口受高等教育的比例达到 11.2%，全市高层次人才达2.6万人。",
+            "chunk_ids": [
+              "chunk_5093943dfdbc1e4eec1eb0b4105d42ad"
+            ],
+            "quotes": [
+              "（%1） 总体目标\n\n到2025年，培养和造就一支规模宏大、素质优良、结构优化、布局合理的人才队伍。",
+              "主要劳动年龄人口受高等教育的比例达到 11.2%，全市高层次人才达2.6万人。"
+            ],
+            "source_contexts": [
+              "二、指导思想、原则和总体目标 / （一）指导思想"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲规划提出到2025年人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上，每万名就业人员中研发人员达到190人年以上，技能人才总量30万人且高技能人才占比35%；政策乙规划提出到2025年主要劳动年龄人口受高等教育的比例达到11.2%，全市高层次人才达2.6万人，并确立规模宏大、素质优良、结构优化、布局合理的总体方向。两方所列指标名称与统计维度不同，政策甲侧重总量、入学率及研发人员与技能人才指标，政策乙侧重劳动年龄人口受教育比例及高层次人才总量。由于指标定义、单位及统计范围存在差异，无法直接进行数值优劣排序。",
+          "supporting_cells": [
+            "d0:37982",
+            "d0:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "政策工具",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "认真贯彻落实高端人才培养引进20条措施，大力实施党政人才、专业技术人才、技能人才和企业经营管理人才四大培养工程和“制造能手”“种养能人”“经营人才”“贴心天使”“家庭管家”“自强先锋”六大培养工程，切实壮大人才队伍。",
+            "chunk_ids": [
+              "chunk_802ecb9c0d50fbf4d35312e2edac2fcc"
+            ],
+            "quotes": [
+              "认真贯彻落实高端人才培养引进20条措施，大力实施党政人才、专业技术人才、技能人才和企业经营管理人才四大培养工程和“制造能手”“种养能人”“经营人才”“贴心天使”“家庭管家”“自强先锋”六大培养工程，切实壮大人才队伍。"
+            ],
+            "source_contexts": [
+              "五、政策措施"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲规划提出鼓励高层次人才创业团队发展，提供项目启动、场地补助、融资支持等“全周期”服务，对重大产业化人才项目给予“一人一策”扶持，并突出用好人才创业投资基金提供精准融资支持；政策乙规划提出贯彻落实高端人才培养引进20条措施，实施党政、专业技术、技能、企业经营管理人才四大培养工程及“制造能手”等六大培养工程以壮大队伍。政策甲侧重创业环节的基金使用与个性化政策扶持，政策乙侧重多类别人才的分类培养工程体系，两者政策手段的侧重点与实施路径不同。",
+          "supporting_cells": [
+            "d1:37982",
+            "d1:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f",
+              "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策",
+              "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "found",
+            "text": "到2025年，遴选培养50名民营青年企业家人才。；到2025年，遴选培养12名农业技术应用推广优秀青年人才。",
+            "chunk_ids": [
+              "chunk_e7fd2f3ba68ba6237045421c650a83c6"
+            ],
+            "quotes": [
+              "到2025年，遴选培养50名民营青年企业家人才。",
+              "到2025年，遴选培养12名农业技术应用推广优秀青年人才。"
+            ],
+            "source_contexts": [
+              "四、重点计划"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲规划所列适用对象包括在柯桥发展的高层次人才创业团队、重大产业化人才项目负责人，以及区事业单位拟引进的省级领军人才及以上层次人才（涉及特设岗位设置）；政策乙规划所列适用对象包括拟遴选培养的民营青年企业家人才和农业技术应用推广优秀青年人才。两者针对的人才群体类型不同，前者涵盖高层次创新创业团队及事业单位引进的领军人才，后者明确指向民营青年企业家及农业领域青年人才。因选句范围限制，无法判断各自政策对其他未列出人群的覆盖情况。",
+          "supporting_cells": [
+            "d2:37982",
+            "d2:38366"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "原文不足以确认统一统计口径，仅作所列条款的文字内容对照；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序；原文不足以确认统一统计口径，仅作所列条款的文字内容对照；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

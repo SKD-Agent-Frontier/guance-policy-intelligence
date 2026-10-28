@@ -1,0 +1,218 @@
+{
+  "source_base_commit": "097ea00408b2ad70e6fe039b6fce3838647d19de",
+  "source_state": "working tree snapshot before local task commit",
+  "source_sha256": {
+    "agent/src/guance_agent/business/compare/models.py": "efe7c2d05a8e6c7fafbc0585fec2b83363dad5d5043aabd5cb16985e0e36af7d",
+    "agent/src/guance_agent/business/compare/evidence.py": "68c1874e1396cefe223a62ed6c91a0a199744065d902bd2cc46bf8c813daa3cd",
+    "agent/src/guance_agent/business/compare/module.py": "3416aa3eccae3a0876be5aed43608b33b0013fe2812243cfd7b8efd19d5f1392",
+    "agent/src/guance_agent/business/compare/prompts.py": "7794f56e5518832f1071899dadce6b6f08c7f3d041d22b8e1447038152de55c8",
+    "agent/src/guance_agent/business/compare/result.py": "043d92cc44cfc5998619f4fce4370be6b2a5161c47a3327aa970ee036300da0d",
+    "agent/scripts/live_compare_acceptance.py": "75fd88bd62972dc34cd34c2e85b88babd792c2134ccd110e3206ba5870a41ac9",
+    "agent/tests/test_compare.py": "75f6acd7f90a377f1edf4098d8aa79beeb0ca0b3712933e313083f815ded0ed9"
+  },
+  "structural_and_literal_passed": true,
+  "cases": [
+    {
+      "case": "policy",
+      "run_id": "run_129bc06224cc40b383a983b95661ac1a",
+      "passed": true,
+      "evidence_status": "verified",
+      "elapsed_ms": 21613,
+      "found_cells": 6,
+      "total_cells": 6,
+      "supported_dimensions": 3,
+      "requested_dimensions": 3,
+      "claims": 6,
+      "quote_verification": {
+        "checked": 6,
+        "approved": 6,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [],
+      "empty_scheme_fields": []
+    },
+    {
+      "case": "schemes",
+      "run_id": "run_be8780c77d4c44fb88f5efc1abb190f8",
+      "passed": true,
+      "evidence_status": "verified",
+      "elapsed_ms": 31379,
+      "found_cells": 6,
+      "total_cells": 6,
+      "supported_dimensions": 3,
+      "requested_dimensions": 3,
+      "claims": 6,
+      "quote_verification": {
+        "checked": 6,
+        "approved": 6,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [],
+      "empty_scheme_fields": []
+    },
+    {
+      "case": "cross_period",
+      "run_id": "run_117747780f7b474f8dcf45715cec2ef7",
+      "passed": true,
+      "evidence_status": "verified",
+      "elapsed_ms": 14762,
+      "found_cells": 4,
+      "total_cells": 4,
+      "supported_dimensions": 2,
+      "requested_dimensions": 2,
+      "claims": 4,
+      "quote_verification": {
+        "checked": 4,
+        "approved": 4,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [],
+      "empty_scheme_fields": []
+    },
+    {
+      "case": "cross_topic",
+      "run_id": "run_706431774290444c9da1491e54575abb",
+      "passed": true,
+      "evidence_status": "verified",
+      "elapsed_ms": 22086,
+      "found_cells": 6,
+      "total_cells": 6,
+      "supported_dimensions": 3,
+      "requested_dimensions": 3,
+      "claims": 6,
+      "quote_verification": {
+        "checked": 6,
+        "approved": 6,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [],
+      "empty_scheme_fields": []
+    },
+    {
+      "case": "controlled_missing",
+      "run_id": "run_d69352b53af44ca8aec1e484e6ace647",
+      "passed": true,
+      "evidence_status": "insufficient",
+      "elapsed_ms": 9122,
+      "found_cells": 2,
+      "total_cells": 4,
+      "supported_dimensions": 0,
+      "requested_dimensions": 2,
+      "claims": 2,
+      "quote_verification": {
+        "checked": 2,
+        "approved": 2,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [
+        {
+          "field": "difference",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "dimension": "发展目标"
+        },
+        {
+          "field": "difference",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "dimension": "政策工具"
+        }
+      ],
+      "empty_scheme_fields": []
+    },
+    {
+      "case": "schemes_missing",
+      "run_id": "run_129bc76437374f31a809283b932cc74a",
+      "passed": true,
+      "evidence_status": "insufficient",
+      "elapsed_ms": 12515,
+      "found_cells": 3,
+      "total_cells": 6,
+      "supported_dimensions": 0,
+      "requested_dimensions": 3,
+      "claims": 3,
+      "quote_verification": {
+        "checked": 3,
+        "approved": 3,
+        "rejected": 0,
+        "unverified": 0,
+        "removed_claims": 0,
+        "removed_quotes": 0
+      },
+      "model_calls": 4,
+      "analysis_gaps": [
+        {
+          "field": "difference",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "dimension": "适用对象"
+        },
+        {
+          "field": "difference",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "dimension": "支持措施"
+        },
+        {
+          "field": "difference",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "dimension": "申请或执行条件"
+        },
+        {
+          "field": "advantages",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "planid": "38366"
+        },
+        {
+          "field": "limitations",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "planid": "38366"
+        },
+        {
+          "field": "applicability",
+          "reason": "source_evidence_missing",
+          "message": "相关原文证据不足，不能据此判断政策没有规定",
+          "planid": "38366"
+        }
+      ],
+      "empty_scheme_fields": [
+        {
+          "planid": "38366",
+          "field": "advantages"
+        },
+        {
+          "planid": "38366",
+          "field": "limitations"
+        },
+        {
+          "planid": "38366",
+          "field": "applicability"
+        }
+      ]
+    }
+  ],
+  "total_approved_quotes": 27
+}

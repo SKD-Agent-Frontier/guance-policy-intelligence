@@ -1,0 +1,2 @@
+Command: ruff check src tests scripts
+All checks passed!

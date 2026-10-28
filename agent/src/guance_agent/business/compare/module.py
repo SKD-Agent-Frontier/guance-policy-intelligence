@@ -37,7 +37,7 @@ class PolicyComparisonModule:
         if not task.targets or not 2 <= len(task.targets) <= 8:
             raise BusinessError("INVALID_INPUT")
         # 修正次数属于整次业务调用，不能让四个模型步骤各自无限重试。
-        repaired = False
+        corrected = False
 
         async def ask(messages, model):
             """调用共享模型服务并按当前步骤的内部模型解析响应。
@@ -45,14 +45,14 @@ class PolicyComparisonModule:
             服务自身负责时间/轮次预算及遥测；这里只修正已经收到的非合规 JSON。
             网络、超时等服务错误发生在解析之前，不会被误当成 JSON 问题重试。
             """
-            nonlocal repaired
+            nonlocal corrected
             raw = await services.call_model(messages)
             try:
                 return parse_model(raw, model)
             except BusinessError:
-                if repaired:
+                if corrected:
                     raise
-                repaired = True
+                corrected = True
                 # 带回目标 schema 和原响应，仅要求形状修正。修正后的内容仍要经过
                 # 下游证据编号、单元格依赖和基础层引文检查，不能因此增加信任等级。
                 repair = [{"role": "system", "content":
@@ -71,6 +71,13 @@ class PolicyComparisonModule:
         if collection.units:
             generated = await ask(comparison_messages(
                 task, plan, collection, scheme=self.scheme), GeneratedComparison)
+            if not generated.facts and not corrected:
+                # 已读到候选原句却全空时，给一次针对空选择的复核机会。与格式修正
+                # 共用一次纠正预算，正常四次、至多五次调用；仍空就按不足处理。
+                # 复核只能选择当前已有证据编号，后续原文组装和统一核验照常执行。
+                corrected = True
+                generated = await ask(comparison_messages(
+                    task, plan, collection, scheme=self.scheme, draft=generated), GeneratedComparison)
         else:
             generated = GeneratedComparison()
         # 即使证据选择响应夹带分析，也不采纳。事实矩阵先由程序用原句建立，
@@ -83,8 +90,14 @@ class PolicyComparisonModule:
             # 也是分析步骤，不能被解释成已经完成确定性的语义核验。
             analyses = await ask(analysis_messages(
                 task, plan, factual.structured, scheme=self.scheme), GeneratedAnalysis)
+            # 在原有第四次调用中反馈硬约束错误，避免复核只改措辞却重复无效依赖。
+            # 事实选择仍保持不变；反馈不补造依据，也不增加重试或调用次数。
+            draft = generated.model_copy(update={"differences": analyses.differences,
+                                                 "scheme_analysis": analyses.scheme_analysis})
+            feedback = build_outcome(task, plan, collection, draft, scheme=self.scheme)
             analyses = await ask(analysis_messages(
-                task, plan, factual.structured, scheme=self.scheme, draft=analyses), GeneratedAnalysis)
+                task, plan, factual.structured, scheme=self.scheme, draft=analyses,
+                validation_feedback=feedback.structured["analysis_gaps"]), GeneratedAnalysis)
             generated = generated.model_copy(update={"differences": analyses.differences,
                                                      "scheme_analysis": analyses.scheme_analysis})
         # 重新从原始证据选择与复核后的分析组装结果：无效依赖在此撤回，

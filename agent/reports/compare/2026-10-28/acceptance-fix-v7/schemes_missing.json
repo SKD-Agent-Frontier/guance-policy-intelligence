@@ -1,0 +1,533 @@
+{
+  "run_id": "run_a3e537a4b1a440019d2931905d4675d9",
+  "session_id": "s_eb14b0d488c842c2878bb029790eeaff",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 支持措施 | 发挥人才发展专项资金、创业投资引导基金、中小企业发展基金、产业投资基金等政府投入撬动作用，建立政府、企业、社会多元投入机制。；在产业集聚区和人才相对集中区域规划建设人才保障性住房。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 申请或执行条件 | 对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n\n政策甲的方案分析（分析判断）：\n优势：规划提出建立包含人才发展专项资金、创业投资引导基金等在内的多元投入机制，并拟设立青年人才专项及实行专家举荐制，以发挥政府投入的撬动作用并提高特定人才的入选比例。\n限制：住房支持条款明确限定了受益对象须为来区工作后首次购房且未享受过住房优惠政策或房改政策的人才，且补贴的具体形式和额度需依照相关标准执行。\n适用条件：青年人才专项适用于35周岁以下人才，需通过专家举荐制入选各级人才计划；住房补贴适用于符合首次购房及既往无优惠记录条件的在区工作人才。\n\n政策乙的方案分析（分析判断）：\n优势：相关原文证据不足，不能据此判断政策没有规定\n限制：相关原文证据不足，不能据此判断政策没有规定\n适用条件：相关原文证据不足，不能据此判断政策没有规定",
+  "claims": [
+    {
+      "text": "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。",
+      "chunk_ids": [
+        "chunk_fc9ba1d8258e639483b8121d84eb2809"
+      ],
+      "quotes": [
+        "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "发挥人才发展专项资金、创业投资引导基金、中小企业发展基金、产业投资基金等政府投入撬动作用，建立政府、企业、社会多元投入机制。；在产业集聚区和人才相对集中区域规划建设人才保障性住房。",
+      "chunk_ids": [
+        "chunk_f13e265889407a8ba3be11086af9a89f",
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+      ],
+      "quotes": [
+        "发挥人才发展专项资金、创业投资引导基金、中小企业发展基金、产业投资基金等政府投入撬动作用，建立政府、企业、社会多元投入机制。",
+        "在产业集聚区和人才相对集中区域规划建设人才保障性住房。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。",
+      "chunk_ids": [
+        "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+        "chunk_fc9ba1d8258e639483b8121d84eb2809"
+      ],
+      "quotes": [
+        "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+        "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_b6b8d15048abb147ee52c9e2f10a9ea7",
+      "section_char_start": 9767,
+      "section_char_end": 10157,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_fc9ba1d8258e639483b8121d84eb2809",
+      "parent_id": "parent_e27394ec18c6a2a13e8b79deac4e5163",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 16,
+      "section_path": "四、人才建设重点工程 / （二）锚定“活力强区”，实施高素质青年人才“倍增”工程",
+      "char_start": 9796,
+      "char_end": 10157,
+      "chunk_char_start": 9796,
+      "chunk_char_end": 10157,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          9796,
+          10157
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_72c98d0b9a0c020ab4f943ea269bc961",
+      "section_char_start": 17176,
+      "section_char_end": 17357,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_f13e265889407a8ba3be11086af9a89f",
+      "parent_id": "parent_e252d5da7054ca7ee5b6b3325afe193e",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 39,
+      "section_path": "八、实施保障 / （二）加大优先投入",
+      "char_start": 17187,
+      "char_end": 17357,
+      "chunk_char_start": 17187,
+      "chunk_char_end": 17357,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          17187,
+          17357
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_5bb4cf35ce24fc6979685f170c9d88c5",
+      "section_char_start": 15303,
+      "section_char_end": 15560,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+      "parent_id": "parent_6711b6ec316a12927e7f41c461b9624e",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 32,
+      "section_path": "七、人才服务重点实事 / （一）建设人才住房安居体系",
+      "char_start": 15318,
+      "char_end": 15560,
+      "chunk_char_start": 15318,
+      "chunk_char_end": 15560,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          15318,
+          15560
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 21155,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 101
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 105
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6458,
+      "output_tokens": 1411,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 110,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1860
+        },
+        {
+          "input_tokens": 2475,
+          "output_tokens": 125,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2187
+        },
+        {
+          "input_tokens": 1475,
+          "output_tokens": 369,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 5531
+        },
+        {
+          "input_tokens": 2253,
+          "output_tokens": 807,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 11188
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 5,
+      "approved": 5,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": "literal_only"
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。",
+            "chunk_ids": [
+              "chunk_fc9ba1d8258e639483b8121d84eb2809"
+            ],
+            "quotes": [
+              "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。"
+            ],
+            "source_contexts": [
+              "四、人才建设重点工程 / （二）锚定“活力强区”，实施高素质青年人才“倍增”工程"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "发挥人才发展专项资金、创业投资引导基金、中小企业发展基金、产业投资基金等政府投入撬动作用，建立政府、企业、社会多元投入机制。；在产业集聚区和人才相对集中区域规划建设人才保障性住房。",
+            "chunk_ids": [
+              "chunk_f13e265889407a8ba3be11086af9a89f",
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd"
+            ],
+            "quotes": [
+              "发挥人才发展专项资金、创业投资引导基金、中小企业发展基金、产业投资基金等政府投入撬动作用，建立政府、企业、社会多元投入机制。",
+              "在产业集聚区和人才相对集中区域规划建设人才保障性住房。"
+            ],
+            "source_contexts": [
+              "八、实施保障 / （二）加大优先投入",
+              "七、人才服务重点实事 / （一）建设人才住房安居体系"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。；设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。",
+            "chunk_ids": [
+              "chunk_2df4c8d6354874be5eacb90f0c078bbd",
+              "chunk_fc9ba1d8258e639483b8121d84eb2809"
+            ],
+            "quotes": [
+              "对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才，按照相关标准分别给予相应额度的房票补贴、购房补助或租房补贴。",
+              "设立青年人才专项，实行专家举荐制，提高35周岁以下人才入选各级人才计划比例。"
+            ],
+            "source_contexts": [
+              "七、人才服务重点实事 / （一）建设人才住房安居体系",
+              "四、人才建设重点工程 / （二）锚定“活力强区”，实施高素质青年人才“倍增”工程"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "部分对象未取得该维度的充分证据，无法作完整比较；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序；部分对象未取得该维度的充分证据，无法作完整比较"
+    },
+    "coverage_notes": [
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "部分政策尚未取得正文证据，不作缺失条款或优劣判断。"
+    ],
+    "analysis_gaps": [
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "适用对象"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "支持措施"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "申请或执行条件"
+      },
+      {
+        "field": "advantages",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "limitations",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "applicability",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      }
+    ],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "规划提出建立包含人才发展专项资金、创业投资引导基金等在内的多元投入机制，并拟设立青年人才专项及实行专家举荐制，以发挥政府投入的撬动作用并提高特定人才的入选比例。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "住房支持条款明确限定了受益对象须为来区工作后首次购房且未享受过住房优惠政策或房改政策的人才，且补贴的具体形式和额度需依照相关标准执行。",
+            "supporting_cells": [
+              "d2:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "青年人才专项适用于35周岁以下人才，需通过专家举荐制入选各级人才计划；住房补贴适用于符合首次购房及既往无优惠记录条件的在区工作人才。",
+            "supporting_cells": [
+              "d0:37982",
+              "d2:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [],
+        "limitations": [],
+        "applicability": []
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

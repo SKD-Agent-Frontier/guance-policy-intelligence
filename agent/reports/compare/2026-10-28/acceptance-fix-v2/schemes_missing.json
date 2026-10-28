@@ -1,0 +1,502 @@
+{
+  "run_id": "run_66806f42ea4542db84396a0ab7ab0d6b",
+  "session_id": "s_42a302ce51524a84b5f924b46bf94f2c",
+  "status": "completed",
+  "evidence_status": "insufficient",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 适用对象 | 鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；聚焦重点产业发展，面向海内外公开选聘聘任制公务员或年薪制产业发展专员。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 支持措施 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n| 申请或执行条件 | 鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；建立人才“双聘”制度，高校、科研院所科研人员经所在单位同意，可在柯桥离岗创业创新并按规定获得报酬。 | 证据不足，无法判断 | 该维度证据或分析依据不足，无法判断主要异同。 |\n\n口径说明：部分对象未取得该维度的充分证据，无法作完整比较\n\n政策甲的方案分析（分析判断）：\n优势：规划提出构建涵盖项目启动、场地、融资及生活保障的“全周期”服务体系，并对重大产业化项目给予“一人一策”支持，体现了针对不同项目需求的差异化扶持思路。\n限制：特设岗位的设置受限于“省级领军人才及以上层次”的引进对象；“一人一策”扶持明确限定于“重大产业化人才项目”；离岗创业须满足“经所在单位同意”的前置条件，各项措施均有特定的适用边界。\n适用条件：适用于柯桥区事业单位引进的省级领军人才及以上层次人才，以及面向海内外公开选聘的聘任制公务员或年薪制产业发展专员。\n\n政策乙的方案分析（分析判断）：\n优势：相关原文证据不足，不能据此判断政策没有规定\n限制：相关原文证据不足，不能据此判断政策没有规定\n适用条件：相关原文证据不足，不能据此判断政策没有规定",
+  "claims": [
+    {
+      "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；聚焦重点产业发展，面向海内外公开选聘聘任制公务员或年薪制产业发展专员。",
+      "chunk_ids": [
+        "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+      ],
+      "quotes": [
+        "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+        "聚焦重点产业发展，面向海内外公开选聘聘任制公务员或年薪制产业发展专员。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。"
+      ],
+      "dimension": "支持措施",
+      "anchors": []
+    },
+    {
+      "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；建立人才“双聘”制度，高校、科研院所科研人员经所在单位同意，可在柯桥离岗创业创新并按规定获得报酬。",
+      "chunk_ids": [
+        "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+      ],
+      "quotes": [
+        "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+        "建立人才“双聘”制度，高校、科研院所科研人员经所在单位同意，可在柯桥离岗创业创新并按规定获得报酬。"
+      ],
+      "dimension": "申请或执行条件",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_a81e3f153ce42a898e67f5b7827e6f0b",
+      "section_char_start": 14542,
+      "section_char_end": 14760,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_0a1afb2e1608b5df8a4e80370f04adef",
+      "parent_id": "parent_d586128c2f982c7d52664ac2c394f4c1",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 28,
+      "section_path": "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式",
+      "char_start": 14565,
+      "char_end": 14760,
+      "chunk_char_start": 14565,
+      "chunk_char_end": 14760,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          14565,
+          14760
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 26570,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 73
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 85
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 77
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 80
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "no_text",
+        "message": "《受控缺证：已屏蔽该对象正文读取》（planid=38366）没有可用正文，无法引用原文",
+        "elapsed_ms": 0
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare_plans:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6173,
+      "output_tokens": 1725,
+      "per_call": [
+        {
+          "input_tokens": 255,
+          "output_tokens": 168,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2687
+        },
+        {
+          "input_tokens": 2285,
+          "output_tokens": 146,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2360
+        },
+        {
+          "input_tokens": 1336,
+          "output_tokens": 676,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 10172
+        },
+        {
+          "input_tokens": 2297,
+          "output_tokens": 735,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 10844
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 6,
+      "approved": 6,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [
+    "本次证据不足，以上结论可能不完整"
+  ],
+  "task_type": "compare_plans",
+  "structured": {
+    "objects": [
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "38366",
+        "title": "毕节市“十四五”人才发展专项规划",
+        "area": "毕节市",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "适用对象",
+      "支持措施",
+      "申请或执行条件"
+    ],
+    "matrix": [
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；聚焦重点产业发展，面向海内外公开选聘聘任制公务员或年薪制产业发展专员。",
+            "chunk_ids": [
+              "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+            ],
+            "quotes": [
+              "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+              "聚焦重点产业发展，面向海内外公开选聘聘任制公务员或年薪制产业发展专员。"
+            ],
+            "source_contexts": [
+              "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式"
+            ]
+          },
+          {
+            "cell_id": "d0:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "支持措施",
+        "cells": [
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "落实引进人才零门槛落户、高层次人才住房保障政策等，更好解决人才后顾之忧。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          },
+          {
+            "cell_id": "d1:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      },
+      {
+        "dimension": "申请或执行条件",
+        "cells": [
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。；建立人才“双聘”制度，高校、科研院所科研人员经所在单位同意，可在柯桥离岗创业创新并按规定获得报酬。",
+            "chunk_ids": [
+              "chunk_0a1afb2e1608b5df8a4e80370f04adef"
+            ],
+            "quotes": [
+              "鼓励我区事业单位引进省级领军人才及以上层次人才，可设立特设岗位，不受事业单位岗位总量、最高等级和结构比例的限制。",
+              "建立人才“双聘”制度，高校、科研院所科研人员经所在单位同意，可在柯桥离岗创业创新并按规定获得报酬。"
+            ],
+            "source_contexts": [
+              "六、人才发展体制机制重点改革 / （三）构建双向交流、一体发展的人才使用方式"
+            ]
+          },
+          {
+            "cell_id": "d2:38366",
+            "planid": "38366",
+            "status": "not_retrieved",
+            "reason": "本轮未取得相关正文，不能推断政策没有该项规定"
+          }
+        ],
+        "difference": {
+          "text": "该维度证据或分析依据不足，无法判断主要异同。",
+          "supporting_cells": [],
+          "kind": "analysis",
+          "status": "insufficient"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "部分对象未取得该维度的充分证据，无法作完整比较"
+    },
+    "coverage_notes": [
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "对象38366正文读取状态：no_text。",
+      "部分政策尚未取得正文证据，不作缺失条款或优劣判断。"
+    ],
+    "analysis_gaps": [
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "适用对象"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "支持措施"
+      },
+      {
+        "field": "difference",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "dimension": "申请或执行条件"
+      },
+      {
+        "field": "advantages",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "limitations",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      },
+      {
+        "field": "applicability",
+        "reason": "source_evidence_missing",
+        "message": "相关原文证据不足，不能据此判断政策没有规定",
+        "planid": "38366"
+      }
+    ],
+    "scheme_analysis": [
+      {
+        "planid": "37982",
+        "advantages": [
+          {
+            "text": "规划提出构建涵盖项目启动、场地、融资及生活保障的“全周期”服务体系，并对重大产业化项目给予“一人一策”支持，体现了针对不同项目需求的差异化扶持思路。",
+            "supporting_cells": [
+              "d1:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "limitations": [
+          {
+            "text": "特设岗位的设置受限于“省级领军人才及以上层次”的引进对象；“一人一策”扶持明确限定于“重大产业化人才项目”；离岗创业须满足“经所在单位同意”的前置条件，各项措施均有特定的适用边界。",
+            "supporting_cells": [
+              "d0:37982",
+              "d1:37982",
+              "d2:37982"
+            ],
+            "kind": "analysis"
+          }
+        ],
+        "applicability": [
+          {
+            "text": "适用于柯桥区事业单位引进的省级领军人才及以上层次人才，以及面向海内外公开选聘的聘任制公务员或年薪制产业发展专员。",
+            "supporting_cells": [
+              "d0:37982"
+            ],
+            "kind": "analysis"
+          }
+        ]
+      },
+      {
+        "planid": "38366",
+        "advantages": [],
+        "limitations": [],
+        "applicability": []
+      }
+    ],
+    "evaluation_criteria": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "37982",
+      "38366"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "按指定维度比较这些人才政策，说明口径限制；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "37982",
+      "38366"
+    ]
+  }
+}

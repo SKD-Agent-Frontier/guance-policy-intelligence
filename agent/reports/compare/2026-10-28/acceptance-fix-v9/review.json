@@ -1,0 +1,11 @@
+{
+  "reviewer":"AI development assistant",
+  "structural_and_literal_passed":true,
+  "semantic_review_passed":false,
+  "overall_acceptance_passed":false,
+  "blocking_findings":[
+    {"case":"schemes","field":"applicability","reason":"lost_housing_prerequisites","detail":"住房适用性概括遗漏首次购房和来区工作等限定。"},
+    {"case":"schemes","field":"limitations","reason":"merged_conditions_from_separate_clauses","detail":"培养期支持、后备人才工程与工匠评选的条件被合并。"}
+  ],
+  "next_revision":"acceptance-fix-v10"
+}

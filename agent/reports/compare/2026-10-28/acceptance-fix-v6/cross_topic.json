@@ -1,0 +1,569 @@
+{
+  "run_id": "run_114e855d200d40ed9327471533792c64",
+  "session_id": "s_fcb73df0c2594974bbc9a468a2fd911b",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "各政策按输入顺序排列，完整篇名和原文见引用出处。\n\n| 比较维度 | 政策甲 | 政策乙 | 主要异同 |\n| --- | --- | --- | --- |\n| 发展目标 | 建成覆盖全州的高速、移动、安全、泛 在的新一代信息基础设施，“数字中国·智慧海西”项目全面建成。；5G 网络实现主要区域全覆盖和主要城市商用，建成一批特色鲜明的行 业云平台，各类数据资源实现完全的分级共享与开发利用。 | 到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；人才优先的发展理念进一步彰显，到2025年，人才支出占财政支出比例达到4.5%，全社会研究与试验发展经费支出占生产总值比重达到3.5%，“人才宜业宜居”的高品质发展环境进一步形成，人力资源服务机构数量达到100家。 | 政策甲侧重于建成覆盖全州的高速、移动、安全、泛在的新一代信息基础设施，实现5G网络主要区域全覆盖及数据资源分级共享，其核心在于数字基础设施与数据环境的完善。政策乙侧重于人才资源总量、高等教育毛入学率、人才支出占比、研究与试验发展经费支出占比及人力资源服务机构数量，其核心在于人力资本指标与财政投入力度的提升。两者目标体系聚焦不同，前者为数字基建指标，后者为人才发展与社会投入指标，统计口径不同，不可直接进行数值优劣比较。 |\n\n口径说明：数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序\n| 政策工具 | 同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是 复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加 大人才引进力度，引进一批数字经济领域的高端人才。 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。 | 政策甲提出的工具主要是通过灵活优渥的薪资待遇提振本土工作人员（特别是复合型人才）信心，以及加大引进数字经济领域高端人才的力度，侧重于薪酬激励与特定领域人才引进。政策乙提出的工具包括对高层次人才创业团队提供项目启动、场地补助、融资支持等“全周期”服务，对重大产业化人才项目给予“一人一策”扶持，以及建立实用人才奖励政策、探索贡献积分评价制度和开展新型职业职称评定，侧重于创业支持服务与制度性评价激励。 |\n| 适用对象 | 同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是 复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加 大人才引进力度，引进一批数字经济领域的高端人才。 | 鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；精准完善人才引进培育政策。 | 政策甲的适用对象明确为本土工作人员（特别是复合型人才）以及数字经济领域的高端人才。政策乙的适用对象包括高层次人才创业团队、重大产业化人才项目相关的主体，以及“人才引进培育”的广泛对象，原文中虽提及在建筑、黄酒等行业开展职称评定，但单元格文本仅概括为完善人才引进培育政策，未直接列出这些行业人才为本行具体的扶持对象。政策甲对象边界聚焦于数字经济领域，政策乙对象边界涵盖创业团队及更广泛的人才引进培育范围。 |",
+  "claims": [
+    {
+      "text": "建成覆盖全州的高速、移动、安全、泛\n在的新一代信息基础设施，“数字中国·智慧海西”项目全面建成。；5G 网络实现主要区域全覆盖和主要城市商用，建成一批特色鲜明的行\n业云平台，各类数据资源实现完全的分级共享与开发利用。",
+      "chunk_ids": [
+        "chunk_8b77c0833abe5bf0ed1abbe68fbfbd3f"
+      ],
+      "quotes": [
+        "建成覆盖全州的高速、移动、安全、泛\n在的新一代信息基础设施，“数字中国·智慧海西”项目全面建成。",
+        "5G 网络实现主要区域全覆盖和主要城市商用，建成一批特色鲜明的行\n业云平台，各类数据资源实现完全的分级共享与开发利用。"
+      ],
+      "dimension": "发展目标",
+      "anchors": []
+    },
+    {
+      "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；人才优先的发展理念进一步彰显，到2025年，人才支出占财政支出比例达到4.5%，全社会研究与试验发展经费支出占生产总值比重达到3.5%，“人才宜业宜居”的高品质发展环境进一步形成，人力资源服务机构数量达到100家。",
+      "chunk_ids": [
+        "chunk_65bbe88fb9e9fde63773370913e291a7"
+      ],
+      "quotes": [
+        "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+        "人才优先的发展理念进一步彰显，到2025年，人才支出占财政支出比例达到4.5%，全社会研究与试验发展经费支出占生产总值比重达到3.5%，“人才宜业宜居”的高品质发展环境进一步形成，人力资源服务机构数量达到100家。"
+      ],
+      "dimension": "发展目标",
+      "anchors": []
+    },
+    {
+      "text": "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加\n大人才引进力度，引进一批数字经济领域的高端人才。",
+      "chunk_ids": [
+        "chunk_1bec77fc9c3bd71259e43fc2d7e3d44f"
+      ],
+      "quotes": [
+        "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。",
+        "加\n大人才引进力度，引进一批数字经济领域的高端人才。"
+      ],
+      "dimension": "政策工具",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。"
+      ],
+      "dimension": "政策工具",
+      "anchors": []
+    },
+    {
+      "text": "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加\n大人才引进力度，引进一批数字经济领域的高端人才。",
+      "chunk_ids": [
+        "chunk_1bec77fc9c3bd71259e43fc2d7e3d44f"
+      ],
+      "quotes": [
+        "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。",
+        "加\n大人才引进力度，引进一批数字经济领域的高端人才。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    },
+    {
+      "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；精准完善人才引进培育政策。",
+      "chunk_ids": [
+        "chunk_958c8db19659ab2e04e72354c33c290f"
+      ],
+      "quotes": [
+        "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+        "精准完善人才引进培育政策。"
+      ],
+      "dimension": "适用对象",
+      "anchors": []
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_5db88ba7c423ea60f27e29282c40c084",
+      "document_version_id": "document_version_5db88ba7c423ea60f27e29282c40c08491d734e8af0c9ea829d8c05e83c13460",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "2f43e428a4a35fcf898a27d41f7fc6dbe92f4c4a449c5d28c3a197da014acdb6",
+      "section_id": "section_043f96553327d2b761626590452a8ad6",
+      "section_char_start": 16364,
+      "section_char_end": 17435,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 289,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "23132",
+      "chunk_id": "chunk_8b77c0833abe5bf0ed1abbe68fbfbd3f",
+      "parent_id": "parent_9da94904859673e8c82cb9f6ab3c116a",
+      "title": "海西州“十四五”数字经济发展规划",
+      "area": "海西蒙古族藏族自治州",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 43,
+      "section_path": "第三章 总体要求 / 第四节 发展目标",
+      "char_start": 16373,
+      "char_end": 17036,
+      "chunk_char_start": 16373,
+      "chunk_char_end": 17036,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          16373,
+          17036
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_8aa275c4e0c7be2d954171c03bc649c3",
+      "section_char_start": 4547,
+      "section_char_end": 6385,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_65bbe88fb9e9fde63773370913e291a7",
+      "parent_id": "parent_86512289d920e38be24f5fe810d985f6",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 7,
+      "section_path": "二、指导思想和总体目标 / （三）主要目标",
+      "char_start": 4556,
+      "char_end": 5390,
+      "chunk_char_start": 4556,
+      "chunk_char_end": 5390,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          4556,
+          5390
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_5db88ba7c423ea60f27e29282c40c084",
+      "document_version_id": "document_version_5db88ba7c423ea60f27e29282c40c08491d734e8af0c9ea829d8c05e83c13460",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "2f43e428a4a35fcf898a27d41f7fc6dbe92f4c4a449c5d28c3a197da014acdb6",
+      "section_id": "section_e71aa0bd878a47339e175be4191f044a",
+      "section_char_start": 42051,
+      "section_char_end": 42209,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 289,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "23132",
+      "chunk_id": "chunk_1bec77fc9c3bd71259e43fc2d7e3d44f",
+      "parent_id": "parent_3d90c237d9dee5fb4abe5392626b96fc",
+      "title": "海西州“十四五”数字经济发展规划",
+      "area": "海西蒙古族藏族自治州",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 90,
+      "section_path": "第六章 保障措施 / 第三节 集聚人才资源",
+      "char_start": 42062,
+      "char_end": 42209,
+      "chunk_char_start": 42062,
+      "chunk_char_end": 42209,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          42062,
+          42209
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_a1bcc81d2b1d20e2cc0f2c211faceb4d",
+      "document_version_id": "document_version_a1bcc81d2b1d20e2cc0f2c211faceb4d38ec0e0b35220c197a1e6b7def60dc51",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "3c801ddef697f862d1c0d8f907ac8a3f44442da7bcad2b152a97a0d882168c66",
+      "section_id": "section_c58d020e71a06b4a7ebf036b3d0bc0a1",
+      "section_char_start": 7516,
+      "section_char_end": 7839,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 259,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "37982",
+      "chunk_id": "chunk_958c8db19659ab2e04e72354c33c290f",
+      "parent_id": "parent_624b39669141c7a7e0fc0a2ec73ca582",
+      "title": "绍兴市柯桥区“十四五”人才发展规划",
+      "area": "柯桥区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "专项规划",
+      "section_idx": 11,
+      "section_path": "三、主要任务 / （三）以先行举措打造高标准人才政策",
+      "char_start": 7535,
+      "char_end": 7839,
+      "chunk_char_start": 7535,
+      "chunk_char_end": 7839,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7535,
+          7839
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 22349,
+    "tool_calls": [
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 92
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 91
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 87
+      },
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 91
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 8
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 7
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "compare:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 4,
+      "input_tokens": 6397,
+      "output_tokens": 1376,
+      "per_call": [
+        {
+          "input_tokens": 254,
+          "output_tokens": 75,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 1578
+        },
+        {
+          "input_tokens": 2581,
+          "output_tokens": 165,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 2641
+        },
+        {
+          "input_tokens": 1420,
+          "output_tokens": 531,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 8234
+        },
+        {
+          "input_tokens": 2142,
+          "output_tokens": 605,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 9265
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 12,
+      "approved": 12,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": "literal_only"
+  },
+  "warnings": [],
+  "task_type": "compare",
+  "structured": {
+    "objects": [
+      {
+        "planid": "23132",
+        "title": "海西州“十四五”数字经济发展规划",
+        "area": "海西蒙古族藏族自治州",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      },
+      {
+        "planid": "37982",
+        "title": "绍兴市柯桥区“十四五”人才发展规划",
+        "area": "柯桥区",
+        "fyp": "第十四个五年规划",
+        "plantype_label": "专项规划"
+      }
+    ],
+    "dimensions": [
+      "发展目标",
+      "政策工具",
+      "适用对象"
+    ],
+    "matrix": [
+      {
+        "dimension": "发展目标",
+        "cells": [
+          {
+            "cell_id": "d0:23132",
+            "planid": "23132",
+            "status": "found",
+            "text": "建成覆盖全州的高速、移动、安全、泛\n在的新一代信息基础设施，“数字中国·智慧海西”项目全面建成。；5G 网络实现主要区域全覆盖和主要城市商用，建成一批特色鲜明的行\n业云平台，各类数据资源实现完全的分级共享与开发利用。",
+            "chunk_ids": [
+              "chunk_8b77c0833abe5bf0ed1abbe68fbfbd3f"
+            ],
+            "quotes": [
+              "建成覆盖全州的高速、移动、安全、泛\n在的新一代信息基础设施，“数字中国·智慧海西”项目全面建成。",
+              "5G 网络实现主要区域全覆盖和主要城市商用，建成一批特色鲜明的行\n业云平台，各类数据资源实现完全的分级共享与开发利用。"
+            ],
+            "source_contexts": [
+              "第三章 总体要求 / 第四节 发展目标"
+            ]
+          },
+          {
+            "cell_id": "d0:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。；人才优先的发展理念进一步彰显，到2025年，人才支出占财政支出比例达到4.5%，全社会研究与试验发展经费支出占生产总值比重达到3.5%，“人才宜业宜居”的高品质发展环境进一步形成，人力资源服务机构数量达到100家。",
+            "chunk_ids": [
+              "chunk_65bbe88fb9e9fde63773370913e291a7"
+            ],
+            "quotes": [
+              "到2025年，人才资源总量达到35万人左右，高等教育毛入学率提高到72%以上。",
+              "人才优先的发展理念进一步彰显，到2025年，人才支出占财政支出比例达到4.5%，全社会研究与试验发展经费支出占生产总值比重达到3.5%，“人才宜业宜居”的高品质发展环境进一步形成，人力资源服务机构数量达到100家。"
+            ],
+            "source_contexts": [
+              "二、指导思想和总体目标 / （三）主要目标"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲侧重于建成覆盖全州的高速、移动、安全、泛在的新一代信息基础设施，实现5G网络主要区域全覆盖及数据资源分级共享，其核心在于数字基础设施与数据环境的完善。政策乙侧重于人才资源总量、高等教育毛入学率、人才支出占比、研究与试验发展经费支出占比及人力资源服务机构数量，其核心在于人力资本指标与财政投入力度的提升。两者目标体系聚焦不同，前者为数字基建指标，后者为人才发展与社会投入指标，统计口径不同，不可直接进行数值优劣比较。",
+          "supporting_cells": [
+            "d0:23132",
+            "d0:37982"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": false,
+          "reason": "数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序"
+        }
+      },
+      {
+        "dimension": "政策工具",
+        "cells": [
+          {
+            "cell_id": "d1:23132",
+            "planid": "23132",
+            "status": "found",
+            "text": "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加\n大人才引进力度，引进一批数字经济领域的高端人才。",
+            "chunk_ids": [
+              "chunk_1bec77fc9c3bd71259e43fc2d7e3d44f"
+            ],
+            "quotes": [
+              "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。",
+              "加\n大人才引进力度，引进一批数字经济领域的高端人才。"
+            ],
+            "source_contexts": [
+              "第六章 保障措施 / 第三节 集聚人才资源"
+            ]
+          },
+          {
+            "cell_id": "d1:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "建立实用人才奖励政策，探索开展企业实用人才贡献积分评价奖励制度，在建筑、黄酒等传统行业率先开展新型职业职称评定。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲提出的工具主要是通过灵活优渥的薪资待遇提振本土工作人员（特别是复合型人才）信心，以及加大引进数字经济领域高端人才的力度，侧重于薪酬激励与特定领域人才引进。政策乙提出的工具包括对高层次人才创业团队提供项目启动、场地补助、融资支持等“全周期”服务，对重大产业化人才项目给予“一人一策”扶持，以及建立实用人才奖励政策、探索贡献积分评价制度和开展新型职业职称评定，侧重于创业支持服务与制度性评价激励。",
+          "supporting_cells": [
+            "d1:23132",
+            "d1:37982"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      },
+      {
+        "dimension": "适用对象",
+        "cells": [
+          {
+            "cell_id": "d2:23132",
+            "planid": "23132",
+            "status": "found",
+            "text": "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。；加\n大人才引进力度，引进一批数字经济领域的高端人才。",
+            "chunk_ids": [
+              "chunk_1bec77fc9c3bd71259e43fc2d7e3d44f"
+            ],
+            "quotes": [
+              "同时通过灵活优渥的薪资待遇提振本土工作人员信心，特别是\n复合型人才的福利待遇，为信息化发展做足人才资源方面的保障。",
+              "加\n大人才引进力度，引进一批数字经济领域的高端人才。"
+            ],
+            "source_contexts": [
+              "第六章 保障措施 / 第三节 集聚人才资源"
+            ]
+          },
+          {
+            "cell_id": "d2:37982",
+            "planid": "37982",
+            "status": "found",
+            "text": "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。；精准完善人才引进培育政策。",
+            "chunk_ids": [
+              "chunk_958c8db19659ab2e04e72354c33c290f"
+            ],
+            "quotes": [
+              "鼓励高层次人才创业团队在柯桥发展，围绕项目启动、场地补助、融资支持、投入补贴、生活保障等提供“全周期”服务，对重大产业化人才项目给予“一人一策”政策扶持。",
+              "精准完善人才引进培育政策。"
+            ],
+            "source_contexts": [
+              "三、主要任务 / （三）以先行举措打造高标准人才政策"
+            ]
+          }
+        ],
+        "difference": {
+          "text": "政策甲的适用对象明确为本土工作人员（特别是复合型人才）以及数字经济领域的高端人才。政策乙的适用对象包括高层次人才创业团队、重大产业化人才项目相关的主体，以及“人才引进培育”的广泛对象，原文中虽提及在建筑、黄酒等行业开展职称评定，但单元格文本仅概括为完善人才引进培育政策，未直接列出这些行业人才为本行具体的扶持对象。政策甲对象边界聚焦于数字经济领域，政策乙对象边界涵盖创业团队及更广泛的人才引进培育范围。",
+          "supporting_cells": [
+            "d2:23132",
+            "d2:37982"
+          ],
+          "kind": "analysis",
+          "status": "supported"
+        },
+        "comparability": {
+          "comparable": true,
+          "reason": "可在所列维度作有据的文字内容对照"
+        }
+      }
+    ],
+    "comparability": {
+      "comparable": false,
+      "reason": "数量单位或指标表现不同，未作换算或直接大小排序；数值仅列示原文；未独立核实同一统计定义，不作数值优劣排序；可在所列维度作有据的文字内容对照"
+    },
+    "coverage_notes": [],
+    "analysis_gaps": []
+  },
+  "route": {
+    "kind": "objects",
+    "planids": [
+      "23132",
+      "37982"
+    ],
+    "titles": [],
+    "areas": [],
+    "fyps": [],
+    "sub_query": "对照数字经济规划与人才规划的所列条款，说明不同专题、地区和对象边界；分析政策方案有原文依据的优势、限制和适用条件，不给绝对排名。",
+    "targets": [
+      "23132",
+      "37982"
+    ]
+  }
+}

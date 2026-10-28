@@ -22,7 +22,7 @@ from guance_agent.business.compare.models import (
     parse_model,
     resolve_plan,
 )
-from guance_agent.business.compare.result import build_outcome
+from guance_agent.business.compare.result import _stage, build_outcome
 from guance_agent.business.contract import BusinessError
 from guance_agent.main import submit
 from guance_agent.schemas import TaskRequest
@@ -597,7 +597,7 @@ async def test_analysis_review_uses_the_same_canonical_facts_without_rewriting_t
     model.mutate_analysis=initial
     model.mutate_review=review
     result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
-    assert result.structured['scheme_analysis'][0]['advantages'][0]['text']=='所列条款提出人才培养支持安排。'
+    assert result.structured['scheme_analysis'][0]['advantages'][0]['text']=='就本次所列条款而言，所列条款提出人才培养支持安排。'
     assert '相挂钩' not in result.answer
     assert len(model.calls)==4
 
@@ -678,3 +678,337 @@ async def test_wrong_stage_analysis_json_uses_one_shared_format_repair(compare_s
     assert result.evidence_status == 'verified'
     assert all(row['difference']['status']=='supported' for row in result.structured['matrix'])
     assert len(model.calls) == 5
+
+
+@pytest.mark.parametrize('text', [
+    '在建筑、黄酒等传统行业开展职业职称评定。',
+    '在建材行业引进技术人才。',
+    '在建设人才队伍时完善政策。',
+    '在建立制度的基础上提供支持。',
+    '在建成的平台上开展创新。',
+])
+def test_industry_and_action_words_do_not_imply_in_progress_projects(text):
+    assert '推进过程' not in _stage(text)
+
+
+@pytest.mark.parametrize('text', [
+    '加快在建项目的施工。', '推进在建工程。', '该项目目前在建。',
+    '该平台正在建设。', '持续推进人才服务建设。',
+])
+def test_explicit_in_progress_project_status_is_retained(text):
+    assert '推进过程' in _stage(text)
+
+
+def test_government_work_assessment_is_not_a_personal_eligibility_condition():
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析执行条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    text='建立考核评估机制，每年年底组织实施年度人才工作考核。支持高校及科研院所“一事一议”引进培养高端人才。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'执行条件','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','limitations':[{
+            'text':'高端人才引进培养需通过年度考核评估，支持取决于绩效结果。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert result.structured['scheme_analysis'][1]['limitations']==[]
+    assert any(gap.get('planid')=='B' and gap.get('field')=='limitations'
+               and gap['reason']=='unsupported_personal_condition' for gap in result.structured['analysis_gaps'])
+
+
+async def test_reviewer_receives_validation_feedback_without_changing_facts(compare_setup):
+    settings,_,model=compare_setup
+    def initial(output,_):
+        output['scheme_analysis'][1]['limitations'][0]['supporting_cells']=['missing']
+    def review(output,payload):
+        assert any(gap.get('planid')=='T002' and gap.get('field')=='limitations'
+                   and gap['reason']=='invalid_dependencies' for gap in payload['validation_feedback'])
+        output['scheme_analysis'][1]['limitations'][0]['supporting_cells']=['d0:T002']
+    model.mutate_analysis=initial
+    model.mutate_review=review
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.evidence_status=='verified' and len(result.claims)==6
+    assert result.structured['scheme_analysis'][1]['limitations']
+    assert len(model.calls)==4
+
+
+def test_explicit_personal_assessment_condition_remains_usable():
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析执行条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    text='责任单位开展人才工作考核。申请人须通过年度考核方可继续享受本项补贴。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'执行条件','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','limitations':[{
+            'text':'申请人须通过年度考核方可继续享受本项补贴。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert result.structured['scheme_analysis'][1]['limitations']
+
+
+async def test_scheme_missing_body_explains_gaps_and_keeps_other_policy_facts(compare_setup,monkeypatch):
+    settings,kb,_=compare_setup
+    from guance_agent.kb import KBNoText
+    read=kb.read
+    def missing(planid,*args,**kwargs):
+        if planid=='T002':
+            raise KBNoText(planid,'受控正文缺证')
+        return read(planid,*args,**kwargs)
+    monkeypatch.setattr(kb,'read',missing)
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.evidence_status=='insufficient'
+    assert result.claims and all(ref.planid=='T001' for ref in result.evidence_refs)
+    assert all(row['difference']['status']=='insufficient' for row in result.structured['matrix'])
+    analysis=result.structured['scheme_analysis'][1]
+    for field in ('advantages','limitations','applicability'):
+        assert analysis[field]==[]
+        assert any(gap.get('planid')=='T002' and gap['field']==field
+                   and gap['reason']=='source_evidence_missing' for gap in result.structured['analysis_gaps'])
+    assert '相关原文证据不足' in result.answer
+
+
+async def test_analysis_gaps_distinguish_model_omission_from_missing_source(compare_setup):
+    settings,_,model=compare_setup
+    def omit(output,_):
+        output['scheme_analysis'][1]['limitations']=[]
+    model.mutate_analysis=omit
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.evidence_status=='insufficient'
+    assert any(gap.get('planid')=='T002' and gap['field']=='limitations'
+               and gap['reason']=='analysis_not_generated' for gap in result.structured['analysis_gaps'])
+
+
+@pytest.mark.parametrize('source,accepted',[
+    ('突出用好人才创业投资基金，为创业不同阶段提供精准融资支持。',False),
+    ('设立人才创业投资基金，为创业不同阶段提供精准融资支持。',True),
+])
+def test_using_a_fund_cannot_be_rewritten_as_establishing_it(source,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较工具',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['政策工具'])
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[
+        EvidenceUnit('e0','A','a','规划提出优化政务服务流程。'),EvidenceUnit('e1','B','b',source)])
+    generated=GeneratedComparison.model_validate({'facts':[
+        {'planid':pid,'dimension':'政策工具','evidence_ids':[f'e{i}']} for i,pid in enumerate(['A','B'])],
+        'differences':[{'dimension':'政策工具','text':'甲规划优化政务服务，乙规划设立人才创业投资基金。',
+                        'supporting_cells':['d0:A','d0:B']}]})
+    result=build_outcome(task,plan,collection,generated,scheme=False)
+    assert (result.structured['matrix'][0]['difference']['status']=='supported') is accepted
+    assert any(gap['reason']=='unsupported_fund_creation' for gap in result.structured['analysis_gaps']) is not accepted
+
+
+@pytest.mark.parametrize('text,accepted',[
+    ('两份规划均提出人才支持安排，不能据此认定已完成。',True),
+    ('两份规划均提出人才支持安排，不代表已完成。',True),
+    ('两份规划均提出人才支持安排，但尚未完成。',False),
+    ('两份规划的人才支持已经完成。',False),
+])
+async def test_progress_guard_distinguishes_epistemic_caution_from_status_claim(compare_setup,text,accepted):
+    settings,_,model=compare_setup
+    def mutate(output,_):
+        output['differences'][0]['text']=text
+    model.mutate_analysis=mutate
+    result=await submit('比较政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert (result.structured['matrix'][0]['difference']['status']=='supported') is accepted
+
+
+async def test_persistently_empty_selection_stays_insufficient_after_one_guided_review(compare_setup):
+    settings,_,model=compare_setup
+    model.mutate=lambda output,_:output.update(facts=[])
+    result=await submit('比较政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert len(model.calls)==3
+    assert result.evidence_status=='insufficient' and result.claims==[]
+    assert 'matrix' not in result.structured
+
+
+async def test_guided_empty_selection_review_keeps_canonical_facts_and_call_budget(compare_setup):
+    settings,_,model=compare_setup
+    attempts=[]
+    def empty_once(output,payload):
+        attempts.append(payload)
+        if len(attempts)==1:
+            output['facts']=[]
+        else:
+            assert payload['selection_feedback']['reason']=='empty_selection_with_read_candidates'
+    model.mutate=empty_once
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert result.evidence_status=='verified' and len(result.claims)==6
+    assert len(model.calls)==5 and len(attempts)==2
+    assert all(any(claim.text in body for body in (BODY_A,BODY_B)) for claim in result.claims)
+
+
+async def test_empty_selection_review_and_json_repair_share_one_correction(compare_setup,monkeypatch):
+    settings,_,model=compare_setup
+    model.mutate=lambda output,_:output.update(facts=[])
+    create=model.create
+    async def malformed_review(**kwargs):
+        reply=await create(**kwargs)
+        if '本轮仅复核上次空facts' in kwargs['messages'][0]['content']:
+            reply.choices[0].message.content='{broken'
+        return reply
+    monkeypatch.setattr(model,'create',malformed_review)
+    result=await submit('比较政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    assert result.error.code=='OUTPUT_PARSE' and len(model.calls)==3
+
+
+@pytest.mark.parametrize('analysis,accepted',[
+    ('为创业团队提供全周期服务及一人一策扶持。',False),
+    ('为创业团队提供全周期服务，对重大产业化人才项目给予一人一策扶持。',True),
+])
+def test_one_person_one_policy_keeps_major_project_threshold(analysis,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析对象',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['适用对象'])
+    text='为高层次人才创业团队提供全周期服务，对重大产业化人才项目给予一人一策扶持。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'适用对象','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','applicability':[{'text':analysis,'supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert bool(result.structured['scheme_analysis'][1]['applicability']) is accepted
+
+
+@pytest.mark.parametrize('source,accepted',[
+    ('对重大产业化人才项目给予政策扶持。',False),
+    ('对重大产业化人才项目负责人给予政策扶持。',True),
+])
+def test_project_support_does_not_imply_personal_eligibility(source,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析对象',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['适用对象'])
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',source)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'适用对象','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','applicability':[{
+            'text':'本条扶持适用于重大产业化人才项目负责人。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert bool(result.structured['scheme_analysis'][1]['applicability']) is accepted
+
+
+@pytest.mark.parametrize('analysis,accepted',[
+    ('对高层次人才、高技能人才及生产一线岗位人员进行收入分配倾斜和单独制定奖励政策。',False),
+    ('对高技能人才进行收入分配倾斜；对急需紧缺的高层次人才，可单独制定个人贡献奖励等政策。',True),
+    ('针对急需紧缺的高层次人才可单独制定政策，并规定收入分配向高技能人才倾斜。',True),
+])
+def test_separate_reward_rule_cannot_inherit_other_clauses_target_groups(analysis,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析激励',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['人才激励'])
+    text=('收入分配向生产一线岗位和紧缺急需岗位的高层次人才、高技能人才倾斜。'
+          '对急需紧缺的高层次人才，可单独制定收入分配倾斜、个人贡献奖励等政策。')
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'人才激励','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','advantages':[{'text':analysis,'supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert bool(result.structured['scheme_analysis'][1]['advantages']) is accepted
+
+
+@pytest.mark.parametrize('source,accepted',[
+    ('实行专家举荐制，提高青年人才入选比例。',False),
+    ('申请人须通过专家举荐方可申请本项支持。',True),
+])
+def test_recommendation_system_is_not_a_mandatory_individual_path(source,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',source)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'执行条件','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','applicability':[{
+            'text':'人才需通过专家举荐入选人才计划。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert bool(result.structured['scheme_analysis'][1]['applicability']) is accepted
+
+
+@pytest.mark.parametrize('dimension,expected',[('适用对象','insufficient'),('执行主体','found')])
+def test_department_work_assignment_is_not_a_beneficiary_fact(dimension,expected):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较对象',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=[dimension])
+    source='完善任务清单制度，市委组织部形成工作台账，明确责任单位和完成时限。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',source)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':dimension,'evidence_ids':['e0']}]})
+    result=build_outcome(task,plan,collection,generated,scheme=False)
+    assert result.structured['matrix'][0]['cells'][1]['status']==expected
+
+
+@pytest.mark.parametrize('subject,accepted',[('高层次创新创业项目',False),('高层次人才创业团队',True)])
+def test_full_cycle_team_service_keeps_its_original_support_subject(subject,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析服务',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['支持措施'])
+    text='为高层次人才创业团队提供全周期服务，对重大产业化人才项目给予一人一策扶持。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',text)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'支持措施','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','advantages':[{
+            'text':f'为{subject}提供启动、融资等全周期服务。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    items=result.structured['scheme_analysis'][1]['advantages']
+    if accepted:
+        assert items and 'derivation' not in items[0]
+    else:
+        assert items[0]['derivation']=='extractive_support_features'
+        assert text in items[0]['text']
+        assert f'为{subject}提供启动' not in items[0]['text']
+
+
+@pytest.mark.parametrize('text,accepted',[
+    ('政策甲仅关注人才支持，政策乙侧重人才引进。',True),
+    ('整份政策仅支持人才，全部受益对象都可申请。',False),
+])
+async def test_analysis_scope_is_explicit_and_whole_document_inference_is_rejected(compare_setup,text,accepted):
+    settings,_,model=compare_setup
+    model.mutate_analysis=lambda output,_:output['differences'][0].update(text=text)
+    result=await submit('比较政策',settings=settings,task_type='compare',targets=['T001','T002'])
+    judgment=result.structured['matrix'][0]['difference']
+    assert (judgment['status']=='supported') is accepted
+    if accepted:
+        assert judgment['text'].startswith('就本次所列条款而言，')
+        assert judgment['scope']=='supporting_cells_only'
+    else:
+        assert any(gap['reason']=='full_document_inference' for gap in result.structured['analysis_gaps'])
+
+
+async def test_applicability_keeps_complete_original_conditions_instead_of_lossy_paraphrase(compare_setup):
+    settings,kb,model=compare_setup
+    source='对来我区工作后首次购房且在我区未享受过住房优惠政策或房改政策的人才给予购房补助。'
+    kb.documents['T001']['body']=source
+    def omit_conditions(output,_):
+        output['scheme_analysis'][0]['applicability'][0]['text']='适用于计划购房且未享受住房优惠的人才。'
+    model.mutate_analysis=omit_conditions
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    item=result.structured['scheme_analysis'][0]['applicability'][0]
+    assert source in item['text'] and item['derivation']=='extractive_conditions'
+    assert '分别' in item['text'] and '不合并为共同资格' in item['text']
+
+
+@pytest.mark.parametrize('support,accepted',[(['d0:T001'],True),(['d0:T001','d1:T001'],False)])
+async def test_each_limitation_uses_a_single_policy_clause(compare_setup,support,accepted):
+    settings,_,model=compare_setup
+    model.mutate_analysis=lambda output,_:output['scheme_analysis'][0]['limitations'][0].update(supporting_cells=support)
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    assert bool(result.structured['scheme_analysis'][0]['limitations']) is accepted
+
+
+@pytest.mark.parametrize('duplicate_fact',[False,True])
+def test_one_cell_keeps_one_complete_evidence_unit_without_merging_conditions(duplicate_fact):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='分析支持',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['支持措施'])
+    first='对高层次人才给予培养期支持。'
+    second='对高技能人才给予收入倾斜。'
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[
+        EvidenceUnit('e0','B','b',first),EvidenceUnit('e1','B','c',second)])
+    facts=([{'planid':'B','dimension':'支持措施','evidence_ids':[eid]} for eid in ['e0','e1']]
+           if duplicate_fact else [{'planid':'B','dimension':'支持措施','evidence_ids':['e0','e1']}])
+    result=build_outcome(task,plan,collection,GeneratedComparison.model_validate({'facts':facts}),scheme=False)
+    cell=result.structured['matrix'][0]['cells'][1]
+    assert cell['quotes']==[first] and cell['text']==first
+
+
+async def test_missing_advantage_can_keep_explicit_support_features_without_an_extra_call(compare_setup):
+    settings,_,model=compare_setup
+    model.mutate_analysis=lambda output,_:output['scheme_analysis'][0].update(advantages=[])
+    result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
+    item=result.structured['scheme_analysis'][0]['advantages'][0]
+    assert item['derivation']=='extractive_support_features' and len(model.calls)==4
+    basis={c['cell_id']:c for row in result.structured['matrix'] for c in row['cells']}
+    assert all(q in item['text'] for cid in item['supporting_cells'] for q in basis[cid]['quotes'])
+
+
+@pytest.mark.parametrize('source,accepted',[
+    ('特设岗位不受岗位总量限制。',False),('特设岗位允许突破编制总量限制。',True),
+])
+def test_post_count_cannot_be_rewritten_as_staffing_quota(source,accepted):
+    task=TaskRequest(run_id='r',session_id='s',created_at='',question='比较条件',targets=['A','B'])
+    plan=ComparisonPlan(dimensions=['执行条件'])
+    collection=Collection(objects=[{'planid':'A'},{'planid':'B'}],units=[EvidenceUnit('e0','B','b',source)])
+    generated=GeneratedComparison.model_validate({'facts':[{'planid':'B','dimension':'执行条件','evidence_ids':['e0']}],
+        'scheme_analysis':[{'planid':'B','limitations':[{
+            'text':'本条允许编制突破。','supporting_cells':['d0:B']}]}]})
+    result=build_outcome(task,plan,collection,generated,scheme=True)
+    assert bool(result.structured['scheme_analysis'][1]['limitations']) is accepted

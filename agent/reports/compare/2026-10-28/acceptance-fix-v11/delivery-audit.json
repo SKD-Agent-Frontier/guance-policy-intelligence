@@ -1,0 +1,17 @@
+{
+  "passed":true,
+  "checked_change_files_before_this_record":120,
+  "private_configuration_value_leaks":0,
+  "source_fingerprints_match":true,
+  "sample_matches_final_real_batch":true,
+  "regression_tests":502,
+  "failures":0,
+  "errors":0,
+  "skipped":0,
+  "approved_quote_checks":27,
+  "json_parse_and_markdown_links":"passed",
+  "junit_machine_hostname_removed":true,
+  "branch":"政策比较分析开发",
+  "main_and_origin_main":"a2c821765a2ef1d1ac9d1c8a67d054c1ccbfa1b8",
+  "private_exclusion_directory_tracked_files":0
+}
