@@ -1,0 +1,948 @@
+{
+  "run_id": "<REDACTED_RUN_ID>",
+  "session_id": "<REDACTED_SESSION_ID>",
+  "status": "completed",
+  "evidence_status": "verified",
+  "answer": "研究主题：科技创新；检索范围：未限定地区，第十四个五年规划\n以下内容基于本轮检索候选中已读取的政策片段整理，不代表全库全部相关政策，也不是整份政策的完整摘要。\n\n【自主创新攻关】\n- 把自主创新摆在核心位置，加快能源领域核心关键技术攻关，抢占能源科技创新制高点。\n\n【创新生态盘点】\n- 围绕科技创新生态建设，强化对科技创新主体、载体和环境要素的盘点与评估，建设关键企业资源库。\n\n【创新平台建设】\n- 优化整合现有科技创新基地，鼓励建设重点实验室等研发平台，推动新型研发机构发展。\n\n【成果转化导向】\n- 坚持市场需求导向，发挥市场配置创新资源作用，促进科技创新与产业发展深度融合。\n\n【中介服务优化】\n- 完善科技中介服务体系，加强创业服务中心等机构建设，促进科技中介服务集群化发展。\n\n【融合创新机制】\n- 建立健全产学研深度融合创新机制，打造能源科技创新联合体，促进产业链和创新链深度融合。\n\n【平台体系构建】\n- 加快构建以公共研发平台为龙头、以企业研发平台为主体的创新平台体系，深化科技合作。\n\n【其他】\n- 深化科技成果使用处置改革，完善科技创新激励机制，加强科技创新政策体系建设，释放潜能。\n- 构建支持企业创新成长全过程的双创服务体系，运用财政后补助等方式带动社会资本设立投资。\n- 出台多项科技创新政策文件，对全州科技创新重点攻关、创新企业培育、成果转移转化等作出顶层设计。\n\n候选文献清单、阅读覆盖情况和未纳入原因见结构化结果。",
+  "claims": [
+    {
+      "text": "把自主创新摆在核心位置，加快能源领域核心关键技术攻关，抢占能源科技创新制高点。",
+      "chunk_ids": [
+        "chunk_851b4bc284c4fccdad8338101d424e98"
+      ],
+      "quotes": [
+        "面向全省能源重大战略需求，加强科技创新引领产业发展能力，把自主创新摆在“十四五”能源科技创新的核心位置，不断提高技术创新源头供给能力，加快能源领域核心关键技术攻关，抢占能源科技创新制高点。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "自主创新",
+        "核心关键技术攻关",
+        "能源科技创新"
+      ]
+    },
+    {
+      "text": "围绕科技创新生态建设，强化对科技创新主体、载体和环境要素的盘点与评估，建设关键企业资源库。",
+      "chunk_ids": [
+        "chunk_53e3a75b62fabd429f7af338f7f50f48"
+      ],
+      "quotes": [
+        "围绕科技创新生态建设，强化对科技创新“主体+载体+环境”要素的盘点与评估。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "科技创新生态建设",
+        "主体+载体+环境",
+        "关键企业资源库"
+      ]
+    },
+    {
+      "text": "优化整合现有科技创新基地，鼓励建设重点实验室等研发平台，推动新型研发机构发展。",
+      "chunk_ids": [
+        "chunk_a1af3e46795be13d940747c8501ea7ab"
+      ],
+      "quotes": [
+        "对接上海、合肥综合性国家科学中心，优化整合重点实验室、工程技术研究中心等现有科技创新基地，鼓励企业、高等院校、科研院所等建设重点（工程）实验室、工程（技术）研究中心、工业设计中心、企业技术中心、质检中心、院士工作站、专业协会（学会）等研发平台，围绕智能家电、光伏等领域争创省级技术创新中心。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "科技创新基地",
+        "研发平台",
+        "新型研发机构"
+      ]
+    },
+    {
+      "text": "坚持市场需求导向，发挥市场配置创新资源作用，促进科技创新与产业发展深度融合。",
+      "chunk_ids": [
+        "chunk_27356c60c9f542ce29dfdce3d86966d5"
+      ],
+      "quotes": [
+        "坚持以市场需求为导向，聚焦州新型工业化、新型城镇化、农业现代化、旅游产业化发展和重大民生需求，发挥市场配置创新资源的决定性作用，促进科技创新与产业发展深度融合。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "市场需求为导向",
+        "科技创新",
+        "产业发展深度融合"
+      ]
+    },
+    {
+      "text": "完善科技中介服务体系，加强创业服务中心等机构建设，促进科技中介服务集群化发展。",
+      "chunk_ids": [
+        "chunk_4c8e9f88b5d5b4a7a1be55a9ee467655"
+      ],
+      "quotes": [
+        "完善科技中介服务体系，加强生产力促进中心、创业服务中心、科技转化平台、技术交易平台等科技中介服务机构建设，为科技创新提供技术转移、科技咨询、资源共享、人才服务等服务功能，引进一批专业品牌服务企业，促进科技中介服务集群化发展。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "科技中介服务体系",
+        "创业服务中心",
+        "科技中介服务集群化"
+      ]
+    },
+    {
+      "text": "建立健全产学研深度融合创新机制，打造能源科技创新联合体，促进产业链和创新链深度融合。",
+      "chunk_ids": [
+        "chunk_851b4bc284c4fccdad8338101d424e98"
+      ],
+      "quotes": [
+        "坚持融合创新原则。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "融合创新",
+        "产学研深度融合",
+        "能源科技创新联合体"
+      ]
+    },
+    {
+      "text": "加快构建以公共研发平台为龙头、以企业研发平台为主体的创新平台体系，深化科技合作。",
+      "chunk_ids": [
+        "chunk_c8e2003518caa1fc5ca9c7418b9061d0"
+      ],
+      "quotes": [
+        "——创新平台体系加快构建，科技合作不断深化。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "创新平台体系",
+        "公共研发平台",
+        "企业研发平台"
+      ]
+    },
+    {
+      "text": "深化科技成果使用处置改革，完善科技创新激励机制，加强科技创新政策体系建设，释放潜能。",
+      "chunk_ids": [
+        "chunk_27356c60c9f542ce29dfdce3d86966d5"
+      ],
+      "quotes": [
+        "深化科技成果使用、处置和收益权改革，支持扩大科研经费使用自主权，完善科技创新激励机制，创造良好创新创业环境。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "科技创新激励机制",
+        "科技创新政策体系",
+        "释放科技创新潜能"
+      ]
+    },
+    {
+      "text": "构建支持企业创新成长全过程的双创服务体系，运用财政后补助等方式带动社会资本设立投资。",
+      "chunk_ids": [
+        "chunk_4c8e9f88b5d5b4a7a1be55a9ee467655"
+      ],
+      "quotes": [
+        "落实鼓励科技创新的优惠政策，构建支持企业创新成长全过程的“双创”服务体系，为科技创新主体提供完善的激励政策，提高创新人员积极性。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "双创服务体系",
+        "企业创新成长",
+        "社会资本"
+      ]
+    },
+    {
+      "text": "出台多项科技创新政策文件，对全州科技创新重点攻关、创新企业培育、成果转移转化等作出顶层设计。",
+      "chunk_ids": [
+        "chunk_e36cbabd6abec83d07822375fa38cdd3"
+      ],
+      "quotes": [
+        "“十三五”以来，紧紧围绕脱贫攻坚和农村产业革命，累计选派1290名科技特派员到县（市）开展农业实用技术培训、农业先进技术示范推广、农业科技成果转移转化等，共实施各类农业科技项目85个、6000余万元，解决了一大批农业技术问题。"
+      ],
+      "dimension": null,
+      "anchors": [
+        "科技创新政策文件",
+        "创新企业培育",
+        "成果转移转化"
+      ]
+    }
+  ],
+  "evidence_refs": [
+    {
+      "document_id": "doc_e6fc48bc6d013acb49a8c95d49d89740",
+      "document_version_id": "document_version_e6fc48bc6d013acb49a8c95d49d897405dcd7a051daab5cd9998b23a04b452e1",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "27661c1eabd5bb882954dd255bb404b7c5b2777b6f6ca3466a1718f0d76cf90f",
+      "section_id": "section_47a4f65b691200740a1616493e0c3fcb",
+      "section_char_start": 3663,
+      "section_char_end": 4081,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 255,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "46800",
+      "chunk_id": "chunk_851b4bc284c4fccdad8338101d424e98",
+      "parent_id": "parent_672488b4c784b135fc5ab947f4c918c7",
+      "title": "山东省能源科技创新“十四五”规划",
+      "area": "山东省",
+      "fyp": "第十四个五年规划",
+      "admin_level": "省",
+      "plantype_label": "专项规划",
+      "section_idx": 8,
+      "section_path": "第二章  指导思想、基本原则和发展目标 / 二、基本原则",
+      "char_start": 3671,
+      "char_end": 4081,
+      "chunk_char_start": 3671,
+      "chunk_char_end": 4081,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          3671,
+          4081
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_034448a1be2dac23c83889227f4fdbb7",
+      "document_version_id": "document_version_034448a1be2dac23c83889227f4fdbb708267fe02fb7d7225799a0f0d4fd9793",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "f8eac687cfc69f0e5e77f4c9865a4ca89c73e0bb9589976522ca6db0c7bebef5",
+      "section_id": "section_ca062e4be1e58c7b8430aa060a775e66",
+      "section_char_start": 18929,
+      "section_char_end": 19751,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 302,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "42213",
+      "chunk_id": "chunk_53e3a75b62fabd429f7af338f7f50f48",
+      "parent_id": "parent_9297b56cc9d9d5024bb7cc0c9a50b42f",
+      "title": "沈阳市沈河区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+      "area": "沈河区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "总体规划纲要",
+      "section_idx": 21,
+      "section_path": "图3 沈河区“十四五”时期文商旅融合生态图",
+      "char_start": 18955,
+      "char_end": 19698,
+      "chunk_char_start": 18955,
+      "chunk_char_end": 19698,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          18955,
+          19698
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_9d639d6ccf86830f463db8cbda270e25",
+      "document_version_id": "document_version_9d639d6ccf86830f463db8cbda270e2561c59eff5ab5a2554ec5d93cd44cb656",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "a721e4c11cf1461335e645931716c5d9d0eb6fc2fd316e7c8efb98c93f9356b8",
+      "section_id": "section_b00dcf3f1ec2339cad4095dff4497115",
+      "section_char_start": 7167,
+      "section_char_end": 7506,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "19934",
+      "chunk_id": "chunk_a1af3e46795be13d940747c8501ea7ab",
+      "parent_id": "parent_02302fa6766c663f61663cb6945091d6",
+      "title": "滁州市“十四五”科技创新发展规划",
+      "area": "滁州市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 17,
+      "section_path": "第三章  重点任务 / 3.2 构建多层次创新平台体系 / 3.2.2 推进高能级研发平台建设",
+      "char_start": 7186,
+      "char_end": 7506,
+      "chunk_char_start": 7186,
+      "chunk_char_end": 7506,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          7186,
+          7506
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_532b6c6970e30aa910ee17dd6a84e36d",
+      "document_version_id": "document_version_532b6c6970e30aa910ee17dd6a84e36d90526e95c2256fd1afe940f02ca592ec",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "577b4befb3b503de660f2e3d2817ff8c64222956a9e58a4bd4dd2a40a4dd4065",
+      "section_id": "section_35abd57da4f4cdbe5ed190c52bfe7501",
+      "section_char_start": 4205,
+      "section_char_end": 4660,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 261,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "29140",
+      "chunk_id": "chunk_27356c60c9f542ce29dfdce3d86966d5",
+      "parent_id": "parent_20efcebba1e1a4f16929e456bd4fb8bd",
+      "title": "黔南州“十四五”科技创新发展规划",
+      "area": "黔南布依族苗族自治州",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 6,
+      "section_path": "二、指导思想、基本原则和主要目标 / （二）基本原则",
+      "char_start": 4217,
+      "char_end": 4660,
+      "chunk_char_start": 4217,
+      "chunk_char_end": 4660,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          4217,
+          4660
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_01c6896661fb50b3b66d5f8af7a1c3eb",
+      "document_version_id": "document_version_01c6896661fb50b3b66d5f8af7a1c3ebbab04d0eba668319375757db6fe2330d",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "277275418d478174cf72ae641e34272c01aa8cbbe841fc0a85584da91d67338c",
+      "section_id": "section_5d92e6240ee7a3d9117e5a71e667e28e",
+      "section_char_start": 24207,
+      "section_char_end": 26620,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 279,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "25028",
+      "chunk_id": "chunk_4c8e9f88b5d5b4a7a1be55a9ee467655",
+      "parent_id": "parent_4bab3d2f557ef9b2bd294568bb997081",
+      "title": "西安市莲湖区国民经济和社会发展第十四个五年规划和2035年远景目标纲要",
+      "area": "莲湖区",
+      "fyp": "第十四个五年规划",
+      "admin_level": "区县",
+      "plantype_label": "总体规划纲要",
+      "section_idx": 20,
+      "section_path": "第五篇 扩大重点领域优势，建设动力持续的创新莲湖 / 第十五章 提高创新驱动能力",
+      "char_start": 25202,
+      "char_end": 25494,
+      "chunk_char_start": 25202,
+      "chunk_char_end": 25494,
+      "truncated": false,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          25202,
+          25494
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_9d639d6ccf86830f463db8cbda270e25",
+      "document_version_id": "document_version_9d639d6ccf86830f463db8cbda270e2561c59eff5ab5a2554ec5d93cd44cb656",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "a721e4c11cf1461335e645931716c5d9d0eb6fc2fd316e7c8efb98c93f9356b8",
+      "section_id": "section_19c473d173f489e34e237e8fe400d50c",
+      "section_char_start": 37,
+      "section_char_end": 2172,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 254,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "19934",
+      "chunk_id": "chunk_c8e2003518caa1fc5ca9c7418b9061d0",
+      "parent_id": "parent_0f52ff3d8cbeb9edeb0e3896c482f216",
+      "title": "滁州市“十四五”科技创新发展规划",
+      "area": "滁州市",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 2,
+      "section_path": "第一章  发展回顾和形势需求 / 1.1 发展回顾",
+      "char_start": 1203,
+      "char_end": 2172,
+      "chunk_char_start": 1203,
+      "chunk_char_end": 2172,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          1203,
+          2172
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    },
+    {
+      "document_id": "doc_532b6c6970e30aa910ee17dd6a84e36d",
+      "document_version_id": "document_version_532b6c6970e30aa910ee17dd6a84e36d90526e95c2256fd1afe940f02ca592ec",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "577b4befb3b503de660f2e3d2817ff8c64222956a9e58a4bd4dd2a40a4dd4065",
+      "section_id": "section_02a630a9c8bc17784928cedd5ed7cb2f",
+      "section_char_start": 272,
+      "section_char_end": 2354,
+      "offset_basis": "body_first_non_whitespace",
+      "offset_unit": "unicode_codepoint",
+      "body_origin": 261,
+      "contract_version": "proposal-v0.3",
+      "quality_warnings": [],
+      "planid": "29140",
+      "chunk_id": "chunk_e36cbabd6abec83d07822375fa38cdd3",
+      "parent_id": "parent_d0ecc06c1e1ee8ed8881db87d93be039",
+      "title": "黔南州“十四五”科技创新发展规划",
+      "area": "黔南布依族苗族自治州",
+      "fyp": "第十四个五年规划",
+      "admin_level": "市",
+      "plantype_label": "专项规划",
+      "section_idx": 2,
+      "section_path": "一、发展基础和环境 / （一）“十三五”科技创新发展情况",
+      "char_start": 1255,
+      "char_end": 2353,
+      "chunk_char_start": 1255,
+      "chunk_char_end": 2353,
+      "truncated": true,
+      "source": "kb_read",
+      "observed_ranges": [
+        [
+          1255,
+          2353
+        ]
+      ],
+      "complete": true,
+      "out_of_section": false
+    }
+  ],
+  "dropped_chunk_ids": [],
+  "error": null,
+  "meta": {
+    "elapsed_ms": 23069,
+    "tool_calls": [
+      {
+        "name": "kb_search",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 176
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 6
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 5
+      },
+      {
+        "name": "kb_read",
+        "status": "ok",
+        "message": "",
+        "elapsed_ms": 4
+      }
+    ],
+    "model": "qwen3.8-27b",
+    "prompt_version": "organize:json@2d25d5d3",
+    "tools": [
+      "kb_search",
+      "kb_read"
+    ],
+    "kb_backend": "rag",
+    "session_created": true,
+    "dropped_claims": 0,
+    "business_telemetry": {
+      "model_calls": 1,
+      "input_tokens": 3136,
+      "output_tokens": 1770,
+      "per_call": [
+        {
+          "input_tokens": 3136,
+          "output_tokens": 1770,
+          "finish_reason": "stop",
+          "status": "ok",
+          "error_code": null,
+          "elapsed_ms": 22020
+        }
+      ]
+    },
+    "quote_verification": {
+      "checked": 10,
+      "approved": 10,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    }
+  },
+  "warnings": [],
+  "task_type": "organize",
+  "structured": {
+    "schema_version": "organize/1",
+    "scope": {
+      "topic": "科技创新",
+      "areas": [],
+      "fyps": [
+        "第十四个五年规划"
+      ],
+      "plantypes": [],
+      "categories": [],
+      "dimensions": [],
+      "targets": null,
+      "effective": {
+        "queries": [
+          {
+            "query": "科技创新",
+            "status": "ok",
+            "hits": 20,
+            "new_documents": 8
+          }
+        ],
+        "area": null,
+        "fyp": "第十四个五年规划",
+        "top_k": 20
+      },
+      "post_filters": [],
+      "unapplied": []
+    },
+    "coverage": {
+      "documents_found": 8,
+      "documents_after_filter": 8,
+      "documents_read": 6,
+      "documents_summarized": 5,
+      "chunks_read": 10,
+      "limits": [
+        "max_docs_read"
+      ],
+      "note": "documents_found 为本轮检索候选按 planid 去重后的数量，不代表全库全部相关政策；摘要只基于已读取片段，不是整份政策的完整摘要。读取受到选文、工具或时间上限限制，具体原因见 limits。"
+    },
+    "policies": [
+      {
+        "planid": "46800",
+        "title": "山东省能源科技创新“十四五”规划",
+        "area": "山东省",
+        "fyp": "第十四个五年规划",
+        "admin_level": "省",
+        "plantype_label": "专项规划",
+        "read_status": "summarized",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新；已读片段归入：自主创新攻关、融合创新机制",
+        "topics": [
+          "自主创新攻关",
+          "融合创新机制"
+        ],
+        "summary": "把自主创新摆在核心位置，加快能源领域核心关键技术攻关，抢占能源科技创新制高点。；建立健全产学研深度融合创新机制，打造能源科技创新联合体，促进产业链和创新链深度融合。",
+        "claim_indexes": [
+          0,
+          5
+        ],
+        "chunk_ids_hit": [
+          "chunk_fd3584858bf181ab7063a1fd4fa8192d",
+          "chunk_851b4bc284c4fccdad8338101d424e98",
+          "chunk_83b0f4e56a5e9d5ea2382df4da023523"
+        ],
+        "chunks_read": 2,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_fd3584858bf181ab7063a1fd4fa8192d",
+            "status": "ok"
+          },
+          {
+            "chunk_id": "chunk_851b4bc284c4fccdad8338101d424e98",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "42213",
+        "title": "沈阳市沈河区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+        "area": "沈河区",
+        "fyp": "第十四个五年规划",
+        "admin_level": "区县",
+        "plantype_label": "总体规划纲要",
+        "read_status": "summarized",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新；已读片段归入：创新生态盘点",
+        "topics": [
+          "创新生态盘点"
+        ],
+        "summary": "围绕科技创新生态建设，强化对科技创新主体、载体和环境要素的盘点与评估，建设关键企业资源库。",
+        "claim_indexes": [
+          1
+        ],
+        "chunk_ids_hit": [
+          "chunk_53e3a75b62fabd429f7af338f7f50f48"
+        ],
+        "chunks_read": 1,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_53e3a75b62fabd429f7af338f7f50f48",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "23467",
+        "title": "烟台市“十四五“科技创新规划和二〇三五年远景目标纲要",
+        "area": "烟台市",
+        "fyp": "第十四个五年规划",
+        "admin_level": "市",
+        "plantype_label": "专项规划",
+        "read_status": "read_no_valid_points",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新",
+        "topics": [],
+        "summary": null,
+        "claim_indexes": [],
+        "chunk_ids_hit": [
+          "chunk_f9955a059bacab878ed9e945a83fd7e4",
+          "chunk_1b08e85c01c27e4b3745e5863af10f81",
+          "chunk_d3ed3e326b8cbf1d0ccdf4e8ecc13fa0",
+          "chunk_679733b68d93cccddb78a575f1b7ccd1",
+          "chunk_87b5eff2f7199cc69117a1545d830edd",
+          "chunk_aabdffe3fcfef08cde4f82414429541d",
+          "chunk_352fec99884b776386c88c60f3027b89"
+        ],
+        "chunks_read": 2,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_f9955a059bacab878ed9e945a83fd7e4",
+            "status": "ok"
+          },
+          {
+            "chunk_id": "chunk_1b08e85c01c27e4b3745e5863af10f81",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "19934",
+        "title": "滁州市“十四五”科技创新发展规划",
+        "area": "滁州市",
+        "fyp": "第十四个五年规划",
+        "admin_level": "市",
+        "plantype_label": "专项规划",
+        "read_status": "summarized",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新；已读片段归入：创新平台建设、平台体系构建",
+        "topics": [
+          "创新平台建设",
+          "平台体系构建"
+        ],
+        "summary": "优化整合现有科技创新基地，鼓励建设重点实验室等研发平台，推动新型研发机构发展。；加快构建以公共研发平台为龙头、以企业研发平台为主体的创新平台体系，深化科技合作。",
+        "claim_indexes": [
+          2,
+          6
+        ],
+        "chunk_ids_hit": [
+          "chunk_a1af3e46795be13d940747c8501ea7ab",
+          "chunk_c8e2003518caa1fc5ca9c7418b9061d0",
+          "chunk_5c53548c43b8cdaf4bc5b9c1362dc1f3"
+        ],
+        "chunks_read": 2,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_a1af3e46795be13d940747c8501ea7ab",
+            "status": "ok"
+          },
+          {
+            "chunk_id": "chunk_c8e2003518caa1fc5ca9c7418b9061d0",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "29140",
+        "title": "黔南州“十四五”科技创新发展规划",
+        "area": "黔南布依族苗族自治州",
+        "fyp": "第十四个五年规划",
+        "admin_level": "市",
+        "plantype_label": "专项规划",
+        "read_status": "summarized",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新；已读片段归入：成果转化导向、其他",
+        "topics": [
+          "成果转化导向",
+          "其他"
+        ],
+        "summary": "坚持市场需求导向，发挥市场配置创新资源作用，促进科技创新与产业发展深度融合。；深化科技成果使用处置改革，完善科技创新激励机制，加强科技创新政策体系建设，释放潜能。；出台多项科技创新政策文件，对全州科技创新重点攻关、创新企业培育、成果转移转化等作出顶层设计。",
+        "claim_indexes": [
+          3,
+          7,
+          9
+        ],
+        "chunk_ids_hit": [
+          "chunk_27356c60c9f542ce29dfdce3d86966d5",
+          "chunk_e36cbabd6abec83d07822375fa38cdd3",
+          "chunk_61fa0d0c32006f382596166ee7857d5c"
+        ],
+        "chunks_read": 2,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_27356c60c9f542ce29dfdce3d86966d5",
+            "status": "ok"
+          },
+          {
+            "chunk_id": "chunk_e36cbabd6abec83d07822375fa38cdd3",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "25028",
+        "title": "西安市莲湖区国民经济和社会发展第十四个五年规划和2035年远景目标纲要",
+        "area": "莲湖区",
+        "fyp": "第十四个五年规划",
+        "admin_level": "区县",
+        "plantype_label": "总体规划纲要",
+        "read_status": "summarized",
+        "relevance": "high",
+        "relevance_note": "检索查询词：科技创新；已读片段归入：中介服务优化、其他",
+        "topics": [
+          "中介服务优化",
+          "其他"
+        ],
+        "summary": "完善科技中介服务体系，加强创业服务中心等机构建设，促进科技中介服务集群化发展。；构建支持企业创新成长全过程的双创服务体系，运用财政后补助等方式带动社会资本设立投资。",
+        "claim_indexes": [
+          4,
+          8
+        ],
+        "chunk_ids_hit": [
+          "chunk_4c8e9f88b5d5b4a7a1be55a9ee467655"
+        ],
+        "chunks_read": 1,
+        "full_text_covered": false,
+        "read_attempts": [
+          {
+            "chunk_id": "chunk_4c8e9f88b5d5b4a7a1be55a9ee467655",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "planid": "20913",
+        "title": "郑州市中牟县国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+        "area": "中牟县",
+        "fyp": "第十四个五年规划",
+        "admin_level": "区县",
+        "plantype_label": "总体规划纲要",
+        "read_status": "not_read",
+        "relevance": null,
+        "relevance_note": "检索查询词：科技创新",
+        "topics": [],
+        "summary": null,
+        "claim_indexes": [],
+        "chunk_ids_hit": [
+          "chunk_3767b21c64354ee696ed4a1477d4a944"
+        ],
+        "chunks_read": 0,
+        "full_text_covered": false,
+        "read_attempts": []
+      },
+      {
+        "planid": "52109",
+        "title": "娄底市国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+        "area": "娄底市",
+        "fyp": "第十四个五年规划",
+        "admin_level": "市",
+        "plantype_label": "总体规划纲要",
+        "read_status": "not_read",
+        "relevance": null,
+        "relevance_note": "检索查询词：科技创新",
+        "topics": [],
+        "summary": null,
+        "claim_indexes": [],
+        "chunk_ids_hit": [
+          "chunk_989529f0ca06f1549ee5a0a9f6da9f69"
+        ],
+        "chunks_read": 0,
+        "full_text_covered": false,
+        "read_attempts": []
+      }
+    ],
+    "groups": [
+      {
+        "topic": "自主创新攻关",
+        "planids": [
+          "46800"
+        ],
+        "claim_indexes": [
+          0
+        ]
+      },
+      {
+        "topic": "创新生态盘点",
+        "planids": [
+          "42213"
+        ],
+        "claim_indexes": [
+          1
+        ]
+      },
+      {
+        "topic": "创新平台建设",
+        "planids": [
+          "19934"
+        ],
+        "claim_indexes": [
+          2
+        ]
+      },
+      {
+        "topic": "成果转化导向",
+        "planids": [
+          "29140"
+        ],
+        "claim_indexes": [
+          3
+        ]
+      },
+      {
+        "topic": "中介服务优化",
+        "planids": [
+          "25028"
+        ],
+        "claim_indexes": [
+          4
+        ]
+      },
+      {
+        "topic": "融合创新机制",
+        "planids": [
+          "46800"
+        ],
+        "claim_indexes": [
+          5
+        ]
+      },
+      {
+        "topic": "平台体系构建",
+        "planids": [
+          "19934"
+        ],
+        "claim_indexes": [
+          6
+        ]
+      },
+      {
+        "topic": "其他",
+        "planids": [
+          "29140",
+          "25028"
+        ],
+        "claim_indexes": [
+          7,
+          8,
+          9
+        ]
+      }
+    ],
+    "verification": {
+      "policy_facts": "claims_only",
+      "analysis_fields": [
+        "relevance",
+        "relevance_note",
+        "topics",
+        "groups"
+      ],
+      "note": "只有 claims 中的内容经过原文引句与数字字面核验；相关性与主题归类是分析结果，不是政策事实。"
+    }
+  },
+  "route": {
+    "kind": "open",
+    "planids": [],
+    "titles": [],
+    "areas": [],
+    "fyps": [
+      "第十四个五年规划"
+    ],
+    "sub_query": "梳理十四五时期的科技创新政策",
+    "targets": null
+  },
+  "run_meta": {
+    "commit_sha": "21ad58302bbcaf1df0a5bbfee35fe6c35494d490",
+    "working_tree_dirty": false,
+    "question": "梳理十四五时期的科技创新政策",
+    "kb_backend": "rag",
+    "rag_mode": "bm25",
+    "model": "qwen3.8-27b",
+    "elapsed_ms": 23072,
+    "warm_up_ms": 36179,
+    "started_at": "2026-10-28T09:47:08.147895+00:00",
+    "is_mock": false,
+    "model_calls": 1,
+    "tool_calls": 11,
+    "documents_found": 8,
+    "documents_read": 6,
+    "documents_summarized": 5,
+    "claims": 10,
+    "quote_verification": {
+      "checked": 10,
+      "approved": 10,
+      "rejected": 0,
+      "unverified": 0,
+      "removed_claims": 0,
+      "removed_quotes": 0
+    },
+    "number_verification": null
+  }
+}
