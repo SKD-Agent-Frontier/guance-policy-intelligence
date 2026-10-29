@@ -76,3 +76,58 @@ VITE_RESEARCH_MODE=real npm run dev
 | 浏览器端截图 | 同上 |
 | 研究历史中 `session_id` 的端到端续接 | 待真实联调确认后端会话行为 |
 | 比较/多方案的 `structured` 降级展示细化 | 现有类型已兼容，但缺少真实样本验证 |
+---
+
+## 八、真实端到端验收结果（2026-10-27 补测）
+
+> 校园网已连通（本机 `10.28.236.128`，直连 `10.27.66.12:80`，**不走代理**）。
+> 后端：`uvicorn app.main:app --port 8000`，`GUANCE_ENV_FILE` 指向原 `.env`（BM25 + qwen3.8-27b）。
+> 健康检查 `/api/health` 在 36 秒后就绪。
+
+| task_type | HTTP | Agent status | evidence_status | claims | evidence_refs | structured | 耗时 |
+|---|---:|---|---|---:|---:|---|---:|
+| `qa` | 200 | completed | verified | 6 | 2 | null（符合预期） | 23.9s |
+| `extract` | 200 | completed | insufficient | 0 | 0 | 4 键（dimensions/documents/elements/missing） | 17.5s |
+| `organize` | 200 | **failed** | none | 0 | 0 | 空 | 53.5s |
+| `compare` | 200 | completed | verified | 4 | 2 | 6 键（含 matrix/comparability） | 14.4s |
+| `compare_plans` | 200 | completed | insufficient | 4 | 4 | 6 键 | 28.2s |
+
+### 结论
+
+**Web 网络接入本身全部通过**：5/5 请求均为 HTTP 200，请求体、`targets`、`dimensions` 正确送达，返回的 `RunResult` 可被解析。
+
+**业务层 4/5 成功**，两个失败点均属 Agent 业务执行，**不是 Web 集成缺陷**：
+
+1. **`organize` → `OUTPUT_PARSE`**
+   模型输出无法解析为约定结构。属 Agent 侧输出解析问题，本轮边界不允许改 `agent/`，仅记录。
+
+2. **`extract` → 0 条要素**
+   告警为「答案中的 20699 未与任何结论绑定，无法核验」。属 Agent 数字核验未排除用户输入编号的问题，同上仅记录。
+
+3. **`compare_plans` → insufficient**
+   4 条结论、4 条证据，但部分结论证据不足。这是正常的 fail-closed 行为，不是缺陷。
+
+### 归属判定
+
+| 层 | 判定 |
+|---|---|
+| Web 网络接入 | ✅ 通过 |
+| 前端数据适配 | ✅ 通过（structured 结构均为预期键名） |
+| Agent 业务执行 | ⚠️ `organize` 输出解析、`extract` 数字核验两处待修（不在本轮范围） |
+| RAG 检索 | ✅ 正常返回证据 |
+| 模型服务 | ✅ 正常（关思考后 0.5s/次） |
+
+## 九、启动说明（真实模式）
+
+```bash
+# 后端（注意：必须直连，不要走代理）
+set GUANCE_ENV_FILE=C:\Users\86158\Desktop\管策智研\agent\.env
+cd web/backend
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 前端
+cd web/frontend
+VITE_RESEARCH_MODE=real npm run dev
+```
+
+**代理注意事项**：系统代理 `127.0.0.1:7897` 会让 `10.27.66.12` 不可达。调用学校端点前需清除 `HTTP_PROXY` / `HTTPS_PROXY`，或把 `10.27.66.12` 加入绕过列表。
