@@ -86,3 +86,14 @@ VITE_RESEARCH_MODE=real npm run dev
 | `extract` 数字核验误否决 | 同上 |
 | 研究历史 `session_id` 端到端续接 | 待真实联调确认 |
 | 比较 / 多方案 `structured` 的边界样例 | 类型已兼容，缺真实异常样本 |
+
+## 八、浏览器验收入口（待实际执行）
+
+- Demo E2E：`cd web/frontend && npm run test:e2e`，Playwright 独立启动端口 4173 的 Demo Vite 服务，强制 `VITE_RESEARCH_MODE=demo`，禁止复用模式未知的服务；该测试不依赖学校模型。
+- 真实浏览器：先在本机校园网环境启动 `web/backend` 的 FastAPI 服务，并确认 `http://127.0.0.1:8000/api/health` 就绪；测试专用 Vite 在端口 5173 启动（FastAPI 默认 CORS 白名单包含该 Origin）。
+- 真实 QA：在 `web/frontend` 下设置 `RUN_REAL_E2E=1`，运行 `npm run test:e2e:real -- --grep "Real QA"`。
+- 真实 Compare：单独运行 `npm run test:e2e:real -- --grep "Real Compare"`。可通过 `REAL_COMPARE_A`、`REAL_COMPARE_B` 指定当前 BM25 中确实存在的两个政策编号。
+- 两次测试必须分开执行，不要合并进同一次执行工具调用。默认不运行真实 E2E；禁止把跳过、模拟 HTTP 或 HTTP 200 等同于真实业务成功。
+- 真实浏览器截图自动保存至本地 `web/frontend/test-results-real/`，不会主动提交仓库。执行前需要停止占用 5173 端口的旧 Vite 服务，以避免复用错误模式的服务。
+
+**当前结论：** 已提交可执行的浏览器验收脚本，尚未在该环境完成真实校园模型 QA / Compare 浏览器运行，也未生成真实结果截图。待在可访问学校模型的机器上分别运行并记录其业务状态和证据展示结果。
