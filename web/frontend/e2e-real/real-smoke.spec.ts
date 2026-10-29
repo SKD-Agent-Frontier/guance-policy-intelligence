@@ -39,7 +39,8 @@ async function submitInBrowser(
 
   // Absence of validated claims is a business outcome, not a browser failure.
   if ((data.evidence_refs?.length ?? 0) > 0) {
-    const citation = page.getByRole("button", { name: /原文/ }).first();
+    // Scope to results: history buttons may contain the word "原文" in their title.
+    const citation = page.locator(".workspace-content .result-citation").first();
     if (await citation.count()) {
       await citation.click();
       await expect(page.getByRole("complementary", { name: "引用证据" })).toContainText(
