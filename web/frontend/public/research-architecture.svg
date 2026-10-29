@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 390" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">抽象现代学术建筑线描</title>
+  <desc id="desc">由透视线、立面网格和几何体构成的黑白灰学术建筑氛围插画。</desc>
+  <defs>
+    <pattern id="facade-grid" width="26" height="22" patternUnits="userSpaceOnUse">
+      <path d="M0 0H26M0 0V22" stroke="#a6a4a2" stroke-width=".8"/>
+    </pattern>
+    <pattern id="fine-grid" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="skewY(-13)">
+      <path d="M0 0H18M0 0V18" stroke="#c7c5c3" stroke-width=".6"/>
+    </pattern>
+    <clipPath id="left-facade"><path d="M72 227 548 143v147L72 376z"/></clipPath>
+    <clipPath id="center-facade"><path d="m548 143 282 53v148l-282-54z"/></clipPath>
+    <clipPath id="right-facade"><path d="m830 196 514-127v172L830 344z"/></clipPath>
+  </defs>
+
+  <path d="M0 319 548 143l286 54L1440 38v352H0z" fill="#f7f6f5"/>
+  <path d="M0 319 548 143v147L0 390z" fill="#eeedeb"/>
+  <path d="m548 143 282 53v148l-282-54z" fill="#e4e3e1"/>
+  <path d="m830 196 514-127v172L830 344z" fill="#f2f1ef"/>
+
+  <path d="M72 227 548 143v147L72 376z" fill="url(#facade-grid)" opacity=".85" clip-path="url(#left-facade)"/>
+  <path d="m548 143 282 53v148l-282-54z" fill="url(#fine-grid)" opacity=".9" clip-path="url(#center-facade)"/>
+  <path d="m830 196 514-127v172L830 344z" fill="url(#facade-grid)" opacity=".72" clip-path="url(#right-facade)"/>
+
+  <path d="M72 227 548 143l282 53L1344 69M72 376l476-86 282 54 514-103M0 319l548-176 282 53L1440 38" stroke="#454442" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M548 143v147m282-94v149m-758-118 0 130m112-150v130m111-150v130m112-150v130m535-126v148m108-175v148m108-175v148m108-175v148" stroke="#62615f" stroke-width="1.1" opacity=".68"/>
+  <path d="m94 354 454-82 258 49m-703 42 447-79 256 48m241-79 474-95m-474 123 474-95m-474 124 474-95" stroke="#858380" stroke-width=".8" opacity=".7"/>
+
+  <path d="m271 191 61-11v55l-61 11zm113-20 61-11v55l-61 11zm111-20 36-6v55l-36 6z" fill="#fff" fill-opacity=".5" stroke="#636260" stroke-width="1"/>
+  <path d="m584 166 47 9v57l-47-9zm88 17 47 9v57l-47-9zm88 17 47 9v57l-47-9z" fill="#fff" fill-opacity=".35" stroke="#646361" stroke-width="1"/>
+  <path d="m883 194 55-14v61l-55 14zm111-28 55-14v61l-55 14zm111-28 55-14v61l-55 14z" fill="#fff" fill-opacity=".52" stroke="#666563" stroke-width="1"/>
+
+  <path d="M0 383 541 287l289 55 610-121" stroke="#aaa8a6" stroke-width="1"/>
+  <path d="m125 390 462-97m-300 97 392-83m-240 83 323-68m-169 68 255-54m-80-53 384 73m-263-93 493 94m-372-115 486 92" stroke="#c1bfbd" stroke-width=".8"/>
+  <path d="M0 389h1440" stroke="#565553" stroke-width="1.4" opacity=".65"/>
+  <path d="m1187 91 40-10v54l-40 10z" stroke="#b22924" stroke-width="1.4" opacity=".8"/>
+</svg>
