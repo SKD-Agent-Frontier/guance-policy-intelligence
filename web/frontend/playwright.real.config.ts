@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: "list",
   outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results-real",
   use: {
-    baseURL: "http://127.0.0.1:4175",
+    baseURL: "http://127.0.0.1:5173",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     ...(process.env.PLAYWRIGHT_BROWSER_CHANNEL
@@ -19,8 +19,8 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4175 --strictPort",
-    url: "http://127.0.0.1:4175",
+    command: "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
+    url: "http://127.0.0.1:5173",
     env: {
       VITE_RESEARCH_MODE: "real",
       VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000",
