@@ -13,7 +13,7 @@ import {
 import { Home } from "./components/Home";
 import { Results } from "./components/Results";
 import { EvidencePanel } from "./components/EvidencePanel";
-import { researchClient, type DemoScenario } from "./api/client";
+import { isRealMode, researchClient, type DemoScenario } from "./api/client";
 import type { ResearchRequest, RunResult, TaskType } from "./types";
 
 type HistoryItem = {
@@ -261,7 +261,7 @@ export default function App() {
                   <div className="local-demo-note">
                     <ShieldCheck size={14} />
                     <span>
-                      本地演示记录
+                      {isRealMode ? "本地研究记录" : "本地演示记录"}
                       <br />
                       仅保存在当前会话
                     </span>
@@ -308,7 +308,7 @@ export default function App() {
                 </span>
               </div>
               <div className="workspace-top-right">
-                <span className="demo-badge">演示数据</span>
+                {!isRealMode && <span className="demo-badge">演示数据</span>}
                 <button
                   className="workspace-icon-button"
                   type="button"
@@ -354,11 +354,11 @@ export default function App() {
                     {isRunning
                       ? "正在整理政策依据…"
                       : current?.status === "failed"
-                        ? "演示任务执行失败，可重新提交"
+                        ? (isRealMode ? "研究执行失败，可重新提交" : "演示任务执行失败，可重新提交")
                         : current?.status === "limit_reached"
-                          ? "演示任务达到执行限制"
+                        ? (isRealMode ? "研究达到执行限制" : "演示任务达到执行限制")
                           : current
-                            ? "演示数据 · 非真实模型调用"
+                        ? (isRealMode ? "真实模型与知识库调用" : "演示数据 · 非真实模型调用")
                             : "填写研究问题以开始"}
                   </span>
                   {current && (
@@ -408,7 +408,7 @@ export default function App() {
                   <span className="loading-spinner" />
                   <div>
                     <strong>正在准备研究结果</strong>
-                    <p>演示任务正在生成，请稍候…</p>
+                    <p>{isRealMode ? "正在处理研究请求，请稍候…" : "演示任务正在生成，请稍候…"}</p>
                   </div>
                 </div>
               )}
@@ -497,6 +497,7 @@ export default function App() {
           </header>
           {dialog === "settings" ? (
             <div className="settings-content">
+              {!isRealMode && (
               <div className="setting-block">
                 <strong>演示状态</strong>
                 <p>选择提交研究时展示的演示结果状态。</p>
@@ -519,9 +520,10 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              )}
               <div className="setting-disclaimer">
                 <ShieldCheck size={15} />
-                所有结果均为本地演示数据，不来自真实模型调用。
+                {isRealMode ? "所有结果均来自真实模型与知识库调用。" : "所有结果均为本地演示数据，不来自真实模型调用。"}
               </div>
             </div>
           ) : dialog === "history" ? (
@@ -530,7 +532,7 @@ export default function App() {
                 <div className="history-dialog-empty">
                   <Clock3 size={20} />
                   <strong>还没有研究记录</strong>
-                  <p>完成一次演示研究后，记录会出现在这里。</p>
+                  <p>{isRealMode ? "完成一次研究后，记录会出现在这里。" : "完成一次演示研究后，记录会出现在这里。"}</p>
                 </div>
               ) : (
                 history.map((item) => (
@@ -570,7 +572,7 @@ export default function App() {
               </div>
               <div className="setting-disclaimer">
                 <ShieldCheck size={15} />
-                当前为本地演示环境，研究结果使用演示数据。
+                {isRealMode ? "当前连接真实研究服务，结果来自学校模型与知识库。" : "当前为本地演示环境，研究结果使用演示数据。"}
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { researchClient } from "./client";
+import { demoClient as researchClient } from "./demoClient";
 import type { ResearchRequest } from "../types";
 
 const request = (overrides: Partial<ResearchRequest> = {}): ResearchRequest => ({

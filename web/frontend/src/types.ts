@@ -5,6 +5,7 @@ export interface ResearchRequest {
   task_type: TaskType;
   targets?: string[];
   dimensions?: string[];
+  session_id?: string | null;
 }
 
 export type RunStatus = "completed" | "failed" | "limit_reached";
