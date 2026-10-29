@@ -264,8 +264,12 @@ async def verify_numbers(result, ctx) -> int:
     # 路由与 targets 指定的政策身份编号同样不是模型编的数字。
     # 用户通过 targets 传入的 planid 往往不出现在 question 文本里，
     # 若不排除，答案里复述一次编号就会让全部结论被判无据。
-    asked |= set(_tokens(''.join(getattr(ctx, 'scope', None) or ())))
-    asked |= set(_tokens(''.join(getattr(getattr(ctx, 'route', None), 'planids', None) or ())))
+    # 逐个编号提取，不能拼接：两个纯数字 planid 拼起来会变成一个数，
+    # 那样 20699 与 37982 会被误当成 2069937982，两个身份都排除不掉。
+    for _pid in getattr(ctx, 'scope', None) or ():
+        asked |= set(_tokens(_pid))
+    for _pid in getattr(getattr(ctx, 'route', None), 'planids', None) or ():
+        asked |= set(_tokens(_pid))
     for _ref in result.evidence_refs:
         asked |= set(_tokens(_ref.planid or ''))
     orphan = [token for token in _tokens(result.answer)
