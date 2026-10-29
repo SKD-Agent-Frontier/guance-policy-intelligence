@@ -7,8 +7,8 @@ from guance_agent.context import RunContext
 from guance_agent.schemas import TaskRequest
 
 from .constants import MAX_MODEL_CALLS, MODEL_RESERVE_S
-from .discovery import discover
 from .diagnostics import parse_failure_reason
+from .discovery import discover
 from .prompt import build_messages
 from .reading import read_candidates
 from .scope import parse_scope
