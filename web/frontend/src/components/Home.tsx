@@ -1,12 +1,14 @@
-import { BookOpenText, Clock3, Settings2, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { BookOpenText } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
-import type { ResearchRequest } from "../types";
+import type { ResearchRequest, TaskType } from "../types";
 
 type Props = {
   onSubmit: (request: ResearchRequest) => void;
   initialRequest?: ResearchRequest;
   onHistory: () => void;
   onSettings: () => void;
+  onAbout: () => void;
 };
 
 export function Home({
@@ -14,62 +16,80 @@ export function Home({
   initialRequest,
   onHistory,
   onSettings,
+  onAbout,
 }: Props) {
+  const [requestedMode, setRequestedMode] = useState<TaskType>("qa");
+
   return (
-    <main className="home-page">
+    <main className="home-page" id="home">
       <header className="topbar home-topbar">
         <a className="brand" href="#home" aria-label="管策智研首页">
           <span className="brand-mark">
-            <BookOpenText size={18} strokeWidth={1.7} />
+            <BookOpenText size={19} strokeWidth={1.8} />
           </span>
           <span>管策智研</span>
-          <span className="brand-divider" />
-          <span className="brand-caption">政策研究工作台</span>
         </a>
-        <nav className="top-actions" aria-label="主导航">
-          <button className="top-action" type="button" onClick={onHistory}>
-            <Clock3 size={15} />
-            历史记录
+        <nav className="home-nav" aria-label="主导航">
+          <button
+            className={`home-nav-link ${requestedMode !== "organize" ? "is-current" : ""}`}
+            type="button"
+            onClick={() => setRequestedMode("qa")}
+          >
+            研究
           </button>
           <button
-            className="top-action settings-action"
+            className={`home-nav-link ${requestedMode === "organize" ? "is-current" : ""}`}
             type="button"
-            onClick={onSettings}
+            onClick={() => setRequestedMode("organize")}
           >
-            <Settings2 size={15} />
-            设置
+            文献
           </button>
-          <span className="top-status">
-            <ShieldCheck size={14} />
-            证据可溯源
-          </span>
+          <button className="home-nav-link" type="button" onClick={onHistory}>
+            数据
+          </button>
+          <button className="home-nav-link" type="button" onClick={onAbout}>
+            关于
+          </button>
         </nav>
+        <button
+          className="home-profile"
+          type="button"
+          aria-label="打开演示设置"
+          onClick={onSettings}
+        >
+          <img src="/demo-avatar.png" alt="" />
+        </button>
       </header>
 
-      <div className="home-content">
-        <div className="intro-block">
-          <div className="eyebrow">
-            <span /> POLICY INTELLIGENCE
+      <section className="home-main" aria-label="政策研究">
+        <div className="home-content">
+          <div className="intro-block">
+            <h1>
+              以政策研究之智
+              <br />
+              探索智能时代的公共治理
+            </h1>
+            <p>基于权威政策文献的专业分析平台</p>
           </div>
-          <h1>
-            让政策研究<span>更智能</span>
-          </h1>
-          <p>基于权威政策文献，探索、梳理与理解政策</p>
+          <ResearchForm
+            onSubmit={onSubmit}
+            initialRequest={initialRequest}
+            requestedMode={requestedMode}
+            onModeSelect={setRequestedMode}
+          />
         </div>
-        <ResearchForm onSubmit={onSubmit} initialRequest={initialRequest} />
+
         <div className="architecture-scene" aria-hidden="true">
-          <img src="/research-architecture.svg" alt="" />
+          <img src="/research-architecture.png" alt="" />
+          <div className="architecture-title">
+            <strong>政策智探</strong>
+            <span>POLICY INTELLIGENCE</span>
+          </div>
+          <div className="architecture-mark">
+            <span>POLICY<br />INTELLIGENCE</span>
+          </div>
         </div>
-        <div className="home-note">
-          <span className="note-line" />
-          从一个问题开始，循着证据深入研究
-          <span className="note-line" />
-        </div>
-      </div>
-      <footer className="home-footer">
-        <span>管策智研 · 政策智能研究平台</span>
-        <span>本地演示环境</span>
-      </footer>
+      </section>
     </main>
   );
 }

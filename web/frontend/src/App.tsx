@@ -51,7 +51,7 @@ export default function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [scenario, setScenario] = useState<DemoScenario>("success");
-  const [dialog, setDialog] = useState<"history" | "settings" | null>(null);
+  const [dialog, setDialog] = useState<"history" | "settings" | "about" | null>(null);
   const [homeRevision, setHomeRevision] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
@@ -70,7 +70,7 @@ export default function App() {
     }
   }, [dialog]);
 
-  const openDialog = (name: "history" | "settings") => {
+  const openDialog = (name: "history" | "settings" | "about") => {
     restoreFocusRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -174,6 +174,7 @@ export default function App() {
           initialRequest={activeRequest}
           onHistory={() => openDialog("history")}
           onSettings={() => openDialog("settings")}
+          onAbout={() => openDialog("about")}
         />
       </div>
       {view === "workspace" && (
@@ -478,7 +479,11 @@ export default function App() {
             <div>
               <span className="dialog-eyebrow">GUANCE RESEARCH</span>
               <h2 id="dialog-title">
-                {dialog === "settings" ? "演示设置" : "研究历史"}
+                {dialog === "settings"
+                  ? "演示设置"
+                  : dialog === "about"
+                    ? "关于管策智研"
+                    : "研究历史"}
               </h2>
             </div>
             <button
@@ -519,7 +524,7 @@ export default function App() {
                 所有结果均为本地演示数据，不来自真实模型调用。
               </div>
             </div>
-          ) : (
+          ) : dialog === "history" ? (
             <div className="dialog-history">
               {history.length === 0 ? (
                 <div className="history-dialog-empty">
@@ -554,6 +559,19 @@ export default function App() {
                   </button>
                 ))
               )}
+            </div>
+          ) : (
+            <div className="settings-content about-content">
+              <div className="setting-block">
+                <strong>基于权威政策文献的专业分析平台</strong>
+                <p>
+                  管策智研通过政策问答、要素提取、文献梳理、政策比较和多方案分析，帮助研究者理解与分析公共政策。
+                </p>
+              </div>
+              <div className="setting-disclaimer">
+                <ShieldCheck size={15} />
+                当前为本地演示环境，研究结果使用演示数据。
+              </div>
             </div>
           )}
           <footer>

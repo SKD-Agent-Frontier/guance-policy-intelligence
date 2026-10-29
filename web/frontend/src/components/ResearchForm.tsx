@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
-  ArrowUp,
   FileSearch,
   GitCompareArrows,
   ListTree,
   Plus,
+  Search,
   Sparkles,
   Waypoints,
 } from "lucide-react";
@@ -14,6 +14,8 @@ import type { ResearchRequest, TaskType } from "../types";
 type Props = {
   onSubmit: (request: ResearchRequest) => void;
   initialRequest?: ResearchRequest;
+  requestedMode?: TaskType;
+  onModeSelect?: (mode: TaskType) => void;
 };
 
 const modes: { id: TaskType; label: string; icon: typeof Sparkles }[] = [
@@ -71,9 +73,17 @@ function initialDrafts(request?: ResearchRequest) {
   };
 }
 
-export function ResearchForm({ onSubmit, initialRequest }: Props) {
+export function ResearchForm({
+  onSubmit,
+  initialRequest,
+  requestedMode,
+  onModeSelect,
+}: Props) {
   const [mode, setMode] = useState<TaskType>(initialRequest?.task_type ?? "qa");
   const [drafts, setDrafts] = useState(() => initialDrafts(initialRequest));
+  useEffect(() => {
+    if (requestedMode) setMode(requestedMode);
+  }, [requestedMode]);
   const setQA = (value: string) =>
     setDrafts((current) => ({ ...current, qa: value }));
   const toggleDimension = (
@@ -236,6 +246,7 @@ export function ResearchForm({ onSubmit, initialRequest }: Props) {
       return copy;
     });
     setMode(nextMode);
+    onModeSelect?.(nextMode);
   };
 
   return (
@@ -243,7 +254,11 @@ export function ResearchForm({ onSubmit, initialRequest }: Props) {
       className="research-composer"
       aria-label="研究需求"
       onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        if (
+          !event.nativeEvent.isComposing &&
+          (event.metaKey || event.ctrlKey) &&
+          event.key === "Enter"
+        ) {
           event.preventDefault();
           submit();
         }
@@ -254,13 +269,24 @@ export function ResearchForm({ onSubmit, initialRequest }: Props) {
       </div>
       <div className="composer-fields" key={mode}>
         {mode === "qa" && (
-          <textarea
+          <input
             aria-label="研究问题"
             className="composer-question"
-            placeholder="输入你想研究的政策问题……"
-            rows={3}
+            type="text"
+            placeholder="请输入你的研究关键词……"
             value={drafts.qa}
             onChange={(event) => setQA(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.nativeEvent.isComposing &&
+                !event.ctrlKey &&
+                !event.metaKey
+              ) {
+                event.preventDefault();
+                submit();
+              }
+            }}
           />
         )}
 
@@ -484,7 +510,7 @@ export function ResearchForm({ onSubmit, initialRequest }: Props) {
           }
           aria-label="开始研究"
         >
-          开始研究 <ArrowUp size={16} strokeWidth={2.2} />
+          开始研究 <Search size={15} strokeWidth={2} />
         </button>
       </div>
       <div className="composer-hint">
@@ -496,6 +522,7 @@ export function ResearchForm({ onSubmit, initialRequest }: Props) {
             type="button"
             role="tab"
             aria-selected={mode === id}
+            data-mode={id}
             className={`mode-tab ${mode === id ? "is-active" : ""}`}
             key={id}
             onClick={() => changeMode(id)}
