@@ -14,7 +14,10 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
     url: "http://127.0.0.1:4173",
-    reuseExistingServer: !process.env.CI,
+    // E2E fixtures use DEMO-A and must never call the school model.
+    env: { VITE_RESEARCH_MODE: "demo" },
+    // Never reuse a server whose research mode is unknown (possibly real).
+    reuseExistingServer: false,
     timeout: 30_000,
   },
 });
