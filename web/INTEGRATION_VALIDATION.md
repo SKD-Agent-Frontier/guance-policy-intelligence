@@ -1,133 +1,88 @@
-# Web 前后端集成验收记录（PR #7）
+# 管策智研 Web 前后端集成验收记录（PR #7）
 
-## 一、本轮完成范围
+## 一、范围
 
-在前端接入真实 FastAPI `/api/runs`，同时保留显式演示模式。
+将现有 React 前端接入真实 FastAPI `/api/runs`，保留显式演示模式。
+不重新设计界面，不修改 `agent/`、`rag库/`、`web/backend/` 的业务逻辑。
 
 ## 二、改动清单
 
 | 文件 | 说明 |
 |---|---|
-| `web/frontend/src/api/config.ts` | 新增。读取 `VITE_RESEARCH_MODE` / `VITE_API_BASE_URL`；非法模式直接抛错，不静默回退 |
+| `web/frontend/src/api/config.ts` | 新增。读取 `VITE_RESEARCH_MODE` / `VITE_API_BASE_URL`；模式值非法直接抛错，不静默回退 |
 | `web/frontend/src/api/realClient.ts` | 新增。`POST /api/runs`，携带 `session_id`；超时 210 秒；错误分类 network / timeout / http / malformed |
 | `web/frontend/src/api/demoClient.ts` | 新增。原有演示逻辑原样迁出 |
 | `web/frontend/src/api/client.ts` | 改为按模式二选一，**不做自动回退** |
 | `web/frontend/src/types.ts` | `ResearchRequest` 补 `session_id` |
 | `web/frontend/src/vite-env.d.ts` | 新增。启用 `import.meta.env` 类型 |
-| `web/frontend/src/App.tsx` | 演示文案按模式切换；Real 模式隐藏「演示数据」徽标 |
-| `web/frontend/src/api/realClient.test.ts` | 新增 5 条：请求体契约、session_id、422/503/500 映射、网络失败、非 JSON |
-| `web/frontend/src/api/client.test.ts` | 改为直接测 `demoClient`（这些用例本来就是演示行为） |
+| `web/frontend/src/App.tsx` | 状态文案按模式切换；Real 模式隐藏「演示数据」徽标与演示状态选择器 |
+| `web/frontend/src/api/realClient.test.ts` | 新增 5 条 |
+| `web/frontend/src/api/client.test.ts` | 改为直接测 `demoClient` |
 | `web/frontend/.env.example` | 新增 |
 
-## 三、验证结果
+## 三、构建与测试
 
 ```
 npm run typecheck   ✅ 通过
 npm run test        ✅ 4 文件 / 16 测试全过
-npm run build       ✅ 1589 modules，dist 产物正常
+npm run build       ✅ 构建成功
 ```
 
-## 四、错误处理覆盖
+## 四、错误处理
 
 | 场景 | 表现 |
 |---|---|
-| 后端未启动 / 网络中断 | 「无法连接研究服务，请确认后端已启动。」 |
-| 前端超时 | 「请求超时。Agent 可能仍在后台执行，请稍后重试。」 |
-| HTTP 422 | 「请求参数无效，请检查研究问题与政策编号。」 |
-| HTTP 503 | 「服务尚未就绪，后端仍在加载模型或知识库，请稍后重试。」 |
-| HTTP 500 | 「服务内部错误，请稍后重试。」 |
-| 响应非 JSON | 「服务返回内容无法解析。」 |
+| 后端未启动 / 网络中断 | 无法连接研究服务，请确认后端已启动。 |
+| 前端超时 | 请求超时。Agent 可能仍在后台执行，请稍后重试。 |
+| HTTP 422 | 请求参数无效，请检查研究问题与政策编号。 |
+| HTTP 503 | 服务尚未就绪，后端仍在加载模型或知识库，请稍后重试。 |
+| HTTP 500 | 服务内部错误，请稍后重试。 |
+| 响应非 JSON | 服务返回内容无法解析。 |
 
-优先使用后端返回的中文 `detail`，缺失时回落到上述文案。不展示 traceback，不泄露密钥与路径。
+优先使用后端返回的 `detail`，缺失时回落到上述文案。不展示 traceback，不泄露密钥与路径。
 
-## 五、真实端到端验收状态
+## 五、五项功能真实 HTTP 调用
 
-**未完成 —— 外部环境阻塞。**
-
-当前执行环境不在校园网内，`10.27.66.12:80/443` 均 TCP 超时，无法调用学校模型与真实 RAG。
-
-因此本轮：
-
-- ✅ 完成前端构建、TypeScript、单元测试（使用模拟 HTTP 响应）
-- ❌ **未执行**五项功能的真实模型联调
-- ❌ **未执行**浏览器端 `/api/runs` 真实请求
-
-**未把演示结果当作真实测试通过。**
-
-## 六、恢复校园网后的验收步骤
-
-```bash
-# 1. 后端（使用真实 .env）
-cd web/backend
-GUANCE_ENV_FILE=<原 .env 绝对路径> python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-
-# 2. 前端
-cd web/frontend
-VITE_RESEARCH_MODE=real npm run dev
-```
-
-逐项记录：HTTP 状态、task_type、Agent status、evidence_status、耗时、claims 数、evidence_refs 数、structured 是否正确展示。
-
-## 七、未完成 / 待办
-
-| 项 | 原因 |
-|---|---|
-| 五项功能真实模型联调 | 校园网不可达 |
-| 浏览器端截图 | 同上 |
-| 研究历史中 `session_id` 的端到端续接 | 待真实联调确认后端会话行为 |
-| 比较/多方案的 `structured` 降级展示细化 | 现有类型已兼容，但缺少真实样本验证 |
----
-
-## 八、真实端到端验收结果（2026-10-27 补测）
-
-> 校园网已连通（本机 `10.28.236.128`，直连 `10.27.66.12:80`，**不走代理**）。
-> 后端：`uvicorn app.main:app --port 8000`，`GUANCE_ENV_FILE` 指向原 `.env`（BM25 + qwen3.8-27b）。
-> 健康检查 `/api/health` 在 36 秒后就绪。
+后端：`uvicorn app.main:app --port 8000`，加载真实 `.env`（BM25 运行库 + 学校模型）。
+健康检查 `/api/health` 约 36 秒后就绪。
 
 | task_type | HTTP | Agent status | evidence_status | claims | evidence_refs | structured | 耗时 |
 |---|---:|---|---|---:|---:|---|---:|
 | `qa` | 200 | completed | verified | 6 | 2 | null（符合预期） | 23.9s |
-| `extract` | 200 | completed | insufficient | 0 | 0 | 4 键（dimensions/documents/elements/missing） | 17.5s |
-| `organize` | 200 | **failed** | none | 0 | 0 | 空 | 53.5s |
-| `compare` | 200 | completed | verified | 4 | 2 | 6 键（含 matrix/comparability） | 14.4s |
+| `extract` | 200 | completed | insufficient | 0 | 0 | 4 键 | 17.5s |
+| `organize` | 200 | failed | none | 0 | 0 | 空 | 53.5s |
+| `compare` | 200 | completed | verified | 4 | 2 | 6 键（含 matrix） | 14.4s |
 | `compare_plans` | 200 | completed | insufficient | 4 | 4 | 6 键 | 28.2s |
 
-### 结论
+**Web 接入 5/5 通过**：请求体、`targets`、`dimensions` 正确送达，返回的 `RunResult` 可被解析，`structured` 键名与前端类型一致。
 
-**Web 网络接入本身全部通过**：5/5 请求均为 HTTP 200，请求体、`targets`、`dimensions` 正确送达，返回的 `RunResult` 可被解析。
+**业务层 4/5 成功**，两个失败点归属 Agent 执行层，不在本轮修改范围：
 
-**业务层 4/5 成功**，两个失败点均属 Agent 业务执行，**不是 Web 集成缺陷**：
+1. `organize` 返回 `OUTPUT_PARSE` —— 模型输出无法解析为约定结构。
+2. `extract` 返回 0 条要素 —— 数字核验未排除用户输入的政策编号，导致结论被整体否决。
 
-1. **`organize` → `OUTPUT_PARSE`**
-   模型输出无法解析为约定结构。属 Agent 侧输出解析问题，本轮边界不允许改 `agent/`，仅记录。
+`compare_plans` 的 `insufficient` 是 fail-closed 的正常结果，不是缺陷。
 
-2. **`extract` → 0 条要素**
-   告警为「答案中的 20699 未与任何结论绑定，无法核验」。属 Agent 数字核验未排除用户输入编号的问题，同上仅记录。
-
-3. **`compare_plans` → insufficient**
-   4 条结论、4 条证据，但部分结论证据不足。这是正常的 fail-closed 行为，不是缺陷。
-
-### 归属判定
-
-| 层 | 判定 |
-|---|---|
-| Web 网络接入 | ✅ 通过 |
-| 前端数据适配 | ✅ 通过（structured 结构均为预期键名） |
-| Agent 业务执行 | ⚠️ `organize` 输出解析、`extract` 数字核验两处待修（不在本轮范围） |
-| RAG 检索 | ✅ 正常返回证据 |
-| 模型服务 | ✅ 正常（关思考后 0.5s/次） |
-
-## 九、启动说明（真实模式）
+## 六、本地启动
 
 ```bash
-# 后端（注意：必须直连，不要走代理）
-set GUANCE_ENV_FILE=C:\Users\86158\Desktop\管策智研\agent\.env
+# 后端
 cd web/backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-# 前端
+# 前端（真实模式）
 cd web/frontend
 VITE_RESEARCH_MODE=real npm run dev
 ```
 
-**代理注意事项**：系统代理 `127.0.0.1:7897` 会让 `10.27.66.12` 不可达。调用学校端点前需清除 `HTTP_PROXY` / `HTTPS_PROXY`，或把 `10.27.66.12` 加入绕过列表。
+后端通过 `GUANCE_ENV_FILE` 指定外部 `.env`，仓库内不存放任何密钥。
+
+## 七、未完成项
+
+| 项 | 原因 |
+|---|---|
+| 浏览器端真实提交（QA / 政策比较）与引用面板检查 | 待补 |
+| `organize` 输出解析失败 | Agent 侧问题，超出本轮范围 |
+| `extract` 数字核验误否决 | 同上 |
+| 研究历史 `session_id` 端到端续接 | 待真实联调确认 |
+| 比较 / 多方案 `structured` 的边界样例 | 类型已兼容，缺真实异常样本 |

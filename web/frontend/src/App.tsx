@@ -354,11 +354,11 @@ export default function App() {
                     {isRunning
                       ? "正在整理政策依据…"
                       : current?.status === "failed"
-                        ? "演示任务执行失败，可重新提交"
+                        ? (isRealMode ? "研究执行失败，可重新提交" : "演示任务执行失败，可重新提交")
                         : current?.status === "limit_reached"
-                          ? "演示任务达到执行限制"
+                        ? (isRealMode ? "研究达到执行限制" : "演示任务达到执行限制")
                           : current
-                            ? "演示数据 · 非真实模型调用"
+                        ? (isRealMode ? "真实模型与知识库调用" : "演示数据 · 非真实模型调用")
                             : "填写研究问题以开始"}
                   </span>
                   {current && (
@@ -497,6 +497,7 @@ export default function App() {
           </header>
           {dialog === "settings" ? (
             <div className="settings-content">
+              {!isRealMode && (
               <div className="setting-block">
                 <strong>演示状态</strong>
                 <p>选择提交研究时展示的演示结果状态。</p>
@@ -519,6 +520,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              )}
               <div className="setting-disclaimer">
                 <ShieldCheck size={15} />
                 {isRealMode ? "所有结果均来自真实模型与知识库调用。" : "所有结果均为本地演示数据，不来自真实模型调用。"}
