@@ -13,7 +13,7 @@ import {
 import { Home } from "./components/Home";
 import { Results } from "./components/Results";
 import { EvidencePanel } from "./components/EvidencePanel";
-import { researchClient, type DemoScenario } from "./api/client";
+import { isRealMode, researchClient, type DemoScenario } from "./api/client";
 import type { ResearchRequest, RunResult, TaskType } from "./types";
 
 type HistoryItem = {
@@ -261,7 +261,7 @@ export default function App() {
                   <div className="local-demo-note">
                     <ShieldCheck size={14} />
                     <span>
-                      本地演示记录
+                      {isRealMode ? "本地研究记录" : "本地演示记录"}
                       <br />
                       仅保存在当前会话
                     </span>
@@ -308,7 +308,7 @@ export default function App() {
                 </span>
               </div>
               <div className="workspace-top-right">
-                <span className="demo-badge">演示数据</span>
+                {!isRealMode && <span className="demo-badge">演示数据</span>}
                 <button
                   className="workspace-icon-button"
                   type="button"
@@ -408,7 +408,7 @@ export default function App() {
                   <span className="loading-spinner" />
                   <div>
                     <strong>正在准备研究结果</strong>
-                    <p>演示任务正在生成，请稍候…</p>
+                    <p>{isRealMode ? "正在处理研究请求，请稍候…" : "演示任务正在生成，请稍候…"}</p>
                   </div>
                 </div>
               )}
@@ -521,7 +521,7 @@ export default function App() {
               </div>
               <div className="setting-disclaimer">
                 <ShieldCheck size={15} />
-                所有结果均为本地演示数据，不来自真实模型调用。
+                {isRealMode ? "所有结果均来自真实模型与知识库调用。" : "所有结果均为本地演示数据，不来自真实模型调用。"}
               </div>
             </div>
           ) : dialog === "history" ? (
@@ -530,7 +530,7 @@ export default function App() {
                 <div className="history-dialog-empty">
                   <Clock3 size={20} />
                   <strong>还没有研究记录</strong>
-                  <p>完成一次演示研究后，记录会出现在这里。</p>
+                  <p>{isRealMode ? "完成一次研究后，记录会出现在这里。" : "完成一次演示研究后，记录会出现在这里。"}</p>
                 </div>
               ) : (
                 history.map((item) => (
@@ -570,7 +570,7 @@ export default function App() {
               </div>
               <div className="setting-disclaimer">
                 <ShieldCheck size={15} />
-                当前为本地演示环境，研究结果使用演示数据。
+                {isRealMode ? "当前连接真实研究服务，结果来自学校模型与知识库。" : "当前为本地演示环境，研究结果使用演示数据。"}
               </div>
             </div>
           )}
