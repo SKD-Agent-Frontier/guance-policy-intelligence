@@ -460,3 +460,115 @@ async def test_state_capacity_is_bounded_and_oldest_state_is_evicted():
                 "state": {"state_id": first.state.state_id, "revision": first.state.revision},
             }
         )
+
+
+@run_async
+async def test_topic_ending_with_city_suffix_is_not_inferred_as_an_area():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理企业上市政策，不限时间，按产业分类"}
+    )
+
+    assert response.state.area is None
+    assert "企业上市" in response.state.topic
+    assert not any(
+        item.condition_id == "area" and item.status == "executable_filter"
+        for item in response.state.condition_statuses
+    )
+
+
+@run_async
+async def test_unrecognized_area_with_explicit_scope_marker_stays_request_only():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理数字经济政策，地区为火星市，不限时间，按产业分类"}
+    )
+
+    assert response.state.area is None
+    assert response.state.topic == "数字经济政策"
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert area_status.value == "火星市"
+    assert "火星市" in response.request.question
+
+
+@run_async
+async def test_year_prefix_before_a_real_area_keeps_area_and_topic_exact():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理2020年前北京市数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.state.area == "北京市"
+    assert response.state.topic == "数字经济政策"
+
+
+@run_async
+@pytest.mark.parametrize("time_text", ["2020年以前", "截至2020年", "2020年之后", "2020年以来"])
+async def test_calendar_year_boundary_is_preserved_in_value_and_ready_question(time_text):
+    response = await ResearchPreparationService().prepare(
+        {
+            "mode": "organize",
+            "message": f"梳理北京市数字经济政策，{time_text}，按产业分类",
+        }
+    )
+
+    time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
+    assert time_status.status == "request_only"
+    assert time_status.value == time_text
+    assert response.status == "ready"
+    assert time_text in response.request.question
+    assert "不保证按发布日期精确过滤" in response.warnings
+
+
+@run_async
+async def test_nationwide_scope_is_explicit_unrestricted_state_and_request_text():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理全国范围数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.status == "ready"
+    assert response.state.area is None
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "unrestricted"
+    assert "全国" in area_status.value
+    assert "全国" in response.request.question
+    assert response.state.topic == "数字经济政策"
+
+
+@run_async
+async def test_all_substring_in_ownership_reform_question_does_not_trigger_exhaustive_block():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "qa", "message": "所有制改革的产业政策有哪些？"}
+    )
+
+    assert response.status == "ready"
+    assert response.request is not None
+
+
+@run_async
+@pytest.mark.parametrize("message", ["列出全部政策", "请给出准确篇数", "总共有多少篇政策？"])
+async def test_true_exhaustive_or_exact_count_qa_is_blocked(message):
+    response = await ResearchPreparationService().prepare({"mode": "qa", "message": message})
+
+    assert response.status == "blocked"
+    assert response.request is None
+
+
+@run_async
+async def test_qa_followup_can_answer_aspect_and_add_calendar_year_together():
+    service = ResearchPreparationService()
+    first = await service.prepare({"mode": "qa", "message": "数字经济"})
+    second = await service.prepare(
+        {
+            "mode": "qa",
+            "message": "产业政策，2023年",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "ready"
+    assert "aspect" not in {option.id for option in second.options}
+    assert any(question.question_id == "aspect" for question in second.state.completed_questions)
+    time_status = next(s for s in second.state.condition_statuses if s.condition_id == "time_scope")
+    assert time_status.status == "request_only"
+    assert time_status.value == "2023年"
+    assert "产业政策" in second.request.question
+    assert "2023年" in second.request.question

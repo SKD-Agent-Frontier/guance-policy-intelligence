@@ -30,9 +30,14 @@ PERIODS = {
     "十四五": ("2021", "2025"),
     "十五五": ("2026", "2030"),
 }
-ROUTE_AREA = re.compile(r"(?<![地该各本全])([\u4e00-\u9fa5]{2,4}(?:省|市|区|县|自治州|盟|旗))")
-ROUTE_PERIOD = re.compile(r"第?(十[一二三四五])(?:个)?五")
-AREA_LEAD_NOISE = ("比较", "分析", "对照", "围绕", "针对", "对于", "关于", "以及", "期间", "年度", "时期", "阶段", "和", "与", "及", "在", "对", "较", "比")
+ADMIN_AREAS = (
+    "北京市", "天津市", "上海市", "重庆市", "河北省", "山西省", "辽宁省", "吉林省", "黑龙江省",
+    "江苏省", "浙江省", "安徽省", "福建省", "江西省", "山东省", "河南省", "湖北省", "湖南省",
+    "广东省", "海南省", "四川省", "贵州省", "云南省", "陕西省", "甘肃省", "青海省", "台湾省",
+    "内蒙古自治区", "广西壮族自治区", "西藏自治区", "宁夏回族自治区", "新疆维吾尔自治区",
+    "苏州市", "杭州市", "南京市", "广州市", "深圳市", "成都市", "武汉市", "西安市", "郑州市",
+    "长沙市", "合肥市", "福州市", "厦门市", "济南市", "青岛市", "大连市", "宁波市", "无锡市",
+)
 
 
 class PreparationStateError(Exception):
@@ -178,7 +183,12 @@ class ResearchPreparationService:
             if initial:
                 entry.base_time_text = entry.time_text
 
-        if re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
+        nationwide = re.search(r"全国(?:范围(?:内)?)?", message) is not None
+        if nationwide:
+            entry.area = None
+            entry.area_text = "全国"
+            entry.area_unrestricted = True
+        elif re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
             entry.area = None
             entry.area_text = None
             entry.area_unrestricted = True
@@ -186,19 +196,23 @@ class ResearchPreparationService:
             entry.area = areas[0] if len(areas) == 1 else None
             entry.area_text = "、".join(areas)
             entry.area_unrestricted = False
+        elif area := self._explicit_area(message):
+            entry.area = None
+            entry.area_text = area
+            entry.area_unrestricted = False
 
         if dims := self._dimensions(message):
             entry.dimensions = dims
-        if (
-            entry.mode == "qa"
-            and entry.topic
-            and not self._is_question(message)
-            and "aspect" not in {item.question_id for item in entry.completed_questions}
-            and not initial
-            and not updated_time
-            and len(message) < 100
-        ):
-            entry.completed_questions.append(CompletedQuestion(question_id="aspect", answer=message))
+        awaiting_aspect = entry.response and any(
+            condition.id == "aspect" for condition in entry.response.state.pending_conditions
+        )
+        if entry.mode == "qa" and awaiting_aspect and not initial:
+            aspect_answer = message.replace(entry.time_text, "") if updated_time and entry.time_text else message
+            aspect_answer = aspect_answer.strip(" ，,。；;、")
+            if aspect_answer:
+                entry.completed_questions.append(
+                    CompletedQuestion(question_id="aspect", answer=aspect_answer)
+                )
 
         if not initial:
             if entry.exact_time_pending and re.search(r"确认|继续|按原条件|照此", message):
@@ -231,6 +245,8 @@ class ResearchPreparationService:
                 return TimeScope(start=start, end=end, precision="range", timezone=None), name, False
         if match := re.search(r"(\d{4})\s*(?:年)?\s*[—–-至到]\s*(\d{4})\s*年?", message):
             return TimeScope(start=match.group(1), end=match.group(2), precision="range", timezone=None), match.group(0), False
+        if match := re.search(r"(截至\s*\d{4}年?|\d{4}年?(?:以前|之前|前|之后|以后|以来))", message):
+            return TimeScope(start=None, end=None, precision="unspecified", timezone=None), match.group(1), False
         if match := re.search(
             r"(\d{4}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}时\d{1,2}分(?:\d{1,2}秒)?)?)",
             message,
@@ -262,26 +278,17 @@ class ResearchPreparationService:
 
     @staticmethod
     def _areas(message: str) -> list[str]:
-        cleaned = re.sub(
-            r"^(?:请|帮我|梳理|整理|归纳|研究|分析|查询|查找|了解|改为|改成|调整为)+\s*",
-            "",
-            message.strip(),
+        matches = [(message.find(area), area) for area in ADMIN_AREAS if area in message]
+        return [area for _, area in sorted(matches)]
+
+    @staticmethod
+    def _explicit_area(message: str) -> str | None:
+        match = re.search(
+            r"(?:地区|区域|范围|位于|限定在|限定为)(?:为)?\s*[:：]?\s*"
+            r"([\u4e00-\u9fff]{2,8}(?:省|市|区|县|自治州|盟|旗))",
+            message,
         )
-        periods_removed = ROUTE_PERIOD.sub(" ", cleaned)
-        areas = []
-        for raw in ROUTE_AREA.findall(periods_removed):
-            area = raw
-            while True:
-                prefix = next(
-                    (noise for noise in AREA_LEAD_NOISE if area.startswith(noise) and len(area) - len(noise) >= 2),
-                    None,
-                )
-                if prefix is None:
-                    break
-                area = area[len(prefix) :]
-            if len(area) >= 2 and not area.endswith("地区") and area not in areas:
-                areas.append(area)
-        return areas
+        return match.group(1) if match else None
 
     @staticmethod
     def _dimensions(message: str) -> list[str]:
@@ -297,13 +304,21 @@ class ResearchPreparationService:
         text = re.sub(r"^(?:研究)?主题\s*(?:改为|改成|调整为)\s*", "", text)
         text = re.sub(r"^(?:改为|改成|调整为)\s*", "", text)
         text = re.sub(r"^(?:请)?(?:帮我)?(?:梳理|整理|归纳|研究|分析|查询|查找|了解|问一下)\s*", "", text)
+        if time_match := ResearchPreparationService._time(message):
+            text = text.replace(time_match[1], "")
+        if area := ResearchPreparationService._explicit_area(message):
+            text = re.sub(
+                r"(?:地区|区域|范围|位于|限定在|限定为)(?:为)?\s*[:：]?\s*"
+                + re.escape(area),
+                "",
+                text,
+            )
         text = re.sub(r"(?:不限(?:于)?(?:时间|年份|日期|地区|地域)|不限定(?:时间|年份|日期|地区|地域)).*$", "", text)
         text = re.sub(r"(?:限定在?|范围为?)\s*\d{4}.*$", "", text)
         text = re.sub(r"(?:按|按照).*$", "", text)
         for area in ResearchPreparationService._areas(message):
             text = text.replace(area, "")
-        text = re.sub(r"(?:北京市|上海市|天津市|重庆市|[\u4e00-\u9fff]{2,8}省|[\u4e00-\u9fff]{2,8}自治区)", "", text)
-        text = re.sub(r"^(?:全国)?", "", text).strip(" ，,。；;：:")
+        text = re.sub(r"^全国(?:范围(?:内)?)?", "", text).strip(" ，,。；;：:")
         text = re.sub(r"^(?:梳理|整理|归纳|研究|分析|查询|查找|了解)\s*", "", text)
         text = text.strip("和及与并")
         return None if text in {"政策", "政策梳理", "相关政策"} else text or None
@@ -315,11 +330,17 @@ class ResearchPreparationService:
             question = entry.original_request
             if entry.base_time_text and entry.time_text and entry.time_text != entry.base_time_text:
                 question = question.replace(entry.base_time_text, entry.time_text)
+            elif entry.time_text and not entry.base_time_text:
+                question += f"；时间范围：{entry.time_text}"
             aspect = next((item.answer for item in entry.completed_questions if item.question_id == "aspect"), None)
             return f"{question}；关注{aspect}" if aspect else question
         topic = entry.topic or "政策"
         area = entry.area_text or entry.area
-        question = f"{area}范围内梳理{topic}" if area else "梳理" + topic
+        if entry.area_unrestricted:
+            area_label = "全国范围内" if entry.area_text == "全国" else "不限地区"
+            question = f"{area_label}梳理{topic}"
+        else:
+            question = f"{area}范围内梳理{topic}" if area else "梳理" + topic
         if entry.time_text:
             question += "，" + entry.time_text
         if entry.dimensions:
@@ -378,7 +399,11 @@ class ResearchPreparationService:
             if entry.time_text and entry.time_text not in PERIODS and not entry.time_unrestricted
             else []
         )
-        if entry.mode == "qa" and re.search(r"全部|所有|完整清单|准确(?:统计|篇数|数量)", entry.original_request):
+        if entry.mode == "qa" and re.search(
+            r"(?:列出|罗列|清单).{0,12}(?:全部|所有)|(?:全部|所有)(?:的)?(?:政策|文件)|"
+            r"准确(?:统计|篇数|数量)|(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
+            entry.original_request,
+        ):
             status = "blocked"
             message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
             options = []
@@ -412,7 +437,13 @@ class ResearchPreparationService:
     @staticmethod
     def _statuses(entry: _Entry, pending: list[Condition]) -> list[ConditionExecutionStatus]:
         values: list[ConditionExecutionStatus] = []
-        if entry.area:
+        if entry.area_unrestricted:
+            area_value = "全国范围" if entry.area_text == "全国" else "不限地区"
+            values.append(ConditionExecutionStatus(
+                condition_id="area", status="unrestricted", value=area_value,
+                reason="由用户明确选择全国范围" if entry.area_text == "全国" else "由用户确认开放地区范围",
+            ))
+        elif entry.area:
             values.append(ConditionExecutionStatus(
                 condition_id="area", status="executable_filter", value=entry.area,
                 reason="单一行政地区可由现有确定性路由识别",
@@ -420,11 +451,11 @@ class ResearchPreparationService:
         elif entry.area_text:
             values.append(ConditionExecutionStatus(
                 condition_id="area", status="request_only", value=entry.area_text,
-                reason="多个地区不能作为单一地区硬过滤条件",
-            ))
-        elif entry.area_unrestricted:
-            values.append(ConditionExecutionStatus(
-                condition_id="area", status="unrestricted", value="不限地区", reason="由用户确认开放地区范围",
+                reason=(
+                    "多个地区不能作为单一地区硬过滤条件"
+                    if "、" in entry.area_text
+                    else "该地区表达未能与可执行地区目录安全匹配"
+                ),
             ))
         if entry.time_unrestricted:
             values.append(ConditionExecutionStatus(
