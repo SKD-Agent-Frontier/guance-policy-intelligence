@@ -101,13 +101,15 @@ async def test_registered_evidence_planid_is_not_orphan():
 
 
 @pytest.mark.asyncio
-async def test_unrelated_number_in_answer_still_rejects_claims():
+async def test_unrelated_number_in_answer_keeps_independently_verified_claims():
+    # 答案级未绑定数字只说明答案里有无法追溯的表述：重建答案并降级，
+    # 但不得据此删除逐条通过原文核验的结论（单条辅助数字不扩大打击面）。
     result, ctx = _case(
         answer="20699号政策提供9999万元支持人才培养。",
         scope=("20699",),
     )
     assert await verify_numbers(result, ctx) > 0
-    assert result.claims == []
+    assert len(result.claims) == 1
     assert result.evidence_status == "insufficient"
 
 
