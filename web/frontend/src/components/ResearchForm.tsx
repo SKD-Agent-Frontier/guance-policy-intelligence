@@ -1,21 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
+  ArrowUp,
   FileSearch,
   GitCompareArrows,
   ListTree,
   Plus,
-  Search,
   Sparkles,
   Waypoints,
+  X,
 } from "lucide-react";
 import type { ResearchRequest, TaskType } from "../types";
 
 type Props = {
-  onSubmit: (request: ResearchRequest) => void;
-  initialRequest?: ResearchRequest;
-  requestedMode?: TaskType;
-  onModeSelect?: (mode: TaskType) => void;
+  mode: TaskType;
+  value: string;
+  busy: boolean;
+  onChange: (value: string) => void;
+  onModeChange: (mode: TaskType) => void;
+  onSend: (message: string) => void;
+  onAdvancedSubmit?: (request: ResearchRequest) => void;
 };
 
 const modes: { id: TaskType; label: string; icon: typeof Sparkles }[] = [
@@ -25,532 +28,210 @@ const modes: { id: TaskType; label: string; icon: typeof Sparkles }[] = [
   { id: "compare", label: "政策比较", icon: GitCompareArrows },
   { id: "compare_plans", label: "多方案分析", icon: Waypoints },
 ];
-
-const dimensions = [
-  "支持对象",
-  "申报条件",
-  "支持措施",
-  "资金标准",
-  "办理流程",
-  "实施期限",
-];
-const firstQuestion = "梳理十四五时期北京数字经济相关政策";
+const dimensions = ["支持对象", "申报条件", "支持措施", "资金标准", "办理流程", "实施期限"];
 const isPlanId = (value: string) => /^[A-Za-z0-9_-]{1,64}$/.test(value);
 
-function initialDrafts(request?: ResearchRequest) {
-  const targets = request?.targets ?? [];
-  return {
-    qa: request?.task_type === "qa" ? request.question : "",
-    extract: {
-      object: targets[0] ?? "",
-      custom: request?.task_type === "extract" ? request.question : "",
-      dimensions:
-        request?.task_type === "extract" ? (request.dimensions ?? []) : [],
-    },
-    organize: {
-      topic: request?.task_type === "organize" ? request.question : "",
-      scope: "",
-    },
-    compare: {
-      targets:
-        request?.task_type === "compare" && targets.length >= 2
-          ? targets
-          : ["", ""],
-      dimensions:
-        request?.task_type === "compare" ? (request.dimensions ?? []) : [],
-    },
-    compare_plans: {
-      targets:
-        request?.task_type === "compare_plans" && targets.length >= 2
-          ? targets
-          : ["", ""],
-      dimensions:
-        request?.task_type === "compare_plans"
-          ? (request.dimensions ?? [])
-          : [],
-      custom: request?.task_type === "compare_plans" ? request.question : "",
-    },
-  };
-}
-
 export function ResearchForm({
-  onSubmit,
-  initialRequest,
-  requestedMode,
-  onModeSelect,
+  mode,
+  value,
+  busy,
+  onChange,
+  onModeChange,
+  onSend,
+  onAdvancedSubmit,
 }: Props) {
-  const [mode, setMode] = useState<TaskType>(initialRequest?.task_type ?? "qa");
-  const [drafts, setDrafts] = useState(() => initialDrafts(initialRequest));
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [target, setTarget] = useState("");
+  const [targets, setTargets] = useState(["", ""]);
+  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
+  const [advancedQuestion, setAdvancedQuestion] = useState("");
+  const [customDimension, setCustomDimension] = useState("");
+
+  const resize = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const height = Math.min(Math.max(textarea.scrollHeight, 76), 320);
+    textarea.style.height = `${height}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 320 ? "auto" : "hidden";
+  };
+
+  useEffect(resize, [value]);
   useEffect(() => {
-    if (requestedMode) setMode(requestedMode);
-  }, [requestedMode]);
-  const setQA = (value: string) =>
-    setDrafts((current) => ({ ...current, qa: value }));
-  const toggleDimension = (
-    key: "extract" | "compare" | "compare_plans",
-    value: string,
-  ) => {
-    setDrafts((current) => {
-      const selected = current[key].dimensions;
-      return {
-        ...current,
-        [key]: {
-          ...current[key],
-          dimensions: selected.includes(value)
-            ? selected.filter((item) => item !== value)
-            : [...selected, value],
-        },
-      };
-    });
-  };
-  const updateTarget = (
-    key: "compare" | "compare_plans",
-    index: number,
-    value: string,
-  ) => {
-    setDrafts((current) => {
-      const targets = [...current[key].targets];
-      targets[index] = value;
-      return { ...current, [key]: { ...current[key], targets } };
-    });
-  };
-  const addTarget = (key: "compare" | "compare_plans") => {
-    setDrafts((current) =>
-      current[key].targets.length >= 8
-        ? current
-        : {
-            ...current,
-            [key]: { ...current[key], targets: [...current[key].targets, ""] },
-          },
-    );
-  };
-  const removeTarget = (key: "compare" | "compare_plans", index: number) => {
-    setDrafts((current) => ({
-      ...current,
-      [key]: {
-        ...current[key],
-        targets: current[key].targets.filter(
-          (_, position) => position !== index,
-        ),
-      },
-    }));
-  };
+    setAdvancedOpen(false);
+    setTarget("");
+    setTargets(["", ""]);
+    setSelectedDimensions([]);
+    setAdvancedQuestion("");
+    setCustomDimension("");
+  }, [mode]);
 
-  const request = (): ResearchRequest | null => {
-    if (mode === "qa") {
-      const question = drafts.qa.trim();
-      return question ? { question, task_type: mode } : null;
-    }
+  const submitAdvanced = () => {
+    if (busy || !onAdvancedSubmit) return;
     if (mode === "extract") {
-      const target = drafts.extract.object.trim();
-      if (!isPlanId(target)) return null;
-      const question =
-        drafts.extract.custom.trim() || `请提取“${target}”的相关政策要素。`;
-      return {
-        question,
+      const planid = target.trim();
+      if (!isPlanId(planid)) return;
+      onAdvancedSubmit({
         task_type: mode,
-        targets: [target],
-        dimensions: drafts.extract.dimensions,
-      };
+        question: advancedQuestion.trim() || `请提取“${planid}”的相关政策要素。`,
+        targets: [planid],
+        dimensions: selectedDimensions,
+      });
+      return;
     }
-    if (mode === "organize") {
-      const topic = drafts.organize.topic.trim();
-      if (!topic) return null;
-      const question = drafts.organize.scope.trim()
-        ? `${topic}。研究范围：${drafts.organize.scope.trim()}`
-        : topic;
-      return { question, task_type: mode };
-    }
-    const form = drafts[mode];
-    const targets = form.targets.map((target) => target.trim());
-    if (
-      targets.length < 2 ||
-      targets.length > 8 ||
-      targets.some((target) => !isPlanId(target))
-    )
-      return null;
-    const custom =
-      mode === "compare_plans" ? drafts.compare_plans.custom.trim() : "";
-    const question =
-      custom ||
-      `${mode === "compare" ? "比较" : "分析"}以下政策对象：${targets.join("；")}`;
-    return { question, task_type: mode, targets, dimensions: form.dimensions };
+    if (mode !== "compare" && mode !== "compare_plans") return;
+    const cleanTargets = targets.map((item) => item.trim());
+    if (cleanTargets.length < 2 || cleanTargets.length > 8 || cleanTargets.some((item) => !isPlanId(item))) return;
+    if (new Set(cleanTargets).size !== cleanTargets.length) return;
+    onAdvancedSubmit({
+      task_type: mode,
+      question: advancedQuestion.trim() || `${mode === "compare" ? "比较" : "分析"}以下政策对象：${cleanTargets.join("；")}`,
+      targets: cleanTargets,
+      dimensions: selectedDimensions,
+    });
   };
 
-  const submit = () => {
-    const value = request();
-    if (
-      value &&
-      uniqueTargets &&
-      targetCountValid &&
-      extractTargetValid &&
-      activeTargetIdsValid
-    )
-      onSubmit(value);
+  const send = () => {
+    const message = value.trim();
+    if (!busy && message && Array.from(message).length <= 4000) onSend(message);
   };
-  const value = request();
-  const activeTargets =
-    mode === "compare" || mode === "compare_plans"
-      ? drafts[mode].targets.map((target) => target.trim())
-      : [];
-  const extractTarget = drafts.extract.object.trim();
-  const hasExtractTarget = Boolean(extractTarget);
-  const extractTargetValid = !hasExtractTarget || isPlanId(extractTarget);
-  const activeTargetIdsValid = activeTargets.every(
-    (target) => !target || isPlanId(target),
-  );
-  const hasEnteredTargets = activeTargets.some(Boolean);
-  const uniqueTargets = activeTargets.length
-    ? new Set(activeTargets.filter(Boolean)).size ===
-      activeTargets.filter(Boolean).length
-    : true;
-  const targetCountValid = activeTargets.length
-    ? activeTargets.length >= 2 &&
-      activeTargets.length <= 8 &&
-      activeTargets.every(Boolean)
-    : true;
-  const changeMode = (nextMode: TaskType) => {
-    setDrafts((current) => {
-      const reusableQuestion =
-        mode === "qa"
-          ? current.qa
-          : mode === "extract"
-            ? current.extract.custom
-            : mode === "organize"
-              ? current.organize.topic
-              : current.compare_plans.custom;
-      const copy = { ...current };
-      if (nextMode === "qa" && !copy.qa.trim()) copy.qa = reusableQuestion;
-      if (nextMode === "organize" && !copy.organize.topic.trim())
-        copy.organize = { ...copy.organize, topic: reusableQuestion };
-      if (nextMode === "extract" && !copy.extract.custom.trim())
-        copy.extract = { ...copy.extract, custom: reusableQuestion };
-      if (
-        nextMode === "compare" &&
-        copy.compare.targets.every((item) => !item.trim()) &&
-        mode === "compare_plans"
-      )
-        copy.compare = {
-          ...copy.compare,
-          targets: [...copy.compare_plans.targets],
-        };
-      if (
-        nextMode === "compare_plans" &&
-        copy.compare_plans.targets.every((item) => !item.trim()) &&
-        mode === "compare"
-      )
-        copy.compare_plans = {
-          ...copy.compare_plans,
-          targets: [...copy.compare.targets],
-        };
-      return copy;
-    });
-    setMode(nextMode);
-    onModeSelect?.(nextMode);
-  };
+
+  const advancedAvailable = mode === "extract" || mode === "compare" || mode === "compare_plans";
+  const messageLength = Array.from(value).length;
+  const advancedTargets = targets.map((item) => item.trim());
+  const advancedTargetValid = mode === "extract"
+    ? isPlanId(target.trim())
+    : advancedTargets.length >= 2 && advancedTargets.length <= 8 && advancedTargets.every(isPlanId) && new Set(advancedTargets).size === advancedTargets.length;
 
   return (
-    <section
-      className="research-composer"
-      aria-label="研究需求"
-      onKeyDown={(event) => {
-        if (
-          !event.nativeEvent.isComposing &&
-          (event.metaKey || event.ctrlKey) &&
-          event.key === "Enter"
-        ) {
-          event.preventDefault();
-          submit();
-        }
-      }}
-    >
+    <section className="research-composer" aria-label="研究需求">
       <div className="composer-topline">
-        <span className="composer-dot" /> 开始一次政策研究
-      </div>
-      <div className="composer-fields" key={mode}>
-        {mode === "qa" && (
-          <input
-            aria-label="研究问题"
-            className="composer-question"
-            type="text"
-            placeholder="请输入你的研究关键词……"
-            value={drafts.qa}
-            onChange={(event) => setQA(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !event.nativeEvent.isComposing &&
-                !event.ctrlKey &&
-                !event.metaKey
-              ) {
-                event.preventDefault();
-                submit();
-              }
-            }}
-          />
-        )}
-
-        {mode === "extract" && (
-          <div className="mode-form">
-            <label className="field-label" htmlFor="extract-object">
-              政策编号 <span>planid，如 DEMO-A</span>
-            </label>
-            <input
-              id="extract-object"
-              className="text-input"
-              placeholder="输入政策编号，例如 DEMO-A"
-              value={drafts.extract.object}
-              onChange={(event) =>
-                setDrafts((current) => ({
-                  ...current,
-                  extract: { ...current.extract, object: event.target.value },
-                }))
-              }
-            />
-            <div className="field-label dimension-label">
-              提取维度 <span>可多选</span>
-            </div>
-            <div className="choice-chips">
-              {dimensions.map((item) => (
-                <button
-                  type="button"
-                  className={`choice-chip ${drafts.extract.dimensions.includes(item) ? "is-selected" : ""}`}
-                  aria-pressed={drafts.extract.dimensions.includes(item)}
-                  key={item}
-                  onClick={() => toggleDimension("extract", item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            <label className="field-label" htmlFor="extract-custom">
-              补充要求 <span>选填</span>
-            </label>
-            <textarea
-              id="extract-custom"
-              className="text-input form-textarea"
-              placeholder="例如：重点关注面向中小企业的资金支持"
-              rows={2}
-              value={drafts.extract.custom}
-              onChange={(event) =>
-                setDrafts((current) => ({
-                  ...current,
-                  extract: { ...current.extract, custom: event.target.value },
-                }))
-              }
-            />
-          </div>
-        )}
-
-        {mode === "organize" && (
-          <div className="mode-form">
-            <label className="field-label" htmlFor="organize-topic">
-              研究主题
-            </label>
-            <textarea
-              id="organize-topic"
-              className="text-input form-textarea"
-              placeholder="例如：梳理支持中小企业数字化转型的政策"
-              rows={2}
-              value={drafts.organize.topic}
-              onChange={(event) =>
-                setDrafts((current) => ({
-                  ...current,
-                  organize: { ...current.organize, topic: event.target.value },
-                }))
-              }
-            />
-            <label className="field-label" htmlFor="organize-scope">
-              研究范围 <span>选填 · 用自然语言描述</span>
-            </label>
-            <input
-              id="organize-scope"
-              className="text-input"
-              placeholder="例如：北京市，重点关注近五年发布的文件"
-              value={drafts.organize.scope}
-              onChange={(event) =>
-                setDrafts((current) => ({
-                  ...current,
-                  organize: { ...current.organize, scope: event.target.value },
-                }))
-              }
-            />
-          </div>
-        )}
-
-        {(mode === "compare" || mode === "compare_plans") && (
-          <div className="mode-form">
-            <div className="field-label">
-              {mode === "compare" ? "待比较政策编号" : "方案或政策编号"}{" "}
-              <span>填写 2—8 个不同的 planid，如 DEMO-A</span>
-            </div>
-            <div className="target-list">
-              {drafts[mode].targets.map((target, index) => (
-                <div className="target-row" key={index}>
-                  <span className="target-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <input
-                    className="text-input"
-                    aria-label={`研究对象编号 ${index + 1}`}
-                    placeholder={
-                      index < 2
-                        ? `政策编号，例如 DEMO-${index === 0 ? "A" : "B"}`
-                        : "输入政策编号，例如 DEMO-C"
-                    }
-                    value={target}
-                    onChange={(event) =>
-                      updateTarget(mode, index, event.target.value)
-                    }
-                  />
-                  {drafts[mode].targets.length > 2 && (
-                    <button
-                      type="button"
-                      className="icon-button remove-target"
-                      aria-label={`移除研究对象 ${index + 1}`}
-                      onClick={() => removeTarget(mode, index)}
-                    >
-                      <span aria-hidden="true">×</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="text-button add-target"
-              onClick={() => addTarget(mode)}
-              disabled={drafts[mode].targets.length >= 8}
-            >
-              <Plus size={15} /> 添加对象
-            </button>
-            <div className="field-label dimension-label">
-              {mode === "compare" ? "比较维度" : "分析维度"} <span>可多选</span>
-            </div>
-            <div className="choice-chips">
-              {dimensions.map((item) => (
-                <button
-                  type="button"
-                  className={`choice-chip ${drafts[mode].dimensions.includes(item) ? "is-selected" : ""}`}
-                  aria-pressed={drafts[mode].dimensions.includes(item)}
-                  key={item}
-                  onClick={() => toggleDimension(mode, item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            {mode === "compare_plans" && (
-              <>
-                <label className="field-label" htmlFor="plans-custom">
-                  自定义分析要求 <span>选填</span>
-                </label>
-                <textarea
-                  id="plans-custom"
-                  className="text-input form-textarea"
-                  placeholder="描述你希望重点分析的内容"
-                  rows={2}
-                  value={drafts.compare_plans.custom}
-                  onChange={(event) =>
-                    setDrafts((current) => ({
-                      ...current,
-                      compare_plans: {
-                        ...current.compare_plans,
-                        custom: event.target.value,
-                      },
-                    }))
-                  }
-                />
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      {hasEnteredTargets && !uniqueTargets && (
-        <div className="form-validation" role="alert">
-          请填写不同的政策编号，重复对象无法进行比较。
-        </div>
-      )}
-      {hasEnteredTargets && !activeTargetIdsValid && (
-        <div className="form-validation" role="alert">
-          政策编号仅可包含字母、数字、下划线或短横线，长度为 1—64 个字符。
-        </div>
-      )}
-      {hasEnteredTargets && !targetCountValid && (
-        <div className="form-validation" role="alert">
-          请完整填写 2—8 个政策编号后再开始研究。
-        </div>
-      )}
-      {mode === "extract" && hasExtractTarget && !extractTargetValid && (
-        <div className="form-validation" role="alert">
-          政策编号仅可包含字母、数字、下划线或短横线，长度为 1—64 个字符。
-        </div>
-      )}
-      <div className="composer-footer">
-        <div className="active-mode-label">
-          <span className="active-mode-mark" />
-          {modes.find((item) => item.id === mode)?.label}
-          <span className="footer-divider" />
-          {mode === "organize"
-            ? "开放主题研究"
-            : mode === "qa"
-              ? "基于政策文献"
-              : "明确研究对象"}
-        </div>
-        <button
-          type="button"
-          className="submit-button"
-          onClick={submit}
-          disabled={
-            !value ||
-            !uniqueTargets ||
-            !targetCountValid ||
-            !extractTargetValid ||
-            !activeTargetIdsValid
-          }
-          aria-label="开始研究"
-        >
-          开始研究 <Search size={15} strokeWidth={2} />
-        </button>
-      </div>
-      <div className="composer-hint">
-        按 <kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 开始研究
+        <span className="composer-dot" />{mode === "qa" || mode === "organize" ? "用自然语言描述研究需求" : "兼容入口 · 指定研究对象后执行"}
       </div>
       <div className="mode-tabs" role="tablist" aria-label="研究模式">
         {modes.map(({ id, label, icon: Icon }) => (
           <button
+            key={id}
+            className={`mode-tab ${mode === id ? "is-active" : ""}`}
             type="button"
             role="tab"
             aria-selected={mode === id}
-            data-mode={id}
-            className={`mode-tab ${mode === id ? "is-active" : ""}`}
-            key={id}
-            onClick={() => changeMode(id)}
+            onClick={() => onModeChange(id)}
           >
-            <Icon size={15} strokeWidth={1.8} />
-            <span>{label}</span>
-            {mode === id && <ArrowRight size={12} className="mode-tab-arrow" />}
+            <Icon size={15} strokeWidth={1.8} /><span>{label}</span>
           </button>
         ))}
       </div>
-      {mode === "qa" && (
-        <div className="quick-start">
-          <span>试试</span>
-          {[
-            firstQuestion,
-            "北京市高层次人才有哪些支持措施？",
-            "比较两份人才政策的主要差异",
-          ].map((question) => (
-            <button
-              type="button"
-              key={question}
-              onClick={() => setQA(question)}
-            >
-              {question}
-            </button>
-          ))}
+      <label className="mobile-mode-label" htmlFor="research-mode">研究模式</label>
+      <select
+        id="research-mode"
+        className="mode-select-mobile"
+        aria-label="研究模式"
+        value={mode}
+        onChange={(event) => onModeChange(event.target.value as TaskType)}
+      >
+        {modes.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+      </select>
+      <div className="composer-fields">
+        <textarea
+          ref={textareaRef}
+          className="composer-question"
+          aria-label="研究需求"
+          rows={1}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey) return;
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+            event.preventDefault();
+            send();
+          }}
+          disabled={busy}
+        />
+      </div>
+      <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
+        {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
+      </div>
+      {advancedAvailable && (
+        <div className="advanced-entry">
+          <button
+            type="button"
+            className="advanced-toggle"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+            disabled={busy}
+          >
+            {advancedOpen ? "收起高级选择" : "高级选择 · 指定政策编号"}
+          </button>
+          {advancedOpen && (
+            <div className="advanced-fields">
+              {mode === "extract" ? (
+                <div className="advanced-field">
+                  <label htmlFor="extract-planid">政策编号（planid）</label>
+                  <input id="extract-planid" value={target} onChange={(event) => setTarget(event.target.value)} aria-label="政策编号" />
+                  {target.trim() && !isPlanId(target.trim()) && <p className="advanced-validation" role="alert">编号只能包含字母、数字、下划线或短横线，长度为 1—64 个字符。</p>}
+                </div>
+              ) : (
+                <div className="advanced-targets">
+                  <span>研究对象编号（2—8 个 planid）</span>
+                  {targets.map((item, index) => (
+                    <div className="advanced-target-row" key={index}>
+                      <input
+                        aria-label={`研究对象编号 ${index + 1}`}
+                        value={item}
+                        onChange={(event) => setTargets((current) => current.map((targetValue, position) => position === index ? event.target.value : targetValue))}
+                      />
+                      {targets.length > 2 && <button type="button" className="advanced-remove-target" aria-label={`移除研究对象 ${index + 1}`} onClick={() => setTargets((current) => current.filter((_, position) => position !== index))}><X size={14} /></button>}
+                    </div>
+                  ))}
+                  <button type="button" className="text-button" onClick={() => setTargets((current) => current.length < 8 ? [...current, ""] : current)} disabled={targets.length >= 8}>
+                    <Plus size={14} /> 添加对象
+                  </button>
+                  {targets.some((item) => item.trim()) && (targets.some((item) => !isPlanId(item.trim())) || targets.length < 2 || targets.length > 8) && <p className="advanced-validation" role="alert">请填写 2—8 个有效政策编号。</p>}
+                  {targets.filter((item) => item.trim()).length > 1 && new Set(targets.map((item) => item.trim()).filter(Boolean)).size !== targets.filter((item) => item.trim()).length && <p className="advanced-validation" role="alert">请填写不同的政策编号，重复对象无法进行比较。</p>}
+                </div>
+              )}
+              <label className="advanced-field">
+                <span>补充要求（选填）</span>
+                <textarea rows={2} value={advancedQuestion} onChange={(event) => setAdvancedQuestion(event.target.value)} />
+              </label>
+              <div className="advanced-dimensions" aria-label="研究维度">
+                <span>研究维度</span>
+                <div className="choice-chips">
+                  {dimensions.map((dimension) => (
+                    <button
+                      type="button"
+                      key={dimension}
+                      className={`choice-chip ${selectedDimensions.includes(dimension) ? "is-selected" : ""}`}
+                      aria-pressed={selectedDimensions.includes(dimension)}
+                      onClick={() => setSelectedDimensions((current) => current.includes(dimension) ? current.filter((item) => item !== dimension) : [...current, dimension])}
+                    >{dimension}</button>
+                  ))}
+                </div>
+              </div>
+              <label className="advanced-field">
+                <span>自定义维度（选填）</span>
+                <input value={customDimension} onChange={(event) => setCustomDimension(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && customDimension.trim()) { event.preventDefault(); setSelectedDimensions((current) => current.includes(customDimension.trim()) ? current : [...current, customDimension.trim()]); setCustomDimension(""); } }} />
+              </label>
+              <button type="button" className="text-button" onClick={() => { if (!customDimension.trim()) return; setSelectedDimensions((current) => current.includes(customDimension.trim()) ? current : [...current, customDimension.trim()]); setCustomDimension(""); }} disabled={!customDimension.trim()}>添加自定义维度</button>
+              <p className="advanced-note">输入后按 Enter 或点击“添加自定义维度”，研究请求会携带该维度。</p>
+              {selectedDimensions.some((item) => !dimensions.includes(item)) && <div className="custom-dimensions">自定义：{selectedDimensions.filter((item) => !dimensions.includes(item)).map((item) => <button type="button" key={item} onClick={() => setSelectedDimensions((current) => current.filter((value) => value !== item))}>{item} ×</button>)}</div>}
+              <button type="button" className="advanced-submit" onClick={submitAdvanced} disabled={busy || !advancedTargetValid}>
+                使用高级入口执行
+              </button>
+              <p className="advanced-note">系统不会自动定位比较对象；研究会使用你指定的编号。{!advancedTargetValid ? "填写有效编号后即可执行。" : ""}</p>
+            </div>
+          )}
         </div>
       )}
+      <div className="composer-footer">
+        <span className="active-mode-label">{modes.find((item) => item.id === mode)?.label}</span>
+        <button type="button" className="submit-button" onClick={send} disabled={busy || !value.trim() || messageLength > 4000} aria-label="发送消息" title="发送">
+          <span>发送</span><ArrowUp size={16} />
+        </button>
+      </div>
+      <div className="composer-hint">Enter 发送 · Shift + Enter 换行</div>
     </section>
   );
 }
