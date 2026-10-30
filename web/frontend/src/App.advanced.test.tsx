@@ -36,7 +36,7 @@ describe("advanced conversation handoff", () => {
     expect(researchClient.submit).not.toHaveBeenCalled();
   });
 
-  it("preserves question, IDs and dimensions through catalog, home and conversation switching", () => {
+  it("preserves question, IDs and dimensions through catalog and home navigation", () => {
     const question = "比较两份政策的企业支持措施";
     render(<App />);
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
@@ -56,6 +56,19 @@ describe("advanced conversation handoff", () => {
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
     fireEvent.click(screen.getByRole("button", { name: "研究" }));
+    expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
+    expect(researchClient.prepare).not.toHaveBeenCalled();
+    expect(researchClient.submit).not.toHaveBeenCalled();
+  });
+
+  it("isolates drafts across conversations and focuses the missing target on return", () => {
+    const question = "比较两份政策的企业支持措施";
+    render(<App />);
+    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
+    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
+    fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
     fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
     fireEvent.click(screen.getByRole("button", { name: "新建研究" }));
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
@@ -64,6 +77,7 @@ describe("advanced conversation handoff", () => {
     fireEvent.click(screen.getByTitle(question));
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
     expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
+    expect(screen.getByRole("button", { name: "资金标准" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "收起高级选择" }));
     fireEvent.click(screen.getByRole("button", { name: "指定政策对象" }));
     expect(screen.getByLabelText("研究对象编号 2")).toHaveFocus();
