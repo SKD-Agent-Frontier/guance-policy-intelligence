@@ -20,8 +20,9 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
     <section className="home-main" aria-label="政策研究">
       <div className="home-content">
         <div className="intro-block">
-          <h1>以政策研究之智<br />探索智能时代的公共治理</h1>
-          <p>基于权威政策文献的专业分析平台</p>
+          <h1>管策智研</h1>
+          <p>政策智能研究平台</p>
+          <p className="home-tagline">让政策更可理解，让决策更有依据</p>
         </div>
         <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} />
       </div>

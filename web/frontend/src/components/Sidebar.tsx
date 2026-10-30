@@ -33,12 +33,12 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onTogg
     {mobileOpen && <button className="sidebar-scrim" aria-label="关闭侧栏" type="button" onClick={onCloseMobile} />}
     <aside className={`app-sidebar ${isCollapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`} aria-label="全局侧栏" aria-hidden={!mobileOpen && typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches}>
       <div className="sidebar-brand-row" title="研究工作台">
-        <BookOpenText size={18} aria-hidden="true" />
+        <BookOpenText size={22} aria-hidden="true" />
         {!isCollapsed && <><strong>研究工作台</strong><button type="button" className="sidebar-collapse" title="收起侧栏" aria-label="收起侧栏" onClick={onToggle}><ChevronLeft size={16} /></button></>}
       </div>
       <nav className="sidebar-primary" aria-label="工作台导航">
-        <button type="button" className="side-link sidebar-home-link" title="返回首页" aria-label="返回首页" onClick={() => closeAnd(onHome)}><Home size={16} /></button>
-        <button type="button" className="side-link new-link" title="新建研究" aria-label="新建研究" onClick={() => closeAnd(onNew)}><FilePlus2 size={16} /></button>
+        <button type="button" className="side-link sidebar-home-link" title="返回首页" aria-label="返回首页" onClick={() => closeAnd(onHome)}><Home size={20} /></button>
+        <button type="button" className="side-link new-link" title="新建研究" aria-label="新建研究" onClick={() => closeAnd(onNew)}><FilePlus2 size={20} /></button>
       </nav>
       {!isCollapsed && <>
         <div className="sidebar-section-title"><span>最近研究</span><span className="sidebar-session-count">{conversations.length}</span></div>
@@ -50,7 +50,7 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onTogg
         </div>
         <div className="sidebar-bottom">
           <p className="local-demo-note">研究记录仅保存在当前前端会话</p>
-          <button type="button" className="side-link" title="环境设置" aria-label="环境设置" onClick={onSettings}><Settings2 size={15} /><span>环境设置</span></button>
+          <button type="button" className="side-link" title="环境设置" aria-label="环境设置" onClick={onSettings}><Settings2 size={20} /><span>环境设置</span></button>
         </div>
       </>}
     </aside>
