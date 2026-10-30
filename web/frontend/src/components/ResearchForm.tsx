@@ -52,9 +52,9 @@ export function ResearchForm({
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = "auto";
-    const height = Math.min(Math.max(textarea.scrollHeight, 76), 320);
+    const height = Math.min(Math.max(textarea.scrollHeight, 36), 200);
     textarea.style.height = `${height}px`;
-    textarea.style.overflowY = textarea.scrollHeight > 320 ? "auto" : "hidden";
+    textarea.style.overflowY = textarea.scrollHeight > 200 ? "auto" : "hidden";
   };
 
   useEffect(resize, [value]);
@@ -106,9 +106,6 @@ export function ResearchForm({
 
   return (
     <section className="research-composer" aria-label="研究需求">
-      <div className="composer-topline">
-        <span className="composer-dot" />{mode === "qa" || mode === "organize" ? "用自然语言描述研究需求" : "兼容入口 · 指定研究对象后执行"}
-      </div>
       <div className="mode-tabs" role="tablist" aria-label="研究模式">
         {modes.map(({ id, label, icon: Icon }) => (
           <button
@@ -123,7 +120,6 @@ export function ResearchForm({
           </button>
         ))}
       </div>
-      <label className="mobile-mode-label" htmlFor="research-mode">研究模式</label>
       <select
         id="research-mode"
         className="mode-select-mobile"
@@ -149,10 +145,13 @@ export function ResearchForm({
           }}
           disabled={busy}
         />
+        <button type="button" className="submit-button" onClick={send} disabled={busy || !value.trim() || messageLength > 4000} aria-label="发送消息" title="发送">
+          <span>发送</span><ArrowUp size={16} />
+        </button>
       </div>
-      <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
+      {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
         {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
-      </div>
+      </div>}
       {advancedAvailable && (
         <div className="advanced-entry">
           <button
@@ -225,13 +224,6 @@ export function ResearchForm({
           )}
         </div>
       )}
-      <div className="composer-footer">
-        <span className="active-mode-label">{modes.find((item) => item.id === mode)?.label}</span>
-        <button type="button" className="submit-button" onClick={send} disabled={busy || !value.trim() || messageLength > 4000} aria-label="发送消息" title="发送">
-          <span>发送</span><ArrowUp size={16} />
-        </button>
-      </div>
-      <div className="composer-hint">Enter 发送 · Shift + Enter 换行</div>
     </section>
   );
 }

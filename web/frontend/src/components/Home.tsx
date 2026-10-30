@@ -23,8 +23,6 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
       </div>
       <div className="architecture-scene" aria-hidden="true">
         <img src="/research-architecture.png" alt="" />
-        <div className="architecture-title"><strong>政策智探</strong><span>POLICY INTELLIGENCE</span></div>
-        <div className="architecture-mark"><span>POLICY<br />INTELLIGENCE</span></div>
       </div>
     </section>
   </main>;

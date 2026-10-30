@@ -72,7 +72,7 @@ test("Demo: natural language, long text, IME Enter, dynamic clarification, and l
   const input = page.getByRole("textbox", { name: "研究需求" });
   await expect(input).not.toHaveAttribute("placeholder", /.+/);
   await input.fill("数字经济".repeat(1600));
-  await expect(input).toHaveCSS("height", "320px");
+  await expect(input).toHaveCSS("height", "200px");
   await expect(input).toHaveCSS("overflow-y", "auto");
   await input.fill("数字经济");
   await input.evaluate((textarea: HTMLTextAreaElement) => {

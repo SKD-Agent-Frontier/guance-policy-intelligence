@@ -31,6 +31,7 @@ describe("ResearchForm", () => {
 
     for (const mode of ["政策问答", "要素提取", "文献梳理", "政策比较", "多方案分析"])
       expect(screen.getByRole("tab", { name: mode })).toBeInTheDocument();
+    expect(document.querySelector(".active-mode-label")).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: "文献梳理" }));
     expect(onSend).not.toHaveBeenCalled();
@@ -43,7 +44,7 @@ describe("ResearchForm", () => {
     Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 560 });
 
     fireEvent.change(textarea, { target: { value: "长文本".repeat(1200) } });
-    expect(textarea).toHaveStyle({ height: "320px", overflowY: "auto" });
+    expect(textarea).toHaveStyle({ height: "200px", overflowY: "auto" });
 
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
     expect(onSend).not.toHaveBeenCalled();

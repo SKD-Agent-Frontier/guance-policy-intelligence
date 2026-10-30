@@ -924,6 +924,9 @@ textarea:focus-visible {
 }
 .app-sidebar .new-link {
   color: var(--accent);
+  width: 39px;
+  justify-content: center;
+  padding: 0;
 }
 .app-sidebar .sidebar-home-link {
   width: 39px;
