@@ -1121,20 +1121,38 @@ textarea:focus-visible {
   min-height: calc(100vh - 64px);
 }
 .page-body-home .home-content {
-  width: min(980px, calc(100% - 72px));
+  width: min(656px, calc(100% - 72px));
   padding-top: clamp(56px, 9vh, 100px);
 }
 .page-body-home .intro-block {
-  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 32px;
 }
 .page-body-home .intro-block h1 {
+  flex: 0 0 auto;
+  margin: 0;
   font-size: clamp(37px, 4.1vw, 58px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.home-brand-copy {
+  display: grid;
+  gap: 8px;
+}
+.page-body-home .intro-block .home-platform-name {
+  color: #514844;
+  font-size: 16px;
+  font-weight: 600;
 }
 .page-body-home .intro-block .home-tagline {
-  margin-top: 10px;
   color: #8a837e;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
+}
+.home-tagline span {
+  display: block;
 }
 .page-body-home .architecture-scene {
   bottom: 0;
@@ -1623,8 +1641,14 @@ textarea:focus-visible {
     width: calc(100% - 30px);
     padding: 42px 0 36px;
   }
+  .page-body-home .intro-block {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
   .page-body-home .intro-block h1 {
-    font-size: clamp(29px, 8vw, 38px);
+    font-size: clamp(36px, 10vw, 42px);
   }
   .page-body-home .architecture-scene {
     height: 180px;
