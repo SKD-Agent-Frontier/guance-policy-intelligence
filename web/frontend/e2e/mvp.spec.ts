@@ -100,7 +100,7 @@ test("Demo: natural language, long text, IME Enter, dynamic clarification, and l
   await page.screenshot({ path: join(directory, "conversation-multiturn-demo.png"), fullPage: true });
 });
 
-test("Demo: all five modes stay reachable and advanced selection handles three legacy modes", async ({ page }) => {
+test("Demo: all five modes stay reachable and advanced handoff accepts explicit policy targets", async ({ page }) => {
   await page.goto("/");
   const tabs = page.getByRole("tablist", { name: "研究模式" });
   for (const label of ["政策问答", "要素提取", "文献梳理", "政策比较", "多方案分析"]) {
@@ -110,17 +110,26 @@ test("Demo: all five modes stay reachable and advanced selection handles three l
   }
 
   await page.getByRole("tab", { name: "要素提取" }).click();
-  await page.getByRole("textbox", { name: "研究需求" }).fill("提取指定政策的支持要素");
+  const extractQuestion = "提取指定政策的支持要素";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(extractQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByText(/当前无法自动准备研究/)).toBeVisible();
-  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
+  await expect(page.getByRole("button", { name: "指定政策对象", exact: true })).toBeVisible();
+  await expect(page.locator(".message-error")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(extractQuestion);
   await page.getByLabel("政策编号").fill("DEMO-A");
   await page.getByRole("button", { name: "使用高级入口执行" }).click();
   await expect(page.locator(".result-message")).toBeVisible({ timeout: 10_000 });
 
   await startNew(page);
   await page.getByRole("tab", { name: "政策比较" }).click();
-  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
+  const compareQuestion = "比较指定政策对象";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(compareQuestion);
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("button", { name: "指定政策对象", exact: true })).toBeVisible();
+  await expect(page.locator(".message-error")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(compareQuestion);
   await page.getByLabel("研究对象编号 1").fill("DEMO-A");
   await page.getByLabel("研究对象编号 2").fill("DEMO-B");
   await page.getByRole("button", { name: "添加对象" }).click();

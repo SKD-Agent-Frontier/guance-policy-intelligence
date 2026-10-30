@@ -209,30 +209,145 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
   await expect(page.locator(".preparation-details").last()).toContainText(/不代表已完成筛选/);
 });
 
-test("Real client Mock API: blocked modes do not run, while advanced compare requires explicit planids", async ({ page }) => {
+test("Real client Mock API: advanced compare keeps its draft through catalog and sessions, then runs only valid targets", async ({ page }) => {
+  const prepareRequests: Record<string, unknown>[] = [];
   const runBodies: Record<string, unknown>[] = [];
   await page.route("**/api/research/prepare", async (route) => {
-    const body = route.request().postDataJSON() as Record<string, unknown>;
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prep(String(body.mode), "blocked")) });
+    prepareRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Advanced handoff must not prepare." }) });
+  });
+  const runCount = await installRunRoute(page, (body) => runBodies.push(body));
+  await page.route("**/api/policies**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/content")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ planid: "POLICY-A", offset: 0, limit: 4000, total_chars: 0, has_more: false, text: "" }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 1, total_documents: 0, partial: false, source: "current_published_frozen_release" }, query: { q: null, area: null, fyp: null, plantype: null, match_mode: null }, matched_documents: 0, page: 1, page_size: 20, total_pages: 1, items: [] }) });
+  });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "政策比较" }).click();
+  const question = "比较下北京市2015和2016年的政府工作报告";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(question);
+  await page.getByRole("button", { name: "发送消息" }).click();
+
+  await expect(page.getByRole("main", { name: "研究工作区" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "指定政策对象" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
+  const advancedQuestion = page.getByRole("textbox", { name: "研究问题" });
+  await expect(advancedQuestion).toHaveValue(question);
+  await expect(page.locator(".message-error")).toHaveCount(0);
+  await expect(page.getByText(/UNSUPPORTED_MODE/)).toHaveCount(0);
+  expect(prepareRequests).toHaveLength(0);
+  expect(runCount()).toBe(0);
+
+  await page.getByRole("button", { name: "指定政策对象" }).click();
+  const firstTarget = page.getByRole("textbox", { name: "研究对象编号 1" });
+  const secondTarget = page.getByRole("textbox", { name: "研究对象编号 2" });
+  await expect(firstTarget).toBeFocused();
+  await expect(page.getByText("政策对象 A")).toBeVisible();
+  await expect(page.getByText("政策对象 B")).toBeVisible();
+  const submit = page.getByRole("button", { name: "使用高级入口执行" });
+  await expect(submit).toBeDisabled();
+  await firstTarget.fill("POLICY-A");
+  await expect(submit).toBeDisabled();
+  await secondTarget.fill("POLICY-A");
+  await expect(submit).toBeDisabled();
+  await secondTarget.fill("invalid/id");
+  await expect(submit).toBeDisabled();
+  await secondTarget.fill("POLICY-B");
+  await expect(submit).toBeEnabled();
+
+  await page.getByRole("button", { name: "添加对象" }).click();
+  await page.getByRole("textbox", { name: "研究对象编号 3" }).fill("POLICY-C");
+  await page.getByRole("textbox", { name: "自定义维度（选填）" }).fill("申报条件");
+  await page.getByRole("button", { name: "添加自定义维度" }).click();
+  await expect(submit).toBeEnabled();
+  for (let index = 4; index <= 8; index += 1) {
+    await page.getByRole("button", { name: "添加对象" }).click();
+    await page.getByRole("textbox", { name: `研究对象编号 ${index}` }).fill(`POLICY-${index}`);
+  }
+  await expect(page.getByRole("textbox", { name: "研究对象编号 8" })).toHaveValue("POLICY-8");
+  await expect(page.getByRole("button", { name: "添加对象" })).toBeDisabled();
+  for (let index = 8; index >= 3; index -= 1) {
+    await page.getByRole("button", { name: `移除研究对象 ${index}` }).click();
+  }
+  await expect(page.getByRole("textbox", { name: "研究对象编号 3" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "前往文献目录查找编号" }).click();
+  await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "研究" }).click();
+  await expect(page.getByRole("main", { name: "研究工作区" })).toBeVisible();
+  await expect(firstTarget).toHaveValue("POLICY-A");
+  await expect(secondTarget).toHaveValue("POLICY-B");
+  await expect(advancedQuestion).toHaveValue(question);
+
+  await openSidebar(page);
+  await page.getByRole("button", { name: "新建研究" }).click();
+  await page.getByRole("tab", { name: "政策比较" }).click();
+  const secondQuestion = "比较另一组政策的扶持范围";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(secondQuestion);
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(secondQuestion);
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("");
+  await openSidebar(page);
+  await page.locator(".history-link").filter({ hasText: question }).click();
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("POLICY-A");
+  await expect(page.getByRole("textbox", { name: "研究对象编号 2" })).toHaveValue("POLICY-B");
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
+  expect(prepareRequests).toHaveLength(0);
+  expect(runCount()).toBe(0);
+
+  await page.getByRole("button", { name: "使用高级入口执行" }).click();
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  expect(prepareRequests).toHaveLength(0);
+  expect(runCount()).toBe(1);
+  expect(runBodies[0]).toEqual({ task_type: "compare", question, targets: ["POLICY-A", "POLICY-B"], dimensions: ["申报条件"] });
+});
+
+test("Real client Mock API: advanced extract and multi-plan handoff send explicit requests", async ({ page }) => {
+  const prepareRequests: Record<string, unknown>[] = [];
+  const runBodies: Record<string, unknown>[] = [];
+  await page.route("**/api/research/prepare", async (route) => {
+    prepareRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Advanced handoff must not prepare." }) });
   });
   const runCount = await installRunRoute(page, (body) => runBodies.push(body));
   await page.goto("/");
-  await page.getByRole("tab", { name: "政策比较" }).click();
-  await page.getByRole("textbox", { name: "研究需求" }).fill("比较相关政策");
-  await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByRole("alert").getByText(/当前模式暂时无法自动准备/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "修改条件后重新准备" })).toBeVisible();
-  expect(runCount()).toBe(0);
 
-  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
-  await page.getByLabel("研究对象编号 1").fill("POLICY-A");
-  await page.getByLabel("研究对象编号 2").fill("POLICY-B");
-  await page.getByLabel("自定义维度（选填）").fill("申报条件");
-  await page.getByRole("button", { name: "添加自定义维度" }).click();
-  await page.getByRole("button", { name: "使用高级入口执行" }).click();
-  await expect(page.locator(".result-message")).toBeVisible();
+  await page.getByRole("tab", { name: "要素提取" }).click();
+  const extractQuestion = "提取政策中的支持对象与申请条件";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(extractQuestion);
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("button", { name: "指定政策对象" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(extractQuestion);
+  const submit = page.getByRole("button", { name: "使用高级入口执行" });
+  await expect(submit).toBeDisabled();
+  expect(prepareRequests).toHaveLength(0);
+  expect(runCount()).toBe(0);
+  await page.getByRole("textbox", { name: "政策编号" }).fill("DEMO-EXTRACT-1");
+  await page.getByRole("button", { name: "支持对象", exact: true }).click();
+  await submit.click();
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  expect(runBodies[0]).toEqual({ task_type: "extract", question: extractQuestion, targets: ["DEMO-EXTRACT-1"], dimensions: ["支持对象"] });
+
+  await newConversation(page);
+  await page.getByRole("tab", { name: "多方案分析" }).click();
+  const plansQuestion = "分析方案政策的适用范围差异";
+  await page.getByRole("textbox", { name: "研究需求" }).fill(plansQuestion);
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(plansQuestion);
+  const plansSubmit = page.getByRole("button", { name: "使用高级入口执行" });
+  await expect(plansSubmit).toBeDisabled();
+  expect(prepareRequests).toHaveLength(0);
   expect(runCount()).toBe(1);
-  expect(runBodies[0]).toMatchObject({ task_type: "compare", targets: ["POLICY-A", "POLICY-B"], dimensions: ["申报条件"] });
+  await page.getByRole("textbox", { name: "研究对象编号 1" }).fill("PLAN-A");
+  await page.getByRole("textbox", { name: "研究对象编号 2" }).fill("PLAN-B");
+  await plansSubmit.click();
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-2");
+  expect(prepareRequests).toHaveLength(0);
+  expect(runCount()).toBe(2);
+  expect(runBodies[1]).toEqual({ task_type: "compare_plans", question: plansQuestion, targets: ["PLAN-A", "PLAN-B"], dimensions: [] });
 });
 
 test("Real client Mock API: 409 requires explicit restart and omits the stale state token", async ({ page }) => {
