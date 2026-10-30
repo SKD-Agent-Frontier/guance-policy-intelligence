@@ -5,6 +5,7 @@
 import asyncio
 import json
 import time
+from dataclasses import replace
 
 from .agent import build_agent, chat_model
 from .business import get_module, group_by_document
@@ -14,6 +15,12 @@ from .client import thinking_off
 from .config import ConfigurationError, Settings
 from .context import RunContext
 from .extract import build_messages, retrieve
+from .format_recovery import (
+    REPAIRABLE,
+    classify_output,
+    repair_messages,
+    repair_preserves_content,
+)
 from .kb import get_kb
 from .output import ERRORS, LIMIT_CODES, build_result, insufficient_message, rebuild_trusted_answer
 from .routing import RouteDecision, decide
@@ -189,6 +196,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         result.route = {**_route_head(decision), "objects": objects}
         return result
     runs, claims, refs = [], [], {}
+    parse_entries, repair_budget = [], {"remaining": 1}
     for obj in objects:
         if not obj.get("planid"):
             continue
@@ -200,6 +208,11 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         ctx.scope, ctx.object_label = (obj["planid"],), obj["label"]
         try:
             outcome = await _execute_once(task, s, ctx, rt, deadline)
+            outcome, parse_meta = await _recover_qa_output(
+                outcome, s, rt, deadline, repair_budget=repair_budget,
+                min_remaining=REPAIR_TIMEOUT_RESERVE_S + REPAIR_OBJECTS_HEADROOM_S)
+            if parse_meta:
+                parse_entries.append(parse_meta.get("output_parse"))
         except Exception as exc:            # noqa: BLE001 - 单个对象失败不拖垮整体
             obj["status"] = f"failed:{type(exc).__name__}"
             obj["error_code"] = "INTERNAL"
@@ -207,6 +220,8 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         part = build_result(task, outcome, ctx, meta)
         if outcome.telemetry:
             obj["llm"] = outcome.telemetry
+        if parse_meta:
+            part.meta.update(parse_meta)
         # 证据隔离：只保留确实引自本对象的结论，防止跨对象借证据
         own = {cid for cid in (c for claim in part.claims for c in claim.chunk_ids)
                if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
@@ -225,6 +240,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         elif part.status == "completed":
             obj["status"] = "no_evidence"
     ctx.scope = None
+    aggregate_meta = _objects_parse_meta([entry for entry in parse_entries if entry])
     if not runs:
         failures = [obj for obj in objects if obj.get("error_code")]
         budget_stops = [obj for obj in objects
@@ -235,6 +251,8 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
                          if obj.get("error_code") in LIMIT_CODES), "RUN_TIMEOUT")
             result = build_result(task, None, ctx, meta,
                                   RunError(code=code, message=ERRORS[code]))
+            if aggregate_meta:
+                result.meta.update(aggregate_meta)
             result.route = {**_route_head(decision), "objects": objects}
             return result
         if failures:
@@ -243,6 +261,8 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
                 code = "INTERNAL"
             result = build_result(task, None, ctx, meta,
                                   RunError(code=code, message=ERRORS[code]))
+            if aggregate_meta:
+                result.meta.update(aggregate_meta)
             result.route = {**_route_head(decision), "objects": objects}
             return result
         result = build_result(task, None, ctx, meta)
@@ -250,9 +270,13 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
         result.error = None   # 正常结束，不是内部错误
         result.answer = "以下对象都没有取得可用证据：" + "；".join(
             f"{o['label']}({o.get('status')})" for o in objects)
+        if aggregate_meta:
+            result.meta.update(aggregate_meta)
         result.route = {**_route_head(decision), "objects": objects}
         return result
     result = runs[0][1].model_copy(deep=True)
+    if aggregate_meta:
+        result.meta.update(aggregate_meta)
     result.claims, result.evidence_refs = claims, list(refs.values())
     result.dropped_chunk_ids = []
     result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)
@@ -309,8 +333,15 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                 result = await _run_single(task, s, ctx, rt, deadline, decision)
         result.task_type = task.task_type
         if result.status == "completed" and module is None:
-            await verify_quotes(result, ctx)
-            await verify_numbers(result, ctx)
+            # 核验也不能突破整轮运行时限：超时则降级并如实说明，不拖垮请求。
+            try:
+                await asyncio.wait_for(verify_quotes(result, ctx),
+                                       timeout=max(deadline - time.monotonic(), 0.05))
+                await asyncio.wait_for(verify_numbers(result, ctx),
+                                       timeout=max(deadline - time.monotonic(), 0.05))
+            except TimeoutError:
+                result.warnings.append("核验超出本次运行时限，未完成逐条核验")
+                result.evidence_status = "insufficient"
         if module is None:
             _attach(result, task)
     result.task_type = task.task_type
@@ -507,11 +538,99 @@ def _business_failure(task, ctx, rt, decision, code, services=None, targets=None
     return result
 
 
+REPAIR_MIN_TIMEOUT_S = 1.0       # 剩余时间不够一次可用的修复调用时不做
+REPAIR_TIMEOUT_RESERVE_S = 5.0   # 修复后给核验与收尾保留的时间
+REPAIR_OBJECTS_HEADROOM_S = 6.0  # 多对象路径：修复前要给后续对象留出预算
+
+
+def _objects_parse_meta(entries):
+    """把多对象路径的解析记录聚合成一份 meta，避免只保留第一个对象。"""
+    if not entries:
+        return None
+    failed = [entry.get("classification") for entry in entries
+              if entry.get("classification") not in (None, "ok")]
+    merged = {"classification": failed[0] if failed else "ok", "objects": entries}
+    if any(entry.get("repair") for entry in entries):
+        merged["repair"] = "attempted"
+    if any(entry.get("repair_rejected") for entry in entries):
+        merged["repair_rejected"] = "content_changed"
+    if any(entry.get("deterministic_repair") for entry in entries):
+        merged["deterministic_repair"] = True
+    return {"output_parse": merged}
+
+
+async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
+                             min_remaining=None):
+    """QA 输出格式恢复：确定性修复优先，必要时做一次受预算约束的格式修复调用。
+
+    修复调用只带模型原文，不重新检索、不携带工具；多个 JSON 对象、截断和非 JSON
+    一律失败关闭。修复结果仍要经过原有的证据登记与核验，不能因此获得可信度。
+    repair_budget 为整轮运行共享的修复次数预算（{"remaining": n}），多对象路径
+    用它保证一次运行最多只修复一次。
+    """
+    if outcome.error_code is not None or not isinstance(outcome.final_output, str):
+        return outcome, None
+    if s.structured_output:
+        return outcome, None
+    classification, parsed, deterministic = classify_output(outcome.final_output)
+    meta = {"output_parse": {"classification": classification}}
+    if parsed is not None:
+        if deterministic:
+            meta["output_parse"]["deterministic_repair"] = deterministic
+            rt.log("qa_output_parse_repaired", classification=classification,
+                   method=deterministic)
+            return replace(outcome, final_output=parsed), meta
+        return outcome, meta
+    if classification not in REPAIRABLE or len(outcome.final_output) > s.max_input_chars:
+        meta["output_parse"]["repair"] = "not_attempted"
+        rt.log("qa_output_parse_failed", classification=classification, repair="not_attempted")
+        return outcome, meta
+    remaining = deadline - time.monotonic()
+    timeout = min(s.llm_request_timeout, remaining - REPAIR_TIMEOUT_RESERVE_S)
+    budget = repair_budget if repair_budget is not None else {"remaining": 1}
+    floor = REPAIR_TIMEOUT_RESERVE_S + 1.0 if min_remaining is None else min_remaining
+    if (timeout < REPAIR_MIN_TIMEOUT_S or rt.hooks.turns + 1 > s.max_turns
+            or budget.get("remaining", 0) <= 0 or remaining < floor):
+        meta["output_parse"]["repair"] = "skipped_budget"
+        rt.log("qa_output_parse_failed", classification=classification, repair="skipped_budget")
+        return outcome, meta
+    budget["remaining"] = budget.get("remaining", 0) - 1
+    try:
+        repaired_raw = await asyncio.wait_for(
+            rt.complete_text(repair_messages(outcome.final_output, s.max_input_chars),
+                             max_tokens=s.llm_max_output_tokens, timeout=timeout),
+            timeout=timeout + REPAIR_TIMEOUT_RESERVE_S)
+    except Exception as exc:  # noqa: BLE001 - 修复调用失败不改变原失败结果
+        meta["output_parse"].update(repair="failed", repair_error=type(exc).__name__)
+        rt.log("qa_output_repair_failed", classification=classification,
+               error=type(exc).__name__)
+        return outcome, meta
+    repaired_classification, repaired, _ = classify_output(repaired_raw)
+    meta["output_parse"].update(repair="attempted", repair_result=repaired_classification,
+                                model_calls=1)
+    if repaired is None:
+        rt.log("qa_output_repair_failed", classification=classification,
+               result=repaired_classification)
+        return outcome, meta
+    if not repair_preserves_content(outcome.final_output, repaired):
+        # 修复只能改格式：内容被改写或出现原输出里没有的依据时，整次修复作废。
+        meta["output_parse"]["repair_rejected"] = "content_changed"
+        rt.log("qa_output_repair_failed", classification=classification,
+               result="content_changed")
+        return outcome, meta
+    rt.log("qa_output_parse_repaired", classification=classification, method="model")
+    return replace(outcome, final_output=repaired), meta
+
+
 async def _run_single(task, s, ctx, rt, deadline, decision):
     """开放主题：沿用原有行为，只把识别出的地区/时期作为检索约束传下去。"""
     ctx.scope = None
     outcome = await _execute_once(task, s, ctx, rt, deadline)
+    outcome, parse_meta = await _recover_qa_output(outcome, s, rt, deadline,
+                                                  repair_budget={"remaining": 1})
     result = build_result(task, outcome, ctx, rt.meta)
+    if parse_meta:
+        result.meta.update(parse_meta)
     if outcome.telemetry:
         result.meta["llm"] = {**outcome.telemetry,
                               "parse": "ok" if result.status == "completed" else "failed"}

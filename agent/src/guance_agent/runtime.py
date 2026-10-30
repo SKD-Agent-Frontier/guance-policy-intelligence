@@ -7,7 +7,7 @@ from time import perf_counter
 from agents import RunHooks, SQLiteSession, set_tracing_disabled
 
 from .agent import prompt_version
-from .client import get_client
+from .client import get_client, thinking_off
 from .context import sanitize_error_detail, sanitize_error_fields
 from .sessions import SessionForbidden, claim_session  # noqa: F401 (再导出)
 
@@ -56,6 +56,16 @@ class Runtime:
     @property
     def client(self):
         return get_client(self.settings)
+
+    async def complete_text(self, messages, *, max_tokens: int, timeout: float) -> str:
+        """单次纯文本模型调用（无工具、无检索）；供受控的格式修复等场景使用。"""
+        response = await self.client.chat.completions.create(
+            model=self.settings.llm_model, messages=messages, max_tokens=max_tokens,
+            extra_body=thinking_off(self.settings), timeout=timeout)
+        content = getattr(getattr(response.choices[0], "message", None), "content", None)
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("empty_model_output")
+        return content
 
     def prepare(self):
         self.session, created = open_session(

@@ -1,8 +1,6 @@
 """只接收本次证据 ID，确定性生成结果和出处。"""
-import json
-import re
-
 from .context import RunContext, sanitize_error_detail
+from .format_recovery import parse_agent_output
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
@@ -33,24 +31,8 @@ def insufficient_message(calls):
 
 
 def _parse_nonstructured_output(raw: str) -> AgentOutput:
-    """从非结构化模型文本中识别唯一完整的 JSON 对象。
-
-    不能用首尾花括号切片：解释文字、示例和多段输出会扩大边界。逐个完整解码后
-    只接受唯一对象；有第二个对象或不完整对象均失败关闭，避免任意挑选模型答案。
-    """
-    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
-    decoder, values, offset = json.JSONDecoder(), [], 0
-    while (start := cleaned.find("{", offset)) >= 0:
-        try:
-            value, end = decoder.raw_decode(cleaned[start:])
-        except json.JSONDecodeError:
-            offset = start + 1
-            continue
-        values.append(value)
-        offset = start + end
-    if len(values) != 1:
-        raise ValueError("需要唯一完整的 JSON 对象")
-    return AgentOutput.model_validate(values[0])
+    """兼容入口：解析规则与分类见 format_recovery（只接受唯一完整对象）。"""
+    return parse_agent_output(raw)
 
 
 def rebuild_trusted_answer(result, ctx, reason: str) -> None:
@@ -84,6 +66,8 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
         else:
             parsed = AgentOutput.model_validate(raw)
     except (ValueError, TypeError) as exc:
+        # 失败分类是固定码，不含模型原文；用于区分语法坏、歧义与不完整输出。
+        meta = {**meta, "output_parse": {"classification": getattr(exc, "classification", "unknown")}}
         # 只在显式开启 LOG_CONTENT 时保存片段，避免把模型原文写进运行日志
         if ctx and ctx.settings.log_content:
             # 只在本地显式开启时保留一段脱敏样本，用于区分格式错误 / 截断 / 解析器问题
