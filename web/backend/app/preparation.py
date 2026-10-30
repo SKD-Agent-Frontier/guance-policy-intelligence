@@ -571,20 +571,12 @@ class ResearchPreparationService:
             if entry.time_text and entry.time_text not in PERIODS and not entry.time_unrestricted
             else []
         )
-        exhaustive_intent = re.search(
-            r"(?:全部|所有)(?:的)?(?:列出|罗列|政策|文件)|"
-            r"(?:列出|罗列|统计|汇总|提供|给出).{0,16}(?:全部|所有|完整清单|全量清单)|"
-            r"完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
-            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
-            " ".join(entry.messages),
-        )
-        negated_exhaustive_intent = re.search(
-            r"(?:无需|不必|不要|不需要)\s*(?:(?:列出|罗列|提供|给出|统计|汇总)\s*)?"
-            r"(?:全部(?:的)?(?:政策|文件)|完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
-            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?)",
-            " ".join(entry.messages),
-        )
-        if entry.mode == "qa" and exhaustive_intent and not negated_exhaustive_intent:
+        full_corpus_intent = None
+        for message in entry.messages:
+            message_intent = self._full_corpus_intent(message)
+            if message_intent is not None:
+                full_corpus_intent = message_intent
+        if entry.mode == "qa" and full_corpus_intent is True:
             status = "blocked"
             message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
             options = []
@@ -614,6 +606,30 @@ class ResearchPreparationService:
             status=status, mode=entry.mode, message=message, options=options, state=state,
             request=request, warnings=warnings,
         )
+
+    @staticmethod
+    def _full_corpus_intent(message: str) -> bool | None:
+        negative = re.search(
+            r"(?:无需|不必|不要|不需要)\s*"
+            r"(?:(?:列出|罗列|提供|给出|统计|汇总)\s*)?"
+            r"(?:全部|所有)(?:的)?(?:列出|罗列|政策|文件)?|"
+            r"(?:无需|不必|不要|不需要)\s*(?:给出|统计|汇总)?\s*"
+            r"(?:完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
+            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?)|"
+            r"(?:只|仅)(?:分析|研究|梳理|整理)|"
+            r"(?:只|仅)(?:给|提供|举出|举)\s*(?:三|三个|[1-9]\d*)\s*个?例子",
+            message,
+        )
+        if negative:
+            return False
+        positive = re.search(
+            r"(?:全部|所有)(?:的)?(?:列出|罗列|政策|文件)|"
+            r"(?:列出|罗列|统计|汇总|提供|给出).{0,16}(?:全部|所有|完整清单|全量清单)|"
+            r"完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
+            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
+            message,
+        )
+        return True if positive else None
 
     @staticmethod
     def _statuses(entry: _Entry, pending: list[Condition]) -> list[ConditionExecutionStatus]:

@@ -955,3 +955,66 @@ async def test_negated_exhaustive_followup_does_not_block_accumulated_qa():
 
     assert second.status != "blocked"
     assert second.request is None if second.status == "needs_clarification" else second.request is not None
+
+
+@run_async
+@pytest.mark.parametrize(
+    "message",
+    [
+        "不要全部列出政策，只给三个例子",
+        "无需列出全部政策，只分析产业政策",
+    ],
+)
+async def test_finite_or_negated_full_listing_request_is_not_blocked(message):
+    response = await ResearchPreparationService().prepare({"mode": "qa", "message": message})
+
+    assert response.status != "blocked"
+    assert response.request is None if response.status == "needs_clarification" else response.request is not None
+
+
+@run_async
+async def test_latest_positive_full_listing_intent_overrides_prior_negation():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "qa", "message": "不要全部列出政策，只分析数字经济"}
+    )
+    second = await service.prepare(
+        {
+            "mode": "qa",
+            "message": "列出全部政策",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert first.status != "blocked"
+    assert second.status == "blocked"
+    assert second.request is None
+
+
+@run_async
+async def test_latest_negated_full_listing_intent_overrides_prior_positive():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "qa", "message": "梳理数字经济并列出全部政策"}
+    )
+    second = await service.prepare(
+        {
+            "mode": "qa",
+            "message": "不要全部列出，只分析产业政策",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert first.status == "blocked"
+    assert second.status != "blocked"
+    assert second.request is None if second.status == "needs_clarification" else second.request is not None
+
+
+@run_async
+async def test_finite_examples_and_ownership_reform_are_not_exhaustive_intent():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "qa", "message": "所有制改革有哪些政策？请只给三个例子"}
+    )
+
+    assert response.status == "ready"
+    assert response.request is not None
