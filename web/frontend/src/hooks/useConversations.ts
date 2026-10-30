@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ApiError, researchClient, validatePreparationResponse } from "../api/client";
 import type { DemoScenario } from "../data/demo";
-import type { Conversation, ConversationMessage } from "../conversationTypes";
+import { createAdvancedDraft, type AdvancedDraft, type Conversation, type ConversationMessage } from "../conversationTypes";
 import type {
   PreparedRequest,
   ResearchPreparationRequest,
@@ -38,6 +38,7 @@ function createConversation(mode: TaskType = "qa"): Conversation {
     messages: [],
     busy: "idle",
     preparation: null,
+    advancedDraft: createAdvancedDraft(),
   };
 }
 
@@ -86,7 +87,7 @@ function runResultError(result: RunResult): { code: string; text: string } | nul
   return { code: "EXECUTION_FAILED", text: result.answer || "研究任务未能完成。" };
 }
 
-function isAdvancedMode(mode: TaskType): boolean {
+function isAdvancedMode(mode: TaskType): mode is Extract<TaskType, "extract" | "compare" | "compare_plans"> {
   return mode === "extract" || mode === "compare" || mode === "compare_plans";
 }
 
@@ -220,6 +221,26 @@ export function useConversations() {
     const conversationId = activeIdRef.current;
     const conversation = sessionsRef.current.find((item) => item.id === conversationId);
     if (!conversation || !text.trim()) return;
+    if (operations.current.has(conversationId)) return;
+    if (isAdvancedMode(conversation.mode)) {
+      appendMessage(conversationId, message("user", { text }));
+      updateConversation(conversationId, (current) => ({
+        ...current,
+        advancedDraft: {
+          ...current.advancedDraft,
+          open: true,
+          question: text,
+          focusVersion: current.advancedDraft.focusVersion + 1,
+        },
+      }));
+      const guidance = {
+        extract: "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
+        compare: "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。",
+        compare_plans: "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
+      }[conversation.mode];
+      appendMessage(conversationId, message("advanced_guidance", { text: guidance }));
+      return;
+    }
     if (conversation.messages.at(-1)?.kind === "error"
         && (conversation.messages.at(-1) as Extract<ConversationMessage, {kind: "error"}>).code === "PREPARATION_CONFLICT") return;
     const token = beginOperation(conversationId);
@@ -238,7 +259,27 @@ export function useConversations() {
     } finally {
       finishOperation(conversationId, token);
     }
-  }, [appendMessage, beginOperation, finishOperation, prepareAndMaybeExecute]);
+  }, [appendMessage, beginOperation, finishOperation, prepareAndMaybeExecute, updateConversation]);
+
+  const updateAdvancedDraft = useCallback((patch: Partial<AdvancedDraft>) => {
+    const conversationId = activeIdRef.current;
+    updateConversation(conversationId, (conversation) => ({
+      ...conversation,
+      advancedDraft: { ...conversation.advancedDraft, ...patch },
+    }));
+  }, [updateConversation]);
+
+  const openAdvanced = useCallback(() => {
+    const conversationId = activeIdRef.current;
+    updateConversation(conversationId, (conversation) => ({
+      ...conversation,
+      advancedDraft: {
+        ...conversation.advancedDraft,
+        open: true,
+        focusVersion: conversation.advancedDraft.focusVersion + 1,
+      },
+    }));
+  }, [updateConversation]);
 
   const runAdvanced = useCallback(async (request: ResearchRequest, scenario?: DemoScenario) => {
     const conversationId = activeIdRef.current;
@@ -323,6 +364,7 @@ export function useConversations() {
       mode,
       preparation: null,
       busy: "idle",
+      advancedDraft: createAdvancedDraft(),
     }));
   }, [updateConversation]);
 
@@ -337,6 +379,8 @@ export function useConversations() {
     setMode,
     send,
     runAdvanced,
+    updateAdvancedDraft,
+    openAdvanced,
     retry,
     restartPreparation,
   };

@@ -123,15 +123,48 @@ describe("useConversations", () => {
     });
   });
 
-  it("does not run a blocked preparation request", async () => {
-    mockedClient.prepare.mockResolvedValue(preparation("blocked", "compare"));
+  it.each([
+    ["extract", "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
+    ["compare", "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。"],
+    ["compare_plans", "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
+  ] as const)("hands %s messages to the advanced draft without API calls", async (mode, guidance) => {
     const { result } = renderHook(() => useConversations());
-    act(() => result.current.setMode("compare"));
+    act(() => result.current.setMode(mode));
 
-    await act(async () => { await result.current.send("比較政策"); });
+    await act(async () => { await result.current.send("比较这些政策"); });
 
+    expect(mockedClient.prepare).not.toHaveBeenCalled();
     expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(result.current.active?.preparation?.status).toBe("blocked");
+    expect(result.current.active?.messages).toEqual([
+      { id: expect.any(String), kind: "user", text: "比较这些政策" },
+      { id: expect.any(String), kind: "advanced_guidance", text: guidance },
+    ]);
+    expect(result.current.active?.advancedDraft).toMatchObject({
+      open: true,
+      question: "比较这些政策",
+      focusVersion: 1,
+    });
+  });
+
+  it("keeps each conversation's advanced draft and resets it when mode changes", () => {
+    const { result } = renderHook(() => useConversations());
+    const firstId = result.current.activeId;
+    act(() => result.current.setMode("extract"));
+    act(() => result.current.updateAdvancedDraft({ open: true, question: "原始问题", target: "P-1" }));
+    act(() => result.current.openAdvanced());
+    expect(result.current.active?.advancedDraft).toMatchObject({ question: "原始问题", target: "P-1", focusVersion: 1 });
+
+    act(() => result.current.newConversation());
+    expect(result.current.active?.advancedDraft).toEqual({
+      open: false, question: "", target: "", targets: ["", ""], dimensions: [], customDimension: "", focusVersion: 0,
+    });
+    act(() => result.current.selectConversation(firstId));
+    expect(result.current.active?.advancedDraft).toMatchObject({ question: "原始问题", target: "P-1", focusVersion: 1 });
+
+    act(() => result.current.setMode("compare"));
+    expect(result.current.active?.advancedDraft).toEqual({
+      open: false, question: "", target: "", targets: ["", ""], dimensions: [], customDimension: "", focusVersion: 0,
+    });
   });
 
   it("labels QA blocked preparation as a scope block rather than an unsupported mode", async () => {
@@ -161,7 +194,24 @@ describe("useConversations", () => {
     await act(async () => { await result.current.runAdvanced(request); });
 
     expect(mockedClient.prepare).not.toHaveBeenCalled();
+    expect(mockedClient.submit).toHaveBeenCalledTimes(1);
     expect(mockedClient.submit).toHaveBeenCalledWith(request, undefined);
+  });
+
+  it("does not hand off a message while an advanced run is already in progress", async () => {
+    const pending = deferred<RunResult>();
+    mockedClient.submit.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+    const request = { task_type: "compare" as const, question: "比较政策", targets: ["A", "B"], dimensions: null };
+
+    act(() => { void result.current.runAdvanced(request); });
+    await waitFor(() => expect(mockedClient.submit).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.send("稍后比较"); });
+
+    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(false);
+    expect(result.current.active?.advancedDraft.question).toBe("");
+    await act(async () => { pending.resolve(RESULT); await pending.promise; });
   });
 
   it("locks out a second send while preparation is pending", async () => {

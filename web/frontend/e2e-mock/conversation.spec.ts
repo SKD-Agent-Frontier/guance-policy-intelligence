@@ -99,7 +99,19 @@ function runResult(id: string, taskType = "qa") {
     meta: {},
     warnings: ["Mock API：此结果不是模型或知识库执行结果。"],
     task_type: taskType,
-    structured: null,
+    structured: taskType === "compare" ? {
+      objects: ["POLICY-A", "POLICY-B"].map((planid) => ({ planid, title: `Mock API ${planid}`, area: null, fyp: null, plantype_label: null })),
+      dimensions: ["申报条件"],
+      matrix: [{
+        dimension: "申报条件",
+        cells: ["POLICY-A", "POLICY-B"].map((planid) => ({ cell_id: `cell-${planid}`, planid, status: "insufficient", reason: `Mock API ${planid}：此单元格仅用于前端联调，不提供政策事实。` })),
+        difference: { text: "Mock API：证据不足，不作事实比较。", supporting_cells: [], kind: "analysis", status: "insufficient" },
+        comparability: { comparable: false, reason: "Mock API：未连接真实证据。" },
+      }],
+      comparability: { comparable: false, reason: "Mock API：未连接真实证据。" },
+      coverage_notes: ["Mock API：此矩阵不是模型或知识库执行结果。"],
+      analysis_gaps: [],
+    } : null,
     route: null,
   };
 }
@@ -299,7 +311,10 @@ test("Real client Mock API: advanced compare keeps its draft through catalog and
   expect(runCount()).toBe(0);
 
   await page.getByRole("button", { name: "使用高级入口执行" }).click();
-  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("POLICY-A");
+  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("POLICY-B");
+  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("此单元格仅用于前端联调");
   expect(prepareRequests).toHaveLength(0);
   expect(runCount()).toBe(1);
   expect(runBodies[0]).toEqual({ task_type: "compare", question, targets: ["POLICY-A", "POLICY-B"], dimensions: ["申报条件"] });

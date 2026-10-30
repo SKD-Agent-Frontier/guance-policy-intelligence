@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   ArrowUp,
   Plus,
   X,
 } from "lucide-react";
 import type { ResearchRequest, TaskType } from "../types";
+import type { AdvancedDraft } from "../conversationTypes";
 
 type Props = {
   mode: TaskType;
@@ -14,6 +15,9 @@ type Props = {
   onModeChange: (mode: TaskType) => void;
   onSend: (message: string) => void;
   onAdvancedSubmit?: (request: ResearchRequest) => void;
+  advancedDraft: AdvancedDraft;
+  onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
+  onOpenCatalog?: () => void;
 };
 
 const modes: { id: TaskType; label: string }[] = [
@@ -34,14 +38,14 @@ export function ResearchForm({
   onModeChange,
   onSend,
   onAdvancedSubmit,
+  advancedDraft,
+  onAdvancedDraftChange,
+  onOpenCatalog,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [target, setTarget] = useState("");
-  const [targets, setTargets] = useState(["", ""]);
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
-  const [advancedQuestion, setAdvancedQuestion] = useState("");
-  const [customDimension, setCustomDimension] = useState("");
+  const targetRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const targetValuesRef = useRef<string[]>([]);
+  targetValuesRef.current = mode === "extract" ? [advancedDraft.target] : advancedDraft.targets;
 
   const resize = () => {
     const textarea = textareaRef.current;
@@ -54,36 +58,33 @@ export function ResearchForm({
 
   useEffect(resize, [value]);
   useEffect(() => {
-    setAdvancedOpen(false);
-    setTarget("");
-    setTargets(["", ""]);
-    setSelectedDimensions([]);
-    setAdvancedQuestion("");
-    setCustomDimension("");
-  }, [mode]);
+    if (!advancedDraft.open || advancedDraft.focusVersion === 0) return;
+    const index = targetValuesRef.current.findIndex((item) => !isPlanId(item.trim()));
+    if (index >= 0) targetRefs.current[index]?.focus();
+  }, [advancedDraft.focusVersion, advancedDraft.open, mode]);
 
   const submitAdvanced = () => {
     if (busy || !onAdvancedSubmit) return;
     if (mode === "extract") {
-      const planid = target.trim();
+      const planid = advancedDraft.target.trim();
       if (!isPlanId(planid)) return;
       onAdvancedSubmit({
         task_type: mode,
-        question: advancedQuestion.trim() || `请提取“${planid}”的相关政策要素。`,
+        question: advancedDraft.question.trim() || `请提取“${planid}”的相关政策要素。`,
         targets: [planid],
-        dimensions: selectedDimensions,
+        dimensions: advancedDraft.dimensions,
       });
       return;
     }
     if (mode !== "compare" && mode !== "compare_plans") return;
-    const cleanTargets = targets.map((item) => item.trim());
+    const cleanTargets = advancedDraft.targets.map((item) => item.trim());
     if (cleanTargets.length < 2 || cleanTargets.length > 8 || cleanTargets.some((item) => !isPlanId(item))) return;
     if (new Set(cleanTargets).size !== cleanTargets.length) return;
     onAdvancedSubmit({
       task_type: mode,
-      question: advancedQuestion.trim() || `${mode === "compare" ? "比较" : "分析"}以下政策对象：${cleanTargets.join("；")}`,
+      question: advancedDraft.question.trim() || `${mode === "compare" ? "比较" : "分析"}以下政策对象：${cleanTargets.join("；")}`,
       targets: cleanTargets,
-      dimensions: selectedDimensions,
+      dimensions: advancedDraft.dimensions,
     });
   };
 
@@ -94,9 +95,9 @@ export function ResearchForm({
 
   const advancedAvailable = mode === "extract" || mode === "compare" || mode === "compare_plans";
   const messageLength = Array.from(value).length;
-  const advancedTargets = targets.map((item) => item.trim());
+  const advancedTargets = advancedDraft.targets.map((item) => item.trim());
   const advancedTargetValid = mode === "extract"
-    ? isPlanId(target.trim())
+    ? isPlanId(advancedDraft.target.trim())
     : advancedTargets.length >= 2 && advancedTargets.length <= 8 && advancedTargets.every(isPlanId) && new Set(advancedTargets).size === advancedTargets.length;
 
   return (
@@ -144,43 +145,45 @@ export function ResearchForm({
           <button
             type="button"
             className="advanced-toggle"
-            aria-expanded={advancedOpen}
-            onClick={() => setAdvancedOpen((open) => !open)}
+            aria-expanded={advancedDraft.open}
+            onClick={() => onAdvancedDraftChange({ open: !advancedDraft.open, ...(!advancedDraft.open ? { focusVersion: advancedDraft.focusVersion + 1 } : {}) })}
             disabled={busy}
           >
-            {advancedOpen ? "收起高级选择" : "高级选择 · 指定政策编号"}
+            {advancedDraft.open ? "收起高级选择" : "高级选择 · 指定政策编号"}
           </button>
-          {advancedOpen && (
+          {advancedDraft.open && (
             <div className="advanced-fields">
               {mode === "extract" ? (
                 <div className="advanced-field">
                   <label htmlFor="extract-planid">政策编号（planid）</label>
-                  <input id="extract-planid" value={target} onChange={(event) => setTarget(event.target.value)} aria-label="政策编号" />
-                  {target.trim() && !isPlanId(target.trim()) && <p className="advanced-validation" role="alert">编号只能包含字母、数字、下划线或短横线，长度为 1—64 个字符。</p>}
+                  <input ref={(node) => { targetRefs.current[0] = node; }} id="extract-planid" value={advancedDraft.target} onChange={(event) => onAdvancedDraftChange({ target: event.target.value })} aria-label="政策编号" />
+                  {!advancedTargetValid && <p className="advanced-validation" role="alert">请填写有效政策编号（字母、数字、下划线或短横线，长度为 1—64 个字符）。</p>}
                 </div>
               ) : (
                 <div className="advanced-targets">
                   <span>研究对象编号（2—8 个 planid）</span>
-                  {targets.map((item, index) => (
+                  {advancedDraft.targets.map((item, index) => (
                     <div className="advanced-target-row" key={index}>
+                      <span>政策对象 {String.fromCharCode(65 + index)}</span>
                       <input
+                        ref={(node) => { targetRefs.current[index] = node; }}
                         aria-label={`研究对象编号 ${index + 1}`}
                         value={item}
-                        onChange={(event) => setTargets((current) => current.map((targetValue, position) => position === index ? event.target.value : targetValue))}
+                        onChange={(event) => onAdvancedDraftChange({ targets: advancedDraft.targets.map((targetValue, position) => position === index ? event.target.value : targetValue) })}
                       />
-                      {targets.length > 2 && <button type="button" className="advanced-remove-target" aria-label={`移除研究对象 ${index + 1}`} onClick={() => setTargets((current) => current.filter((_, position) => position !== index))}><X size={14} /></button>}
+                      {advancedDraft.targets.length > 2 && <button type="button" className="advanced-remove-target" aria-label={`移除研究对象 ${index + 1}`} onClick={() => onAdvancedDraftChange({ targets: advancedDraft.targets.filter((_, position) => position !== index) })}><X size={14} /></button>}
                     </div>
                   ))}
-                  <button type="button" className="text-button" onClick={() => setTargets((current) => current.length < 8 ? [...current, ""] : current)} disabled={targets.length >= 8}>
-                    <Plus size={14} /> 添加对象
+                  <button type="button" className="text-button" aria-label="添加对象" onClick={() => onAdvancedDraftChange({ targets: advancedDraft.targets.length < 8 ? [...advancedDraft.targets, ""] : advancedDraft.targets })} disabled={advancedDraft.targets.length >= 8}>
+                    <Plus size={14} /> 添加政策对象
                   </button>
-                  {targets.some((item) => item.trim()) && (targets.some((item) => !isPlanId(item.trim())) || targets.length < 2 || targets.length > 8) && <p className="advanced-validation" role="alert">请填写 2—8 个有效政策编号。</p>}
-                  {targets.filter((item) => item.trim()).length > 1 && new Set(targets.map((item) => item.trim()).filter(Boolean)).size !== targets.filter((item) => item.trim()).length && <p className="advanced-validation" role="alert">请填写不同的政策编号，重复对象无法进行比较。</p>}
+                  {!advancedTargetValid && <p className="advanced-validation" role="alert">请填写 2—8 个有效政策编号。</p>}
+                  {advancedDraft.targets.filter((item) => item.trim()).length > 1 && new Set(advancedDraft.targets.map((item) => item.trim()).filter(Boolean)).size !== advancedDraft.targets.filter((item) => item.trim()).length && <p className="advanced-validation" role="alert">请填写不同的政策编号，重复对象无法进行比较。</p>}
                 </div>
               )}
               <label className="advanced-field">
-                <span>补充要求（选填）</span>
-                <textarea rows={2} value={advancedQuestion} onChange={(event) => setAdvancedQuestion(event.target.value)} />
+                <span>研究问题</span>
+                <textarea rows={2} value={advancedDraft.question} onChange={(event) => onAdvancedDraftChange({ question: event.target.value })} />
               </label>
               <div className="advanced-dimensions" aria-label="研究维度">
                 <span>研究维度</span>
@@ -189,20 +192,21 @@ export function ResearchForm({
                     <button
                       type="button"
                       key={dimension}
-                      className={`choice-chip ${selectedDimensions.includes(dimension) ? "is-selected" : ""}`}
-                      aria-pressed={selectedDimensions.includes(dimension)}
-                      onClick={() => setSelectedDimensions((current) => current.includes(dimension) ? current.filter((item) => item !== dimension) : [...current, dimension])}
+                      className={`choice-chip ${advancedDraft.dimensions.includes(dimension) ? "is-selected" : ""}`}
+                      aria-pressed={advancedDraft.dimensions.includes(dimension)}
+                      onClick={() => onAdvancedDraftChange({ dimensions: advancedDraft.dimensions.includes(dimension) ? advancedDraft.dimensions.filter((item) => item !== dimension) : [...advancedDraft.dimensions, dimension] })}
                     >{dimension}</button>
                   ))}
                 </div>
               </div>
               <label className="advanced-field">
                 <span>自定义维度（选填）</span>
-                <input value={customDimension} onChange={(event) => setCustomDimension(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && customDimension.trim()) { event.preventDefault(); setSelectedDimensions((current) => current.includes(customDimension.trim()) ? current : [...current, customDimension.trim()]); setCustomDimension(""); } }} />
+                <input value={advancedDraft.customDimension} onChange={(event) => onAdvancedDraftChange({ customDimension: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter" && advancedDraft.customDimension.trim()) { event.preventDefault(); const item = advancedDraft.customDimension.trim(); onAdvancedDraftChange({ dimensions: advancedDraft.dimensions.includes(item) ? advancedDraft.dimensions : [...advancedDraft.dimensions, item], customDimension: "" }); } }} />
               </label>
-              <button type="button" className="text-button" onClick={() => { if (!customDimension.trim()) return; setSelectedDimensions((current) => current.includes(customDimension.trim()) ? current : [...current, customDimension.trim()]); setCustomDimension(""); }} disabled={!customDimension.trim()}>添加自定义维度</button>
+              <button type="button" className="text-button" onClick={() => { const item = advancedDraft.customDimension.trim(); if (!item) return; onAdvancedDraftChange({ dimensions: advancedDraft.dimensions.includes(item) ? advancedDraft.dimensions : [...advancedDraft.dimensions, item], customDimension: "" }); }} disabled={!advancedDraft.customDimension.trim()}>添加自定义维度</button>
               <p className="advanced-note">输入后按 Enter 或点击“添加自定义维度”，研究请求会携带该维度。</p>
-              {selectedDimensions.some((item) => !dimensions.includes(item)) && <div className="custom-dimensions">自定义：{selectedDimensions.filter((item) => !dimensions.includes(item)).map((item) => <button type="button" key={item} onClick={() => setSelectedDimensions((current) => current.filter((value) => value !== item))}>{item} ×</button>)}</div>}
+              {advancedDraft.dimensions.some((item) => !dimensions.includes(item)) && <div className="custom-dimensions">自定义：{advancedDraft.dimensions.filter((item) => !dimensions.includes(item)).map((item) => <button type="button" key={item} onClick={() => onAdvancedDraftChange({ dimensions: advancedDraft.dimensions.filter((value) => value !== item) })}>{item} ×</button>)}</div>}
+              {onOpenCatalog && <button type="button" className="text-button" onClick={onOpenCatalog}>前往文献目录查找编号</button>}
               <button type="button" className="advanced-submit" onClick={submitAdvanced} disabled={busy || !advancedTargetValid}>
                 使用高级入口执行
               </button>

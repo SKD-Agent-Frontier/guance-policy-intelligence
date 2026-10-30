@@ -3,6 +3,12 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResearchForm } from "./ResearchForm";
 import type { TaskType } from "../types";
+import type { AdvancedDraft } from "../conversationTypes";
+
+const draft = (overrides: Partial<AdvancedDraft> = {}): AdvancedDraft => ({
+  open: false, question: "", target: "", targets: ["", ""], dimensions: [], customDimension: "", focusVersion: 0,
+  ...overrides,
+});
 
 function ControlledForm({
   onSend = vi.fn(),
@@ -11,6 +17,7 @@ function ControlledForm({
 }) {
   const [mode, setMode] = useState<TaskType>("qa");
   const [value, setValue] = useState("");
+  const [advancedDraft, setAdvancedDraft] = useState(draft());
   return (
     <ResearchForm
       mode={mode}
@@ -19,6 +26,8 @@ function ControlledForm({
       onChange={setValue}
       onModeChange={setMode}
       onSend={() => onSend(value)}
+      advancedDraft={advancedDraft}
+      onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))}
     />
   );
 }
@@ -67,5 +76,61 @@ describe("ResearchForm", () => {
     expect(textarea).toHaveValue("😀".repeat(4001));
     expect(send).toBeDisabled();
     expect(screen.getByText(/输入过长/)).toBeInTheDocument();
+  });
+
+  it("renders a controlled prefilled advanced draft and preserves dimensions on rerender", () => {
+    const onAdvancedSubmit = vi.fn();
+    function Harness() {
+      const [advancedDraft, setAdvancedDraft] = useState(draft({
+        open: true, question: "比较政策成效", targets: ["plan_a", "plan_b"], dimensions: ["支持措施"], focusVersion: 0,
+      }));
+      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
+    }
+    render(<Harness />);
+    expect(screen.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("plan_a");
+    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue("比较政策成效");
+    expect(screen.getByRole("button", { name: "支持措施" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "使用高级入口执行" }));
+    expect(onAdvancedSubmit).toHaveBeenCalledWith(expect.objectContaining({ targets: ["plan_a", "plan_b"], question: "比较政策成效", dimensions: ["支持措施"] }));
+  });
+
+  it("shows missing, insufficient, duplicate, and malformed plan IDs and only submits valid unique targets", () => {
+    const onAdvancedSubmit = vi.fn();
+    function Harness() {
+      const [advancedDraft, setAdvancedDraft] = useState(draft({ open: true }));
+      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
+    }
+    render(<Harness />);
+    const run = screen.getByRole("button", { name: "使用高级入口执行" });
+    expect(screen.getByRole("alert", { name: "" })).toHaveTextContent("2—8 个有效政策编号");
+    expect(run).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 1" }), { target: { value: "same" } });
+    expect(run).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "same" } });
+    expect(screen.getByText(/重复对象/)).toBeInTheDocument();
+    expect(run).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "bad id" } });
+    expect(run).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "other" } });
+    expect(run).toBeEnabled();
+    fireEvent.click(run);
+    expect(onAdvancedSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("focuses the first missing plan ID when the controlled draft opens", () => {
+    const { rerender } = render(<ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={draft()} onAdvancedDraftChange={() => {}} />);
+    rerender(<ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={draft({ open: true, focusVersion: 1 })} onAdvancedDraftChange={() => {}} />);
+    expect(screen.getByRole("textbox", { name: "研究对象编号 1" })).toHaveFocus();
+  });
+
+  it("keeps focus on the current ID while the user types", () => {
+    function Harness() {
+      const [advancedDraft, setAdvancedDraft] = useState(draft({ open: true, focusVersion: 1 }));
+      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
+    }
+    render(<Harness />);
+    const first = screen.getByRole("textbox", { name: "研究对象编号 1" });
+    fireEvent.change(first, { target: { value: "p" } });
+    expect(first).toHaveFocus();
   });
 });

@@ -10,6 +10,7 @@ const mockState = vi.hoisted(() => ({
     messages: [],
     busy: "idle" as const,
     preparation: null,
+    advancedDraft: { open: false, question: "", target: "", targets: ["", ""], dimensions: [], customDimension: "", focusVersion: 0 },
   },
   setMode: vi.fn(),
   send: vi.fn(),
@@ -27,6 +28,8 @@ vi.mock("./hooks/useConversations", () => ({
     runAdvanced: vi.fn(),
     retry: vi.fn(),
     restartPreparation: vi.fn(),
+    updateAdvancedDraft: vi.fn(),
+    openAdvanced: vi.fn(),
   }),
 }));
 

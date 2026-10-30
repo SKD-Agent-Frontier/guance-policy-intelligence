@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "./ConversationView";
-import type { Conversation } from "../conversationTypes";
+import { createAdvancedDraft, type Conversation } from "../conversationTypes";
 import type { PreparationResponse } from "../types";
 
 const state: PreparationResponse["state"] = {
@@ -51,6 +51,7 @@ function conversationFixture(): Conversation {
     ],
     busy: "idle",
     preparation: latest,
+    advancedDraft: createAdvancedDraft(),
   };
 }
 
@@ -59,7 +60,7 @@ describe("ConversationView", () => {
 
   it("renders dynamic questions/options, disables stale options, and keeps warnings visible", () => {
     const onSend = vi.fn();
-    render(<ConversationView conversation={conversationFixture()} onModeChange={vi.fn()} onSend={onSend} onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()} />);
+    render(<ConversationView conversation={conversationFixture()} onModeChange={vi.fn()} onSend={onSend} onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "后端动态问题二" })).toBeInTheDocument();
     expect(screen.getAllByText("研究范围不保证发布日期精确过滤。")).toHaveLength(2);

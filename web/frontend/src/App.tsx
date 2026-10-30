@@ -20,7 +20,7 @@ const scenarioOptions: { value: DemoScenario; label: string }[] = [
 ];
 
 export default function App() {
-  const { sessions, activeId, active, selectConversation, newConversation, setMode, send, runAdvanced, retry, restartPreparation } = useConversations();
+  const { sessions, activeId, active, selectConversation, newConversation, setMode, send, runAdvanced, retry, restartPreparation, updateAdvancedDraft, openAdvanced } = useConversations();
   const [page, setPage] = useState<Page>("home");
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -112,8 +112,8 @@ export default function App() {
         </div>
       </header>
 
-      {page === "home" && <div className="page-body page-body-home"><Home mode={mode} value={homeDraft} busy={busy} onChange={setHomeDraft} onModeChange={setMode} onSend={beginMessage} onAdvancedSubmit={beginAdvanced} /></div>}
-      {page === "workspace" && active && <div className="page-body page-body-workspace"><ConversationView conversation={active} onModeChange={setMode} onSend={beginMessage} onAdvancedSubmit={beginAdvanced} onRetry={() => void retry()} onRestartPreparation={() => void restartPreparation()} /></div>}
+      {page === "home" && active && <div className="page-body page-body-home"><Home mode={mode} value={homeDraft} busy={busy} onChange={setHomeDraft} onModeChange={setMode} onSend={beginMessage} onAdvancedSubmit={beginAdvanced} advancedDraft={active.advancedDraft} onAdvancedDraftChange={updateAdvancedDraft} onOpenCatalog={() => setPage("catalog")} /></div>}
+      {page === "workspace" && active && <div className="page-body page-body-workspace"><ConversationView conversation={active} onModeChange={setMode} onSend={beginMessage} onAdvancedSubmit={beginAdvanced} onRetry={() => void retry()} onRestartPreparation={() => void restartPreparation()} onAdvancedDraftChange={updateAdvancedDraft} onSpecifyPolicies={openAdvanced} onOpenCatalog={() => setPage("catalog")} /></div>}
       {page === "catalog" && <div className="page-body page-body-catalog"><PolicyCatalog /></div>}
     </div>
 

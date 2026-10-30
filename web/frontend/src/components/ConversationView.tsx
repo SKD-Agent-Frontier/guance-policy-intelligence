@@ -3,7 +3,7 @@ import { BookOpenText, RotateCcw } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
 import { EvidencePanel } from "./EvidencePanel";
-import type { Conversation, ConversationMessage } from "../conversationTypes";
+import type { AdvancedDraft, Conversation, ConversationMessage } from "../conversationTypes";
 import type { ResearchRequest, RunResult, TaskType } from "../types";
 
 type Props = {
@@ -13,6 +13,9 @@ type Props = {
   onAdvancedSubmit: (request: ResearchRequest) => void;
   onRetry: () => void;
   onRestartPreparation: () => void;
+  onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
+  onSpecifyPolicies: () => void;
+  onOpenCatalog: () => void;
 };
 
 const labels: Record<TaskType, string> = {
@@ -23,7 +26,7 @@ const labels: Record<TaskType, string> = {
   compare_plans: "多方案分析",
 };
 
-export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRestartPreparation }: Props) {
+export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRestartPreparation, onAdvancedDraftChange, onSpecifyPolicies, onOpenCatalog }: Props) {
   const [draft, setDraft] = useState("");
   const [evidence, setEvidence] = useState<{ messageId: string; result: RunResult; chunkId: string | null } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
@@ -80,6 +83,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
             onSend={(message) => { setDraft(""); onSend(message); }}
             onRetry={onRetry}
             onRestartPreparation={onRestartPreparation}
+            onSpecifyPolicies={onSpecifyPolicies}
             onEvidence={(result, chunkId) => setEvidence({ messageId: message.id, result, chunkId })}
             evidence={evidence?.messageId === message.id ? evidence : null}
             onCloseEvidence={() => setEvidence(null)}
@@ -101,6 +105,9 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
           onModeChange={onModeChange}
           onSend={(message) => { submittedDraft.current = message; setDraft(""); onSend(message); }}
           onAdvancedSubmit={onAdvancedSubmit}
+          advancedDraft={conversation.advancedDraft}
+          onAdvancedDraftChange={onAdvancedDraftChange}
+          onOpenCatalog={onOpenCatalog}
         />
       </div>
       <p className="conversation-local-note">对话记录和准备状态仅保存在当前前端会话，刷新页面后会清空</p>
@@ -115,6 +122,7 @@ function Message({
   onSend,
   onRetry,
   onRestartPreparation,
+  onSpecifyPolicies,
   onEvidence,
   evidence,
   onCloseEvidence,
@@ -125,11 +133,13 @@ function Message({
   onSend: (message: string) => void;
   onRetry: () => void;
   onRestartPreparation: () => void;
+  onSpecifyPolicies: () => void;
   onEvidence: (result: RunResult, chunkId: string) => void;
   evidence: { messageId: string; result: RunResult; chunkId: string | null } | null;
   onCloseEvidence: () => void;
 }) {
   if (message.kind === "user") return <article className="conversation-message message-user"><div className="message-role">你</div><p>{message.text}</p></article>;
+  if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><div className="message-role">研究助手</div><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
   if (message.kind === "execution") return <article className="conversation-message message-system"><div className="message-role">研究执行</div><p>{message.text}</p></article>;
   if (message.kind === "error") {
     const preparationConflict = message.code === "PREPARATION_CONFLICT" || /409|PREPARATION_STATE|STATE_EXPIRED|REVISION_CONFLICT/i.test(message.code);
