@@ -51,10 +51,12 @@ class _Entry:
     state_id: str
     mode: ResearchMode
     original_request: str
+    messages: list[str]
     topic: str | None
     time_scope: TimeScope | None
     area: str | None
     area_text: str | None
+    area_conflict: bool
     base_time_text: str | None
     dimensions: list[str]
     time_text: str | None
@@ -62,6 +64,7 @@ class _Entry:
     time_unrestricted: bool
     exact_time_pending: bool
     exact_time_confirmed: bool
+    ambiguous_time: bool
     completed_questions: list[CompletedQuestion]
     clarification_count: int
     revision: int
@@ -113,6 +116,7 @@ class ResearchPreparationService:
             entry.previous = (entry.revision, entry.mode, request.message, None)  # Filled after response construction.
             entry.revision += 1
             entry.clarification_count += 1
+            entry.messages.append(request.message)
             self._apply_message(entry, request.message)
             response = self._render(entry, request.message, now)
             entry.previous = (entry.revision - 1, entry.mode, request.message, response)
@@ -133,10 +137,12 @@ class ResearchPreparationService:
             state_id=state_id,
             mode=request.mode,
             original_request=request.message,
+            messages=[request.message],
             topic=self._topic(request.message),
             time_scope=None,
             area=None,
             area_text=None,
+            area_conflict=False,
             base_time_text=None,
             dimensions=[],
             time_text=None,
@@ -144,6 +150,7 @@ class ResearchPreparationService:
             time_unrestricted=False,
             exact_time_pending=False,
             exact_time_confirmed=False,
+            ambiguous_time=False,
             completed_questions=[],
             clarification_count=0,
             revision=0,
@@ -158,6 +165,7 @@ class ResearchPreparationService:
 
     def _apply_message(self, entry: _Entry, message: str, *, initial: bool = False) -> None:
         was_exact_time_pending = entry.exact_time_pending
+        was_area_conflict = entry.area_conflict
         updated_time = False
         prior_topic = entry.topic
         topic = self._topic(message)
@@ -177,29 +185,39 @@ class ResearchPreparationService:
             entry.time_text = "不限时间"
         elif time_match := self._time(message):
             updated_time = True
-            entry.time_scope, entry.time_text, exact = time_match
+            entry.time_scope, entry.time_text, exact, entry.ambiguous_time = time_match
             entry.time_unrestricted = False
             entry.exact_time_pending = exact and not entry.exact_time_confirmed
             if initial:
                 entry.base_time_text = entry.time_text
 
-        nationwide = re.search(r"全国(?:范围(?:内)?)?", message) is not None
-        if nationwide:
+        national_scope = re.search(r"全国范围(?:内)?|全国政策", message) is not None
+        areas = self._areas(message)
+        if national_scope and areas:
             entry.area = None
-            entry.area_text = "全国"
-            entry.area_unrestricted = True
+            entry.area_text = "全国范围、" + "、".join(areas)
+            entry.area_unrestricted = False
+            entry.area_conflict = True
+        elif national_scope:
+            entry.area = None
+            entry.area_text = "全国范围"
+            entry.area_unrestricted = False
+            entry.area_conflict = False
         elif re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
             entry.area = None
             entry.area_text = None
             entry.area_unrestricted = True
-        elif areas := self._areas(message):
+            entry.area_conflict = False
+        elif areas:
             entry.area = areas[0] if len(areas) == 1 else None
             entry.area_text = "、".join(areas)
             entry.area_unrestricted = False
+            entry.area_conflict = False
         elif area := self._explicit_area(message):
             entry.area = None
             entry.area_text = area
             entry.area_unrestricted = False
+            entry.area_conflict = False
 
         if dims := self._dimensions(message):
             entry.dimensions = dims
@@ -213,6 +231,8 @@ class ResearchPreparationService:
                 entry.completed_questions.append(
                     CompletedQuestion(question_id="aspect", answer=aspect_answer)
                 )
+        if was_area_conflict and not entry.area_conflict and not initial:
+            entry.completed_questions.append(CompletedQuestion(question_id="area_scope", answer=message))
 
         if not initial:
             if entry.exact_time_pending and re.search(r"确认|继续|按原条件|照此", message):
@@ -240,40 +260,78 @@ class ResearchPreparationService:
 
     @staticmethod
     def _time(message: str):
-        for name, (start, end) in PERIODS.items():
-            if name in message:
-                return TimeScope(start=start, end=end, precision="range", timezone=None), name, False
-        if match := re.search(r"(\d{4})\s*(?:年)?\s*[—–-至到]\s*(\d{4})\s*年?", message):
-            return TimeScope(start=match.group(1), end=match.group(2), precision="range", timezone=None), match.group(0), False
-        if match := re.search(r"(截至\s*\d{4}年?|\d{4}年?(?:以前|之前|前|之后|以后|以来))", message):
-            return TimeScope(start=None, end=None, precision="unspecified", timezone=None), match.group(1), False
-        if match := re.search(
-            r"(\d{4}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}时\d{1,2}分(?:\d{1,2}秒)?)?)",
+        periods = [name for name in PERIODS if name in message]
+        calendar_range = re.search(r"(\d{4})\s*(?:年)?\s*[—–-至到]\s*(\d{4})\s*年?", message)
+        date_boundary = re.search(
+            r"(截至\s*)(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?"
+            r"|\d{4}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}时\d{1,2}分(?:\d{1,2}秒)?)?)",
             message,
-        ):
-            date_text = match.group(1)
-            return TimeScope(start=date_text, end=date_text, precision="exact", timezone=None), date_text, True
-        if match := re.search(
-            r"(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?(?:Z|[+-]\d{2}:?\d{2})?)",
+        )
+        date_match = date_boundary or re.search(
+            r"(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?"
+            r"|\d{4}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}时\d{1,2}分(?:\d{1,2}秒)?)?)",
             message,
-        ):
-            date_text = match.group(1)
+        )
+        date_text = date_boundary.group(2) if date_boundary else date_match.group(1) if date_match else None
+        calendar_limit = None if date_match else re.search(
+            r"(截至\s*\d{4}年?|\d{4}年?(?:以前|之前|前|之后|以后|以来))", message
+        )
+        year_match = None if date_match or calendar_range or calendar_limit else re.search(r"(\d{4})年", message)
+
+        candidates: list[tuple[int, str]] = []
+        if calendar_range:
+            candidates.append((calendar_range.start(), calendar_range.group(0)))
+        if date_match:
+            candidates.append((date_match.start(), date_match.group(0)))
+        if calendar_limit:
+            candidates.append((calendar_limit.start(), calendar_limit.group(1)))
+        if year_match:
+            candidates.append((year_match.start(), year_match.group(0)))
+        for period in periods:
+            period_match = re.search(rf"{period}(?:规划)?(?:为背景)?", message)
+            candidates.append((period_match.start(), period_match.group(0)) if period_match else (message.find(period), period))
+
+        if len(candidates) > 1:
+            candidates.sort(key=lambda candidate: candidate[0])
+            value = "，".join(dict.fromkeys(candidate[1] for candidate in candidates))
+            if date_match and date_text:
+                timezone = re.search(r"(Z|[+-]\d{2}:?\d{2})$", date_text)
+                timestamp = date_text[: -len(timezone.group(1))] if timezone else date_text
+                scope = TimeScope(start=timestamp, end=timestamp, precision="exact", timezone=timezone.group(1) if timezone else None)
+            elif calendar_range:
+                scope = TimeScope(start=calendar_range.group(1), end=calendar_range.group(2), precision="range", timezone=None)
+            elif calendar_limit:
+                scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
+            elif year_match:
+                scope = TimeScope(start=year_match.group(1), end=year_match.group(1), precision="year", timezone=None)
+            else:
+                start, end = PERIODS[periods[0]]
+                scope = TimeScope(start=start, end=end, precision="range", timezone=None)
+            return scope, value, False, True
+
+        if date_match and date_text:
             timezone = re.search(r"(Z|[+-]\d{2}:?\d{2})$", date_text)
             timestamp = date_text[: -len(timezone.group(1))] if timezone else date_text
             return (
-                TimeScope(
-                    start=timestamp,
-                    end=timestamp,
-                    precision="exact",
-                    timezone=timezone.group(1) if timezone else None,
-                ),
-                date_text,
+                TimeScope(start=timestamp, end=timestamp, precision="exact", timezone=timezone.group(1) if timezone else None),
+                date_match.group(0),
                 True,
+                False,
             )
-        if match := re.search(r"(\d{4})年", message):
-            return TimeScope(start=match.group(1), end=match.group(1), precision="year", timezone=None), match.group(0), False
+        if calendar_limit:
+            return TimeScope(start=None, end=None, precision="unspecified", timezone=None), calendar_limit.group(1), False, False
+        if calendar_range:
+            return TimeScope(start=calendar_range.group(1), end=calendar_range.group(2), precision="range", timezone=None), calendar_range.group(0), False, False
+        if periods:
+            name = periods[0]
+            start, end = PERIODS[name]
+            period_match = re.search(rf"{name}(?:规划)?(?:为背景)?", message)
+            return TimeScope(start=start, end=end, precision="range", timezone=None), period_match.group(0) if period_match else name, False, False
+        if year_match:
+            year = year_match.group(1)
+            return TimeScope(start=year, end=year, precision="year", timezone=None), year_match.group(0), False, False
         if "近十年" in message:
-            return TimeScope(start=None, end=None, precision="range", timezone=None), "近十年", True
+            return TimeScope(start=None, end=None, precision="range", timezone=None), "近十年", True, False
         return None
 
     @staticmethod
@@ -318,7 +376,7 @@ class ResearchPreparationService:
         text = re.sub(r"(?:按|按照).*$", "", text)
         for area in ResearchPreparationService._areas(message):
             text = text.replace(area, "")
-        text = re.sub(r"^全国(?:范围(?:内)?)?", "", text).strip(" ，,。；;：:")
+        text = re.sub(r"^全国范围(?:内)?", "", text).strip(" ，,。；;：:")
         text = re.sub(r"^(?:梳理|整理|归纳|研究|分析|查询|查找|了解)\s*", "", text)
         text = text.strip("和及与并")
         return None if text in {"政策", "政策梳理", "相关政策"} else text or None
@@ -337,8 +395,9 @@ class ResearchPreparationService:
         topic = entry.topic or "政策"
         area = entry.area_text or entry.area
         if entry.area_unrestricted:
-            area_label = "全国范围内" if entry.area_text == "全国" else "不限地区"
-            question = f"{area_label}梳理{topic}"
+            question = f"不限地区梳理{topic}"
+        elif entry.area_text == "全国范围":
+            question = f"全国范围内梳理{topic}"
         else:
             question = f"{area}范围内梳理{topic}" if area else "梳理" + topic
         if entry.time_text:
@@ -371,11 +430,25 @@ class ResearchPreparationService:
                 id="scope", question="希望覆盖哪些地区和时间，并按哪些维度整理？", choices=[]
             ))
             pending.extend([Condition(id="scope", text="待明确整理范围和维度")])
+        if entry.area_conflict:
+            options.append(PreparationOption(
+                id="area_scope",
+                question="请求同时限定全国范围和具体地区，请确认保留哪一种范围。",
+                choices=["全国范围", "具体地区"],
+            ))
+            pending.append(Condition(id="area", text=entry.area_text or "地区范围冲突待确认"))
+        if entry.ambiguous_time:
+            options.append(PreparationOption(
+                id="time_scope",
+                question="请求同时提到公历年份和五年规划时期，请确认筛选条件；也可保留为文字要求。",
+                choices=["按公历年份", "按规划时期", "两者都作为文字要求"],
+            ))
+            pending.append(Condition(id="time_scope", text=entry.time_text or "时间范围冲突待确认"))
         if entry.exact_time_pending:
-            options = [PreparationOption(
+            options.append(PreparationOption(
                 id="continue_request_only", question="该精确时间无法保证按发布日期过滤，是否按原条件作为文字要求继续，或调整时间范围？", choices=["确认继续", "调整条件"]
-            )]
-            pending = [Condition(id="publication_time", text=entry.time_text or "待确认的时间条件")]
+            ))
+            pending.append(Condition(id="publication_time", text=entry.time_text or "待确认的时间条件"))
 
         blocked_limit = entry.clarification_count >= self._max_clarifications and bool(options)
         if unsupported:
@@ -400,9 +473,11 @@ class ResearchPreparationService:
             else []
         )
         if entry.mode == "qa" and re.search(
-            r"(?:列出|罗列|清单).{0,12}(?:全部|所有)|(?:全部|所有)(?:的)?(?:政策|文件)|"
-            r"准确(?:统计|篇数|数量)|(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
-            entry.original_request,
+            r"(?:全部|所有)(?:的)?(?:列出|罗列|政策|文件)|"
+            r"(?:列出|罗列|统计|汇总|提供|给出).{0,16}(?:全部|所有|完整清单|全量清单)|"
+            r"完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
+            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
+            " ".join(entry.messages),
         ):
             status = "blocked"
             message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
@@ -438,24 +513,28 @@ class ResearchPreparationService:
     def _statuses(entry: _Entry, pending: list[Condition]) -> list[ConditionExecutionStatus]:
         values: list[ConditionExecutionStatus] = []
         if entry.area_unrestricted:
-            area_value = "全国范围" if entry.area_text == "全国" else "不限地区"
             values.append(ConditionExecutionStatus(
-                condition_id="area", status="unrestricted", value=area_value,
-                reason="由用户明确选择全国范围" if entry.area_text == "全国" else "由用户确认开放地区范围",
+                condition_id="area", status="unrestricted", value="不限地区",
+                reason="由用户确认开放地区范围",
             ))
         elif entry.area:
+            executable_area = entry.area.endswith("省") or entry.area in {"北京市", "天津市", "上海市", "重庆市"}
             values.append(ConditionExecutionStatus(
-                condition_id="area", status="executable_filter", value=entry.area,
-                reason="单一行政地区可由现有确定性路由识别",
+                condition_id="area",
+                status="executable_filter" if executable_area else "request_only",
+                value=entry.area,
+                reason=(
+                    "单一省级地区可由现有确定性路由识别"
+                    if executable_area
+                    else "城市级地区保留在请求中，不假定不完整地区词表可硬过滤"
+                ),
             ))
         elif entry.area_text:
             values.append(ConditionExecutionStatus(
                 condition_id="area", status="request_only", value=entry.area_text,
-                reason=(
-                    "多个地区不能作为单一地区硬过滤条件"
-                    if "、" in entry.area_text
-                    else "该地区表达未能与可执行地区目录安全匹配"
-                ),
+                reason=("全国范围是明确国家级范围，不等同于不限地区" if entry.area_text == "全国范围" else
+                        "全国范围与具体地区同时出现，等待用户确认" if entry.area_conflict else
+                        "多个或未能确认的地区只保留在自然语言请求中"),
             ))
         if entry.time_unrestricted:
             values.append(ConditionExecutionStatus(

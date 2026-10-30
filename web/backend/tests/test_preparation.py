@@ -226,7 +226,18 @@ async def test_single_route_compatible_prefecture_area_is_executable():
     assert response.state.topic == "数字经济政策"
     assert response.request.question.count("苏州市") == 1
     area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
-    assert area_status.status == "executable_filter"
+    assert area_status.status == "request_only"
+
+
+@run_async
+async def test_unconfirmed_unlisted_city_stays_in_topic_and_request():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理温州市数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.state.area is None
+    assert "温州市" in response.state.topic
+    assert "温州市" in response.request.question
 
 
 @run_async
@@ -519,7 +530,7 @@ async def test_calendar_year_boundary_is_preserved_in_value_and_ready_question(t
 
 
 @run_async
-async def test_nationwide_scope_is_explicit_unrestricted_state_and_request_text():
+async def test_nationwide_scope_is_request_only_and_explicit_in_request_text():
     response = await ResearchPreparationService().prepare(
         {"mode": "organize", "message": "梳理全国范围数字经济政策，不限时间，按产业分类"}
     )
@@ -527,7 +538,7 @@ async def test_nationwide_scope_is_explicit_unrestricted_state_and_request_text(
     assert response.status == "ready"
     assert response.state.area is None
     area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
-    assert area_status.status == "unrestricted"
+    assert area_status.status == "request_only"
     assert "全国" in area_status.value
     assert "全国" in response.request.question
     assert response.state.topic == "数字经济政策"
@@ -572,3 +583,138 @@ async def test_qa_followup_can_answer_aspect_and_add_calendar_year_together():
     assert time_status.value == "2023年"
     assert "产业政策" in second.request.question
     assert "2023年" in second.request.question
+    assert "不保证按发布日期精确过滤" in second.warnings
+
+
+@run_async
+async def test_calendar_range_and_planning_period_are_both_request_only_and_need_clarification():
+    response = await ResearchPreparationService().prepare(
+        {
+            "mode": "organize",
+            "message": "梳理北京市数字经济政策，2021—2023年，十四五规划为背景，按产业分类",
+        }
+    )
+
+    assert response.status == "needs_clarification"
+    time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
+    assert time_status.status == "request_only"
+    assert "2021—2023年" in time_status.value
+    assert "十四五" in time_status.value
+    assert response.state.time_scope.start == "2021"
+    assert response.state.time_scope.end == "2023"
+    assert "十四五" not in {s.value for s in response.state.condition_statuses if s.status == "executable_filter"}
+    assert response.request is None
+    assert "不保证按发布日期精确过滤" in response.warnings
+
+
+@run_async
+async def test_exact_date_and_planning_period_cannot_mask_each_other():
+    response = await ResearchPreparationService().prepare(
+        {
+            "mode": "qa",
+            "message": "截至2020-03-12，十四五规划为背景的数字经济政策有哪些？",
+        }
+    )
+
+    assert response.status == "needs_clarification"
+    assert response.request is None
+    time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
+    assert time_status.status == "request_only"
+    assert "截至2020-03-12" in time_status.value
+    assert "十四五" in time_status.value
+    assert response.state.time_scope.precision == "exact"
+
+
+@run_async
+@pytest.mark.parametrize("boundary", ["截至2020-03-12", "截至2020年3月12日"])
+async def test_as_of_full_date_boundary_stays_pending_in_qa(boundary):
+    response = await ResearchPreparationService().prepare(
+        {"mode": "qa", "message": f"{boundary}发布的数字经济政策有哪些？"}
+    )
+
+    assert response.status == "needs_clarification"
+    assert response.request is None
+    assert response.state.time_scope.precision == "exact"
+    time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
+    assert time_status.status == "pending"
+    assert time_status.value == boundary
+    assert response.state.time_scope.start in {"2020-03-12", "2020年3月12日"}
+    assert response.state.original_request.startswith(boundary)
+    assert "不保证按发布日期精确过滤" in response.warnings
+
+
+@run_async
+@pytest.mark.parametrize(
+    "intent",
+    ["请列出全部政策", "请给完整清单", "全部列出数字经济政策", "请给出准确篇数", "总共有多少篇政策"],
+)
+async def test_full_corpus_intent_in_followup_blocks_accumulated_request(intent):
+    service = ResearchPreparationService()
+    first = await service.prepare({"mode": "qa", "message": "数字经济"})
+    second = await service.prepare(
+        {
+            "mode": "qa",
+            "message": intent,
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "blocked"
+    assert second.request is None
+    assert second.state.original_request == "数字经济"
+    assert second.warnings == []
+
+
+@run_async
+async def test_national_scope_does_not_match_national_advisory_phrase():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理全国政协数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.state.topic == "全国政协数字经济政策"
+    assert not any(s.condition_id == "area" for s in response.state.condition_statuses)
+    assert "全国政协" in response.request.question
+
+
+@run_async
+async def test_national_policy_phrase_is_an_explicit_national_scope():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理全国政策，不限时间，按产业分类"}
+    )
+
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert area_status.value == "全国范围"
+    assert "全国" in response.request.question
+
+
+@run_async
+async def test_nationwide_and_specific_city_conflict_is_preserved_and_clarified():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理全国范围北京市数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.status == "needs_clarification"
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert "全国范围" in area_status.value
+    assert "北京市" in area_status.value
+    assert any(item.id == "area" and item.text == area_status.value for item in response.state.pending_conditions)
+    assert "全国范围" in response.state.original_request
+    assert "北京市" in response.state.original_request
+    assert response.request is None
+    assert response.warnings == []
+
+
+@run_async
+async def test_unconfirmed_city_is_kept_as_request_only_without_whitelist_expansion():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理数字经济政策，地区为温州市，不限时间，按产业分类"}
+    )
+
+    assert response.state.area is None
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert area_status.value == "温州市"
+    assert "温州市" in response.request.question
+    assert not any(s.status == "executable_filter" and s.value == "温州市" for s in response.state.condition_statuses)
