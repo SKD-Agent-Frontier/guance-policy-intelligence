@@ -68,6 +68,8 @@ async def test_single_topic_qa_asks_about_aspect():
     assert response.options[0].id == "aspect"
     assert response.state.topic == "数字经济"
     assert response.state.pending_conditions[0].id == "aspect"
+    assert response.message == response.options[0].question
+    assert response.message != "数字经济"
 
 
 @run_async
@@ -134,6 +136,332 @@ async def test_wide_organize_request_asks_for_missing_scope_and_dimensions():
 
 
 @run_async
+async def test_wide_organize_request_starts_with_one_scope_axis_choice():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "梳理数字经济支持政策"}
+    )
+
+    assert response.status == "needs_clarification"
+    assert len(response.options) == 1
+    assert response.options[0].id == "scope_axis"
+    assert response.options[0].choices == [
+        "先按时间范围",
+        "先按地区范围",
+        "不限制时间和地区，综合梳理",
+    ]
+    assert response.message == response.options[0].question
+    assert response.message != "梳理数字经济支持政策"
+
+
+@run_async
+async def test_scope_axis_answer_is_not_recorded_as_a_dimension():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济企业扶持政策"}
+    )
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按时间范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "needs_clarification"
+    assert len(second.options) == 1
+    assert second.options[0].id == "time_scope"
+    assert second.request is None
+    assert second.state.dimensions == []
+    assert second.message == second.options[0].question
+    assert second.message != "先按时间范围"
+
+
+@run_async
+async def test_unlimited_time_choice_still_asks_for_unspecified_area():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    by_time = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按时间范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    unlimited_time = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "不限时间",
+            "state": {"state_id": by_time.state.state_id, "revision": by_time.state.revision},
+        }
+    )
+
+    assert unlimited_time.status == "needs_clarification"
+    assert len(unlimited_time.options) == 1
+    assert unlimited_time.options[0].id == "area_scope"
+    assert unlimited_time.options[0].choices == ["全国范围", "指定省市", "不限地区"]
+    assert unlimited_time.state.time_scope.precision == "unspecified"
+    assert unlimited_time.message == unlimited_time.options[0].question
+    assert unlimited_time.message != "不限时间"
+
+
+@run_async
+@pytest.mark.parametrize("answer", ["不限范围", "不限制范围", "按当前范围继续"])
+async def test_free_scope_answers_finish_while_preserving_known_area(answer):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理北京市数字经济政策"}
+    )
+    assert first.status == "needs_clarification"
+    assert len(first.options) == 1
+    assert first.options[0].id == "time_scope"
+
+    completed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": answer,
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert completed.status == "ready"
+    assert completed.options == []
+    assert completed.request is not None
+    assert "北京市" in completed.request.question
+    assert completed.state.area == "北京市"
+    assert completed.state.time_scope.precision == "unspecified"
+    area_status = next(item for item in completed.state.condition_statuses if item.condition_id == "area")
+    time_status = next(item for item in completed.state.condition_statuses if item.condition_id == "time_scope")
+    assert area_status.status == "executable_filter"
+    assert time_status.status == "unrestricted"
+    assert completed.message == "研究请求已准备完成。"
+    assert completed.message != answer
+
+
+@run_async
+async def test_area_choice_accepts_freeform_beijing_and_shanghai_without_subchoice():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    by_area = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按地区范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    regions = "北京和上海都看看"
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": regions,
+            "state": {"state_id": by_area.state.state_id, "revision": by_area.state.revision},
+        }
+    )
+
+    assert second.status == "needs_clarification"
+    assert len(second.options) == 1
+    assert second.options[0].id == "time_scope"
+    assert second.request is None
+    area_status = next(item for item in second.state.condition_statuses if item.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert area_status.value == regions
+    assert regions in second.request.question if second.request else regions in area_status.value
+    assert "多地区要求保留为文字条件，不保证逐地区精确过滤" in second.warnings
+    assert second.message == second.options[0].question
+    assert second.message != regions
+
+
+@run_async
+async def test_near_ten_years_beijing_enterprise_support_requires_confirmation_and_keeps_focus():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "梳理近十年北京市数字经济重点企业扶持政策",
+        }
+    )
+
+    assert first.status == "needs_clarification"
+    assert len(first.options) == 1
+    assert first.options[0].id == "continue_request_only"
+    assert first.state.topic == "数字经济重点企业扶持政策"
+    assert first.message == first.options[0].question
+    assert first.message != first.state.original_request
+
+    confirmed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "确认继续",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert confirmed.status == "ready"
+    assert confirmed.options == []
+    assert confirmed.request is not None
+    assert "近十年" in confirmed.request.question
+    assert "北京市" in confirmed.request.question
+    assert "重点企业扶持" in confirmed.request.question
+    assert confirmed.message != "确认继续"
+    assert confirmed.message == "研究请求已准备完成。"
+    assert "不保证按发布日期精确过滤" in confirmed.warnings
+
+
+@run_async
+async def test_public_scope_shortcuts_advance_to_the_next_question():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    area_axis = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按地区范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    assert [option.id for option in area_axis.options] == ["area_scope"]
+    assert area_axis.options[0].choices == ["全国范围", "指定省市", "不限地区"]
+    assert area_axis.message == area_axis.options[0].question
+
+    no_area = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "不限地区",
+            "state": {"state_id": area_axis.state.state_id, "revision": area_axis.state.revision},
+        }
+    )
+    assert [option.id for option in no_area.options] == ["time_scope"]
+    assert no_area.options[0].choices == ["近十年", "近五年", "十四五", "自定义时间", "不限时间"]
+    assert no_area.message == no_area.options[0].question
+
+    no_time = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "不限时间",
+            "state": {"state_id": no_area.state.state_id, "revision": no_area.state.revision},
+        }
+    )
+    assert no_time.status == "ready"
+    assert no_time.request is not None
+    assert no_time.state.dimensions == []
+    assert "不限地区" in no_time.request.question
+    assert "不限时间" in no_time.request.question
+
+
+@run_async
+@pytest.mark.parametrize(
+    ("time_choice", "expected_next_option"),
+    [
+        ("近十年", "continue_request_only"),
+        ("近五年", "continue_request_only"),
+        ("十四五", "area_scope"),
+        ("自定义时间", "time_scope"),
+        ("不限时间", "area_scope"),
+    ],
+)
+async def test_each_time_scope_shortcut_advances(time_choice, expected_next_option):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    by_time = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按时间范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    assert time_choice in by_time.options[0].choices
+
+    selected = await service.prepare(
+        {
+            "mode": "organize",
+            "message": time_choice,
+            "state": {"state_id": by_time.state.state_id, "revision": by_time.state.revision},
+        }
+    )
+    assert selected.status == "needs_clarification"
+    assert len(selected.options) == 1
+    assert selected.options[0].id == expected_next_option
+    assert selected.message == selected.options[0].question
+    assert selected.message != time_choice
+
+    if time_choice == "自定义时间":
+        custom_time = await service.prepare(
+            {
+                "mode": "organize",
+                "message": "2022年",
+                "state": {"state_id": selected.state.state_id, "revision": selected.state.revision},
+            }
+        )
+        assert custom_time.status == "needs_clarification"
+        assert len(custom_time.options) == 1
+        assert custom_time.options[0].id == "area_scope"
+        assert custom_time.message == custom_time.options[0].question
+        assert custom_time.message != "2022年"
+    elif time_choice in {"近十年", "近五年"}:
+        confirmed = await service.prepare(
+            {
+                "mode": "organize",
+                "message": "确认继续",
+                "state": {"state_id": selected.state.state_id, "revision": selected.state.revision},
+            }
+        )
+        assert confirmed.status == "needs_clarification"
+        assert len(confirmed.options) == 1
+        assert confirmed.options[0].id == "area_scope"
+        assert confirmed.message == confirmed.options[0].question
+
+
+@run_async
+@pytest.mark.parametrize("area_choice", ["全国范围", "指定省市", "不限地区"])
+async def test_each_area_scope_shortcut_advances(area_choice):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    by_area = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "先按地区范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    assert area_choice in by_area.options[0].choices
+
+    selected = await service.prepare(
+        {
+            "mode": "organize",
+            "message": area_choice,
+            "state": {"state_id": by_area.state.state_id, "revision": by_area.state.revision},
+        }
+    )
+    assert selected.status == "needs_clarification"
+    assert len(selected.options) == 1
+    assert selected.options[0].id == ("area_scope" if area_choice == "指定省市" else "time_scope")
+    assert selected.message == selected.options[0].question
+    assert selected.message != area_choice
+
+    if area_choice == "指定省市":
+        city = await service.prepare(
+            {
+                "mode": "organize",
+                "message": "北京市",
+                "state": {"state_id": selected.state.state_id, "revision": selected.state.revision},
+            }
+        )
+        assert city.status == "needs_clarification"
+        assert len(city.options) == 1
+        assert city.options[0].id == "time_scope"
+        assert city.message == city.options[0].question
+        assert city.message != "北京市"
+
+
+@run_async
 async def test_organize_accepts_plain_topic_as_answer_to_topic_clarification():
     service = ResearchPreparationService()
     first = await service.prepare({"mode": "organize", "message": "梳理政策"})
@@ -146,7 +474,7 @@ async def test_organize_accepts_plain_topic_as_answer_to_topic_clarification():
     )
 
     assert second.state.topic == "数字经济政策"
-    assert second.options[0].id == "scope"
+    assert second.options[0].id == "scope_axis"
 
 
 @run_async
@@ -232,7 +560,7 @@ async def test_single_route_compatible_prefecture_area_is_executable():
 @run_async
 async def test_unconfirmed_unlisted_city_stays_in_topic_and_request():
     response = await ResearchPreparationService().prepare(
-        {"mode": "organize", "message": "梳理温州市数字经济政策，不限时间，按产业分类"}
+        {"mode": "organize", "message": "梳理温州市数字经济政策，不限时间、不限地区，按产业分类"}
     )
 
     assert response.state.area is None
@@ -317,6 +645,42 @@ async def test_exact_time_requires_confirmation_before_ready():
     assert "2024-03-12" in second.request.question
     assert any(s.status == "request_only" for s in second.state.condition_statuses)
     assert "不保证按发布日期精确过滤" in second.warnings
+
+
+@run_async
+@pytest.mark.parametrize(
+    "initial_message",
+    [
+        "梳理近十年北京市数字经济政策",
+        "梳理北京市数字经济政策，2021—2023年，十四五规划为背景",
+    ],
+)
+async def test_current_scope_continue_does_not_bypass_pending_time(initial_message):
+    service = ResearchPreparationService()
+    first = await service.prepare({"mode": "organize", "message": initial_message})
+
+    assert first.status == "needs_clarification"
+    pending_id = first.options[0].id
+    assert pending_id in {"continue_request_only", "time_scope"}
+
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "按当前范围继续",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "needs_clarification"
+    assert second.request is None
+    assert len(second.options) == 1
+    assert second.options[0].id == pending_id
+    assert any(
+        item.condition_id == "time_scope" and item.status == "pending"
+        for item in second.state.condition_statuses
+    )
+    assert second.message == second.options[0].question
+    assert second.message != "按当前范围继续"
 
 
 @run_async
@@ -672,8 +1036,12 @@ async def test_national_scope_does_not_match_national_advisory_phrase():
     )
 
     assert response.state.topic == "全国政协数字经济政策"
-    assert not any(s.condition_id == "area" for s in response.state.condition_statuses)
-    assert "全国政协" in response.request.question
+    area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
+    assert area_status.status == "pending"
+    assert area_status.value is None
+    assert not any(condition.id == "area" for condition in response.state.confirmed_conditions)
+    assert response.request is None
+    assert response.message == response.options[0].question
 
 
 @run_async
@@ -703,7 +1071,7 @@ async def test_nationwide_and_specific_city_conflict_is_preserved_and_clarified(
     assert "全国范围" in response.state.original_request
     assert "北京市" in response.state.original_request
     assert response.request is None
-    assert response.warnings == []
+    assert response.warnings
 
 
 @run_async
@@ -1256,3 +1624,79 @@ async def test_unparseable_explicit_time_change_stays_pending_instead_of_reusing
     )
     assert time_status.status == "pending"
     assert time_status.value is None
+
+
+async def _organize_turn(service, message, previous=None):
+    payload = {"mode": "organize", "message": message}
+    if previous:
+        payload["state"] = {
+            "state_id": previous.state.state_id, "revision": previous.state.revision,
+        }
+    return await service.prepare(payload)
+
+
+@run_async
+@pytest.mark.parametrize(
+    "choice", ["不限制时间和地区，综合梳理", "不限时间和地区，综合梳理"]
+)
+async def test_comprehensive_scope_shortcut_finishes_with_both_ranges_open(choice):
+    service = ResearchPreparationService()
+    first = await _organize_turn(service, "梳理支持数字经济的政策。")
+    result = await _organize_turn(service, choice, first)
+
+    assert result.status == "ready"
+    assert result.options == []
+    assert result.state.dimensions == []
+    assert {
+        item.condition_id for item in result.state.condition_statuses
+        if item.status == "unrestricted"
+    } == {"area", "time_scope"}
+    assert "数字经济" in result.request.question
+
+
+@run_async
+async def test_relative_time_guided_path_finishes_on_fifth_reply_without_reconfirmation():
+    service = ResearchPreparationService()
+    current = await _organize_turn(service, "梳理支持数字经济的政策。")
+    replies = ["先按时间范围", "近十年", "确认继续", "指定省市", "北京市"]
+    expected = ["time_scope", "continue_request_only", "area_scope", "area_scope", None]
+    for reply, option_id in zip(replies, expected, strict=True):
+        current = await _organize_turn(service, reply, current)
+        if option_id:
+            assert current.status == "needs_clarification"
+            assert len(current.options) == 1
+            assert current.options[0].id == option_id
+            assert current.message == current.options[0].question
+        else:
+            assert current.status == "ready"
+            assert current.options == []
+    assert current.state.clarification_count == 5
+    assert "近十年" in current.request.question
+    assert "北京市" in current.request.question
+    assert "不保证按发布日期精确过滤" in current.warnings
+
+
+@run_async
+async def test_combined_reply_focus_survives_confirmation_and_repeated_same_conditions():
+    service = ResearchPreparationService()
+    first = await _organize_turn(service, "梳理支持数字经济的政策。")
+    by_time = await _organize_turn(service, "先按时间范围", first)
+    pending = await _organize_turn(service, "近十年，北京市，重点关注企业扶持。", by_time)
+    assert pending.options[0].id == "continue_request_only"
+    ready = await _organize_turn(service, "确认继续", pending)
+    repeated = await _organize_turn(service, "近十年，北京市", ready)
+
+    for result in (ready, repeated):
+        assert result.status == "ready"
+        assert result.options == []
+        assert result.request.dimensions == ["企业扶持"]
+        assert "企业扶持" in result.request.question
+        assert "北京市" in result.request.question
+        assert "近十年" in result.request.question
+        time_status = next(
+            item for item in result.state.condition_statuses if item.condition_id == "time_scope"
+        )
+        assert time_status.status == "request_only"
+    assert sum(
+        item.question_id == "continue_request_only" for item in repeated.state.completed_questions
+    ) == 1

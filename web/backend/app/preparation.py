@@ -59,6 +59,7 @@ class _Entry:
     area_conflict: bool
     area_choice_stage: str | None
     area_conflict_specific_areas: list[str]
+    scope_axis_stage: str | None
     base_time_text: str | None
     dimensions: list[str]
     time_text: str | None
@@ -151,6 +152,7 @@ class ResearchPreparationService:
             area_conflict=False,
             area_choice_stage=None,
             area_conflict_specific_areas=[],
+            scope_axis_stage=None,
             base_time_text=None,
             dimensions=[],
             time_text=None,
@@ -176,8 +178,11 @@ class ResearchPreparationService:
         return response
 
     def _apply_message(self, entry: _Entry, message: str, *, initial: bool = False) -> None:
+        scope_endpoint = re.fullmatch(r"(?:不限范围|不限制范围|按当前范围继续)[。！!]?", message.strip()) is not None
         was_exact_time_pending = entry.exact_time_pending
         prior_area_choice_stage = entry.area_choice_stage
+        prior_scope_axis_stage = entry.scope_axis_stage
+        time_match = None
         updated_time = False
         prior_topic = entry.topic
         topic = self._topic(message)
@@ -227,6 +232,8 @@ class ResearchPreparationService:
             entry.time_text = "不限时间"
         elif time_match := self._time(message):
             updated_time = True
+            previous_time_text = entry.time_text
+            previous_time_confirmed = entry.exact_time_confirmed
             entry.time_scope, entry.time_text, exact, entry.ambiguous_time = time_match
             entry.unstructured_time_message = None
             entry.unparsed_time_change = None
@@ -235,7 +242,7 @@ class ResearchPreparationService:
             ):
                 entry.unstructured_time_message = message
             entry.time_unrestricted = False
-            entry.exact_time_confirmed = False
+            entry.exact_time_confirmed = previous_time_confirmed and previous_time_text == entry.time_text
             entry.exact_time_pending = exact and not entry.exact_time_confirmed
             if entry.ambiguous_time:
                 candidates = entry.time_text.split("，", maxsplit=1)
@@ -265,6 +272,13 @@ class ResearchPreparationService:
             entry.ambiguous_period = None
 
         areas = self._areas(message)
+        in_area_followup = prior_scope_axis_stage in {"area_choice", "area_free"}
+        if in_area_followup:
+            short_names = {"北京": "北京市", "天津": "天津市", "上海": "上海市", "重庆": "重庆市"}
+            areas.extend(
+                full_name for short_name, full_name in short_names.items()
+                if short_name in message and full_name not in areas
+            )
         national_scope = re.search(r"全国范围(?:内)?|全国政策", message) is not None
         national_link = bool(areas) and any(
             re.search(r"全国\s*(?:和|与|、|，|,)\s*" + re.escape(area), message)
@@ -323,7 +337,7 @@ class ResearchPreparationService:
             if not (prior_area_choice_stage and area_choice_completed):
                 entry.area_choice_stage = None
                 entry.area_conflict_specific_areas = []
-        elif re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
+        elif not scope_endpoint and re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
             entry.area = None
             entry.area_text = None
             entry.area_unrestricted = True
@@ -333,7 +347,7 @@ class ResearchPreparationService:
         elif areas:
             if not (prior_area_choice_stage and area_choice_completed):
                 entry.area = areas[0] if len(areas) == 1 else None
-                entry.area_text = "、".join(areas)
+                entry.area_text = message.strip() if in_area_followup else "、".join(areas)
                 entry.area_unrestricted = False
                 entry.area_conflict = False
                 entry.area_choice_stage = None
@@ -348,6 +362,62 @@ class ResearchPreparationService:
 
         if dims := self._dimensions(message):
             entry.dimensions = dims
+
+        scope_choice = message.strip()
+        if entry.mode == "organize":
+            if scope_choice.startswith("先按时间范围"):
+                entry.scope_axis_stage = "time_choice"
+                entry.completed_questions.append(CompletedQuestion(question_id="scope_axis", answer=message))
+            elif scope_choice.startswith("先按地区范围"):
+                entry.scope_axis_stage = "area_choice"
+                entry.completed_questions.append(CompletedQuestion(question_id="scope_axis", answer=message))
+            elif re.search(r"不(?:限|限制|限定)(?:于)?时间.{0,5}(?:和|、)\s*(?:地区|地域|范围)", message):
+                entry.time_unrestricted = True
+                entry.time_text = "不限时间"
+                entry.time_scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
+                entry.exact_time_pending = False
+                entry.exact_time_confirmed = False
+                entry.ambiguous_time = False
+                entry.ambiguous_calendar_text = None
+                entry.ambiguous_period = None
+                entry.unstructured_time_message = None
+                entry.unparsed_time_change = None
+                entry.area = None
+                entry.area_text = None
+                entry.area_unrestricted = True
+                entry.area_conflict = False
+                entry.scope_axis_stage = None
+                entry.completed_questions.append(CompletedQuestion(question_id="scope_axis", answer=message))
+            elif "综合梳理" in scope_choice or scope_endpoint:
+                if not entry.time_text and not entry.time_unrestricted and not entry.unparsed_time_change:
+                    entry.time_unrestricted = True
+                    entry.time_text = "不限时间"
+                    entry.time_scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
+                if not entry.area and not entry.area_text and not entry.area_unrestricted:
+                    entry.area_unrestricted = True
+                entry.scope_axis_stage = None
+                entry.completed_questions.append(CompletedQuestion(question_id="scope_axis", answer=message))
+            elif prior_scope_axis_stage == "time_choice" and "自定义时间" in scope_choice:
+                entry.scope_axis_stage = "time_free"
+            elif prior_scope_axis_stage == "time_choice" and time_match:
+                entry.scope_axis_stage = "area_choice" if not entry.area and not entry.area_unrestricted else None
+            elif prior_scope_axis_stage == "area_choice" and "指定省市" in scope_choice:
+                entry.scope_axis_stage = "area_free"
+            elif prior_scope_axis_stage == "area_choice" and (areas or national_scope or entry.area_unrestricted):
+                entry.scope_axis_stage = "time_choice" if not entry.time_text and not entry.time_unrestricted else None
+            elif prior_scope_axis_stage == "time_free" and (time_match or entry.time_unrestricted):
+                entry.scope_axis_stage = "area_choice" if not entry.area and not entry.area_unrestricted else None
+            elif prior_scope_axis_stage == "area_free" and (areas or self._explicit_area(message) or national_scope or entry.area_unrestricted):
+                entry.scope_axis_stage = "time_choice" if not entry.time_text and not entry.time_unrestricted else None
+            has_time = bool(entry.time_text or entry.time_unrestricted)
+            has_area = bool(entry.area or entry.area_text or entry.area_unrestricted)
+            if has_time and has_area:
+                entry.scope_axis_stage = None
+            elif has_time:
+                if entry.scope_axis_stage != "area_free":
+                    entry.scope_axis_stage = "area_choice"
+            elif has_area and entry.scope_axis_stage != "time_free":
+                entry.scope_axis_stage = "time_choice"
         awaiting_aspect = entry.response and any(
             condition.id == "aspect" for condition in entry.response.state.pending_conditions
         )
@@ -362,7 +432,7 @@ class ResearchPreparationService:
             entry.completed_questions.append(CompletedQuestion(question_id=area_completion_id, answer=message))
 
         if not initial:
-            if entry.exact_time_pending and re.search(r"确认|继续|按原条件|照此", message):
+            if entry.exact_time_pending and not scope_endpoint and re.search(r"确认|继续|按原条件|照此", message):
                 entry.exact_time_pending = False
                 entry.exact_time_confirmed = True
                 entry.completed_questions.append(
@@ -501,11 +571,22 @@ class ResearchPreparationService:
 
     @staticmethod
     def _dimensions(message: str) -> list[str]:
+        if message.strip() in {
+            "先按时间范围", "先按地区范围", "不限制时间和地区，综合梳理", "近十年", "近五年",
+            "十四五", "自定义时间", "不限时间", "全国范围", "指定省市", "不限地区", "综合梳理",
+        }:
+            return []
+        focus = re.search(r"(?:重点)?关注\s*([^，,。；;]+)", message)
+        if focus:
+            return [focus.group(1).strip()]
         match = re.search(r"(?:按|按照)(.+?)(?:分类|梳理|整理|分析|汇总|$)", message)
         if not match:
             return []
         text = re.sub(r"^(?:维度|类别|方面)[:：]?", "", match.group(1)).strip(" ，,、和及")
-        return list(dict.fromkeys(part.strip() for part in re.split(r"[、，,和及与]", text) if part.strip()))
+        dimensions = list(dict.fromkeys(part.strip() for part in re.split(r"[、，,和及与]", text) if part.strip()))
+        if dimensions:
+            return dimensions
+        return []
 
     @staticmethod
     def _topic(message: str) -> str | None:
@@ -576,13 +657,50 @@ class ResearchPreparationService:
         if entry.mode == "organize" and not entry.topic:
             options.append(PreparationOption(id="topic", question="请说明要整理的政策主题。", choices=[]))
             pending.append(Condition(id="topic", text="待明确研究主题"))
-        elif entry.mode == "organize" and not (
-            entry.area or entry.area_unrestricted or entry.time_text or entry.time_unrestricted or entry.dimensions
-        ):
+        elif entry.mode == "organize" and entry.topic and not (
+            entry.area or entry.area_unrestricted or entry.area_text or entry.time_text or entry.time_unrestricted
+        ) and entry.scope_axis_stage is None:
             options.append(PreparationOption(
-                id="scope", question="希望覆盖哪些地区和时间，并按哪些维度整理？", choices=[]
+                id="scope_axis", question="希望先明确哪一项整理范围？",
+                choices=["先按时间范围", "先按地区范围", "不限制时间和地区，综合梳理"],
             ))
-            pending.extend([Condition(id="scope", text="待明确整理范围和维度")])
+            pending.append(Condition(id="scope_axis", text="待选择整理范围"))
+        if entry.mode == "organize" and entry.scope_axis_stage == "time_choice" and not (entry.time_text or entry.time_unrestricted):
+            options.append(PreparationOption(
+                id="time_scope", question="请说明具体时间范围，或选择不限时间。",
+                choices=["近十年", "近五年", "十四五", "自定义时间", "不限时间"],
+            ))
+            pending.append(Condition(id="time_scope", text="待明确时间范围"))
+        elif entry.mode == "organize" and entry.scope_axis_stage == "time_free" and not (entry.time_text or entry.time_unrestricted):
+            options.append(PreparationOption(id="time_scope", question="请直接输入具体时间范围，或说明不限时间。", choices=[]))
+            pending.append(Condition(id="time_scope", text="待补充自定义时间"))
+        elif entry.mode == "organize" and entry.scope_axis_stage == "area_choice" and not (entry.area or entry.area_text or entry.area_unrestricted):
+            options.append(PreparationOption(
+                id="area_scope", question="请说明具体地区，或选择全国范围/不限地区。",
+                choices=["全国范围", "指定省市", "不限地区"],
+            ))
+            pending.append(Condition(id="area", text="待明确地区范围"))
+        elif entry.mode == "organize" and entry.scope_axis_stage == "area_free" and not (entry.area or entry.area_text or entry.area_unrestricted):
+            options.append(PreparationOption(id="area_scope", question="请直接输入地区名称，可填写多个地区。", choices=[]))
+            pending.append(Condition(id="area", text="待补充具体地区"))
+
+        if entry.mode == "organize" and entry.scope_axis_stage is None:
+            if (entry.time_text or entry.time_unrestricted) and not (
+                entry.area or entry.area_text or entry.area_unrestricted
+            ):
+                options.append(PreparationOption(
+                    id="area_scope", question="请说明具体地区，或选择全国范围/不限地区。",
+                    choices=["全国范围", "指定省市", "不限地区"],
+                ))
+                pending.append(Condition(id="area", text="待明确地区范围"))
+            elif (entry.area or entry.area_text or entry.area_unrestricted) and not (
+                entry.time_text or entry.time_unrestricted
+            ):
+                options.append(PreparationOption(
+                    id="time_scope", question="请说明具体时间范围，或选择不限时间。",
+                    choices=["近十年", "近五年", "十四五", "自定义时间", "不限时间"],
+                ))
+                pending.append(Condition(id="time_scope", text="待明确时间范围"))
         if entry.area_conflict:
             if entry.area_choice_stage == "choose_specific":
                 options.append(PreparationOption(
@@ -616,6 +734,19 @@ class ResearchPreparationService:
             ))
             pending.append(Condition(id="publication_time", text=entry.time_text or "待确认的时间条件"))
 
+        if entry.mode == "organize" and len(options) > 1:
+            def option_priority(option: PreparationOption) -> int:
+                if option.id in {"area_scope", "area_detail"}:
+                    return 3 if option.id == "area_scope" and entry.scope_axis_stage == "area_choice" else 0
+                if option.id == "continue_request_only":
+                    return 2
+                if option.id == "time_scope":
+                    return 1 if entry.ambiguous_time or entry.unparsed_time_change else 3
+                return {"scope_axis": 4, "scope": 4, "topic": 5}.get(option.id, 6)
+
+            options.sort(key=option_priority)
+            options = options[:1]
+
         blocked_limit = entry.clarification_count >= self._max_clarifications and bool(options)
         if unsupported:
             status = "blocked"
@@ -638,9 +769,11 @@ class ResearchPreparationService:
             if entry.time_text and entry.time_text not in PERIODS and not entry.time_unrestricted
             else []
         )
+        if entry.area_text and any(separator in entry.area_text for separator in ("和", "、", "，", ",")):
+            warnings.append("多地区要求保留为文字条件，不保证逐地区精确过滤")
         full_corpus_intent = None
-        for message in entry.messages:
-            message_intent = self._full_corpus_intent(message)
+        for user_message in entry.messages:
+            message_intent = self._full_corpus_intent(user_message)
             if message_intent is not None:
                 full_corpus_intent = message_intent
         if entry.mode == "qa" and full_corpus_intent is True:
