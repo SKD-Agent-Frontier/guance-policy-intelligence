@@ -879,7 +879,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 0 11px;
+  padding: 0 9px;
   color: var(--accent);
   white-space: nowrap;
 }
@@ -919,13 +919,13 @@ textarea:focus-visible {
 .app-sidebar .side-link {
   min-height: 39px;
   gap: 11px;
-  padding: 0 12px;
+  padding: 0 10px;
   color: #625a56;
   font-size: 12px;
 }
 .app-sidebar .side-link > svg {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
 }
 .app-sidebar .side-link:hover {
@@ -1088,7 +1088,8 @@ textarea:focus-visible {
   padding: 0 2px;
   background: transparent;
   color: #625b57;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
 }
 .global-nav button:hover,
@@ -1591,7 +1592,7 @@ textarea:focus-visible {
     transform: none;
   }
   .global-nav button {
-    font-size: 12px;
+    font-size: 14px;
   }
   .topbar-trailing {
     margin-left: 8px;
@@ -1664,7 +1665,7 @@ textarea:focus-visible {
     gap: 9px;
   }
   .global-nav button {
-    font-size: 12px;
+    font-size: 13px;
   }
   .result-evidence-caveat {
     font-size: 12px;
