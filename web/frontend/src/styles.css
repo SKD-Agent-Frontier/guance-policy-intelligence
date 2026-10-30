@@ -1132,7 +1132,16 @@ textarea:focus-visible {
   top: 23%;
 }
 .page-body-home .research-composer {
-  width: min(820px, 100%);
+  width: min(656px, 100%);
+}
+.page-body-home .research-composer .mode-tab {
+  font-size: 15px;
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .page-body-home .research-composer .mode-tab {
+    font-size: 14px;
+  }
 }
 .page-body-workspace {
   display: flex;
