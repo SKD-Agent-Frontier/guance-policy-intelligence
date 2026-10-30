@@ -125,16 +125,18 @@ def test_real_content_offsets_map_to_frozen_body(service):
     sample = service.list_policies(q=None, area=None, fyp=None, plantype=None,
                                    page=1, page_size=1)["items"][0]
     detail = service.get_policy(sample["planid"])["policy"]
+    full = service.read_content(sample["planid"], offset=0,
+                                limit=detail["body_chars"])["text"]
+    assert len(full) == detail["body_chars"] and full.strip()
     first = service.read_content(sample["planid"], offset=0, limit=100)
-    assert len(first["text"]) == min(100, detail["body_chars"])
+    assert first["text"] == full[:min(100, detail["body_chars"])]
     offset = max(0, detail["body_chars"] - 10)
     tail = service.read_content(sample["planid"], offset=offset, limit=100)
-    assert tail["has_more"] is False
-    assert first["text"] + "..." or first["text"]
-    # 冻结正文哈希在加载时已校验；这里确认读取是同一份文本的连续切片
-    joined = service.read_content(sample["planid"], offset=0,
-                                  limit=detail["body_chars"])["text"]
-    assert len(joined) == detail["body_chars"]
+    assert tail["has_more"] is False and tail["text"] == full[-10:]
+    # 中间偏移也必须是同一份正文的连续切片
+    middle = detail["body_chars"] // 2
+    chunk = service.read_content(sample["planid"], offset=middle, limit=50)
+    assert chunk["text"] == full[middle:middle + 50]
 
 
 def test_real_payload_has_no_filesystem_paths(service, snapshot):

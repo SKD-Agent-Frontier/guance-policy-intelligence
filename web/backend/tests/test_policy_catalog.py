@@ -319,9 +319,14 @@ def _make_project(tmp_path, *, extra_old_doc=False, tamper=False, traversal=Fals
             raw = json.dumps(row_data, ensure_ascii=False)
             conn.execute("INSERT INTO documents VALUES (?,?,?)",
                          (did, raw, hashlib.sha256(raw.encode()).hexdigest()))
-            sections = [{"document_id": did, "id": f"sec-{did}", "kind": "section",
-                         "level": 1, "path": ["第一章"], "title": "第一章",
-                         "start": row_data["body_start"], "end": len(text)}]
+            sections = [
+                {"document_id": did, "id": f"root-{did}", "kind": "root", "level": 0,
+                 "path": [], "title": None,
+                 "start": row_data["body_start"], "end": len(text)},
+                {"document_id": did, "id": f"sec-{did}", "kind": "section",
+                 "level": 1, "path": ["第一章"], "title": "第一章",
+                 "start": row_data["body_start"], "end": len(text)},
+            ]
             for section in sections:
                 sec_raw = json.dumps(section, ensure_ascii=False)
                 conn.execute("INSERT INTO objects VALUES (?,?,?,?)",
@@ -402,9 +407,11 @@ def test_loader_keeps_section_offsets_relative_to_body(tmp_path):
     project = _make_project(tmp_path)
     service = PolicyCatalogService(load_published_catalog(project))
     detail = service.get_policy("11111")
-    section = detail["policy"]["sections"][0]
-    assert section["start"] == 0
-    assert section["end"] == len(service.snapshot.records[0].body)
+    sections = detail["policy"]["sections"]
+    # 全文根节点（kind=root，空 path）不进入章节目录
+    assert len(sections) == 1 and sections[0]["path"] == "第一章"
+    assert sections[0]["start"] == 0
+    assert sections[0]["end"] == len(service.snapshot.records[0].body)
 
 
 def test_loader_does_not_expose_filesystem_paths(tmp_path):

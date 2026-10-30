@@ -116,6 +116,8 @@ def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
         if hashlib.sha256(raw.encode("utf-8")).hexdigest() != row["data_hash"]:
             raise CatalogUnavailable("章节结构校验失败")
         data = json.loads(raw)
+        if data.get("kind") == "root":
+            continue        # 全文根节点不是章节，目录接口不返回
         origin = origins[did]
         start = max(int(data["start"]), origin) - origin
         end = min(int(data["end"]), lengths[did]) - origin

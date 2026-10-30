@@ -61,7 +61,7 @@
   },
   "query": {
     "q": "数字经济",
-    "area": "北京市",
+    "area": null,
     "fyp": null,
     "plantype": null,
     "match_mode": "literal"
@@ -73,19 +73,20 @@
   "items": [
     {
       "planid": "12915",
-      "title": "政策名称",
-      "area": "地区",
-      "fyp": "第十四个五年规划",
-      "plantype_label": "专题规划",
+      "title": "云南省2019年政府工作报告",
+      "area": "云南省",
+      "fyp": "政府工作报告",
+      "plantype_label": "专项规划",
       "matches": [
-        {"field": "title", "offset": 3, "snippet": "…数字经济…"},
-        {"field": "body", "offset": 120, "snippet": "…数字经济…"}
+        {"field": "body", "offset": 735,
+         "snippet": "…推动数字经济快速萌芽，落地一批工业和农业精深加工大项目…"}
       ]
     }
   ]
 }
 ```
 
+- 上述示例取自真实当前发布库：`q=数字经济`，且没有 `area/fyp/plantype` 筛选；`matched_documents=90` 是去掉地区条件后的全库精确数量。若加 `area=云南省`，同一请求会变为 `matched_documents=2`（示例政策属于云南省）。
 - 无 `q` 时 `query.match_mode` 为 `null`，`items[].matches` 为空数组。
 - 数据缺失时 `title/area/fyp/plantype_label` 为 `null`，不编造。
 - `page` 超出 `total_pages` 时返回空 `items`，`matched_documents` 不变。
@@ -100,20 +101,23 @@
   "dataset": {"generation_id": "…", "revision": 1, "total_documents": 506,
               "partial": true, "source": "current_published_frozen_release"},
   "policy": {
-    "planid": "37982",
-    "title": "政策名称",
-    "area": "地区",
-    "fyp": "第十四个五年规划",
-    "plantype_label": "专题规划",
-    "body_chars": 16939,
+    "planid": "12915",
+    "title": "云南省2019年政府工作报告",
+    "area": "云南省",
+    "fyp": "政府工作报告",
+    "plantype_label": "专项规划",
+    "body_chars": 17674,
     "sections": [
-      {"index": 0, "level": 1, "path": "第一章 总则", "start": 0, "end": 120}
+      {"index": 0, "level": 4, "path": "一、2018年工作回顾", "start": 96, "end": 5297},
+      {"index": 1, "level": 4, "path": "二、2019年工作重点", "start": 5297, "end": 17674}
     ]
   }
 }
 ```
 
+- 上述示例取自真实当前发布库（同一篇 `planid=12915`）。
 - 章节 `start/end` 为相对正文起点的 Unicode 码点偏移，`0 <= start < end <= body_chars`。
+- 章节列表不包含发布结构中的全文根节点（`kind=root`，路径为空）；只有真实章节会出现在 `sections`。
 - 不暴露任何文件系统路径、快照文件名或内部 document_id。
 
 ## 五、正文分页读取
@@ -129,15 +133,17 @@
 {
   "dataset": {"generation_id": "…", "revision": 1, "total_documents": 506,
               "partial": true, "source": "current_published_frozen_release"},
-  "planid": "37982",
-  "title": "政策名称",
+  "planid": "12915",
+  "title": "云南省2019年政府工作报告",
   "offset": 0,
   "limit": 4000,
-  "total_chars": 16939,
+  "total_chars": 17674,
   "has_more": true,
-  "text": "正文片段…"
+  "text": "2019年1月27日在云南省第十三届人民代表大会第二次会议上…"
 }
 ```
+
+- 上述示例取自真实当前发布库（同一篇 `planid=12915`，`total_chars=17674`）。
 
 - 偏移口径：**正文起点的 Unicode 码点偏移**（不含快照文件的元数据头），与搜索 `matches[].offset` 的 `body` 字段同口径。
 - `text` 是冻结原文的连续切片，不做摘要、改写或二次生成。
