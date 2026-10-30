@@ -53,7 +53,6 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onTogg
           <button type="button" className="side-link" title="环境设置" aria-label="环境设置" onClick={onSettings}><Settings2 size={15} /><span>环境设置</span></button>
         </div>
       </>}
-      {isCollapsed && <button type="button" className="sidebar-expand" aria-label="展开侧栏" title="展开侧栏" onClick={onToggle}>›</button>}
     </aside>
   </>;
 }
