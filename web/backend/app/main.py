@@ -19,6 +19,7 @@ from .preparation import (
     ResearchPreparationService,
 )
 from .preparation_models import ResearchPrepareRequest
+from .policy_routes import router as policy_catalog_router
 from .schemas import RunRequest
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
     application.state.preparation_service = (
         preparation_service if preparation_service is not None else ResearchPreparationService()
     )
+    application.include_router(policy_catalog_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configured_origins,
