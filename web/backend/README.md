@@ -65,7 +65,9 @@ Set-Location web/backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-API Base URL 为 `http://127.0.0.1:8000`。本地前端可请求 `http://127.0.0.1:8000/api/runs` 和 `http://127.0.0.1:8000/api/health`。
+API Base URL 为 `http://127.0.0.1:8000`。本地前端可请求 `http://127.0.0.1:8000/api/runs`、`http://127.0.0.1:8000/api/health` 和 `http://127.0.0.1:8000/api/research/prepare`。
+
+`POST /api/research/prepare` 是研究需求澄清与准备接口，不会调用 Agent 或执行研究。当前仅 `qa` 和 `organize` 支持准备；`extract`、`compare` 和 `compare_plans` 返回 `blocked`。收到 `ready` 后，前端应另行调用 `POST /api/runs` 执行任务。请求、响应和状态规则见[研究准备接口契约](RESEARCH_PREPARATION_CONTRACT.md)。
 
 本地运行使用一个 Uvicorn worker。FastAPI lifespan 在服务启动时加载共享 Agent 设置并预热检索资源，关闭时释放知识库和共享模型客户端。BM25 预热通过线程执行，避免阻塞异步事件循环；非 RAG 后端的 `warm_up()` 不做预热操作。单 worker 可避免本地开发时每个 worker 各自初始化一份生命周期资源。
 
@@ -97,4 +99,5 @@ python -m ruff check .
 # 二、相关文档
 
 - [API_CONTRACT.md](API_CONTRACT.md)：前端请求、响应与错误契约。
+- [RESEARCH_PREPARATION_CONTRACT.md](RESEARCH_PREPARATION_CONTRACT.md)：`POST /api/research/prepare` 的请求、响应与状态契约。
 - Agent 共享 RunResult 与业务结构的具体含义以 Agent schema 和业务契约为准；Web API 原样传递其字段。
