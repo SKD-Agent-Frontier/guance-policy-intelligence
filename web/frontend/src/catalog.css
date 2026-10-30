@@ -1,3 +1,7 @@
+.app-page-catalog .global-topbar {
+  position: sticky;
+  top: 0;
+}
 .catalog-page {
   min-height: 100vh;
   padding: clamp(22px, 4vw, 48px) clamp(18px, 5vw, 64px) 64px;
@@ -118,9 +122,11 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 22px;
 }
-.catalog-layout.has-detail {
-  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
-  align-items: start;
+.catalog-library-count {
+  max-width: 1160px;
+  margin: 0 auto 12px;
+  color: var(--muted, #766f6c);
+  font-size: 13px;
 }
 .catalog-results-heading {
   min-height: 58px;
@@ -268,6 +274,66 @@
   background: #fff;
   box-shadow: 0 8px 28px rgba(46, 31, 25, 0.06);
 }
+.catalog-preview {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 20;
+  width: min(480px, calc(100vw - 100px));
+  max-height: calc(100svh - 112px);
+  overscroll-behavior: contain;
+}
+.catalog-preview-read,
+.catalog-reader-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 8px 0;
+  color: var(--accent, #b22924);
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+.catalog-preview-read {
+  margin-top: 12px;
+}
+.catalog-reader-back {
+  width: min(960px, 100%);
+  margin: 0 auto 24px;
+}
+.catalog-reader-document {
+  position: static;
+  width: min(960px, 100%);
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.catalog-reader-document h1 {
+  margin: 0 0 28px;
+  font-family: var(--font-display, serif);
+  font-size: clamp(24px, 2.6vw, 34px);
+  line-height: 1.5;
+}
+.catalog-reader-document .catalog-original-text {
+  max-height: none;
+  min-height: 0;
+  margin-top: 20px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  font-size: 16px;
+  line-height: 2;
+}
+.policy-reader:focus {
+  outline: none;
+}
 .catalog-detail-topline {
   display: flex;
   align-items: center;
@@ -400,9 +466,6 @@
   .catalog-query-field {
     grid-column: span 2;
   }
-  .catalog-layout.has-detail {
-    grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1.2fr);
-  }
 }
 @media (max-width: 720px) {
   .catalog-page {
@@ -425,13 +488,8 @@
   .catalog-search-button {
     width: 100%;
   }
-  .catalog-layout.has-detail {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .catalog-detail {
-    max-height: none;
-    position: static;
-    padding: 15px;
+  .catalog-preview {
+    display: none;
   }
 }
 @media (max-width: 380px) {

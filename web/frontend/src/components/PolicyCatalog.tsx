@@ -21,10 +21,6 @@ function metadata(value: string | null | undefined) {
   return value?.trim() || "未提供";
 }
 
-function versionOf(dataset: PolicyListResponse["dataset"]) {
-  return `${dataset.generation_id} · 修订 ${dataset.revision}`;
-}
-
 function sameVersion(left: PolicyListResponse["dataset"], right: PolicyListResponse["dataset"]) {
   return left.generation_id === right.generation_id && left.revision === right.revision;
 }
@@ -48,6 +44,9 @@ export function PolicyCatalog() {
   const [filters, setFilters] = useState<Filters>({ q: "", area: "", fyp: "", plantype: "" });
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [list, setList] = useState<PolicyListResponse | null>(null);
+  const [dataset, setDataset] = useState<PolicyListResponse["dataset"] | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [reading, setReading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -67,19 +66,24 @@ export function PolicyCatalog() {
   const contentSequence = useRef(0);
   const selectedPlanRef = useRef<string | null>(null);
   const appliedParams = useRef<CatalogParams>({ page: 1, page_size: PAGE_SIZE });
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const returnPlanId = useRef<string | null>(null);
 
-  const loadList = useCallback(async (params: CatalogParams) => {
+  const loadList = useCallback(async (params: CatalogParams, showResults = true) => {
     listController.current?.abort();
     const controller = new AbortController();
     listController.current = controller;
     const sequence = ++listSequence.current;
     appliedParams.current = params;
+    setHasSearched(showResults);
     setListLoading(true);
     setListError(null);
     try {
       const response = await catalogClient.list(params, controller.signal);
       if (sequence !== listSequence.current) return;
-      setList(response);
+      setDataset(response.dataset);
+      setList(showResults ? response : null);
     } catch (error) {
       if (sequence !== listSequence.current || controller.signal.aborted) return;
       setList(null);
@@ -130,7 +134,7 @@ export function PolicyCatalog() {
   }, []);
 
   useEffect(() => {
-    void loadList({ page: 1, page_size: PAGE_SIZE });
+    void loadList({ page: 1, page_size: 1 }, false);
     return () => {
       listSequence.current += 1;
       listController.current?.abort();
@@ -138,20 +142,38 @@ export function PolicyCatalog() {
       detailController.current?.abort();
       contentSequence.current += 1;
       contentController.current?.abort();
+      if (previewTimer.current) clearTimeout(previewTimer.current);
     };
   }, [loadList]);
 
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    closePolicy();
     void loadList(makeParams(filters, 1, pageSize));
   };
 
   const changePage = (page: number) => {
     if (listLoading || !list || page < 1 || page > list.total_pages) return;
+    closePolicy();
     void loadList({ ...appliedParams.current, page });
   };
 
-  const openPolicy = (planid: string) => {
+  const cancelPreviewTimer = () => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+  };
+
+  const openPolicy = (planid: string, asReader = true) => {
+    cancelPreviewTimer();
+    if (asReader) returnPlanId.current = planid;
+    setReading(asReader);
+    if (selectedPlanRef.current === planid) {
+      if (asReader && (pageOffsets[pageCursor] ?? 0) !== 0) {
+        setPageOffsets([0]);
+        setPageCursor(0);
+        void loadContent(planid, 0);
+      }
+      return;
+    }
     selectedPlanRef.current = planid;
     setSelectedPlanId(planid);
     setPageOffsets([0]);
@@ -163,6 +185,8 @@ export function PolicyCatalog() {
   };
 
   const closePolicy = () => {
+    cancelPreviewTimer();
+    setReading(false);
     selectedPlanRef.current = null;
     setSelectedPlanId(null);
     setDetail(null);
@@ -174,6 +198,39 @@ export function PolicyCatalog() {
     contentSequence.current += 1;
     contentController.current?.abort();
   };
+
+  const previewPolicy = (planid: string) => {
+    if (reading) return;
+    cancelPreviewTimer();
+    previewTimer.current = setTimeout(() => openPolicy(planid, false), 250);
+  };
+
+  const dismissPreview = () => {
+    if (reading) return;
+    cancelPreviewTimer();
+    previewTimer.current = setTimeout(closePolicy, 250);
+  };
+
+  useEffect(() => {
+    if (reading || !selectedPlanId) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePolicy();
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  });
+
+  useEffect(() => {
+    if (reading) {
+      mainRef.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0 });
+    }
+    else if (returnPlanId.current) {
+      const cards = mainRef.current?.querySelectorAll<HTMLButtonElement>(".catalog-policy-card");
+      Array.from(cards ?? []).find((card) => card.dataset.planid === returnPlanId.current)?.focus();
+      returnPlanId.current = null;
+    }
+  }, [reading, content?.offset]);
 
   const retryDetail = () => {
     if (selectedPlanId) {
@@ -209,19 +266,21 @@ export function PolicyCatalog() {
   };
 
   const policy = detail?.policy;
+  const DetailContainer = reading ? "article" : "aside";
   const matchedLabel = list?.query.q
     ? "字面匹配"
     : "符合当前筛选";
 
   return (
-    <main className="catalog-page" aria-label="政策文献目录">
+    <main ref={mainRef} tabIndex={-1} className={reading ? "catalog-page policy-reader" : "catalog-page"} aria-label={reading ? "政策原文阅读" : "政策文献目录"}>
+      {!reading && <>
       <header className="catalog-header">
         <div>
           <div className="catalog-eyebrow"><BookOpenText size={15} /> 当前发布库</div>
           <h1>政策文献目录</h1>
           <p>按政策元数据筛选，或检索标题与原文中的字面内容。</p>
         </div>
-        {(!isRealMode || list?.dataset.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
+        {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
       </header>
 
       <form className="catalog-search" onSubmit={submitSearch}>
@@ -260,22 +319,23 @@ export function PolicyCatalog() {
         </button>
       </form>
 
-      <div className={`catalog-layout ${selectedPlanId ? "has-detail" : ""}`}>
+      {dataset && <p className="catalog-library-count">当前库共有 {dataset.total_documents} 篇政策文献</p>}
+
+      <div className="catalog-layout">
         <section className="catalog-results" aria-label="政策列表" aria-busy={listLoading}>
-          <div className="catalog-results-heading">
+          {hasSearched && <div className="catalog-results-heading">
             <div>
               <strong>{list ? `${matchedLabel} ${list.matched_documents} 篇` : "政策列表"}</strong>
-              {list && <span>当前发布库共 {list.dataset.total_documents} 篇 · 数据版本 {versionOf(list.dataset)}</span>}
               {list?.query.q && <small>字面匹配结果不等于全部语义相关政策。</small>}
             </div>
             {list && <span className="catalog-page-count">第 {list.page} / {Math.max(list.total_pages, 1)} 页</span>}
-          </div>
+          </div>}
 
           {listLoading && <p className="catalog-status" role="status">正在读取当前发布目录…</p>}
           {listError && (
             <div className="catalog-error" role="alert">
               <p>{listError}</p>
-              <button type="button" onClick={() => void loadList(appliedParams.current)}>重试</button>
+              <button type="button" onClick={() => void loadList(appliedParams.current, hasSearched)}>重试</button>
             </div>
           )}
           {!listLoading && !listError && list?.items.length === 0 && (
@@ -288,8 +348,14 @@ export function PolicyCatalog() {
                   type="button"
                   className={`catalog-policy-card ${selectedPlanId === item.planid ? "is-selected" : ""}`}
                   key={item.planid}
+                  data-planid={item.planid}
                   onClick={() => openPolicy(item.planid)}
-                  aria-pressed={selectedPlanId === item.planid}
+                  onMouseEnter={() => {
+                    if (!window.matchMedia?.("(hover: none)").matches) previewPolicy(item.planid);
+                  }}
+                  onMouseLeave={dismissPreview}
+                  onFocus={() => previewPolicy(item.planid)}
+                  onBlur={dismissPreview}
                 >
                   <span className="catalog-policy-title">{metadata(item.title)}</span>
                   <span className="catalog-policy-meta">
@@ -314,13 +380,19 @@ export function PolicyCatalog() {
             </nav>
           )}
         </section>
+      </div>
+      </>}
+
+      {reading && <button type="button" className="catalog-reader-back" onClick={closePolicy}><ArrowLeft size={17} />返回检索结果</button>}
 
         {selectedPlanId && (
-          <aside className="catalog-detail" aria-label="政策详情" aria-busy={detailLoading || contentLoading}>
-            <div className="catalog-detail-topline">
-              <span>政策详情</span>
-              <button type="button" className="catalog-close" aria-label="关闭政策详情" onClick={closePolicy}><X size={18} /></button>
-            </div>
+          <DetailContainer className={`catalog-detail ${reading ? "catalog-reader-document" : "catalog-preview"}`} aria-label={reading ? "政策原文正文" : "政策详情预览"} aria-busy={detailLoading || contentLoading}
+            onMouseEnter={cancelPreviewTimer} onMouseLeave={dismissPreview} onFocusCapture={cancelPreviewTimer}
+            onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) dismissPreview(); }}>
+            {!reading && <div className="catalog-detail-topline">
+              <span>政策详情预览</span>
+              <button type="button" className="catalog-close" aria-label="关闭政策预览" onClick={closePolicy}><X size={18} /></button>
+            </div>}
             {detailLoading && <p className="catalog-status" role="status">正在读取政策信息…</p>}
             {detailError && (
               <div className="catalog-error" role="alert">
@@ -329,10 +401,11 @@ export function PolicyCatalog() {
             )}
             {policy && (
               <>
-                <h2>{metadata(policy.title)}</h2>
+                {reading ? <h1>{metadata(policy.title)}</h1> : <h2>{metadata(policy.title)}</h2>}
                 {list && detail && !sameVersion(list.dataset, detail.dataset) && (
-                  <p className="catalog-version-note">详情数据版本：{versionOf(detail.dataset)}</p>
+                  <p className="catalog-version-note">政策信息与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                 )}
+                {!reading && <>
                 <dl className="catalog-metadata">
                   <div><dt>地区</dt><dd>{metadata(policy.area)}</dd></div>
                   <div><dt>规划期</dt><dd>{metadata(policy.fyp)}</dd></div>
@@ -353,6 +426,7 @@ export function PolicyCatalog() {
                     </ol>
                   ) : <p>该政策没有可用的章节目录。</p>}
                 </section>
+                </>}
                 <section className="catalog-original" aria-label="政策原文">
                   <div className="catalog-original-heading"><h3>政策原文</h3><span>{content ? `${content.offset} / ${content.total_chars} 字` : "按页读取"}</span></div>
                   {contentLoading && <p className="catalog-status" role="status">正在读取原文…</p>}
@@ -361,7 +435,7 @@ export function PolicyCatalog() {
                   )}
                   {content && <pre className="catalog-original-text">{content.text}</pre>}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
-                    <p className="catalog-version-note">原文数据版本：{versionOf(content.dataset)}</p>
+                    <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
                   {content && (
                     <div className="catalog-content-pagination">
@@ -375,11 +449,11 @@ export function PolicyCatalog() {
                     </div>
                   )}
                 </section>
+                {!reading && <button type="button" className="catalog-preview-read" onClick={() => openPolicy(selectedPlanId)}>打开原文 <ArrowRight size={15} /></button>}
               </>
             )}
-          </aside>
+          </DetailContainer>
         )}
-      </div>
     </main>
   );
 }

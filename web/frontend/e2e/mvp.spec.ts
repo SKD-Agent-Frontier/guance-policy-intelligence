@@ -49,6 +49,9 @@ test("Demo: global navigation, sidebar, and catalog stay available across views"
 
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await expect(page.getByText("当前库共有 1 篇政策文献")).toBeVisible();
+  await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "数据", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "返回首页" })).toBeVisible();
   await page.screenshot({ path: join(directory, "catalog-demo.png"), fullPage: true });
   await expect(page.getByText(/合成演示文本/)).toHaveCount(0);
@@ -150,5 +153,11 @@ test("Demo: catalog shows literal search results and paged source content", asyn
   await expect(page.getByRole("button", { name: /演示：数字经济政策示例/ })).toBeVisible();
   await page.getByRole("button", { name: /演示：数字经济政策示例/ }).click();
   await expect(page.getByRole("heading", { name: "政策原文" })).toBeVisible();
+  await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "主导航" })).toBeVisible();
   await expect(page.getByRole("region", { name: "政策原文" }).getByText(/合成演示文本/)).toBeVisible();
+  await page.getByRole("button", { name: "返回检索结果" }).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("数字经济");
+  await expect(page.getByRole("button", { name: /演示：数字经济政策示例/ })).toBeVisible();
 });

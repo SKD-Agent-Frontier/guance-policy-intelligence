@@ -46,6 +46,7 @@ describe("App navigation", () => {
 
   it("keeps the home icon and global sidebar available from home, workspace, and catalog", () => {
     render(<App />);
+    expect(screen.queryByRole("button", { name: "数据" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toHaveAttribute("title", "返回首页");

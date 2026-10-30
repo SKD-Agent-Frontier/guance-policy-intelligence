@@ -9,7 +9,7 @@ import { useConversations } from "./hooks/useConversations";
 import type { ResearchRequest } from "./types";
 
 type Page = "home" | "workspace" | "catalog";
-type Dialog = "settings" | "about" | "data" | null;
+type Dialog = "settings" | "about" | null;
 
 const scenarioOptions: { value: DemoScenario; label: string }[] = [
   { value: "success", label: "正常完成" },
@@ -103,7 +103,6 @@ export default function App() {
         <nav className="global-nav" aria-label="主导航">
           <button type="button" className={page !== "catalog" ? "is-current" : ""} onClick={goResearch}>研究</button>
           <button type="button" className={page === "catalog" ? "is-current" : ""} onClick={() => setPage("catalog")}>文献</button>
-          <button type="button" onClick={() => openDialog("data")}>数据</button>
           <button type="button" onClick={() => openDialog("about")}>关于</button>
         </nav>
         <div className="topbar-trailing">
@@ -118,9 +117,8 @@ export default function App() {
     </div>
 
     {dialog && <dialog ref={dialogRef} className="global-dialog" aria-labelledby="global-dialog-title" onCancel={(event) => { event.preventDefault(); closeDialog(); }} onClick={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-        <header className="global-dialog-header"><div><span className="dialog-eyebrow">管策智研</span><h2 id="global-dialog-title">{dialog === "settings" ? "身份与环境设置" : dialog === "about" ? "关于管策智研" : "数据入口"}</h2></div><button type="button" aria-label="关闭" onClick={closeDialog}><X size={18} /></button></header>
+        <header className="global-dialog-header"><div><span className="dialog-eyebrow">管策智研</span><h2 id="global-dialog-title">{dialog === "settings" ? "身份与环境设置" : "关于管策智研"}</h2></div><button type="button" aria-label="关闭" onClick={closeDialog}><X size={18} /></button></header>
         {dialog === "settings" && <div className="global-dialog-content"><div className="identity-status"><span>学号</span><strong>未连接身份认证</strong></div><div className="setting-block"><strong>当前运行环境</strong><p>{isRealMode ? "Real · 使用已配置的真实后端" : "Demo · 本地演示数据"}</p></div>{!isRealMode && <div className="setting-block"><strong>本地演示情景</strong><p>仅影响 Demo 演示，不会在真实环境失败时切换数据。</p><div className="scenario-options">{scenarioOptions.map((option) => <label key={option.value} className={`scenario-option ${scenario === option.value ? "is-selected" : ""}`}><input type="radio" name="demo-scenario" value={option.value} checked={scenario === option.value} onChange={() => setScenario(option.value)} /><span className="radio-indicator" />{option.label}</label>)}</div></div>}<p className="setting-disclaimer">当前没有登录或学号认证功能。</p></div>}
-        {dialog === "data" && <div className="global-dialog-content"><p>数据入口当前展示本次前端会话中的研究历史，不提供独立的数据分析服务，也不会云端保存。</p><button type="button" className="dialog-action" onClick={() => { closeDialog(); setCollapsed(false); if (window.matchMedia?.("(max-width: 768px)").matches) setMobileOpen(true); }}>{sessions.length ? `查看 ${sessions.length} 条本地研究记录` : "研究记录将在这里显示"}</button></div>}
         {dialog === "about" && <div className="global-dialog-content"><p>管策智研用于围绕政策文献开展问答、要素提取、文献梳理与比较分析。</p><p>研究范围与证据状态以本次后端返回内容为准。</p></div>}
     </dialog>}
   </div>;

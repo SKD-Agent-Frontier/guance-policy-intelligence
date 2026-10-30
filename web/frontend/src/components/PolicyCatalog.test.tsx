@@ -70,8 +70,15 @@ const contentResponse = (planid: string, offset: number, text: string, total = 5
 
 const catalog = vi.mocked(catalogClient);
 
+async function searchCatalog(user = userEvent.setup()) {
+  await screen.findByText("当前库共有 506 篇政策文献");
+  await user.click(screen.getByRole("button", { name: "检索目录" }));
+  await screen.findByRole("button", { name: /数字经济政策|旧政策/ });
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   runtime.isRealMode = true;
   catalog.list.mockResolvedValue(listResponse([
     { planid: "P-1", title: "数字经济政策", area: "北京市", fyp: null, plantype_label: "专项规划", matches: [] },
@@ -81,10 +88,49 @@ beforeEach(() => {
 });
 
 describe("PolicyCatalog", () => {
+  it("only shows the library count before an explicit search", async () => {
+    render(<PolicyCatalog />);
+    expect(await screen.findByText("当前库共有 506 篇政策文献")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /数字经济政策/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "目录分页" })).not.toBeInTheDocument();
+    expect(catalog.detail).not.toHaveBeenCalled();
+    expect(catalog.content).not.toHaveBeenCalled();
+  });
+
+  it("opens a standalone original view and restores the search on return", async () => {
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByRole("main", { name: "政策原文阅读" })).toBeVisible();
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0 });
+    expect(await screen.findByText("正文0")).toBeVisible();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "章节目录" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "政策列表" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "返回检索结果" }));
+    expect(screen.getByRole("searchbox")).toHaveValue("数字经济");
+    expect(screen.getByRole("button", { name: /数字经济政策/ })).toBeVisible();
+    expect(catalog.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("previews a hovered policy without navigating and dismisses on Escape", async () => {
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.hover(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByRole("complementary", { name: "政策详情预览" })).toBeVisible();
+    expect(await screen.findByText("正文0")).toBeVisible();
+    expect(screen.getByRole("searchbox")).toBeVisible();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("complementary", { name: "政策详情预览" })).not.toBeInTheDocument();
+  });
+
   it("submits literal search, exact filters, and pagination parameters", async () => {
     const user = userEvent.setup();
     render(<PolicyCatalog />);
-    await screen.findByRole("button", { name: /数字经济政策/ });
+    await screen.findByText("当前库共有 506 篇政策文献");
 
     await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.type(screen.getByLabelText("地区精确筛选"), "北京市");
@@ -105,7 +151,7 @@ describe("PolicyCatalog", () => {
       page_size: 10,
     }, expect.any(AbortSignal)));
     expect(await screen.findByText(/字面匹配.*篇/)).toBeVisible();
-    expect(screen.getByText(/当前发布库共 506 篇/)).toBeVisible();
+    expect(screen.getByText("当前库共有 506 篇政策文献")).toBeVisible();
     expect(screen.getByText(/不等于全部语义相关政策/)).toBeVisible();
   });
 
@@ -115,7 +161,7 @@ describe("PolicyCatalog", () => {
     ], 21, "数字经济", 2) as never);
     const user = userEvent.setup();
     render(<PolicyCatalog />);
-    await screen.findByRole("button", { name: /数字经济政策/ });
+    await screen.findByText("当前库共有 506 篇政策文献");
     await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.click(screen.getByRole("button", { name: "检索目录" }));
     await user.click(screen.getByRole("button", { name: /下一页/ }));
@@ -128,6 +174,7 @@ describe("PolicyCatalog", () => {
   it("shows an empty result without guessing facets or adding samples", async () => {
     catalog.list.mockResolvedValue(listResponse([], 0) as never);
     render(<PolicyCatalog />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "检索目录" }));
     expect(await screen.findByText("当前条件下没有匹配的政策。")).toBeVisible();
     expect(screen.queryByRole("button", { name: /数字经济政策/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/地区分布|政策类型分布/)).not.toBeInTheDocument();
@@ -143,21 +190,26 @@ describe("PolicyCatalog", () => {
     catalog.content.mockImplementation(async (planid, offset = 0) => contentResponse(planid, offset, offset === 0 ? firstPage : "乙".repeat(1000)) as never);
     render(<PolicyCatalog />);
 
-    await user.click(await screen.findByRole("button", { name: /数字经济政策/ }));
+    await searchCatalog(user);
+    await user.hover(screen.getByRole("button", { name: /数字经济政策/ }));
     expect(await screen.findByRole("heading", { name: "政策P-1" })).toBeVisible();
     expect(screen.getAllByText("未提供").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /第二章 支持措施/ }));
+    expect(await screen.findByText("乙".repeat(1000))).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByRole("heading", { name: "政策P-1" })).toBeVisible();
     expect(await screen.findByText(firstPage)).toBeVisible();
     expect(catalog.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
 
+    vi.mocked(window.scrollTo).mockClear();
     await user.click(screen.getByRole("button", { name: /下一页/ }));
     await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 4000, 4000, expect.any(AbortSignal)));
     expect(await screen.findByText("乙".repeat(1000))).toBeVisible();
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0 });
 
     await user.click(screen.getByRole("button", { name: /上一页/ }));
     await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 0, 4000, expect.any(AbortSignal)));
 
-    await user.click(screen.getByRole("button", { name: /第二章 支持措施/ }));
-    await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 4000, 4000, expect.any(AbortSignal)));
   });
 
   it("shows the detail dataset version when it differs from the directory snapshot", async () => {
@@ -167,8 +219,9 @@ describe("PolicyCatalog", () => {
     } as never);
     const user = userEvent.setup();
     render(<PolicyCatalog />);
-    await user.click(await screen.findByRole("button", { name: /数字经济政策/ }));
-    expect(await screen.findByText(/详情数据版本：new-generation · 修订 2/)).toBeVisible();
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByText(/政策信息与检索时的数据版本不同/)).toBeVisible();
   });
 
   it("keeps an empty real service response explicit and offers retry", async () => {
@@ -181,7 +234,8 @@ describe("PolicyCatalog", () => {
     expect(screen.queryByText(/演示目录数据/)).not.toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByRole("button", { name: /数字经济政策/ })).toBeVisible();
+    expect(await screen.findByText("当前库共有 506 篇政策文献")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /数字经济政策/ })).not.toBeInTheDocument();
     expect(catalog.list).toHaveBeenCalledTimes(2);
   });
 
@@ -196,7 +250,7 @@ describe("PolicyCatalog", () => {
       .mockImplementationOnce(() => new Promise((resolve) => { resolveNew = resolve; }) as never);
     const user = userEvent.setup();
     render(<PolicyCatalog />);
-    await screen.findByRole("button", { name: /数字经济政策/ });
+    await screen.findByText("当前库共有 506 篇政策文献");
 
     const query = screen.getByLabelText("关键词字面检索");
     await user.clear(query);
@@ -230,8 +284,10 @@ describe("PolicyCatalog", () => {
     const user = userEvent.setup();
     render(<PolicyCatalog />);
 
-    await user.click(await screen.findByRole("button", { name: /旧政策/ }));
-    await user.click(screen.getByRole("button", { name: /新政策/ }));
+    await searchCatalog(user);
+    await user.hover(screen.getByRole("button", { name: /旧政策/ }));
+    await screen.findByText("正在读取政策信息…");
+    await user.hover(screen.getByRole("button", { name: /新政策/ }));
     expect(await screen.findByRole("heading", { name: "新政策" })).toBeVisible();
     await act(async () => resolveOld(detailResponse("P-1", "旧政策详情") as never));
     expect(screen.getByRole("heading", { name: "新政策" })).toBeVisible();
@@ -241,7 +297,7 @@ describe("PolicyCatalog", () => {
   it("labels local catalog data clearly in demo mode", async () => {
     runtime.isRealMode = false;
     render(<PolicyCatalog />);
-    await screen.findByRole("button", { name: /数字经济政策/ });
+    await screen.findByText("当前库共有 506 篇政策文献");
     expect(screen.getByText(/演示目录数据/)).toBeVisible();
   });
 });

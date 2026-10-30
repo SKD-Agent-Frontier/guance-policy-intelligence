@@ -434,6 +434,9 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.goto("/");
   await page.getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await expect(page.getByText("当前库共有 2 篇政策文献")).toBeVisible();
+  await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
+  await page.screenshot({ path: join(directory, "catalog-initial-blank.png"), fullPage: true });
   await page.getByRole("searchbox").fill("数字经济");
   await page.getByPlaceholder("例如：北京市").fill("北京市");
   await page.getByPlaceholder("例如：十四五").fill("十四五");
@@ -448,13 +451,33 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(page.getByRole("button", { name: /数字经济促进意见/ })).toBeVisible();
   expect(listRequests.at(-1)?.searchParams.get("page")).toBe("2");
 
-  await page.getByRole("button", { name: /数字经济促进意见/ }).click();
+  const policyCard = page.getByRole("button", { name: /数字经济促进意见/ });
+  await policyCard.hover();
+  await expect(page.getByRole("complementary", { name: "政策详情预览" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "政策原文" }).locator("pre")).not.toBeEmpty();
+  await page.screenshot({ path: join(directory, "catalog-hover-preview.png"), fullPage: true });
+  await policyCard.click();
+  await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "章节目录" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "主导航" })).toBeVisible();
+  await expect(page.locator(".app-sidebar")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect.poll(() => page.locator(".global-topbar").evaluate((header) => header.getBoundingClientRect().top)).toBe(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.getByRole("region", { name: "政策原文" })).toBeVisible();
   expect(contentRequests[0]?.searchParams.get("limit")).toBe("4000");
   await page.getByRole("region", { name: "政策原文" }).getByRole("button", { name: /下一页/ }).click();
   await expect.poll(() => contentRequests.length).toBe(2);
   expect(contentRequests[1]?.searchParams.get("offset")).toBe("4000");
   expect(contentRequests[1]?.searchParams.get("limit")).toBe("4000");
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.screenshot({ path: join(directory, "policy-reader-desktop.png"), fullPage: true });
+  await page.getByRole("button", { name: "返回检索结果" }).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("数字经济");
+  await expect(page.getByRole("button", { name: /数字经济促进意见/ })).toBeVisible();
+  await expect(page.locator(".catalog-page-count")).toHaveText("第 2 / 2 页");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -470,6 +493,12 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
   await page.screenshot({ path: join(directory, "catalog-mobile.png"), fullPage: true });
+  await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "检索目录" }).click();
+  await page.getByRole("button", { name: /数字经济政策（Mock）/ }).click();
+  await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await page.screenshot({ path: join(directory, "policy-reader-mobile.png"), fullPage: true });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.route("**/api/research/prepare", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prep("qa", "needs_clarification", 0, "移动端 Mock API 追问", ["确认选项"])) });
