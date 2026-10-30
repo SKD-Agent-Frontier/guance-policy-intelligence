@@ -18,6 +18,7 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
         <div className="intro-block">
           <h1>管策智研</h1>
           <p>政策智能研究平台</p>
+          <p className="home-tagline">让政策更可理解，让决策更有依据</p>
         </div>
         <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} />
       </div>

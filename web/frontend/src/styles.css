@@ -1130,6 +1130,12 @@ textarea:focus-visible {
 .page-body-home .intro-block h1 {
   font-size: clamp(37px, 4.1vw, 58px);
 }
+.page-body-home .intro-block .home-tagline {
+  margin-top: 10px;
+  color: #8a837e;
+  font-size: 13px;
+  line-height: 1.6;
+}
 .page-body-home .architecture-scene {
   bottom: 0;
   height: clamp(170px, 29vh, 330px);
