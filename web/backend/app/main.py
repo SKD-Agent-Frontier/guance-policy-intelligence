@@ -13,6 +13,7 @@ from guance_agent.config import load_settings
 from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
 
+from .policy_routes import router as policy_catalog_router
 from .schemas import RunRequest
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ def create_app(settings=None, env_file=None) -> FastAPI:
     application = FastAPI(lifespan=lifespan)
     application.state.ready = False
     application.state.settings = None
+    application.include_router(policy_catalog_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configured_origins,
