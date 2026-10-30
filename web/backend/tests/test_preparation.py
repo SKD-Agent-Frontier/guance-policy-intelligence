@@ -1018,3 +1018,115 @@ async def test_finite_examples_and_ownership_reform_are_not_exhaustive_intent():
 
     assert response.status == "ready"
     assert response.request is not None
+
+
+@run_async
+async def test_ownership_reform_question_is_not_treated_as_exhaustive_intent():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "qa", "message": "所有制改革有哪些政策？"}
+    )
+
+    assert response.status == "ready"
+    assert response.request is not None
+    assert "所有制改革" in response.request.question
+
+
+@run_async
+async def test_organize_followup_with_comprehensive_review_preserves_original_topic():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理支持数字经济的政策"}
+    )
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "近十年、北京市、综合梳理",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    third = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "确认继续",
+            "state": {"state_id": second.state.state_id, "revision": second.state.revision},
+        }
+    )
+
+    assert third.status == "ready"
+    assert third.state.topic == "支持数字经济的政策"
+    assert "支持数字经济的政策" in third.request.question
+    assert "综合梳理" not in third.state.topic
+    assert "近十年" in third.request.question
+    assert "北京市" in third.request.question
+
+
+@run_async
+async def test_original_fifteenth_plan_beijing_digital_economy_example_is_ready():
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": "十四五北京市数字经济重点企业扶持"}
+    )
+
+    assert response.status == "ready"
+    assert response.request is not None
+    assert "十四五" in response.request.question
+    assert "北京市" in response.request.question
+    assert "数字经济重点企业扶持" in response.request.question
+
+
+@run_async
+@pytest.mark.parametrize("month_text", ["2021年3月", "2021-03"])
+async def test_organize_month_followup_retains_full_message_as_request_only(month_text):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    clarification = f"北京市，{month_text}，按支持对象分类"
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": clarification,
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "ready"
+    assert second.state.time_scope.precision == "unspecified"
+    time_status = next(
+        item for item in second.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert time_status.status == "request_only"
+    assert time_status.value == month_text
+    assert clarification in second.request.question
+    assert month_text in second.request.question
+    assert "不保证按发布日期精确过滤" in second.warnings
+
+
+@run_async
+@pytest.mark.parametrize(
+    ("replacement", "expected_time"),
+    [("改为2022年", "2022年"), ("不限时间", "不限时间")],
+)
+async def test_replacing_month_condition_drops_stale_month_from_request(replacement, expected_time):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    month_reply = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "北京市，2021年3月，按支持对象分类",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    updated = await service.prepare(
+        {
+            "mode": "organize",
+            "message": replacement,
+            "state": {"state_id": month_reply.state.state_id, "revision": month_reply.state.revision},
+        }
+    )
+
+    assert updated.status == "ready"
+    assert expected_time in updated.request.question
+    assert "2021年3月" not in updated.request.question
+    assert "北京市，2021年3月，按支持对象分类" not in updated.request.question

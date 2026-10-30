@@ -13,13 +13,13 @@ from guance_agent.config import load_settings
 from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
 
+from .policy_routes import router as policy_catalog_router
 from .preparation import (
     CONFLICT_DETAIL,
     PreparationStateError,
     ResearchPreparationService,
 )
 from .preparation_models import ResearchPrepareRequest
-from .policy_routes import router as policy_catalog_router
 from .schemas import RunRequest
 
 logger = logging.getLogger(__name__)

@@ -69,6 +69,7 @@ class _Entry:
     ambiguous_time: bool
     ambiguous_calendar_text: str | None
     ambiguous_period: str | None
+    unstructured_time_message: str | None
     completed_questions: list[CompletedQuestion]
     clarification_count: int
     revision: int
@@ -159,6 +160,7 @@ class ResearchPreparationService:
             ambiguous_time=False,
             ambiguous_calendar_text=None,
             ambiguous_period=None,
+            unstructured_time_message=None,
             completed_questions=[],
             clarification_count=0,
             revision=0,
@@ -177,10 +179,13 @@ class ResearchPreparationService:
         updated_time = False
         prior_topic = entry.topic
         topic = self._topic(message)
+        explicit_topic_change = re.match(
+            r"^(?:研究)?主题\s*(?:改为|改成|调整为)", message
+        ) is not None
         awaiting_topic = entry.response and any(
             condition.id == "topic" for condition in entry.response.state.pending_conditions
         )
-        if topic and (initial or awaiting_topic or any(word in message for word in ("改为", "改成", "主题", "梳理", "整理"))):
+        if topic and (initial or awaiting_topic or explicit_topic_change):
             entry.topic = topic
             if awaiting_topic and not initial:
                 entry.completed_questions.append(CompletedQuestion(question_id="topic", answer=message))
@@ -207,16 +212,23 @@ class ResearchPreparationService:
             entry.ambiguous_time = False
             entry.exact_time_pending = False
         if time_choice:
+            entry.unstructured_time_message = None
             entry.completed_questions.append(CompletedQuestion(question_id="time_scope", answer=message))
             entry.ambiguous_calendar_text = None
             entry.ambiguous_period = None
         elif re.search(r"不限(?:于)?(?:时间|年份|日期)|不限定(?:时间|年份|日期)", message):
+            entry.unstructured_time_message = None
             entry.time_unrestricted = True
             entry.time_scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
             entry.time_text = "不限时间"
         elif time_match := self._time(message):
             updated_time = True
             entry.time_scope, entry.time_text, exact, entry.ambiguous_time = time_match
+            entry.unstructured_time_message = None
+            if entry.time_scope.precision == "unspecified" and re.search(
+                r"(?<!\d)(?:\d{4}年\d{1,2}月|\d{4}-\d{2})(?!\d)", message
+            ):
+                entry.unstructured_time_message = message
             entry.time_unrestricted = False
             entry.exact_time_pending = exact and not entry.exact_time_confirmed
             if entry.ambiguous_time:
@@ -369,7 +381,14 @@ class ResearchPreparationService:
         calendar_limit = None if date_match else re.search(
             r"(截至\s*\d{4}年?|\d{4}年?(?:以前|之前|前|之后|以后|以来))", message
         )
-        year_match = None if date_match or calendar_range or calendar_limit else re.search(r"(\d{4})年", message)
+        month_match = None if date_match or calendar_range or calendar_limit else re.search(
+            r"(?<!\d)(\d{4}年\d{1,2}月|\d{4}-\d{2})(?!\d)", message
+        )
+        year_match = (
+            None
+            if date_match or calendar_range or calendar_limit or month_match
+            else re.search(r"(\d{4})年", message)
+        )
 
         candidates: list[tuple[int, str]] = []
         if calendar_range:
@@ -415,6 +434,13 @@ class ResearchPreparationService:
             return TimeScope(start=None, end=None, precision="unspecified", timezone=None), calendar_limit.group(1), False, False
         if calendar_range:
             return TimeScope(start=calendar_range.group(1), end=calendar_range.group(2), precision="range", timezone=None), calendar_range.group(0), False, False
+        if month_match:
+            return (
+                TimeScope(start=None, end=None, precision="unspecified", timezone=None),
+                month_match.group(1),
+                False,
+                False,
+            )
         if periods:
             name = periods[0]
             start, end = PERIODS[name]
@@ -497,6 +523,8 @@ class ResearchPreparationService:
             question += "，" + entry.time_text
         if entry.dimensions:
             question += "，按" + "、".join(entry.dimensions) + "分类"
+        if entry.unstructured_time_message:
+            question += "；时间条件原文：" + entry.unstructured_time_message
         return question
 
     def _render(self, entry: _Entry, latest_message: str, now: datetime) -> ResearchPrepareResponse:
