@@ -8,6 +8,13 @@ from guance_agent.schemas import Claim, EvidenceRef, RunError, RunResult
 from pydantic import BaseModel
 
 from app import main as api
+from app.preparation import (
+    CONFLICT_DETAIL,
+    INVALID_DETAIL,
+    PreparationStateError,
+    ResearchPreparationService,
+)
+from app.preparation_models import ResearchPrepareResponse
 from app.schemas import RunRequest
 
 
@@ -375,3 +382,136 @@ def test_cors_uses_allowlist_and_rejects_wildcard(monkeypatch):
 def test_schema_is_strict_and_rejects_extras():
     with pytest.raises(ValueError):
         RunRequest.model_validate({"question": "问", "other": True})
+
+
+@pytest.mark.parametrize(
+    ("payload", "status"),
+    [
+        ({"mode": "qa", "message": "数字经济"}, "needs_clarification"),
+        ({"mode": "qa", "message": "什么是数字经济？"}, "ready"),
+        ({"mode": "extract", "message": "提取数字经济政策要素"}, "blocked"),
+    ],
+)
+def test_research_prepare_returns_complete_service_response(client, payload, status):
+    response = client.post("/api/research/prepare", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == status
+    assert body["mode"] == payload["mode"]
+    assert set(body) == {"status", "mode", "message", "options", "state", "request", "warnings"}
+    assert set(body["state"]) == {
+        "state_id", "revision", "expires_at", "mode", "original_request", "topic", "time_scope",
+        "area", "dimensions", "confirmed_conditions", "pending_conditions", "completed_questions",
+        "clarification_count", "condition_statuses",
+    }
+    parsed = ResearchPrepareResponse.model_validate(body)
+    assert parsed.status == status
+    assert (body["request"] is not None) is (status == "ready")
+    assert (body["options"] == []) is (status != "needs_clarification")
+
+
+def test_research_prepare_uses_one_injected_service_per_app(settings):
+    first_service = ResearchPreparationService()
+    first_app = api.create_app(settings=settings, preparation_service=first_service)
+    second_app = api.create_app(settings=settings)
+
+    assert first_app.state.preparation_service is first_service
+    assert isinstance(second_app.state.preparation_service, ResearchPreparationService)
+    assert second_app.state.preparation_service is not first_app.state.preparation_service
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"mode": "unknown", "message": "有效消息"},
+        {"message": "缺少 mode"},
+        {"mode": "qa", "message": " "},
+        {"mode": "qa", "message": "有效消息", "extra": True},
+        {"mode": "qa", "message": "x" * 4001},
+        {"mode": "qa", "message": "有效消息", "state": None},
+        {"mode": "qa", "message": "有效消息", "state": {"state_id": "x", "revision": True}},
+        {"mode": "qa", "message": "有效消息", "state": {"state_id": "x", "revision": 1.0}},
+        {"mode": "qa", "message": "有效消息", "state": {"state_id": "x", "revision": 1, "extra": 1}},
+        {"mode": "qa", "message": "有效消息", "state": {"state_id": "", "revision": 0}},
+    ],
+)
+def test_research_prepare_invalid_payloads_use_shared_422_envelope(client, payload):
+    response = client.post("/api/research/prepare", json=payload)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": INVALID_DETAIL}
+
+
+def test_research_prepare_invalid_json_uses_shared_422_envelope(client):
+    response = client.post(
+        "/api/research/prepare", content="not-json", headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": INVALID_DETAIL}
+
+
+def test_research_prepare_maps_state_errors_to_safe_409(settings, monkeypatch):
+    service = Mock()
+    service.prepare = AsyncMock(side_effect=PreparationStateError("private detail"))
+    monkeypatch.setattr(api, "warm_up", lambda _settings: None)
+    monkeypatch.setattr(api, "close_kb", lambda: None)
+    monkeypatch.setattr(api, "aclose_client", AsyncMock())
+
+    with TestClient(api.create_app(settings=settings, preparation_service=service)) as test_client:
+        response = test_client.post("/api/research/prepare", json={"mode": "qa", "message": "主题"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": CONFLICT_DETAIL}
+    assert "private" not in response.text
+    service.prepare.assert_awaited_once()
+
+
+def test_research_prepare_returns_503_when_app_is_not_ready(client):
+    client.app.state.ready = False
+
+    response = client.post("/api/research/prepare", json={"mode": "qa", "message": "主题"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "服务尚未就绪"}
+
+
+def test_research_prepare_maps_unexpected_errors_to_generic_500(settings, monkeypatch):
+    service = Mock()
+    service.prepare = AsyncMock(side_effect=RuntimeError("secret path and key"))
+    monkeypatch.setattr(api, "warm_up", lambda _settings: None)
+    monkeypatch.setattr(api, "close_kb", lambda: None)
+    monkeypatch.setattr(api, "aclose_client", AsyncMock())
+
+    with TestClient(api.create_app(settings=settings, preparation_service=service)) as test_client:
+        response = test_client.post("/api/research/prepare", json={"mode": "qa", "message": "主题"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "服务内部错误"}
+    assert "secret" not in response.text
+    service.prepare.assert_awaited_once()
+
+
+def test_research_prepare_never_calls_or_awaits_submit(client, monkeypatch):
+    submit = AsyncMock()
+    monkeypatch.setattr(api, "submit", submit)
+
+    response = client.post("/api/research/prepare", json={"mode": "qa", "message": "什么是数字经济？"})
+
+    assert response.status_code == 200
+    submit.assert_not_called()
+    submit.assert_not_awaited()
+
+
+def test_research_prepare_cors_uses_existing_allowlist(client):
+    response = client.options(
+        "/api/research/prepare",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
