@@ -380,7 +380,8 @@ async def test_no_chunk_source_backend_removes_numeric_claim(tmp_path):
                        claims=[Claim(text="t", chunk_ids=[CID])],
                        evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
     assert await verify_numbers(result, ctx) == 1
-    assert result.claims == [] and result.evidence_status == "insufficient"
+    # 答案级未绑定数字只重建答案并降级，不删除逐条通过原文核验的结论。
+    assert len(result.claims) == 1 and result.evidence_status == "insufficient"
     assert any("未与任何结论绑定" in warning for warning in result.warnings)
 
 
@@ -491,7 +492,8 @@ async def test_orphan_number_is_not_cross_verified_against_unrelated_evidence(tm
                                      "按专栏2，培训率达到100%。", 20,
                                      claim_text="加强培训。")
     assert missing == 2
-    assert result.claims == [] and result.evidence_status == "insufficient"
+    # 答案里未绑定的辅助数字不扩大打击面：结论保留，答案重建、状态降级。
+    assert len(result.claims) == 1 and result.evidence_status == "insufficient"
     assert any("未与任何结论绑定" in warning for warning in result.warnings)
 
 
