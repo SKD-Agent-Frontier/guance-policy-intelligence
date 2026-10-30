@@ -597,7 +597,7 @@ async def test_calendar_range_and_planning_period_are_both_request_only_and_need
 
     assert response.status == "needs_clarification"
     time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
-    assert time_status.status == "request_only"
+    assert time_status.status == "pending"
     assert "2021—2023年" in time_status.value
     assert "十四五" in time_status.value
     assert response.state.time_scope.start == "2021"
@@ -619,7 +619,7 @@ async def test_exact_date_and_planning_period_cannot_mask_each_other():
     assert response.status == "needs_clarification"
     assert response.request is None
     time_status = next(s for s in response.state.condition_statuses if s.condition_id == "time_scope")
-    assert time_status.status == "request_only"
+    assert time_status.status == "pending"
     assert "截至2020-03-12" in time_status.value
     assert "十四五" in time_status.value
     assert response.state.time_scope.precision == "exact"
@@ -696,7 +696,7 @@ async def test_nationwide_and_specific_city_conflict_is_preserved_and_clarified(
 
     assert response.status == "needs_clarification"
     area_status = next(s for s in response.state.condition_statuses if s.condition_id == "area")
-    assert area_status.status == "request_only"
+    assert area_status.status == "pending"
     assert "全国范围" in area_status.value
     assert "北京市" in area_status.value
     assert any(item.id == "area" and item.text == area_status.value for item in response.state.pending_conditions)
@@ -718,3 +718,240 @@ async def test_unconfirmed_city_is_kept_as_request_only_without_whitelist_expans
     assert area_status.value == "温州市"
     assert "温州市" in response.request.question
     assert not any(s.status == "executable_filter" and s.value == "温州市" for s in response.state.condition_statuses)
+
+
+def ambiguous_time_request():
+    return {
+        "mode": "organize",
+        "message": "梳理北京市数字经济政策，2021—2023年，十四五规划为背景，按产业分类",
+    }
+
+
+@run_async
+@pytest.mark.parametrize(
+    ("answer", "expected_status", "expected_value", "expected_warning"),
+    [
+        ("按公历年份", "request_only", "2021—2023年", True),
+        ("按规划时期", "executable_filter", "十四五", False),
+        ("两者都作为文字要求", "request_only", "2021—2023年，十四五规划为背景", True),
+    ],
+)
+async def test_time_scope_choice_resolves_conflict_and_is_not_reasked(
+    answer, expected_status, expected_value, expected_warning
+):
+    service = ResearchPreparationService()
+    first = await service.prepare(ambiguous_time_request())
+
+    assert first.status == "needs_clarification"
+    assert any(option.id == "time_scope" for option in first.options)
+    assert first.request is None
+    assert any(condition.id == "time_scope" for condition in first.state.pending_conditions)
+    assert any(status.condition_id == "time_scope" and status.status == "pending" for status in first.state.condition_statuses)
+    assert not any(condition.id == "time_scope" for condition in first.state.confirmed_conditions)
+    assert not any(question.question_id == "time_scope" for question in first.state.completed_questions)
+
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": answer,
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "ready"
+    assert not any(option.id == "time_scope" for option in second.options)
+    assert not any(condition.id == "time_scope" for condition in second.state.pending_conditions)
+    assert any(condition.id == "time_scope" for condition in second.state.confirmed_conditions)
+    time_status = next(status for status in second.state.condition_statuses if status.condition_id == "time_scope")
+    assert time_status.status == expected_status
+    assert time_status.value == expected_value
+    assert any(question.question_id == "time_scope" and question.answer == answer for question in second.state.completed_questions)
+    assert second.request is not None
+    assert "2021—2023年" in second.request.question if answer != "按规划时期" else "十四五" in second.request.question
+    assert ("不保证按发布日期精确过滤" in second.warnings) is expected_warning
+
+    third = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "保留当前整理方式",
+            "state": {"state_id": second.state.state_id, "revision": second.state.revision},
+        }
+    )
+    assert third.status == "ready"
+    assert third.options == []
+    assert third.state.pending_conditions == []
+    assert any(condition.id == "time_scope" for condition in third.state.confirmed_conditions)
+    assert any(status.condition_id == "time_scope" and status.status == expected_status for status in third.state.condition_statuses)
+    assert third.request is not None and expected_value in third.request.question
+    assert any(question.question_id == "time_scope" for question in third.state.completed_questions)
+    assert not any(option.id == "time_scope" for option in third.options)
+
+
+@run_async
+async def test_area_scope_national_choice_resolves_and_is_not_reasked():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理全国范围北京市数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert first.status == "needs_clarification"
+    assert any(option.id == "area_scope" for option in first.options)
+    assert any(condition.id == "area" for condition in first.state.pending_conditions)
+    assert not any(condition.id == "area" for condition in first.state.confirmed_conditions)
+    assert any(status.condition_id == "area" and status.status == "pending" for status in first.state.condition_statuses)
+    assert first.request is None
+    assert not any(question.question_id == "area_scope" for question in first.state.completed_questions)
+
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "全国范围",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "ready"
+    assert second.options == []
+    assert not any(option.id == "area_scope" for option in second.options)
+    assert not any(condition.id == "area" for condition in second.state.pending_conditions)
+    assert any(condition.id == "area" for condition in second.state.confirmed_conditions)
+    area_status = next(status for status in second.state.condition_statuses if status.condition_id == "area")
+    assert area_status.status == "request_only"
+    assert area_status.value == "全国范围"
+    assert any(question.question_id == "area_scope" and question.answer == "全国范围" for question in second.state.completed_questions)
+    assert second.request is not None and "全国范围" in second.request.question
+    assert all(condition.id != "area" for condition in second.state.pending_conditions)
+    assert any(condition.id == "area" for condition in second.state.confirmed_conditions)
+    assert second.warnings == []
+
+    third = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "保留当前范围",
+            "state": {"state_id": second.state.state_id, "revision": second.state.revision},
+        }
+    )
+    assert third.status == "ready"
+    assert third.options == []
+    assert third.state.pending_conditions == []
+    assert any(status.condition_id == "area" and status.status == "request_only" for status in third.state.condition_statuses)
+    assert third.request is not None and "全国范围" in third.request.question
+    assert any(question.question_id == "area_scope" for question in third.state.completed_questions)
+    assert not any(option.id == "area_scope" for option in third.options)
+
+
+@run_async
+async def test_area_scope_specific_city_choice_keeps_single_city():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理全国范围北京市数字经济政策，不限时间，按产业分类"}
+    )
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "具体地区",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "ready"
+    assert second.options == []
+    assert second.state.pending_conditions == []
+    assert second.state.area == "北京市"
+    area_status = next(status for status in second.state.condition_statuses if status.condition_id == "area")
+    assert area_status.status == "executable_filter"
+    assert "全国范围" not in second.request.question
+    assert "北京市" in second.request.question
+    assert any(condition.id == "area" for condition in second.state.confirmed_conditions)
+    assert any(status.condition_id == "area" and status.status == "executable_filter" for status in second.state.condition_statuses)
+    assert any(question.question_id == "area_scope" and question.answer == "具体地区" for question in second.state.completed_questions)
+
+
+@run_async
+async def test_area_scope_with_multiple_specific_regions_continues_clarification():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "梳理全国范围北京市和上海市数字经济政策，不限时间，按产业分类",
+        }
+    )
+    second = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "具体地区",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status == "needs_clarification"
+    assert any(option.id == "area_detail" for option in second.options)
+    assert second.request is None
+    assert any(option.id == "area_detail" for option in second.options)
+    assert any(condition.id == "area" for condition in second.state.pending_conditions)
+    assert any(status.condition_id == "area" and status.status == "pending" for status in second.state.condition_statuses)
+    assert any(question.question_id == "area_scope" and question.answer == "具体地区" for question in second.state.completed_questions)
+    assert not any(condition.id == "area" for condition in second.state.confirmed_conditions)
+
+    third = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "上海市",
+            "state": {"state_id": second.state.state_id, "revision": second.state.revision},
+        }
+    )
+    assert third.status == "ready"
+    assert third.options == []
+    assert third.state.pending_conditions == []
+    assert third.state.area == "上海市"
+    assert not any(option.id == "area_detail" for option in third.options)
+    assert any(question.question_id == "area_detail" and question.answer == "上海市" for question in third.state.completed_questions)
+    assert "北京市" not in third.request.question
+    assert any(condition.id == "area" for condition in third.state.confirmed_conditions)
+    assert any(status.condition_id == "area" and status.status == "executable_filter" for status in third.state.condition_statuses)
+
+
+@run_async
+@pytest.mark.parametrize("phrase", ["全国和北京市", "全国与北京市", "全国、北京市"])
+async def test_nationwide_connective_forms_create_scope_conflict(phrase):
+    response = await ResearchPreparationService().prepare(
+        {"mode": "organize", "message": f"梳理{phrase}数字经济政策，不限时间，按产业分类"}
+    )
+
+    assert response.status == "needs_clarification"
+    assert any(option.id == "area_scope" for option in response.options)
+    area_status = next(status for status in response.state.condition_statuses if status.condition_id == "area")
+    assert area_status.status == "pending"
+    assert "北京市" in area_status.value
+    assert "全国政协" not in area_status.value
+    assert response.request is None
+
+
+@run_async
+@pytest.mark.parametrize("negation", ["无需", "不必", "不要", "不需要"])
+async def test_negated_exhaustive_intent_does_not_block(negation):
+    response = await ResearchPreparationService().prepare(
+        {"mode": "qa", "message": f"{negation}列出全部政策，只分析产业政策"}
+    )
+
+    assert response.status != "blocked"
+    assert response.message
+    assert response.state.original_request.startswith(negation)
+    assert response.request is None if response.status == "needs_clarification" else response.request is not None
+    assert response.warnings == []
+
+
+@run_async
+async def test_negated_exhaustive_followup_does_not_block_accumulated_qa():
+    service = ResearchPreparationService()
+    first = await service.prepare({"mode": "qa", "message": "数字经济"})
+    second = await service.prepare(
+        {
+            "mode": "qa",
+            "message": "不需要列出全部政策，只分析产业政策",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert second.status != "blocked"
+    assert second.request is None if second.status == "needs_clarification" else second.request is not None

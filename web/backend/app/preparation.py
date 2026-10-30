@@ -57,6 +57,8 @@ class _Entry:
     area: str | None
     area_text: str | None
     area_conflict: bool
+    area_choice_stage: str | None
+    area_conflict_specific_areas: list[str]
     base_time_text: str | None
     dimensions: list[str]
     time_text: str | None
@@ -65,6 +67,8 @@ class _Entry:
     exact_time_pending: bool
     exact_time_confirmed: bool
     ambiguous_time: bool
+    ambiguous_calendar_text: str | None
+    ambiguous_period: str | None
     completed_questions: list[CompletedQuestion]
     clarification_count: int
     revision: int
@@ -143,6 +147,8 @@ class ResearchPreparationService:
             area=None,
             area_text=None,
             area_conflict=False,
+            area_choice_stage=None,
+            area_conflict_specific_areas=[],
             base_time_text=None,
             dimensions=[],
             time_text=None,
@@ -151,6 +157,8 @@ class ResearchPreparationService:
             exact_time_pending=False,
             exact_time_confirmed=False,
             ambiguous_time=False,
+            ambiguous_calendar_text=None,
+            ambiguous_period=None,
             completed_questions=[],
             clarification_count=0,
             revision=0,
@@ -165,7 +173,7 @@ class ResearchPreparationService:
 
     def _apply_message(self, entry: _Entry, message: str, *, initial: bool = False) -> None:
         was_exact_time_pending = entry.exact_time_pending
-        was_area_conflict = entry.area_conflict
+        prior_area_choice_stage = entry.area_choice_stage
         updated_time = False
         prior_topic = entry.topic
         topic = self._topic(message)
@@ -179,7 +187,30 @@ class ResearchPreparationService:
         elif prior_topic:
             entry.topic = prior_topic
 
-        if re.search(r"不限(?:于)?(?:时间|年份|日期)|不限定(?:时间|年份|日期)", message):
+        time_choice = None
+        if entry.ambiguous_time and "按公历年份" in message:
+            time_choice = "calendar"
+            entry.time_text = entry.ambiguous_calendar_text
+            entry.ambiguous_time = False
+            entry.exact_time_pending = False
+        elif entry.ambiguous_time and "按规划时期" in message:
+            time_choice = "period"
+            period_match = next((period for period in PERIODS if period in (entry.ambiguous_period or "")), None)
+            if period_match:
+                entry.time_text = period_match
+                start, end = PERIODS[period_match]
+                entry.time_scope = TimeScope(start=start, end=end, precision="range", timezone=None)
+            entry.ambiguous_time = False
+            entry.exact_time_pending = False
+        elif entry.ambiguous_time and "两者都作为文字要求" in message:
+            time_choice = "both"
+            entry.ambiguous_time = False
+            entry.exact_time_pending = False
+        if time_choice:
+            entry.completed_questions.append(CompletedQuestion(question_id="time_scope", answer=message))
+            entry.ambiguous_calendar_text = None
+            entry.ambiguous_period = None
+        elif re.search(r"不限(?:于)?(?:时间|年份|日期)|不限定(?:时间|年份|日期)", message):
             entry.time_unrestricted = True
             entry.time_scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
             entry.time_text = "不限时间"
@@ -188,36 +219,98 @@ class ResearchPreparationService:
             entry.time_scope, entry.time_text, exact, entry.ambiguous_time = time_match
             entry.time_unrestricted = False
             entry.exact_time_pending = exact and not entry.exact_time_confirmed
+            if entry.ambiguous_time:
+                candidates = entry.time_text.split("，", maxsplit=1)
+                entry.ambiguous_calendar_text = next(
+                    (candidate for candidate in candidates if re.search(r"\d{4}", candidate)), None
+                )
+                entry.ambiguous_period = next(
+                    (candidate for candidate in candidates if any(period in candidate for period in PERIODS)), None
+                )
             if initial:
                 entry.base_time_text = entry.time_text
 
-        national_scope = re.search(r"全国范围(?:内)?|全国政策", message) is not None
         areas = self._areas(message)
-        if national_scope and areas:
+        national_scope = re.search(r"全国范围(?:内)?|全国政策", message) is not None
+        national_link = bool(areas) and any(
+            re.search(r"全国\s*(?:和|与|、|，|,)\s*" + re.escape(area), message)
+            for area in areas
+        )
+        national_scope = national_scope or national_link
+        area_choice_completed = False
+        area_completion_id = "area_scope"
+        if prior_area_choice_stage == "national_or_specific" and "全国范围" in message:
             entry.area = None
-            entry.area_text = "全国范围、" + "、".join(areas)
+            entry.area_text = "全国范围"
             entry.area_unrestricted = False
-            entry.area_conflict = True
+            entry.area_conflict = False
+            entry.area_choice_stage = None
+            entry.area_conflict_specific_areas = []
+            area_choice_completed = True
+        elif prior_area_choice_stage == "national_or_specific" and "具体地区" in message:
+            specific_areas = entry.area_conflict_specific_areas
+            entry.area_unrestricted = False
+            area_choice_completed = True
+            if len(specific_areas) == 1:
+                entry.area = specific_areas[0]
+                entry.area_text = specific_areas[0]
+                entry.area_conflict = False
+                entry.area_choice_stage = None
+                entry.area_conflict_specific_areas = []
+            else:
+                entry.area = None
+                entry.area_text = "、".join(specific_areas)
+                entry.area_conflict = True
+                entry.area_choice_stage = "choose_specific"
+        elif prior_area_choice_stage == "choose_specific" and areas:
+            selected = next((area for area in areas if area in entry.area_conflict_specific_areas), None)
+            if selected:
+                entry.area = selected
+                entry.area_text = selected
+                entry.area_unrestricted = False
+                entry.area_conflict = False
+                entry.area_choice_stage = None
+                entry.area_conflict_specific_areas = []
+                area_choice_completed = True
+                area_completion_id = "area_detail"
+        if national_scope and areas:
+            if not (prior_area_choice_stage and area_choice_completed):
+                entry.area = None
+                entry.area_text = "全国范围、" + "、".join(areas)
+                entry.area_unrestricted = False
+                entry.area_conflict = True
+                entry.area_choice_stage = "national_or_specific"
+                entry.area_conflict_specific_areas = areas
         elif national_scope:
             entry.area = None
             entry.area_text = "全国范围"
             entry.area_unrestricted = False
             entry.area_conflict = False
+            if not (prior_area_choice_stage and area_choice_completed):
+                entry.area_choice_stage = None
+                entry.area_conflict_specific_areas = []
         elif re.search(r"不限(?:于)?(?:地区|地域|范围)|不限定(?:地区|地域)", message):
             entry.area = None
             entry.area_text = None
             entry.area_unrestricted = True
             entry.area_conflict = False
+            entry.area_choice_stage = None
+            entry.area_conflict_specific_areas = []
         elif areas:
-            entry.area = areas[0] if len(areas) == 1 else None
-            entry.area_text = "、".join(areas)
-            entry.area_unrestricted = False
-            entry.area_conflict = False
+            if not (prior_area_choice_stage and area_choice_completed):
+                entry.area = areas[0] if len(areas) == 1 else None
+                entry.area_text = "、".join(areas)
+                entry.area_unrestricted = False
+                entry.area_conflict = False
+                entry.area_choice_stage = None
+                entry.area_conflict_specific_areas = []
         elif area := self._explicit_area(message):
             entry.area = None
             entry.area_text = area
             entry.area_unrestricted = False
             entry.area_conflict = False
+            entry.area_choice_stage = None
+            entry.area_conflict_specific_areas = []
 
         if dims := self._dimensions(message):
             entry.dimensions = dims
@@ -231,8 +324,8 @@ class ResearchPreparationService:
                 entry.completed_questions.append(
                     CompletedQuestion(question_id="aspect", answer=aspect_answer)
                 )
-        if was_area_conflict and not entry.area_conflict and not initial:
-            entry.completed_questions.append(CompletedQuestion(question_id="area_scope", answer=message))
+        if area_choice_completed and not initial:
+            entry.completed_questions.append(CompletedQuestion(question_id=area_completion_id, answer=message))
 
         if not initial:
             if entry.exact_time_pending and re.search(r"确认|继续|按原条件|照此", message):
@@ -431,11 +524,17 @@ class ResearchPreparationService:
             ))
             pending.extend([Condition(id="scope", text="待明确整理范围和维度")])
         if entry.area_conflict:
-            options.append(PreparationOption(
-                id="area_scope",
-                question="请求同时限定全国范围和具体地区，请确认保留哪一种范围。",
-                choices=["全国范围", "具体地区"],
-            ))
+            if entry.area_choice_stage == "choose_specific":
+                options.append(PreparationOption(
+                    id="area_detail", question="请选择要保留的具体地区。",
+                    choices=entry.area_conflict_specific_areas,
+                ))
+            else:
+                options.append(PreparationOption(
+                    id="area_scope",
+                    question="请求同时限定全国范围和具体地区，请确认保留哪一种范围。",
+                    choices=["全国范围", "具体地区"],
+                ))
             pending.append(Condition(id="area", text=entry.area_text or "地区范围冲突待确认"))
         if entry.ambiguous_time:
             options.append(PreparationOption(
@@ -472,13 +571,20 @@ class ResearchPreparationService:
             if entry.time_text and entry.time_text not in PERIODS and not entry.time_unrestricted
             else []
         )
-        if entry.mode == "qa" and re.search(
+        exhaustive_intent = re.search(
             r"(?:全部|所有)(?:的)?(?:列出|罗列|政策|文件)|"
             r"(?:列出|罗列|统计|汇总|提供|给出).{0,16}(?:全部|所有|完整清单|全量清单)|"
             r"完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
             r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?",
             " ".join(entry.messages),
-        ):
+        )
+        negated_exhaustive_intent = re.search(
+            r"(?:无需|不必|不要|不需要)\s*(?:(?:列出|罗列|提供|给出|统计|汇总)\s*)?"
+            r"(?:全部(?:的)?(?:政策|文件)|完整(?:的)?(?:政策)?清单|准确(?:统计|篇数|数量)|"
+            r"(?:总共|一共|共有|总计).{0,8}多少篇|多少篇(?:政策|文件)?)",
+            " ".join(entry.messages),
+        )
+        if entry.mode == "qa" and exhaustive_intent and not negated_exhaustive_intent:
             status = "blocked"
             message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
             options = []
@@ -529,6 +635,11 @@ class ResearchPreparationService:
                     else "城市级地区保留在请求中，不假定不完整地区词表可硬过滤"
                 ),
             ))
+        elif entry.area_conflict:
+            values.append(ConditionExecutionStatus(
+                condition_id="area", status="pending", value=entry.area_text,
+                reason="全国范围与具体地区同时出现，等待用户确认",
+            ))
         elif entry.area_text:
             values.append(ConditionExecutionStatus(
                 condition_id="area", status="request_only", value=entry.area_text,
@@ -542,8 +653,14 @@ class ResearchPreparationService:
             ))
         elif entry.time_text:
             period = entry.time_text in PERIODS
-            status = "pending" if entry.exact_time_pending else "executable_filter" if period else "request_only"
-            reason = "当前路由支持的具名五年规划时期" if period else "时间表述不保证按发布日期精确过滤"
+            status = "pending" if entry.ambiguous_time or entry.exact_time_pending else "executable_filter" if period else "request_only"
+            reason = (
+                "公历年份与规划时期冲突，等待用户确认"
+                if entry.ambiguous_time
+                else "当前路由支持的具名五年规划时期"
+                if period
+                else "时间表述不保证按发布日期精确过滤"
+            )
             values.append(ConditionExecutionStatus(
                 condition_id="time_scope", status=status, value=entry.time_text, reason=reason,
             ))
