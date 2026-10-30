@@ -13,6 +13,12 @@ from guance_agent.config import load_settings
 from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
 
+from .preparation import (
+    CONFLICT_DETAIL,
+    PreparationStateError,
+    ResearchPreparationService,
+)
+from .preparation_models import ResearchPrepareRequest
 from .schemas import RunRequest
 
 logger = logging.getLogger(__name__)
@@ -35,7 +41,7 @@ def _cors_origins() -> list[str]:
     return origins
 
 
-def create_app(settings=None, env_file=None) -> FastAPI:
+def create_app(settings=None, env_file=None, preparation_service=None) -> FastAPI:
     configured_origins = _cors_origins()
     selected_env_file = env_file or os.environ.get("GUANCE_ENV_FILE")
 
@@ -74,6 +80,9 @@ def create_app(settings=None, env_file=None) -> FastAPI:
     application = FastAPI(lifespan=lifespan)
     application.state.ready = False
     application.state.settings = None
+    application.state.preparation_service = (
+        preparation_service if preparation_service is not None else ResearchPreparationService()
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configured_origins,
@@ -91,6 +100,18 @@ def create_app(settings=None, env_file=None) -> FastAPI:
         if not application.state.ready:
             return JSONResponse(status_code=503, content={"detail": "服务尚未就绪"})
         return {"status": "ok", "service": "guance-web-api"}
+
+    @application.post("/api/research/prepare")
+    async def prepare_research(payload: ResearchPrepareRequest):
+        if not application.state.ready:
+            return JSONResponse(status_code=503, content={"detail": "服务尚未就绪"})
+        try:
+            result = await application.state.preparation_service.prepare(payload)
+            return JSONResponse(content=jsonable_encoder(result))
+        except PreparationStateError:
+            return JSONResponse(status_code=409, content={"detail": CONFLICT_DETAIL})
+        except Exception:  # noqa: BLE001
+            return JSONResponse(status_code=500, content={"detail": "服务内部错误"})
 
     @application.post("/api/runs")
     async def create_run(payload: RunRequest):
