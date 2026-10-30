@@ -88,7 +88,6 @@ export default function App() {
       onCloseMobile={() => setMobileOpen(false)}
       onHome={() => setPage("home")}
       onNew={startNew}
-      onCatalog={() => setPage("catalog")}
       onSelect={openConversation}
       onSettings={() => openDialog("settings")}
     />

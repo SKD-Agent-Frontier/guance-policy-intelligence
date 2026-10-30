@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
-  FileSearch,
-  GitCompareArrows,
-  ListTree,
   Plus,
-  Sparkles,
-  Waypoints,
   X,
 } from "lucide-react";
 import type { ResearchRequest, TaskType } from "../types";
@@ -21,12 +16,12 @@ type Props = {
   onAdvancedSubmit?: (request: ResearchRequest) => void;
 };
 
-const modes: { id: TaskType; label: string; icon: typeof Sparkles }[] = [
-  { id: "qa", label: "政策问答", icon: Sparkles },
-  { id: "extract", label: "要素提取", icon: FileSearch },
-  { id: "organize", label: "文献梳理", icon: ListTree },
-  { id: "compare", label: "政策比较", icon: GitCompareArrows },
-  { id: "compare_plans", label: "多方案分析", icon: Waypoints },
+const modes: { id: TaskType; label: string }[] = [
+  { id: "qa", label: "政策问答" },
+  { id: "extract", label: "要素提取" },
+  { id: "organize", label: "文献梳理" },
+  { id: "compare", label: "政策比较" },
+  { id: "compare_plans", label: "多方案分析" },
 ];
 const dimensions = ["支持对象", "申报条件", "支持措施", "资金标准", "办理流程", "实施期限"];
 const isPlanId = (value: string) => /^[A-Za-z0-9_-]{1,64}$/.test(value);
@@ -107,7 +102,7 @@ export function ResearchForm({
   return (
     <section className="research-composer" aria-label="研究需求">
       <div className="mode-tabs" role="tablist" aria-label="研究模式">
-        {modes.map(({ id, label, icon: Icon }) => (
+        {modes.map(({ id, label }) => (
           <button
             key={id}
             className={`mode-tab ${mode === id ? "is-active" : ""}`}
@@ -116,24 +111,16 @@ export function ResearchForm({
             aria-selected={mode === id}
             onClick={() => onModeChange(id)}
           >
-            <Icon size={15} strokeWidth={1.8} /><span>{label}</span>
+            <span>{label}</span>
           </button>
         ))}
       </div>
-      <select
-        id="research-mode"
-        className="mode-select-mobile"
-        aria-label="研究模式"
-        value={mode}
-        onChange={(event) => onModeChange(event.target.value as TaskType)}
-      >
-        {modes.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
-      </select>
       <div className="composer-fields">
         <textarea
           ref={textareaRef}
           className="composer-question"
           aria-label="研究需求"
+          placeholder="今天想研究些什么呢？"
           rows={1}
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -146,7 +133,7 @@ export function ResearchForm({
           disabled={busy}
         />
         <button type="button" className="submit-button" onClick={send} disabled={busy || !value.trim() || messageLength > 4000} aria-label="发送消息" title="发送">
-          <span>发送</span><ArrowUp size={16} />
+          <ArrowUp size={17} strokeWidth={2.4} />
         </button>
       </div>
       {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">

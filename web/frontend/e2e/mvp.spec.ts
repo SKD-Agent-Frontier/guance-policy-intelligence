@@ -55,7 +55,9 @@ test("Demo: global navigation, sidebar, and catalog stay available across views"
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByRole("combobox", { name: "研究模式" })).toBeVisible();
+  const mobileModes = page.getByRole("tablist", { name: "研究模式" });
+  await expect(mobileModes.getByRole("tab")).toHaveCount(5);
+  await expect(mobileModes.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: join(directory, "home-mobile.png"), fullPage: true });
   await page.getByRole("button", { name: "打开侧栏" }).click();
   await expect(page.getByRole("button", { name: "新建研究" })).toBeVisible();
@@ -70,7 +72,7 @@ test("Demo: natural language, long text, IME Enter, dynamic clarification, and l
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/");
   const input = page.getByRole("textbox", { name: "研究需求" });
-  await expect(input).not.toHaveAttribute("placeholder", /.+/);
+  await expect(input).toHaveAttribute("placeholder", "今天想研究些什么呢？");
   await input.fill("数字经济".repeat(1600));
   await expect(input).toHaveCSS("height", "200px");
   await expect(input).toHaveCSS("overflow-y", "auto");

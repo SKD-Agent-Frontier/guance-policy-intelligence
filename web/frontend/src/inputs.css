@@ -612,14 +612,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
-  padding: 6px 10px 5px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(48, 39, 36, 0.04);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
-.research-composer:focus-within {
-  border-color: rgba(178, 41, 36, 0.5);
+.research-composer .composer-fields:focus-within {
+  border-color: rgba(178, 41, 36, 0.58);
+  box-shadow: 0 0 0 3px rgba(178, 41, 36, 0.08);
 }
 .composer-topline {
   display: flex;
@@ -638,38 +639,47 @@
 .research-composer .mode-tabs {
   position: static;
   display: flex;
-  justify-content: flex-start;
-  gap: clamp(9px, 1.6vw, 22px);
+  justify-content: space-around;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
-  margin-bottom: 3px;
+  margin-bottom: 7px;
   padding: 0;
   border-bottom: 0;
   background: transparent;
 }
 .research-composer .mode-tab {
-  min-height: 28px;
-  gap: 6px;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  min-height: 32px;
+  gap: 0;
+  padding: 0 8px;
   color: #635b57;
-  font-size: 12px;
+  font-size: 13px;
+  white-space: nowrap;
 }
-.research-composer .mode-tab > svg {
-  display: block;
+.research-composer .mode-tab.is-active {
+  color: #b22924;
+  font-weight: 600;
 }
 .research-composer .mode-tab.is-active::after {
   height: 2px;
-}
-.mobile-mode-label,
-.mode-select-mobile {
-  display: none;
 }
 .research-composer .composer-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 0;
+  padding: 4px 5px 4px 14px;
+  border: 1px solid #e8e5e4;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(48, 39, 36, 0.07);
   animation: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .research-composer .composer-question {
   display: block;
@@ -679,7 +689,7 @@
   box-sizing: border-box;
   resize: none;
   overflow-y: hidden;
-  padding: 6px 0;
+  padding: 6px 2px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -713,18 +723,28 @@
   font-size: 12px;
 }
 .research-composer .submit-button {
-  min-width: auto;
-  min-height: 32px;
-  gap: 7px;
-  border-radius: 5px;
-  padding: 0 12px;
-  font-size: 12px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  gap: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: #b22924;
+  color: #fff;
+  font-size: 0;
 }
 .research-composer .composer-fields > .submit-button {
-  min-height: 32px;
+  flex: 0 0 36px;
 }
 .research-composer .submit-button:disabled {
-  opacity: 0.48;
+  opacity: 1;
+  background: #b22924;
+  color: #fff;
+  cursor: not-allowed;
+}
+.research-composer .submit-button:hover:not(:disabled) {
+  background: #8f211d;
 }
 .research-composer .composer-hint {
   display: block;
@@ -851,25 +871,25 @@
 }
 @media (max-width: 768px) {
   .research-composer {
-    padding: 6px 9px 5px;
+    width: 100%;
   }
   .research-composer:has(.composer-question) {
     height: auto;
     min-height: 0;
   }
   .research-composer .mode-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .research-composer .mode-tabs::-webkit-scrollbar {
     display: none;
   }
-  .mode-select-mobile {
-    display: block;
-    width: 100%;
-    min-height: 29px;
-    margin: 0 0 3px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0 7px;
-    background: white;
-    color: var(--ink);
+  .research-composer .mode-tab {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 clamp(6px, 1.8vw, 9px);
     font-size: 12px;
   }
   .research-composer .composer-question {

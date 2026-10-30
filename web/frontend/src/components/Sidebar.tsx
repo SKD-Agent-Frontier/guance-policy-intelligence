@@ -1,4 +1,4 @@
-import { BookOpenText, ChevronLeft, FilePlus2, Home, Library, Settings2 } from "lucide-react";
+import { BookOpenText, ChevronLeft, FilePlus2, Home, Settings2 } from "lucide-react";
 import type { Conversation } from "../conversationTypes";
 import type { TaskType } from "../types";
 
@@ -11,7 +11,6 @@ type Props = {
   onCloseMobile: () => void;
   onHome: () => void;
   onNew: () => void;
-  onCatalog: () => void;
   onSelect: (id: string) => void;
   onSettings: () => void;
 };
@@ -24,7 +23,7 @@ const names: Record<TaskType, string> = {
   compare_plans: "多方案分析",
 };
 
-export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onToggle, onCloseMobile, onHome, onNew, onCatalog, onSelect, onSettings }: Props) {
+export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onToggle, onCloseMobile, onHome, onNew, onSelect, onSettings }: Props) {
   const isCollapsed = collapsed && !mobileOpen;
   const closeAnd = (action: () => void) => {
     action();
@@ -40,7 +39,6 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onTogg
       <nav className="sidebar-primary" aria-label="工作台导航">
         <button type="button" className="side-link sidebar-home-link" title="返回首页" aria-label="返回首页" onClick={() => closeAnd(onHome)}><Home size={16} /></button>
         <button type="button" className="side-link new-link" title="新建研究" aria-label="新建研究" onClick={() => closeAnd(onNew)}><FilePlus2 size={16} /></button>
-        <button type="button" className="side-link" title="文献目录" aria-label="文献目录" onClick={() => closeAnd(onCatalog)}><Library size={16} />{!isCollapsed && <span>文献目录</span>}</button>
       </nav>
       {!isCollapsed && <>
         <div className="sidebar-section-title"><span>最近研究</span><span className="sidebar-session-count">{conversations.length}</span></div>

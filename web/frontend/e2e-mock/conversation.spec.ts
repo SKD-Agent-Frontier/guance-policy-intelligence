@@ -331,12 +331,14 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.screenshot({ path: join(directory, "home-mobile.png"), fullPage: true });
   await page.getByRole("button", { name: "打开侧栏" }).click();
   await expect(page.getByRole("button", { name: "新建研究" })).toBeVisible();
-  await page.getByRole("button", { name: "文献目录" }).click();
-  await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await expect(page.locator(".app-sidebar").getByRole("button", { name: "文献目录" })).toHaveCount(0);
+  await page.locator(".sidebar-scrim").click({ position: { x: 350, y: 400 } });
   await page.waitForFunction(() => {
     const sidebar = document.querySelector(".app-sidebar");
     return sidebar && !sidebar.classList.contains("is-mobile-open") && sidebar.getBoundingClientRect().right <= 0;
   });
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
   await page.screenshot({ path: join(directory, "catalog-mobile.png"), fullPage: true });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.route("**/api/research/prepare", async (route) => {
