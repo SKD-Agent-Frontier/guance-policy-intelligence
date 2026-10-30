@@ -70,6 +70,7 @@ class _Entry:
     ambiguous_calendar_text: str | None
     ambiguous_period: str | None
     unstructured_time_message: str | None
+    unparsed_time_change: str | None
     completed_questions: list[CompletedQuestion]
     clarification_count: int
     revision: int
@@ -161,6 +162,7 @@ class ResearchPreparationService:
             ambiguous_calendar_text=None,
             ambiguous_period=None,
             unstructured_time_message=None,
+            unparsed_time_change=None,
             completed_questions=[],
             clarification_count=0,
             revision=0,
@@ -213,11 +215,13 @@ class ResearchPreparationService:
             entry.exact_time_pending = False
         if time_choice:
             entry.unstructured_time_message = None
+            entry.unparsed_time_change = None
             entry.completed_questions.append(CompletedQuestion(question_id="time_scope", answer=message))
             entry.ambiguous_calendar_text = None
             entry.ambiguous_period = None
         elif re.search(r"不限(?:于)?(?:时间|年份|日期)|不限定(?:时间|年份|日期)", message):
             entry.unstructured_time_message = None
+            entry.unparsed_time_change = None
             entry.time_unrestricted = True
             entry.time_scope = TimeScope(start=None, end=None, precision="unspecified", timezone=None)
             entry.time_text = "不限时间"
@@ -225,11 +229,13 @@ class ResearchPreparationService:
             updated_time = True
             entry.time_scope, entry.time_text, exact, entry.ambiguous_time = time_match
             entry.unstructured_time_message = None
+            entry.unparsed_time_change = None
             if entry.time_scope.precision == "unspecified" and re.search(
                 r"(?<!\d)(?:\d{4}年\d{1,2}月|\d{4}-\d{2})(?!\d)", message
             ):
                 entry.unstructured_time_message = message
             entry.time_unrestricted = False
+            entry.exact_time_confirmed = False
             entry.exact_time_pending = exact and not entry.exact_time_confirmed
             if entry.ambiguous_time:
                 candidates = entry.time_text.split("，", maxsplit=1)
@@ -241,6 +247,22 @@ class ResearchPreparationService:
                 )
             if initial:
                 entry.base_time_text = entry.time_text
+        elif re.search(
+            r"(?:时间|年份|日期|时间范围).{0,8}(?:改为|改成|调整为)|"
+            r"(?:改为|改成|调整为).{0,8}(?:时间|年份|日期|时间范围)",
+            message,
+        ):
+            updated_time = True
+            entry.unstructured_time_message = None
+            entry.unparsed_time_change = message
+            entry.time_scope = None
+            entry.time_text = None
+            entry.time_unrestricted = False
+            entry.exact_time_pending = False
+            entry.exact_time_confirmed = False
+            entry.ambiguous_time = False
+            entry.ambiguous_calendar_text = None
+            entry.ambiguous_period = None
 
         areas = self._areas(message)
         national_scope = re.search(r"全国范围(?:内)?|全国政策", message) is not None
@@ -451,6 +473,16 @@ class ResearchPreparationService:
             return TimeScope(start=year, end=year, precision="year", timezone=None), year_match.group(0), False, False
         if "近十年" in message:
             return TimeScope(start=None, end=None, precision="range", timezone=None), "近十年", True, False
+        if relative_time := re.search(
+            r"(?:近|过去|最近)\s*(?:\d+|[零〇一二两三四五六七八九十百千]+)\s*(?:年|个月|月)",
+            message,
+        ):
+            return (
+                TimeScope(start=None, end=None, precision="range", timezone=None),
+                relative_time.group(0),
+                True,
+                False,
+            )
         return None
 
     @staticmethod
@@ -564,7 +596,14 @@ class ResearchPreparationService:
                     choices=["全国范围", "具体地区"],
                 ))
             pending.append(Condition(id="area", text=entry.area_text or "地区范围冲突待确认"))
-        if entry.ambiguous_time:
+        if entry.unparsed_time_change:
+            options.append(PreparationOption(
+                id="time_scope",
+                question="无法识别新的时间范围，请补充明确时间条件或说明不限时间。",
+                choices=[],
+            ))
+            pending.append(Condition(id="time_scope", text=entry.unparsed_time_change))
+        elif entry.ambiguous_time:
             options.append(PreparationOption(
                 id="time_scope",
                 question="请求同时提到公历年份和五年规划时期，请确认筛选条件；也可保留为文字要求。",

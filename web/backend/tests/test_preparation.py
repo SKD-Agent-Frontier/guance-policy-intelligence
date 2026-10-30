@@ -1130,3 +1130,129 @@ async def test_replacing_month_condition_drops_stale_month_from_request(replacem
     assert expected_time in updated.request.question
     assert "2021年3月" not in updated.request.question
     assert "北京市，2021年3月，按支持对象分类" not in updated.request.question
+
+
+@run_async
+async def test_month_condition_can_be_replaced_by_relative_five_years_and_confirmed():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    month_reply_text = "北京市，2021年3月，按支持对象分类"
+    month_reply = await service.prepare(
+        {
+            "mode": "organize",
+            "message": month_reply_text,
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    changed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "时间改为近五年",
+            "state": {"state_id": month_reply.state.state_id, "revision": month_reply.state.revision},
+        }
+    )
+    confirmed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "确认继续",
+            "state": {"state_id": changed.state.state_id, "revision": changed.state.revision},
+        }
+    )
+
+    assert changed.status == "needs_clarification"
+    changed_time_status = next(
+        item for item in changed.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert changed_time_status.status == "pending"
+    assert changed_time_status.value == "近五年"
+    assert "2021年3月" not in changed.state.time_scope.model_dump_json()
+    assert confirmed.status == "ready"
+    time_status = next(
+        item for item in confirmed.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert time_status.status == "request_only"
+    assert time_status.value == "近五年"
+    assert "近五年" in confirmed.request.question
+    assert "2021年3月" not in confirmed.request.question
+    assert month_reply_text not in confirmed.request.question
+
+
+@run_async
+@pytest.mark.parametrize("relative_time", ["近五年", "过去3个月", "最近三年"])
+async def test_relative_year_and_month_expressions_require_request_only_confirmation(relative_time):
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    pending = await service.prepare(
+        {
+            "mode": "organize",
+            "message": f"北京市，{relative_time}，按支持对象分类",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+
+    assert pending.status == "needs_clarification"
+    time_status = next(
+        item for item in pending.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert time_status.value == relative_time
+    assert any(option.id == "continue_request_only" for option in pending.options)
+    confirmed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "确认继续",
+            "state": {"state_id": pending.state.state_id, "revision": pending.state.revision},
+        }
+    )
+
+    assert confirmed.status == "ready"
+    time_status = next(
+        item for item in confirmed.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert time_status.status == "request_only"
+    assert time_status.value == relative_time
+    assert relative_time in confirmed.request.question
+
+
+@run_async
+async def test_unparseable_explicit_time_change_stays_pending_instead_of_reusing_month():
+    service = ResearchPreparationService()
+    first = await service.prepare(
+        {"mode": "organize", "message": "梳理数字经济政策"}
+    )
+    month_reply = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "北京市，2021年3月，按支持对象分类",
+            "state": {"state_id": first.state.state_id, "revision": first.state.revision},
+        }
+    )
+    changed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "时间改为一个更合适的区间",
+            "state": {"state_id": month_reply.state.state_id, "revision": month_reply.state.revision},
+        }
+    )
+    confirmed = await service.prepare(
+        {
+            "mode": "organize",
+            "message": "确认继续",
+            "state": {"state_id": changed.state.state_id, "revision": changed.state.revision},
+        }
+    )
+
+    assert changed.status == "needs_clarification"
+    assert changed.request is None
+    assert any(option.id == "time_scope" for option in changed.options)
+    assert confirmed.status == "needs_clarification"
+    assert confirmed.request is None
+    assert confirmed.state.time_scope.precision == "unspecified"
+    time_status = next(
+        item for item in confirmed.state.condition_statuses if item.condition_id == "time_scope"
+    )
+    assert time_status.status == "pending"
+    assert time_status.value is None
