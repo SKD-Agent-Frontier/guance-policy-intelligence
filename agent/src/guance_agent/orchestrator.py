@@ -31,6 +31,7 @@ from .output import (
     insufficient_message,
     rebuild_trusted_answer,
 )
+from .qa_analysis import finalize_qa_analysis
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -358,6 +359,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             _attach(result, task)
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
+    result = finalize_qa_analysis(result)
     try:
         rt.finish(result, ctx)
     except OSError as exc:
