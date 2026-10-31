@@ -87,7 +87,7 @@ export function ResearchForm({
   useEffect(() => {
     if (!advancedDraft.open || advancedDraft.focusVersion === 0) return;
     const index = targetValuesRef.current.findIndex((item) => !isPlanId(item.trim()));
-    if (index >= 0) targetRefs.current[index]?.focus();
+    if (index >= 0) targetRefs.current[index]?.focus({ preventScroll: true });
   }, [advancedDraft.focusVersion, advancedDraft.open, mode]);
 
   const submitAdvanced = () => {
@@ -156,7 +156,10 @@ export function ResearchForm({
             aria-haspopup="true"
             aria-expanded={templatesOpen}
             aria-controls="prompt-template-panel"
-            onClick={() => setTemplatesOpen((open) => !open)}
+            onClick={() => {
+              if (!templatesOpen && advancedDraft.open) onAdvancedDraftChange({ open: false });
+              setTemplatesOpen((open) => !open);
+            }}
           >
             <LayoutTemplate size={19} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -220,7 +223,10 @@ export function ResearchForm({
             type="button"
             className="advanced-toggle"
             aria-expanded={advancedDraft.open}
-            onClick={() => onAdvancedDraftChange({ open: !advancedDraft.open, ...(!advancedDraft.open ? { focusVersion: advancedDraft.focusVersion + 1 } : {}) })}
+            onClick={() => {
+              setTemplatesOpen(false);
+              onAdvancedDraftChange({ open: !advancedDraft.open, ...(!advancedDraft.open ? { focusVersion: advancedDraft.focusVersion + 1 } : {}) });
+            }}
             disabled={busy}
           >
             {advancedDraft.open ? "收起高级选择" : "高级选择 · 指定政策编号"}
