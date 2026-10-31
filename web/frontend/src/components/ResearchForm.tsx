@@ -137,7 +137,11 @@ export function ResearchForm({
             type="button"
             role="tab"
             aria-selected={mode === id}
-            onClick={() => { setTemplatesOpen(false); onModeChange(id); }}
+            onClick={() => {
+              if (id !== mode && enableTemplates && promptTemplates[mode].some((template) => template.prompt === value)) onChange("");
+              setTemplatesOpen(false);
+              onModeChange(id);
+            }}
           >
             <span>{label}</span>
           </button>
