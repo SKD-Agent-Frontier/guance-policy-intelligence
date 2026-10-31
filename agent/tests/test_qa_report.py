@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from guance_agent.output import rebuild_trusted_answer
 from guance_agent.qa_analysis import finalize_qa_analysis
-from guance_agent.qa_report import needs_outline, verified_qa_outline
+from guance_agent.qa_report import is_canonical_outline, needs_outline, verified_qa_outline
 from guance_agent.schemas import Claim, RunResult
 
 QUESTION = "密云区十一五期间的发展机遇和面临的挑战分别是什么？"
@@ -72,3 +72,28 @@ def test_single_fact_question_is_not_rewritten_as_a_report():
     finalize_qa_analysis(result, "规划提到了哪些产业？")
     assert result.answer == "原模型未加分级的普通回答"
     assert not needs_outline("规划提到了哪些产业？")
+
+
+def test_numbering_requires_parent_headings_and_sequential_levels():
+    valid = ("概述。\n一、发展机遇\n（一）奥运因素\n1、旅游业\n"
+             "（1）景区发展\n二、面临挑战\n（一）产业基础\n总结。")
+    assert is_canonical_outline(valid)
+    assert not is_canonical_outline("概述。\n一、发展机遇\n1、旅游业\n二、面临挑战")
+    assert not is_canonical_outline("一、发展机遇\n（三）旅游业\n二、面临挑战")
+    assert not is_canonical_outline("一、发展机遇\n- 旅游业\n二、面临挑战")
+
+
+def test_noncanonical_model_answer_is_rebuilt_into_correct_sections():
+    result = _result()
+    result.answer = "一、机遇\n- 奥运会\n二、挑战\n1、经济薄弱"
+    finalize_qa_analysis(result, QUESTION)
+    assert is_canonical_outline(result.answer)
+    assert "- 奥运会" not in result.answer
+    assert result.meta["report_outline"]["source"] == "verified_claims"
+
+
+def test_plain_answer_with_heading_numbers_does_not_trigger_unbound_number_check():
+    from guance_agent.verify import _tokens
+    narrative = ("一、发展机遇\n（一）交通改善\n1、城乡统筹\n"
+                 "（1）政策支持\n2008年奥运会带来机遇。")
+    assert _tokens(narrative) == ["2008"]
