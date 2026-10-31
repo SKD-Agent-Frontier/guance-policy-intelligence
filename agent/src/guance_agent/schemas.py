@@ -1,7 +1,7 @@
 """工具契约与对外结果，不依赖 Agent SDK。"""
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
@@ -117,6 +117,8 @@ class AgentOutput(BaseModel):
     answer: str = ""
     claims: list[Claim] = Field(default_factory=list)
     insufficient: bool = False
+    # Optional derived interpretations; validated against retained facts after QA verification.
+    analyses: list[dict] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -129,6 +131,8 @@ class AgentOutput(BaseModel):
                 data["answer"] = ""
             if data.get("insufficient") is None:
                 data["insufficient"] = False
+            if data.get("analyses") is None:
+                data["analyses"] = []
         return data
 
 class EvidenceRef(SourceMeta):
@@ -157,6 +161,8 @@ class RunError(BaseModel):
     message: str
 
 class RunResult(BaseModel):
+    # Never serialized: draft model interpretations cannot escape before verification.
+    _qa_analysis_candidates: list[dict] = PrivateAttr(default_factory=list)
     run_id: str
     session_id: str
     status: Literal["completed", "failed", "limit_reached"]
