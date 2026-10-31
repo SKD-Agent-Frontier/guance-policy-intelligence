@@ -42,23 +42,38 @@ function CitationButtons({
   );
 }
 
-function Fact({ claim, onEvidence }: { claim: Claim; onEvidence: (chunkId: string) => void }) {
-  return (
-    <div className="result-fact">
-      <p>{claim.text}</p>
-      <CitationButtons claim={claim} onEvidence={onEvidence} />
-    </div>
-  );
+function Fact({ claim, onEvidence, showCitations = true }: {
+  claim: Claim;
+  onEvidence: (chunkId: string) => void;
+  showCitations?: boolean;
+}) {
+  return <div className="result-fact"><p>{claim.text}</p>{showCitations && <CitationButtons claim={claim} onEvidence={onEvidence} />}</div>;
 }
 
-function Header({ eyebrow, title, note }: { eyebrow?: string; title: string; note?: string }) {
-  return (
-    <header className="results-heading">
-      {eyebrow && <div className="results-kicker"><span className="results-kicker-mark" />{eyebrow}</div>}
-      <h1>{title}</h1>
-      {note && <p>{note}</p>}
-    </header>
-  );
+/** Policy header links: only cite verified references used by this policy's matrix cells. */
+function ComparisonPolicySources({ planid, rows, claims, evidenceRefs, onEvidence }: {
+  planid: string;
+  rows: ComparisonResult["matrix"];
+  claims: Claim[];
+  evidenceRefs: EvidenceRef[];
+  onEvidence: (chunkId: string) => void;
+}) {
+  const cited = new Set(claims.flatMap((claim) => claim.chunk_ids));
+  const available = new Set(evidenceRefs.filter((ref) => ref.planid === planid).map((ref) => ref.chunk_id));
+  const chunkIds = [...new Set(rows.flatMap((row) => row.cells.flatMap((cell) =>
+    cell.planid === planid && cell.status === "found" ? cell.chunk_ids ?? [] : [],
+  )))].filter((id) => cited.has(id) && available.has(id));
+  if (!chunkIds.length) return null;
+  return <span className="comparison-title-sources result-citations result-citations--compact">
+    {chunkIds.map((id, index) => <button className="result-citation" data-chunk-id={id} key={id}
+      onClick={() => onEvidence(id)} type="button" aria-label={`查看政策原文 ${index + 1}`}>
+      <BookOpen aria-hidden="true" size={15} /><span>原文 {index + 1}</span><ArrowUpRight aria-hidden="true" size={13} />
+    </button>)}
+  </span>;
+}
+
+function Header({ title, note }: { title: string; note?: string }) {
+  return <header className="results-heading"><h1>{title}</h1>{note && <p>{note}</p>}</header>;
 }
 
 function AnswerFallback({ result, onEvidence }: ResultsProps) {
@@ -93,7 +108,7 @@ function ExtractResults({ result, onEvidence }: ResultsProps) {
   const elements = structured.elements ?? [];
   return (
     <div className="results-content">
-      <Header eyebrow="要素提取" title="政策要素" note="提取内容按维度整理；每项事实均可打开对应原文。" />
+      <Header title="政策要素" note="提取内容按维度整理；每项事实均可打开对应原文。" />
       {structured.documents?.length > 0 && <div className="results-document-strip">{structured.documents.map((document) => <div className="results-document-chip" key={document.planid}><FileText aria-hidden="true" size={14} /><span>{valueOrMissing(document.title)}</span><small>{document.planid || "未提供"}</small></div>)}</div>}
       {structured.dimensions?.length > 0 ? structured.dimensions.map((dimension) => {
         const rows = elements.filter((claim) => claim.dimension === dimension);
@@ -110,7 +125,7 @@ function OrganizeResults({ result, onEvidence }: ResultsProps) {
   const groups = structured.groups ?? [];
   return (
     <div className="results-content">
-      <Header eyebrow="文献梳理" title="主题与文献" note={structured.scope?.topic ? `研究主题：${structured.scope.topic}` : "按主题浏览本轮检索到的政策文献。"} />
+      <Header title="主题与文献" note={structured.scope?.topic ? `研究主题：${structured.scope.topic}` : "按主题浏览本轮检索到的政策文献。"} />
       {structured.coverage?.note && <div className="results-coverage"><Layers3 aria-hidden="true" size={15} /><span>{structured.coverage.note}</span></div>}
       {groups.length > 0 && <section className="organize-groups"><div className="results-section-title"><span>主题分组 <em className="analysis-label">分析</em></span><span>{groups.length} 个主题</span></div>{groups.map((group) => <div className="organize-group" key={group.topic}><div className="organize-group-name"><ChevronRight aria-hidden="true" size={15} />{group.topic}</div><div className="organize-group-policies">{group.planids.map((planid) => { const policy = policies.find((item) => item.planid === planid); return <span className="organize-group-tag" key={planid}>{policy?.title || planid}</span>; })}</div><div className="organize-group-claims">{group.claim_indexes.map((claimIndex) => { const claim = result.claims[claimIndex]; return claim ? <CitationButtons key={`${group.topic}-${claimIndex}`} claim={claim} onEvidence={onEvidence} compact /> : null; })}</div></div>)}</section>}
       {policies.length > 0 ? <section className="organize-policies"><div className="results-section-title"><span>相关文献</span><span>{policies.length} 篇候选</span></div>{policies.map((policy) => <PolicyCard key={policy.planid} policy={policy} claims={result.claims} onEvidence={onEvidence} />)}</section> : <AnswerFallback result={result} onEvidence={onEvidence} />}
@@ -138,10 +153,40 @@ function ComparisonResults({ result, onEvidence, plans = false }: ResultsProps &
   const rows = structured.matrix ?? [];
   return (
     <div className="results-content results-content--compare">
-      <Header eyebrow={plans ? "多方案分析" : "政策比较"} title={plans ? "方案对照" : "政策比较矩阵"} note={plans ? "分析仅依赖下方已列出的支持条款，适用条件按原文呈现。" : "横向对照各政策在相同维度下的已见内容。"} />
+      <Header title={plans ? "方案对照" : "政策比较矩阵"} note={plans ? "分析仅依赖下方已列出的支持条款，适用条件按原文呈现。" : undefined} />
       {structured.evaluation_criteria && structured.evaluation_criteria.length > 0 && <div className="comparison-criteria"><span>评价标准</span>{structured.evaluation_criteria.map((criterion) => <em key={criterion}>{criterion}</em>)}</div>}
-      {structured.comparability?.reason && <div className="comparison-overall-note"><span>整体可比性</span><p>{structured.comparability.comparable ? "整体口径可比。" : structured.comparability.reason}</p></div>}
-      {rows.length > 0 && <div className="comparison-scroll" role="region" aria-label="政策比较矩阵" tabIndex={0}><table className="comparison-table"><thead><tr><th className="comparison-dimension-head">比较维度</th>{objects.map((object) => <th key={object.planid}><span>{valueOrMissing(object.title)}</span><small>{valueOrMissing(object.area)} · {valueOrMissing(object.fyp)}</small><small className="comparison-planid">planid {valueOrMissing(object.planid)}</small></th>)}<th className="comparison-analysis-head">差异分析</th></tr></thead><tbody>{rows.map((row) => <tr key={row.dimension}><th className="comparison-dimension"><span>{row.dimension}</span><small>{row.comparability.comparable ? "口径可比" : "口径需留意"}</small>{!row.comparability.comparable && <p>{row.comparability.reason}</p>}</th>{objects.map((object) => { const cell = row.cells.find((item) => item.planid === object.planid); return <td key={`${row.dimension}-${object.planid}`}><ComparisonCellView cell={cell} claims={result.claims} onEvidence={onEvidence} /></td>; })}<td className="comparison-analysis-cell"><AnalysisView analysis={row.difference} cells={row.cells} claims={result.claims} onEvidence={onEvidence} /></td></tr>)}</tbody></table></div>}
+      {rows.length > 0 && (
+        <div className="comparison-scroll" role="region" aria-label="政策比较矩阵" tabIndex={0}>
+          <table className="comparison-table" style={{ minWidth: `${170 + objects.length * 290 + 300}px` }}>
+            <thead><tr>
+              <th className="comparison-dimension-head">比较维度</th>
+              {objects.map((object) => <th key={object.planid}>
+                <div className="comparison-policy-heading">
+                  <span className="comparison-policy-title">{valueOrMissing(object.title)}</span>
+                  <ComparisonPolicySources planid={object.planid} rows={rows} claims={result.claims}
+                    evidenceRefs={result.evidence_refs ?? []} onEvidence={onEvidence} />
+                </div>
+                <small className="comparison-policy-meta">
+                  {valueOrMissing(object.area)} · {valueOrMissing(object.fyp)} · planid {valueOrMissing(object.planid)}
+                </small>
+              </th>)}
+              <th className="comparison-analysis-head">差异分析</th>
+            </tr></thead>
+            <tbody>{rows.map((row) => <tr key={row.dimension}>
+              <th className="comparison-dimension"><span>{row.dimension}</span></th>
+              {objects.map((object) => {
+                const cell = row.cells.find((item) => item.planid === object.planid);
+                return <td key={`${row.dimension}-${object.planid}`}>
+                  <ComparisonCellView cell={cell} claims={result.claims} onEvidence={onEvidence} />
+                </td>;
+              })}
+              <td className="comparison-analysis-cell">
+                <AnalysisView analysis={row.difference} cells={row.cells} claims={result.claims} />
+              </td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      )
       {plans && structured.scheme_analysis?.map((scheme) => { const object = objects.find((item) => item.planid === scheme.planid); return <section className="scheme-analysis" key={scheme.planid}><div className="scheme-analysis-heading"><GitCompareArrows aria-hidden="true" size={17} /><div><span>方案分析</span><h2>{object?.title || scheme.planid}</h2></div></div><div className="scheme-analysis-grid"><AnalysisGroup title="优势特征" entries={scheme.advantages} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /><AnalysisGroup title="限制" entries={scheme.limitations} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /><AnalysisGroup title="适用条件" entries={scheme.applicability} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /></div></section>; })}
       {structured.coverage_notes?.length > 0 && <div className="comparison-notes"><span>取证范围</span>{structured.coverage_notes.map((note, index) => <p key={`${index}-${note}`}>{note}</p>)}</div>}
       {rows.length === 0 && <AnswerFallback result={result} onEvidence={onEvidence} />}
@@ -153,19 +198,19 @@ function ComparisonCellView({ cell, claims, onEvidence }: { cell: ComparisonCell
   if (!cell) return <span className="comparison-cell-empty">未提供</span>;
   if (cell.status !== "found") return <div className={`comparison-cell-state comparison-cell-state--${cell.status}`}><span>{cell.status === "not_retrieved" ? "未检索到" : "证据不足"}</span><p>{cell.reason || "本轮有限取证未能支持此项。"}</p></div>;
   const linked = claims.filter((claim) => cell.chunk_ids?.some((id) => claim.chunk_ids.includes(id)));
-  return <div className="comparison-cell-facts">{linked.length ? linked.map((claim, index) => <Fact key={`${cell.cell_id}-${index}`} claim={claim} onEvidence={onEvidence} />) : <span className="comparison-cell-empty">该单元格暂未关联可核验结论</span>}</div>;
+  return <div className="comparison-cell-facts">{linked.length ? linked.map((claim, index) => <Fact key={`${cell.cell_id}-${index}`} claim={claim} onEvidence={onEvidence} showCitations={false} />) : <span className="comparison-cell-empty">该单元格暂未关联可核验结论</span>}</div>;
 }
 
-function AnalysisView({ analysis, cells, claims, onEvidence }: { analysis: ComparisonAnalysis; cells: ComparisonCell[]; claims: Claim[]; onEvidence: (chunkId: string) => void }) {
+function AnalysisView({ analysis, cells, claims }: { analysis: ComparisonAnalysis; cells: ComparisonCell[]; claims: Claim[] }) {
   const dependencies = cells.filter((cell) => analysis.supporting_cells.includes(cell.cell_id));
   const linkedClaims = claims.filter((claim) => dependencies.some((cell) => cell.chunk_ids?.some((id) => claim.chunk_ids.includes(id))));
   if (analysis.status === "insufficient") return <span className="comparison-cell-empty">依据不足，无法判断</span>;
   if (!analysis.text || !linkedClaims.length) return <span className="comparison-cell-empty">暂无具备原文关联的分析</span>;
-  return <div className="comparison-analysis"><span className="analysis-label">分析</span><p>{analysis.text}</p>{linkedClaims.map((claim, index) => <CitationButtons key={`${index}-${claim.text}`} claim={claim} onEvidence={onEvidence} compact />)}</div>;
+  return <div className="comparison-analysis"><p>{analysis.text}</p></div>;
 }
 
-function AnalysisGroup({ title, entries, cells, claims, onEvidence }: { title: string; entries: ComparisonAnalysis[]; cells: ComparisonCell[]; claims: Claim[]; onEvidence: (chunkId: string) => void }) {
-  return <div className="scheme-analysis-group"><h3>{title}</h3>{entries.length ? entries.map((entry, index) => <AnalysisView key={`${title}-${index}`} analysis={entry} cells={cells} claims={claims} onEvidence={onEvidence} />) : <p className="scheme-empty">暂无有依据的判断</p>}</div>;
+function AnalysisGroup({ title, entries, cells, claims }: { title: string; entries: ComparisonAnalysis[]; cells: ComparisonCell[]; claims: Claim[]; onEvidence: (chunkId: string) => void }) {
+  return <div className="scheme-analysis-group"><h3>{title}</h3>{entries.length ? entries.map((entry, index) => <AnalysisView key={`${title}-${index}`} analysis={entry} cells={cells} claims={claims} />) : <p className="scheme-empty">暂无有依据的判断</p>}</div>;
 }
 
 function isIdentityFallback(structured: RunResult["structured"]): boolean {
@@ -175,7 +220,7 @@ function isIdentityFallback(structured: RunResult["structured"]): boolean {
 
 function IdentityFallback({ result }: { result: RunResult }) {
   const documents = (result.structured as { documents: { planid?: string; title?: string; area?: string | null; fyp?: string | null }[] }).documents;
-  return <section className="identity-fallback"><Header eyebrow="文献线索" title="本轮发现的文献" note="当前仅有来源身份信息，没有足够证据形成政策事实。" />{documents.map((document, index) => <article className="identity-document" key={`${document.planid}-${index}`}><FileText aria-hidden="true" size={16} /><div><h2>{valueOrMissing(document.title)}</h2><p>{valueOrMissing(document.area)} · {valueOrMissing(document.fyp)}</p></div><span>planid {valueOrMissing(document.planid)}</span></article>)}</section>;
+  return <section className="identity-fallback"><Header title="本轮发现的文献" note="当前仅有来源身份信息，没有足够证据形成政策事实。" />{documents.map((document, index) => <article className="identity-document" key={`${document.planid}-${index}`}><FileText aria-hidden="true" size={16} /><div><h2>{valueOrMissing(document.title)}</h2><p>{valueOrMissing(document.area)} · {valueOrMissing(document.fyp)}</p></div><span>planid {valueOrMissing(document.planid)}</span></article>)}</section>;
 }
 
 export function Results({ result, onEvidence }: ResultsProps) {
