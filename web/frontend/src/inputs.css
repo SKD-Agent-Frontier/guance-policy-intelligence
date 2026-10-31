@@ -1132,3 +1132,59 @@
 @media (prefers-reduced-motion: reduce) {
   .prompt-template-trigger, .prompt-template-card { transition: none; }
 }
+
+
+/* Floating research panels: opening a chooser must never grow or shift the landing page.
+   The composer remains in normal flow; both cards are positioned over the scene. */
+.research-composer {
+  position: relative;
+}
+.page-body-home .home-page {
+  overflow: visible;
+}
+.page-body-home .home-content {
+  position: relative;
+  z-index: 5;
+}
+.research-composer .prompt-template-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  z-index: 20;
+  margin: 0;
+  max-height: min(56vh, 480px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.advanced-entry {
+  position: relative;
+  z-index: 10;
+}
+.advanced-entry .advanced-fields {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 18;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: min(54vh, 460px);
+  margin: 0;
+  padding: 16px 18px 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #eae6e3;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 14px 35px rgba(45,35,31,.10);
+}
+@media (max-width: 700px) {
+  .research-composer .prompt-template-panel {
+    max-height: min(48vh, 390px);
+  }
+  .advanced-entry .advanced-fields {
+    max-height: min(48vh, 390px);
+    padding: 12px;
+  }
+}
