@@ -22,7 +22,10 @@ def quote_budget(result) -> int:
             in ("extract", "compare", "compare_plans") else MAX_QUOTES)
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表：行首的 "1." 与句中标点后的 "1）" "2、" 都不是数据，先去掉再抽数字
-LIST_MARKER = re.compile(r"(?m)(?:^[ \t]*|[；;。：:!？!?]\s*)\d{1,3}\s*[.．、)）]\s*")
+LIST_MARKER = re.compile(
+    r"(?m)(?:^[ \t]*|[；;。：:!？!?]\s*)"
+    r"(?:\d{1,3}\s*[.．、)）]|\(\d{1,3}\)|（\d{1,3}）)\s*"
+)
 
 
 def _squash(text: str) -> tuple[str, list[int]]:
