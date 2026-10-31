@@ -1155,7 +1155,18 @@ textarea:focus-visible {
 }
 .page-body-home .architecture-scene {
   bottom: 0;
-  height: clamp(170px, 29vh, 330px);
+  /* Match the approved composition: cloud-covered hills on the left, architecture on the right. */
+  height: clamp(290px, 41vh, 425px);
+  background: #fff;
+}
+.page-body-home .architecture-scene img {
+  object-fit: fill;
+  object-position: center center;
+  filter: none;
+  opacity: 1;
+}
+.page-body-home .architecture-scene::after {
+  background: linear-gradient(180deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 85%, rgba(255,255,255,.08) 100%);
 }
 .page-body-home .architecture-title {
   top: 23%;
@@ -1757,7 +1768,7 @@ textarea:focus-visible {
     font-size: clamp(30px, 8.4vw, 36px);
   }
   .page-body-home .architecture-scene {
-    height: 180px;
+    height: clamp(190px, 35svh, 300px);
   }
   .conversation-workspace {
     height: calc(100svh - 56px);
