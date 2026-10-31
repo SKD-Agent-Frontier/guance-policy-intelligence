@@ -20,7 +20,6 @@ from .policy_catalog import (
     load_published_catalog,
 )
 from .policy_regions import RegionResourceUnavailable, load_region_mapping, load_region_tree
-from .research_planning import ResearchResolveRequest, resolve_research
 from .policy_schemas import (
     PolicyContentResponse,
     PolicyDetailResponse,
@@ -28,6 +27,7 @@ from .policy_schemas import (
     PolicyListResponse,
     RegionTreeResponse,
 )
+from .research_planning import ResearchResolveRequest, resolve_research
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["policies"])
