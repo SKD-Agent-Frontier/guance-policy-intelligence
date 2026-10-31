@@ -1,13 +1,9 @@
 """Comparison relevance checks, independent of the school LLM and private corpus."""
 from types import SimpleNamespace
 
+from guance_agent.business.compare import relevance
 from guance_agent.business.compare.evidence import Collection, EvidenceUnit
 from guance_agent.business.compare.models import ComparisonPlan, GeneratedComparison
-from guance_agent.business.compare.relevance import (
-    evidence_on_topic,
-    explicit_comparison_topic,
-    topic_mismatched_objects,
-)
 from guance_agent.business.compare.result import build_outcome
 
 
@@ -15,9 +11,9 @@ QUESTION = "比较浙江和北京十四五数字经济发展目标的异同"
 
 
 def test_recognizes_explicit_research_subject_without_splitting():
-    assert explicit_comparison_topic(QUESTION) == "数字经济"
-    assert explicit_comparison_topic("比较浙江和北京十四五数字经济政策工具的差异") == "数字经济"
-    assert explicit_comparison_topic("比较两项人才政策") is None
+    assert relevance.explicit_comparison_topic(QUESTION) == "数字经济"
+    assert relevance.explicit_comparison_topic("比较浙江和北京十四五数字经济政策工具的差异") == "数字经济"
+    assert relevance.explicit_comparison_topic("比较两项人才政策") is None
 
 
 def test_unrelated_plan_titles_are_not_research_subjects_even_if_body_mentions_topic():
@@ -25,7 +21,7 @@ def test_unrelated_plan_titles_are_not_research_subjects_even_if_body_mentions_t
         {"planid": "24037", "title": "浙江省消防事业发展“十四五”规划"},
         {"planid": "26147", "title": "北京市“十四五”时期高精尖产业发展规划"},
     ]
-    assert topic_mismatched_objects(objects, "数字经济", ["24037", "26147"]) == [
+    assert relevance.topic_mismatched_objects(objects, "数字经济", ["24037", "26147"]) == [
         "24037《浙江省消防事业发展“十四五”规划》",
         "26147《北京市“十四五”时期高精尖产业发展规划》",
     ]
@@ -36,14 +32,14 @@ def test_subject_only_without_goal_evidence_not_accepted_as_goal_fact():
     title = "浙江省数字经济发展“十四五”规划"
     unrelated = EvidenceUnit("e0", "z", "c0",
                              "全面加强机关后勤与消防安全检查。", "行政保障")
-    assert not evidence_on_topic(unrelated, "发展目标", topic, title)
+    assert not relevance.evidence_on_topic(unrelated, "发展目标", topic, title)
     broad = EvidenceUnit("e1", "z", "c1", "开展数字经济培训工作。", "建设任务")
-    assert not evidence_on_topic(broad, "发展目标", topic, title)
+    assert not relevance.evidence_on_topic(broad, "发展目标", topic, title)
     goal = EvidenceUnit("e2", "z", "c2",
                         "到2025年数字经济核心产业增加值占GDP比重不断提升。", "发展目标")
-    assert evidence_on_topic(goal, "发展目标", topic, title)
+    assert relevance.evidence_on_topic(goal, "发展目标", topic, title)
     # Topic in body doesn't override a policy with the wrong research subject.
-    assert not evidence_on_topic(goal, "发展目标", topic, "浙江消防事业十四五规划")
+    assert not relevance.evidence_on_topic(goal, "发展目标", topic, "浙江消防事业十四五规划")
 
 
 def _matrix(fact_text_a, fact_text_b):
@@ -93,5 +89,5 @@ def test_both_relevant_goals_retained_without_claiming_completed_comparison():
 
 def test_legacy_comparison_without_unambiguous_topic_not_narrowed():
     unit = EvidenceUnit("e1", "p1", "chunk1", "人才保障措施。")
-    assert explicit_comparison_topic("比较两份人才政策") is None
-    assert evidence_on_topic(unit, "发展目标", "数字经济", "人才政策") is False
+    assert relevance.explicit_comparison_topic("比较两份人才政策") is None
+    assert relevance.evidence_on_topic(unit, "发展目标", "数字经济", "人才政策") is False
