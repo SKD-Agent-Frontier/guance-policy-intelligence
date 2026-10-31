@@ -139,7 +139,7 @@ describe("conversation simplification and original source reader", () => {
   it("hides completed preparation, mode selector, local note, and status prelude", () => {
     renderCompleted();
     expect(screen.getByRole("heading", { name: "研究结论" })).toBeVisible();
-    expect(screen.queryByText("政策问答")).not.toBeInTheDocument();
+    expect(document.querySelector(".results-content--qa .results-kicker")).toBeNull();
     expect(screen.queryByText("结论与本次检索到的原文逐条关联。")).not.toBeInTheDocument();
     expect(screen.getByText("依据与引句")).toBeInTheDocument();
     expect(screen.getByText("1 条结论")).toBeInTheDocument();
