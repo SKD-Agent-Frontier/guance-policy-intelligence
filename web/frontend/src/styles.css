@@ -1434,17 +1434,24 @@ textarea:focus-visible {
   max-width: 780px;
   display: flex;
   align-items: center;
-  gap: 13px;
   margin: 0 auto 14px;
-  padding: 14px 17px;
-  border: 1px solid #eeeae7;
-  border-radius: 6px;
-  color: #5d514b;
+  padding: 10px 0;
+  color: #76635e;
 }
-.conversation-progress p {
-  margin: 3px 0 0;
-  color: #8d817b;
-  font-size: 12px;
+.research-running-text {
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(95deg, #6f625d 15%, #bd534b 46%, #6f625d 78%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: research-shimmer 2.1s ease-in-out infinite;
+}
+.research-running-dots { display: inline-block; width: 1.4em; overflow: hidden; vertical-align: baseline; }
+@keyframes research-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .research-running-text { animation: none; background: none; -webkit-text-fill-color: currentColor; }
 }
 .conversation-composer-wrap {
   flex: 0 0 auto;

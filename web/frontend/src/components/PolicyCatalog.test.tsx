@@ -11,11 +11,16 @@ vi.mock("../api/catalogClient", () => ({
     list: vi.fn(),
     detail: vi.fn(),
     content: vi.fn(),
+    facets: vi.fn(),
+    regions: vi.fn(),
   },
 }));
 vi.mock("../api/client", () => ({ get isRealMode() { return runtime.isRealMode; } }));
 
 afterEach(() => cleanup());
+
+const facetRegionVersion = `sha256:${"a".repeat(64)}`;
+const facetMappingVersion = `sha256:${"b".repeat(64)}`;
 
 const dataset = {
   generation_id: "generation-test",
@@ -23,7 +28,37 @@ const dataset = {
   total_documents: 506,
   partial: null,
   source: "current_published_frozen_release" as const,
+  region_version: facetRegionVersion,
+  region_mapping_version: facetMappingVersion,
 };
+
+const facetsResponse = () => ({
+  dataset,
+  query: {
+    q: null, area: null, fyp: null, plantype: null, admin_level: null, province_code: null,
+    prefecture_code: null, county_code: null, region_status: null, year: null,
+    fyp_status: null, plantype_status: null,
+  },
+  facets: {
+    admin_level: {
+      options: [
+        { value: "national", label: "国家级", count: 1 },
+        { value: "province", label: "省级", count: 1 },
+        { value: "prefecture", label: "市级", count: 1 },
+        { value: "county", label: "区县级", count: 1 },
+        { value: "unclassified", label: "未分类", count: 0 },
+      ],
+      regions: {
+        province_options: [], prefecture_options: [], county_options: [],
+        unclassified: { label: "地区未分类", count: 0 },
+        not_applicable: { label: "不适用地区树", count: 1 },
+      },
+    },
+    year: { options: [{ value: "unknown", label: "年份未知", count: 0 }] },
+    fyp: { options: [], unclassified: { label: "未分类", count: 0 } },
+    plantype: { options: [], unclassified: { label: "未分类", count: 0 } },
+  },
+});
 
 type TestItem = {
   planid: string;
@@ -86,6 +121,13 @@ beforeEach(() => {
   ]) as never);
   catalog.detail.mockImplementation(async (planid) => detailResponse(planid, `政策${planid}`) as never);
   catalog.content.mockImplementation(async (planid, offset = 0) => contentResponse(planid, offset, `正文${offset}`) as never);
+  catalog.facets.mockImplementation(async () => facetsResponse() as never);
+  catalog.regions.mockImplementation(async (regionVersion) => ({
+    region_version: regionVersion ?? facetRegionVersion,
+    artifact_sha256: "d".repeat(64), source: "fixture", source_url: "https://example.test/regions",
+    retrieved_at_utc: "2026-10-31T00:00:00Z", snapshot_as_of: null, official_version: null,
+    node_count: 0, data: [],
+  }) as never);
 });
 
 describe("PolicyCatalog", () => {
@@ -193,6 +235,7 @@ describe("PolicyCatalog", () => {
       plantype: "专项规划",
       page: 1,
       page_size: 10,
+      generation_id: "generation-test", revision: 1, region_version: `sha256:${"a".repeat(64)}`, region_mapping_version: `sha256:${"b".repeat(64)}`,
     }, expect.any(AbortSignal)));
     expect(await screen.findByText(/字面匹配.*篇/)).toBeVisible();
     expect(screen.getByText("当前库共有 506 篇政策文献")).toBeVisible();
@@ -210,7 +253,7 @@ describe("PolicyCatalog", () => {
     await user.click(screen.getByRole("button", { name: "检索目录" }));
     await user.click(screen.getByRole("button", { name: /下一页/ }));
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(
-      { q: "数字经济", page: 2, page_size: 20 },
+      { q: "数字经济", page: 2, page_size: 20, generation_id: "generation-test", revision: 1, region_version: `sha256:${"a".repeat(64)}`, region_mapping_version: `sha256:${"b".repeat(64)}` },
       expect.any(AbortSignal),
     ));
   });

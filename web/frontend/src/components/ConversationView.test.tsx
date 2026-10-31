@@ -75,3 +75,21 @@ describe("ConversationView", () => {
     expect(screen.getAllByText("仅作为请求条件")).toHaveLength(2);
   });
 });
+
+
+it("shows only a lightweight animated running status without a separate execution card", () => {
+  const active: Conversation = {
+    id: "running", title: "政策问答", mode: "qa", busy: "running",
+    preparation: null, advancedDraft: createAdvancedDraft(),
+    messages: [
+      { id: "u1", kind: "user", text: "数字经济政策有哪些？" },
+      { id: "legacy", kind: "execution", text: "研究任务正在执行。" },
+    ],
+  };
+  render(<ConversationView conversation={active} onModeChange={vi.fn()} onSend={vi.fn()}
+    onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()}
+    onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+  expect(screen.getByRole("status")).toHaveTextContent("正在研究中");
+  expect(screen.queryByText("研究任务正在执行。")).not.toBeInTheDocument();
+  expect(screen.queryByText("研究执行")).not.toBeInTheDocument();
+});

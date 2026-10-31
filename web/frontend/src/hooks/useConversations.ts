@@ -151,7 +151,6 @@ export function useConversations() {
   ) => {
     if (!isCurrent(conversationId, token)) return;
     setBusy(conversationId, "running");
-    appendMessage(conversationId, message("execution", { text: "研究任务正在执行。" }));
     lastOperations.current.set(conversationId, { kind: "execution", request, scenario, failed: false });
     try {
       const result = await researchClient.submit(request, scenario);

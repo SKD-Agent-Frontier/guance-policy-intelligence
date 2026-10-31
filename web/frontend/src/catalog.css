@@ -25,7 +25,7 @@
   letter-spacing: 0.05em;
 }
 .catalog-header h1 {
-  margin: 9px 0 7px;
+  margin: 0;
   font-family: var(--font-display, serif);
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 600;

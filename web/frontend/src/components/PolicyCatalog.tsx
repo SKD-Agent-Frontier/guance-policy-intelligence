@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpenText, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
 import { catalogClient } from "../api/catalogClient";
 import { isRealMode } from "../api/client";
+import { ApiError } from "../api/http";
+import { extractPolicyVersionPin } from "../api/policyFacets";
+import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
+import { usePolicyCatalogFacets } from "../hooks/usePolicyCatalogFacets";
 import type {
   PolicyContentResponse,
   PolicyDetailResponse,
+  PolicyFacetFilters,
   PolicyListResponse,
   PolicyListParams,
 } from "../types";
@@ -77,17 +82,31 @@ function errorMessage(error: unknown) {
 }
 
 function makeParams(filters: Filters, page: number, pageSize: number): CatalogParams {
-  const normalized = Object.fromEntries(
-    Object.entries(filters).flatMap(([key, value]) => {
-      const clean = value?.trim();
-      return clean ? [[key, clean]] : [];
-    }),
-  ) as Filters;
-  return { ...normalized, page, page_size: pageSize };
+  const normalized: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value === "string") {
+      const clean = value.trim();
+      if (clean) normalized[key] = clean;
+    } else if (typeof value === "number") {
+      normalized[key] = value;
+    }
+  }
+  return { ...normalized, page, page_size: pageSize } as CatalogParams;
+}
+
+const NEW_FILTER_KEYS: (keyof PolicyFacetFilters)[] = [
+  "admin_level", "province_code", "prefecture_code", "county_code", "region_status", "year", "fyp_status", "plantype_status",
+];
+
+function hasNewFilters(filters: PolicyFacetFilters) {
+  return NEW_FILTER_KEYS.some(key => filters[key] !== undefined);
 }
 
 export function PolicyCatalog() {
   const [filters, setFilters] = useState<Filters>({ q: "", area: "", fyp: "", plantype: "" });
+  const [appliedFilters, setAppliedFilters] = useState<Filters>({});
+  const appliedFiltersRef = useRef<Filters>({});
+  const { facets, regions, status: facetsStatus, errorMessage: facetsError, refresh: refreshFacets, reload: reloadFacets } = usePolicyCatalogFacets();
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [list, setList] = useState<PolicyListResponse | null>(null);
   const [dataset, setDataset] = useState<PolicyListResponse["dataset"] | null>(null);
@@ -111,6 +130,8 @@ export function PolicyCatalog() {
   const detailSequence = useRef(0);
   const contentSequence = useRef(0);
   const selectedPlanRef = useRef<string | null>(null);
+  const applySequence = useRef(0);
+  const expectedFacetDataset = useRef<PolicyListResponse["dataset"] | null>(null);
   const appliedParams = useRef<CatalogParams>({ page: 1, page_size: PAGE_SIZE });
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -128,16 +149,32 @@ export function PolicyCatalog() {
     try {
       const response = await catalogClient.list(params, controller.signal);
       if (sequence !== listSequence.current) return;
+      const expected = expectedFacetDataset.current;
+      if (expected) {
+        const actualPin = extractPolicyVersionPin(response.dataset);
+        const expectedPin = extractPolicyVersionPin(expected);
+        if (!actualPin || !expectedPin || JSON.stringify(actualPin) !== JSON.stringify(expectedPin)
+          || response.dataset.total_documents !== expected.total_documents || response.dataset.partial !== expected.partial) {
+          setList(null);
+          setListError("目录结果与维度筛选使用的数据版本不一致，请重新加载筛选项后再检索。");
+          return;
+        }
+      }
       setDataset(response.dataset);
       setList(showResults ? response : null);
     } catch (error) {
       if (sequence !== listSequence.current || controller.signal.aborted) return;
       setList(null);
-      setListError(errorMessage(error));
+      if (error instanceof ApiError && error.status === 409) {
+        void reloadFacets(appliedFiltersRef.current);
+        setListError("目录数据版本已更新，已重新加载筛选项。请重新检索。");
+      } else {
+        setListError(errorMessage(error));
+      }
     } finally {
       if (sequence === listSequence.current) setListLoading(false);
     }
-  }, []);
+  }, [reloadFacets]);
 
   const loadContent = useCallback(async (planid: string, offset: number) => {
     contentController.current?.abort();
@@ -180,8 +217,26 @@ export function PolicyCatalog() {
   }, []);
 
   useEffect(() => {
-    void loadList({ page: 1, page_size: 1 }, false);
+    let active = true;
+    const initialApply = applySequence.current;
+    void refreshFacets({}).then(outcome => {
+      if (!active || initialApply !== applySequence.current) return;
+      if (outcome.pin && (outcome.status === "ready" || outcome.status === "unavailable") && outcome.dataset) {
+        expectedFacetDataset.current = outcome.dataset;
+        void loadList({ ...outcome.pin, page: 1, page_size: 1 }, false);
+      } else if (outcome.status === "unavailable") {
+        expectedFacetDataset.current = null;
+        void loadList({ page: 1, page_size: 1 }, false);
+      } else if (!outcome.errorMessage?.includes("版本")) {
+        expectedFacetDataset.current = null;
+        void loadList({ page: 1, page_size: 1 }, false);
+      } else {
+        setListError("维度筛选版本暂不可用，请重新加载筛选项。");
+      }
+    });
     return () => {
+      active = false;
+      applySequence.current += 1;
       listSequence.current += 1;
       listController.current?.abort();
       detailSequence.current += 1;
@@ -190,12 +245,11 @@ export function PolicyCatalog() {
       contentController.current?.abort();
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };
-  }, [loadList]);
+  }, [loadList, refreshFacets]);
 
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    closePolicy();
-    void loadList(makeParams(filters, 1, pageSize));
+    void applyFilters(filters);
   };
 
   const changePage = (page: number) => {
@@ -243,6 +297,55 @@ export function PolicyCatalog() {
     detailController.current?.abort();
     contentSequence.current += 1;
     contentController.current?.abort();
+  };
+
+  const applyFilters = useCallback(async (nextFilters: Filters, showResults = true) => {
+    const currentApply = ++applySequence.current;
+    listSequence.current += 1;
+    listController.current?.abort();
+    setList(null);
+    setListLoading(true);
+    closePolicy();
+    setFilters(nextFilters);
+    const normalized = makeParams(nextFilters, 1, pageSize);
+    const { page: _page, page_size: _pageSize, ...cleanFilters } = normalized;
+    setAppliedFilters(cleanFilters);
+    appliedFiltersRef.current = cleanFilters;
+    const outcome = await refreshFacets(cleanFilters);
+    if (currentApply !== applySequence.current) return;
+    if (outcome.pin && (outcome.status === "ready" || (outcome.status === "unavailable" && !hasNewFilters(nextFilters))) && outcome.dataset) {
+      expectedFacetDataset.current = outcome.dataset;
+      void loadList({ ...normalized, ...outcome.pin }, showResults);
+      return;
+    }
+    expectedFacetDataset.current = null;
+    if (outcome.status !== "unavailable" || hasNewFilters(nextFilters)) {
+      setListLoading(false);
+      setList(null);
+      setListError("维度筛选或版本校验暂不可用，当前条件尚无可用结果；请重新加载筛选项。");
+      return;
+    }
+    void loadList(normalized, showResults);
+  }, [loadList, pageSize, refreshFacets]);
+
+  const reloadAppliedFilters = async () => {
+    const currentApply = ++applySequence.current;
+    listSequence.current += 1;
+    listController.current?.abort();
+    setList(null);
+    setListLoading(true);
+    const outcome = await reloadFacets(appliedFiltersRef.current);
+    if (currentApply !== applySequence.current) return;
+    if (outcome.status === "ready" && outcome.pin && outcome.dataset) {
+      expectedFacetDataset.current = outcome.dataset;
+      void loadList({ ...makeParams(appliedFiltersRef.current, 1, pageSize), ...outcome.pin }, hasSearched);
+    } else if (outcome.status === "unavailable" && !hasNewFilters(appliedFiltersRef.current)) {
+      expectedFacetDataset.current = null;
+      void loadList(makeParams(appliedFiltersRef.current, 1, pageSize), hasSearched);
+    } else {
+      setListLoading(false);
+      setListError("无法重新加载筛选版本，请稍后重试。");
+    }
   };
 
   const previewPolicy = (planid: string) => {
@@ -316,17 +419,64 @@ export function PolicyCatalog() {
   const matchedLabel = list?.query.q
     ? "字面匹配"
     : "符合当前筛选";
+  const regionLabel = (code: string) => {
+    const visit = (nodes: NonNullable<typeof regions>["data"]): string | null => {
+      for (const node of nodes) {
+        if (node.code === code) return node.name;
+        const child = visit(node.children);
+        if (child) return child;
+      }
+      return null;
+    };
+    return visit(regions?.data ?? []) ?? "地区";
+  };
+  const filterLabels: Record<string, string> = {
+    q: "关键词", area: "地区精确值", fyp: "规划期", plantype: "政策类型",
+    admin_level: "行政级别", province_code: "省级地区", prefecture_code: "地级地区", county_code: "县级地区",
+    region_status: "地区状态", year: "年份", fyp_status: "规划期状态", plantype_status: "类型状态",
+  };
+  const filterValueLabel = (key: string, value: unknown) => {
+    if (key === "admin_level") return ({ national: "国家级", province: "省级", prefecture: "市级", county: "区县级", unclassified: "其它" } as Record<string, string>)[String(value)] ?? String(value);
+    if (["province_code", "prefecture_code", "county_code"].includes(key)) return regionLabel(String(value));
+    if (key === "region_status") return ({ mapped: "已映射", unclassified: "未分类", not_applicable: "不适用" } as Record<string, string>)[String(value)] ?? String(value);
+    if (key === "fyp_status") return "未提供";
+    if (key === "plantype_status") return "未提供";
+    if (key === "year" && value === "unknown") return "未知";
+    return String(value);
+  };
+  const appliedEntries = Object.entries(appliedFilters).filter(([, value]) => value !== undefined && value !== "");
+  const facetFilterChange = (patch: Partial<PolicyFacetFilters>) => {
+    void applyFilters({ ...filters, ...patch });
+  };
+  const removeAppliedFilter = (key: string) => {
+    const next = { ...appliedFilters } as Filters;
+    delete next[key as keyof Filters];
+    if (key === "fyp") delete next.fyp_status;
+    if (key === "plantype") delete next.plantype_status;
+    if (key === "province_code") { delete next.prefecture_code; delete next.county_code; }
+    if (key === "prefecture_code") delete next.county_code;
+    void applyFilters(next);
+  };
 
   return (
     <main ref={mainRef} tabIndex={-1} className={reading ? "catalog-page policy-reader" : "catalog-page"} aria-label={reading ? "政策原文阅读" : "政策文献目录"}>
       {!reading && <>
       <header className="catalog-header">
         <div>
-          <div className="catalog-eyebrow"><BookOpenText size={15} /> 当前发布库</div>
           <h1>政策文献目录</h1>
         </div>
         {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
       </header>
+
+      <PolicyFacetsPanel
+        filters={filters}
+        facets={facets}
+        regions={regions}
+        status={facetsStatus}
+        errorMessage={facetsError}
+        onChange={facetFilterChange}
+        onRetry={() => void reloadAppliedFilters()}
+      />
 
       <form className="catalog-search" onSubmit={submitSearch}>
         <label className="catalog-query-field">
@@ -347,11 +497,11 @@ export function PolicyCatalog() {
         </label>
         <label>
           <span>规划期精确筛选</span>
-          <input value={filters.fyp ?? ""} onChange={(event) => setFilters((current) => ({ ...current, fyp: event.target.value }))} placeholder="例如：十四五" />
+          <input value={filters.fyp ?? ""} onChange={(event) => setFilters((current) => ({ ...current, fyp: event.target.value, fyp_status: undefined }))} placeholder="例如：十四五" />
         </label>
         <label>
           <span>政策类型精确筛选</span>
-          <input value={filters.plantype ?? ""} onChange={(event) => setFilters((current) => ({ ...current, plantype: event.target.value }))} placeholder="输入完整类型名称" />
+          <input value={filters.plantype ?? ""} onChange={(event) => setFilters((current) => ({ ...current, plantype: event.target.value, plantype_status: undefined }))} placeholder="输入完整类型名称" />
         </label>
         <label className="catalog-page-size">
           <span>每页条数</span>
@@ -363,6 +513,14 @@ export function PolicyCatalog() {
           <Search size={15} /> 检索目录
         </button>
       </form>
+
+      {appliedEntries.length > 0 && <div className="catalog-applied-filters" aria-label="已应用筛选条件">
+        <span>已应用：</span>
+        {appliedEntries.map(([key, value]) => <button type="button" key={key} onClick={() => removeAppliedFilter(key)} aria-label={`移除${filterLabels[key] ?? "筛选"} ${filterValueLabel(key, value)}`}>
+          {filterLabels[key] ?? "筛选"}：{filterValueLabel(key, value)}<X size={13} aria-hidden="true" />
+        </button>)}
+        <button type="button" onClick={() => void applyFilters({})}>清除全部</button>
+      </div>}
 
       {dataset && <p className="catalog-library-count">当前库共有 {dataset.total_documents} 篇政策文献</p>}
 
@@ -380,7 +538,7 @@ export function PolicyCatalog() {
           {listError && (
             <div className="catalog-error" role="alert">
               <p>{listError}</p>
-              <button type="button" onClick={() => void loadList(appliedParams.current, hasSearched)}>重试</button>
+              <button type="button" onClick={() => void reloadAppliedFilters()}>重试</button>
             </div>
           )}
           {!listLoading && !listError && list?.items.length === 0 && (
