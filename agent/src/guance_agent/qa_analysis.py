@@ -49,7 +49,17 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
         return result
     candidates = result._qa_analysis_candidates
     result._qa_analysis_candidates = []
-    if not candidates or result.status != "completed" or result.error:
+    if result.status != "completed" or result.error:
+        return result
+    if not candidates:
+        # Invalid links must not allow an analysis claim to escape in raw answer.
+        proposed = result.meta.get("analysis_drafts_received", 0)
+        if proposed:
+            result.meta["analysis_contract"] = {
+                "accepted": 0, "rejected": proposed, "reason": "invalid_dependencies",
+            }
+            if result.meta.get("answer_rebuilt") is None:
+                result.answer = "本轮未形成具有充分证据关联的研究分析；可查看下方已保留的政策事实。"
         return result
 
     # Discard any untrusted narrative in the original answer whenever the model
