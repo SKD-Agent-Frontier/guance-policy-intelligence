@@ -16,12 +16,16 @@ TITLE = re.compile(r"《([^《》]{2,80})》")
 AREA = re.compile(r"(?<![地该各本全])([\u4e00-\u9fa5]{2,4}(?:省|市|区|县|自治州|盟|旗))")
 # 规划期统一到 RAG 的规范期号口径
 PERIOD = re.compile(r"第?(十[一二三四五])(?:个)?五")
+# “十五”计划（2001—2005）不是“十五五”（2026—2030）。
+# 显式排除“十五届”等序数表达；第十五个五年规划由 PERIOD 负责识别。
+HISTORICAL_TENTH = re.compile(r'(?<![一二三四五六七八九十第])(?:[“"「])?十五(?:[”"」])?(?!五|届|大|中|个|年|岁)')
 PERIOD_ALIAS = {
     "十一": "第十一个五年规划", "十二": "第十二个五年规划", "十三": "第十三个五年规划",
     "十四": "第十四个五年规划", "十五": "第十五个五年规划",
 }
 # 地区名前面常粘着动词（比较大渡口区 / 与南平市），逐层剥掉再判定
 LEAD_NOISE = ("比较", "分析", "对照", "围绕", "针对", "对于", "关于", "以及",
+              "想了解", "了解", "查询", "查找", "介绍", "研究", "梳理", "总结", "请问",
               "期间", "年度", "时期", "阶段",
               "和", "与", "及", "在", "对", "较", "比")
 MAX_QUERY = 200
@@ -79,7 +83,13 @@ def parse_areas(text: str) -> tuple[str, ...]:
 
 
 def parse_fyps(text: str) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(PERIOD_ALIAS[n] for n in PERIOD.findall(text or "")))
+    """按原文出现顺序识别新旧规划期，避免把“十五”计划错归“十五五”。"""
+    value = text or ""
+    matches = [(match.start(), PERIOD_ALIAS[match.group(1)])
+               for match in PERIOD.finditer(value)]
+    matches.extend((match.start(), "第十个五年计划")
+                   for match in HISTORICAL_TENTH.finditer(value))
+    return tuple(dict.fromkeys(period for _, period in sorted(matches)))
 
 
 def strip_annotations(text: str) -> str:
