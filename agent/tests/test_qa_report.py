@@ -35,12 +35,12 @@ def test_multi_aspect_report_is_total_detail_total_with_canonical_outline():
     answer, missing = verified_qa_outline(FACTS, QUESTION)
     assert not missing
     assert answer.startswith("根据本轮")
-    assert "一、总体发展环境" in answer
-    assert "二、主要发展机遇" in answer
-    assert "三、面临挑战" in answer
+    assert "一、主要发展机遇" in answer
+    assert "二、面临挑战" in answer
+    assert "规划指出区位条件带来发展空间。" in answer.split("一、")[0]
     assert "（一）" in answer and "（二）" in answer
     assert answer.rstrip().endswith("穷尽。")
-    assert answer.index("北京奥运会") < answer.index("三、面临挑战")
+    assert answer.index("北京奥运会") < answer.index("二、面临挑战")
 
 
 def test_verification_rebuild_preserves_sections_and_removes_invalid_claims():
