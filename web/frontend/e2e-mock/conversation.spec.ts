@@ -629,3 +629,42 @@ test("Real client Mock API: explicit region, period and subject compare runs wit
     task_type: "compare", question, targets: ["ZJ-14", "JS-14"], dimensions: ["发展目标"],
   });
 });
+
+
+test("Landing page: template and advanced panels float without shifting the hero or background", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "要素提取" }).click();
+
+  const measure = async () => page.evaluate(() => {
+    const top = (selector: string) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error(`Missing layout anchor: ${selector}`);
+      return Math.round(element.getBoundingClientRect().top);
+    };
+    return {
+      title: top(".intro-block h1"),
+      fields: top(".composer-fields"),
+      background: top(".architecture-scene"),
+      scrollY: window.scrollY,
+    };
+  });
+  const original = await measure();
+
+  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
+  const advanced = page.locator(".advanced-fields");
+  await expect(advanced).toBeVisible();
+  await expect(advanced).toHaveCSS("position", "absolute");
+  await expect(advanced).toHaveCSS("overflow-y", "auto");
+  expect(await measure()).toEqual(original);
+
+  await page.getByRole("button", { name: "指令模板" }).click();
+  await expect(advanced).toHaveCount(0);
+  const templates = page.getByRole("region", { name: "指令模板列表" });
+  await expect(templates).toBeVisible();
+  await expect(templates).toHaveCSS("position", "absolute");
+  expect(await measure()).toEqual(original);
+
+  await page.getByRole("button", { name: "关闭指令模板" }).click();
+  expect(await measure()).toEqual(original);
+});
