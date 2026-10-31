@@ -3,6 +3,7 @@ import { API_REQUEST_TIMEOUT_MS, requestJson } from "./http";
 import { validatePreparationResponse } from "./validation";
 import type {
   PreparationResponse,
+  CompareResolution,
   ResearchPreparationRequest,
   ResearchRequest,
   RunResult,
@@ -13,6 +14,13 @@ export type { ApiFailureKind } from "./http";
 export { validatePreparationResponse } from "./validation";
 
 export const realClient = {
+  resolveCompare(question: string): Promise<CompareResolution> {
+    return requestJson<CompareResolution>(
+      "/api/research/resolve-compare",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) },
+      { timeoutMs: API_REQUEST_TIMEOUT_MS },
+    );
+  },
   submit(request: ResearchRequest): Promise<RunResult> {
     return requestJson<RunResult>(
       "/api/runs",

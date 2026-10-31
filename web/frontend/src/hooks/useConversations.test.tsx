@@ -16,7 +16,7 @@ vi.mock("../api/client", () => ({
     }
   },
   validatePreparationResponse: (response: unknown) => response,
-  researchClient: { prepare: vi.fn(), submit: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn() },
 }));
 
 const STATE = {
@@ -125,7 +125,6 @@ describe("useConversations", () => {
 
   it.each([
     ["extract", "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-    ["compare", "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。"],
     ["compare_plans", "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
   ] as const)("hands %s messages to the advanced draft without API calls", async (mode, guidance) => {
     const { result } = renderHook(() => useConversations());
@@ -144,6 +143,56 @@ describe("useConversations", () => {
       question: "比较这些政策",
       focusVersion: 1,
     });
+  });
+
+
+  it("automatically resolves a clear compare question and executes without a planid form", async () => {
+    mockedClient.resolveCompare.mockResolvedValue({
+      status: "ready",
+      message: "已定位",
+      targets: ["P-ZJ", "P-JS"],
+      dimensions: ["发展目标"],
+      policies: [
+        { area: "浙江", planid: "P-ZJ", title: "浙江省数字经济发展十四五规划", fyp: "十四五", match: "title" },
+        { area: "江苏", planid: "P-JS", title: "江苏省数字经济发展十四五规划", fyp: "十四五", match: "title" },
+      ],
+    });
+    mockedClient.submit.mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+
+    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
+
+    expect(mockedClient.resolveCompare).toHaveBeenCalledWith("比较浙江和江苏十四五数字经济发展目标的异同");
+    expect(mockedClient.prepare).not.toHaveBeenCalled();
+    expect(mockedClient.submit).toHaveBeenCalledWith({
+      task_type: "compare",
+      question: "比较浙江和江苏十四五数字经济发展目标的异同",
+      targets: ["P-ZJ", "P-JS"],
+      dimensions: ["发展目标"],
+    }, undefined);
+    expect(result.current.active?.advancedDraft.open).toBe(false);
+    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(false);
+  });
+
+  it("does not fabricate compare targets when the published catalog cannot resolve them", async () => {
+    mockedClient.resolveCompare.mockResolvedValue({
+      status: "needs_clarification",
+      message: "没有找到匹配文献",
+      targets: [],
+      policies: [],
+      dimensions: [],
+    });
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+
+    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
+
+    expect(mockedClient.submit).not.toHaveBeenCalled();
+    expect(result.current.active?.messages.at(-1)).toEqual({
+      id: expect.any(String), kind: "advanced_guidance", text: "没有找到匹配文献",
+    });
+    expect(result.current.active?.advancedDraft.open).toBe(true);
   });
 
   it("keeps each conversation's advanced draft and resets it when mode changes", () => {

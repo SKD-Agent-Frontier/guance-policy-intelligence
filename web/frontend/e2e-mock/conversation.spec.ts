@@ -222,6 +222,13 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
 });
 
 test("Real client Mock API: advanced compare keeps its draft through catalog and sessions, then runs only valid targets", async ({ page }) => {
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ status: "needs_clarification", message: "没有明确的比较文献，请补充标题。",
+        targets: [], policies: [], dimensions: [] }),
+    });
+  });
   const prepareRequests: Record<string, unknown>[] = [];
   const runBodies: Record<string, unknown>[] = [];
   await page.route("**/api/research/prepare", async (route) => {
@@ -589,4 +596,36 @@ test("Real client Mock API: two results keep separate evidence links after switc
   await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 政策文献 separate-1");
   await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 原文引句 separate-1");
   await expect(page.locator(".message-evidence-panel")).not.toContainText("separate-2");
+});
+
+
+test("Real client Mock API: explicit region, period and subject compare runs without manual policy IDs", async ({ page }) => {
+  const bodyRequests: Record<string, unknown>[] = [];
+  const question = "比较浙江和江苏十四五数字经济发展目标的异同";
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ question });
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({
+        status: "ready", message: "已定位政策", targets: ["ZJ-14", "JS-14"],
+        dimensions: ["发展目标"],
+        policies: [
+          { area: "浙江", planid: "ZJ-14", title: "浙江省数字经济十四五规划", fyp: "十四五", match: "title" },
+          { area: "江苏", planid: "JS-14", title: "江苏省数字经济十四五规划", fyp: "十四五", match: "title" },
+        ],
+      }),
+    });
+  });
+  const runCount = await installRunRoute(page, (body) => bodyRequests.push(body));
+  await page.goto("/");
+  await page.getByRole("tab", { name: "政策比较" }).click();
+  await page.getByRole("textbox", { name: "研究需求" }).fill(question);
+  await page.getByRole("button", { name: "发送消息" }).click();
+
+  await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveCount(0);
+  expect(runCount()).toBe(1);
+  expect(bodyRequests[0]).toEqual({
+    task_type: "compare", question, targets: ["ZJ-14", "JS-14"], dimensions: ["发展目标"],
+  });
 });

@@ -221,6 +221,52 @@ export function useConversations() {
     const conversation = sessionsRef.current.find((item) => item.id === conversationId);
     if (!conversation || !text.trim()) return;
     if (operations.current.has(conversationId)) return;
+    // 比较对象属于系统检索责任：普通提问先自动定位，手动 planid 只留在高级入口。
+    if (conversation.mode === "compare") {
+      const token = beginOperation(conversationId);
+      if (!token) return;
+      appendMessage(conversationId, message("user", { text }));
+      setBusy(conversationId, "preparing");
+      try {
+        const resolved = await researchClient.resolveCompare(text);
+        if (!isCurrent(conversationId, token)) return;
+        if (resolved.status === "ready" && resolved.targets.length >= 2
+            && resolved.targets.length <= 8
+            && new Set(resolved.targets).size === resolved.targets.length) {
+          await execute(conversationId, {
+            task_type: "compare",
+            question: text,
+            targets: resolved.targets,
+            dimensions: resolved.dimensions.length ? resolved.dimensions : null,
+          }, scenario, token);
+        } else {
+          // 仅检索不确定时才展开可选的人工定位入口；明确问题直接执行。
+          updateConversation(conversationId, (current) => ({
+            ...current,
+            advancedDraft: {
+              ...current.advancedDraft,
+              open: true,
+              question: text,
+              focusVersion: current.advancedDraft.focusVersion + 1,
+            },
+          }));
+          appendMessage(conversationId, message("advanced_guidance", { text: resolved.message }));
+          setBusy(conversationId, "idle");
+        }
+      } catch (error) {
+        if (isCurrent(conversationId, token)) {
+          const mapped = apiError(error, "execution");
+          appendMessage(conversationId, message("error", {
+            code: mapped.code,
+            text: `自动定位比较政策失败：${mapped.text}。请重新提交问题重试。`,
+          }));
+          setBusy(conversationId, "idle");
+        }
+      } finally {
+        finishOperation(conversationId, token);
+      }
+      return;
+    }
     if (isAdvancedMode(conversation.mode)) {
       appendMessage(conversationId, message("user", { text }));
       updateConversation(conversationId, (current) => ({
@@ -234,7 +280,7 @@ export function useConversations() {
       }));
       const guidance = {
         extract: "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
-        compare: "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。",
+        compare: "系统会优先自动检索并确定比较文献；需要覆盖自动选择时，可使用高级入口。",
         compare_plans: "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
       }[conversation.mode];
       appendMessage(conversationId, message("advanced_guidance", { text: guidance }));
@@ -258,7 +304,7 @@ export function useConversations() {
     } finally {
       finishOperation(conversationId, token);
     }
-  }, [appendMessage, beginOperation, finishOperation, prepareAndMaybeExecute, updateConversation]);
+  }, [appendMessage, beginOperation, execute, finishOperation, isCurrent, prepareAndMaybeExecute, setBusy, updateConversation]);
 
   const updateAdvancedDraft = useCallback((patch: Partial<AdvancedDraft>) => {
     const conversationId = activeIdRef.current;

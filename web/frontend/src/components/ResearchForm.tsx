@@ -212,7 +212,7 @@ export function ResearchForm({
               <button type="button" className="advanced-submit" onClick={submitAdvanced} disabled={busy || !advancedTargetValid}>
                 使用高级入口执行
               </button>
-              <p className="advanced-note">系统不会自动定位比较对象；研究会使用你指定的编号。{!advancedTargetValid ? "填写有效编号后即可执行。" : ""}</p>
+              <p className="advanced-note">{mode === "compare" ? "一般比较问题会自动检索政策库；只有需要手动覆盖政策选择时才使用本入口。" : "高级入口会按你指定的编号研究。"}{!advancedTargetValid ? "填写有效编号后即可执行。" : ""}</p>
             </div>
           )}
         </div>
