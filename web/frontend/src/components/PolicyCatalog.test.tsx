@@ -258,7 +258,9 @@ describe("PolicyCatalog", () => {
 
   it.each([
     { fyp: "十一五", year: null, expected: "十一五" },
+    { fyp: "第十一个五年计划", year: 2008, expected: "十一五" },
     { fyp: "十二五", year: null, expected: "十二五" },
+    { fyp: "第十四个五年规划", year: 2024, expected: "十四五" },
     { fyp: "第十四个五年规划", year: null, expected: "十四五" },
     { fyp: "第十三个五年规划", year: null, expected: "十三五" },
     { fyp: "十五五", year: null, expected: "十五五" },
@@ -266,8 +268,12 @@ describe("PolicyCatalog", () => {
     { fyp: "第十个五年规划", year: null, expected: "十五" },
     { fyp: "第十个五年计划", year: null, expected: "十五" },
     { fyp: "政府工作报告", year: 2016, expected: "2016年", body: "正文提到十三五，但该文是工作报告。" },
+    { fyp: "政府工作报告", year: null, expected: "未提供" },
     { fyp: null, year: 2020, expected: "2020年" },
-    { fyp: "不识别的政策名称", year: null, expected: "未提供" },
+    { fyp: "不识别的政策名称", year: 2020, expected: "不识别的政策名称" },
+    { fyp: "不识别的政策名称", year: null, expected: "不识别的政策名称" },
+    { fyp: "  ", year: 2020, expected: "2020年" },
+    { fyp: null, year: null, expected: "未提供" },
   ])("formats period consistently in the card and preview: $expected", async ({ fyp, year, expected, body }) => {
     const periodList = listResponse([
       { planid: "P-1", title: "规划期测试", area: null, fyp, year, plantype_label: null, matches: [] },

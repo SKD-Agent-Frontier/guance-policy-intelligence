@@ -35,8 +35,9 @@ PLANNING_YEARS = {"第十个五年规划": 2001, "第十一个五年规划": 200
                   "第十四个五年规划": 2021, "第十五个五年规划": 2026}
 PLANNING_ORDINALS = re.compile(r"第(十|十一|十二|十三|十四|十五)个五年(?:规划|计划)\Z")
 TITLE_YEARS = re.compile(r"(?<!\d)((?:19|20)\d{2})年")
-VISION_YEAR = re.compile(r"((?:19|20)\d{2})年远景")
-YEAR_RANGE = re.compile(r"(?:19|20)\d{2}\s*[—–~～至到-]\s*(?:19|20)\d{2}年?")
+TITLE_YEAR_TOKENS = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+VISION_YEAR = re.compile(r"((?:19|20)\d{2})年\s*远景")
+YEAR_RANGE = re.compile(r"(?:19|20)\d{2}\s*[—–―~～至到-]\s*(?:19|20)\d{2}年?")
 ADMIN_LEVEL_ORDER = {"国家": 0, "国家级": 0, "省": 1, "省级": 1,
                      "市": 2, "市级": 2, "区县": 3, "区县级": 3,
                      "县": 3, "县级": 3}
@@ -123,7 +124,9 @@ def reference_year(title: str | None, fyp: str | None) -> int | None:
         vision_years = set(VISION_YEAR.findall(title))
         years = [int(match) for match in TITLE_YEARS.findall(title)
                  if match not in vision_years]
-        if not YEAR_RANGE.search(title) and len(set(years)) == 1:
+        non_vision_years = set(TITLE_YEAR_TOKENS.findall(title)) - vision_years
+        if (not YEAR_RANGE.search(title) and len(set(years)) == 1
+                and len(non_vision_years) <= 1):
             return years[0]
     if fyp:
         normalized = normalize_fyp(fyp)
