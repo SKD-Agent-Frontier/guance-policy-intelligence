@@ -23,6 +23,7 @@ from .format_recovery import (
 )
 from .kb import get_kb
 from .literal_keywords import enforce_literal_result, literal_keyword
+from .qa_analysis import finalize_qa_analysis
 from .output import (
     ERRORS,
     LIMIT_CODES,
@@ -358,6 +359,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             _attach(result, task)
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
+    result = finalize_qa_analysis(result)
     try:
         rt.finish(result, ctx)
     except OSError as exc:
