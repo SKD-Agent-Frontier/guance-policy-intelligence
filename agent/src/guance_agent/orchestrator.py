@@ -360,7 +360,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             _attach(result, task)
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
-    result = finalize_qa_analysis(result)
+    result = finalize_qa_analysis(result, task.question)
     try:
         rt.finish(result, ctx)
     except OSError as exc:
