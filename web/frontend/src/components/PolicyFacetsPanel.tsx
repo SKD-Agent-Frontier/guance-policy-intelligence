@@ -88,7 +88,7 @@ export function PolicyFacetsPanel({
   return (
     <section className="policy-facets" aria-label="政策维度筛选"
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setManualOpen(null); }}>
+      onMouseLeave={() => { setHovered(false); if (manualOpen !== true) setManualOpen(null); }}>
       <button type="button" className="policy-facets__toggle"
         aria-expanded={open} aria-controls="policy-facets-content"
         onClick={() => setManualOpen(previous => previous === true ? false : true)}>
