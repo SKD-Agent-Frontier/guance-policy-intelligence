@@ -6,7 +6,8 @@ from agents.tool_context import ToolContext
 
 from guance_agent.config import Settings
 from guance_agent.context import RunContext
-from guance_agent.kb import MockKB, get_kb
+from guance_agent.kb import MockKB, get_kb, normalize_fyp
+from guance_agent.routing import decide
 from guance_agent.schemas import Hit, Passage, ToolResult
 from guance_agent.tools import _call, kb_read, kb_search
 
@@ -188,3 +189,12 @@ async def test_blank_filters_show_unspecified_in_empty_message(ctx):
     assert result.status == "empty"
     assert "地区：未指定" in result.message
     assert "规划期：未指定" in result.message
+
+
+async def test_open_qa_search_honors_explicit_cangzhou_historic_scope(ctx):
+    assert normalize_fyp("“十五”") == "第十个五年计划"
+    ctx.route = decide("我想了解沧州市“十五”规划在产业结构调整方面的主要部署")
+    # Fake model accidentally omits required filters; retrieval must still respect user input.
+    result = await invoke(kb_search, ctx, query="产业结构", area=None, fyp=None, top_k=8)
+    assert result.status == "empty"
+    assert "地区：沧州市；规划期：第十个五年计划" in result.message

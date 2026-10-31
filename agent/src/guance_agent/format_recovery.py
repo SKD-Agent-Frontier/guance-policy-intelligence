@@ -7,7 +7,7 @@ import json
 import re
 import unicodedata
 
-from .schemas import AgentOutput
+from .schemas import AgentOutput, Claim
 
 OK = "ok"
 NOT_JSON = "not_json"
@@ -94,10 +94,16 @@ def _looks_nested(cleaned: str, first_brace: int, object_start: int) -> bool:
 
 def _classify_clean(cleaned: str) -> tuple[str, AgentOutput | None]:
     found, error = _scan(cleaned)
-    if len(found) > 1:
-        return MULTIPLE_OBJECTS, None
     first_brace = cleaned.find("{")
     extent = _balanced_extent(cleaned, first_brace) if first_brace >= 0 else None
+    # 外层 QA JSON 被截断时，扫描器仍会看到多个完整的内层 Claim。
+    # 这些不是多个顶层对象；不能把输出截断误报成 multiple_objects。
+    started_as_qa = bool(re.match(
+        r'\s*\{\s*"(?:answer|claims|insufficient|analyses)"\s*:', cleaned))
+    if extent is None and started_as_qa:
+        return INCOMPLETE_JSON, None
+    if len(found) > 1:
+        return MULTIPLE_OBJECTS, None
     if len(found) == 1:
         start, value = found[0]
         if start != first_brace:
@@ -316,6 +322,52 @@ def repair_preserves_content(raw: str, parsed: AgentOutput) -> bool:
         return False
     flag = structure["insufficient"]
     return flag is None or bool(parsed.insufficient) == flag
+
+
+def recover_complete_claims(raw: str, *, max_claims: int = 5) -> AgentOutput | None:
+    """只从截断的 QA JSON 的 claims 数组复制完整对象，绝不补写残缺引文。
+
+    必须由调用方确认输出额度耗尽；恢复出的事实仍经过原有证据登记、
+    原文逐字及数字核验。丢弃不完整的最后一项与全部分析草稿。
+    """
+    cleaned = clean_output(raw)
+    if not re.match(r'\s*\{\s*"(?:answer|claims|insufficient|analyses)"\s*:', cleaned):
+        return None
+    if _balanced_extent(cleaned, cleaned.find("{")) is not None:
+        return None
+    matches = list(re.finditer(r'"claims"\s*:\s*\[', cleaned))
+    if len(matches) != 1:
+        return None
+    decoder = json.JSONDecoder()
+    cursor = matches[0].end()
+    recovered: list[Claim] = []
+    while len(recovered) < max_claims:
+        while cursor < len(cleaned) and cleaned[cursor] in " \t\r\n,":
+            cursor += 1
+        if cursor >= len(cleaned) or cleaned[cursor] in "]}" or cleaned[cursor] != "{":
+            break
+        try:
+            value, end = decoder.raw_decode(cleaned, cursor)
+            claim = Claim.model_validate(value)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            break
+        if (not claim.text.strip() or not claim.chunk_ids or not claim.quotes
+                or not all(isinstance(q, str) and q.strip() for q in claim.quotes)):
+            break
+        # 完整对象后必须紧接逗号或 claims 数组结束；拒绝不明拼接。
+        tail = end
+        while tail < len(cleaned) and cleaned[tail].isspace():
+            tail += 1
+        if tail < len(cleaned) and cleaned[tail] not in ",]":
+            break
+        recovered.append(claim)
+        cursor = end
+    if not recovered:
+        return None
+    return AgentOutput(
+        answer="本轮模型输出被截断，仅保留已完整生成的政策事实；其引文仍须通过逐字核验。",
+        claims=recovered, insufficient=True, analyses=[],
+    )
 
 
 def parse_agent_output(raw: str) -> AgentOutput:

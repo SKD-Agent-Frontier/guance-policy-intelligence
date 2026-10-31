@@ -15,6 +15,7 @@ from guance_agent.format_recovery import (
     SCHEMA_INVALID,
     classify_output,
     parse_agent_output,
+    recover_complete_claims,
     repair_messages,
     repair_preserves_content,
 )
@@ -294,3 +295,55 @@ def test_repair_preserves_content_guard():
     fake_id = parsed.model_copy(deep=True)
     fake_id.claims[0].chunk_ids = ["forged-id"]
     assert not repair_preserves_content(raw, fake_id)
+
+
+def test_token_cap_truncated_qa_is_not_misclassified_as_multiple_top_level_objects():
+    original = ('{"answer":"简述","claims":['
+                '{"text":"农业升级","chunk_ids":["c1"],"quotes":["农业调整"]},'
+                '{"text":"工业升级","chunk_ids":["c2"],"quotes":["工业结构"]},'
+                '{"text":"服务业扩张","chunk_ids":["c3"],"quotes":["服务业"')
+    classification, parsed, _ = classify_output(original)
+    assert classification == INCOMPLETE_JSON
+    assert parsed is None
+    recovered = recover_complete_claims(original)
+    assert recovered is not None
+    assert [claim.text for claim in recovered.claims] == ["农业升级", "工业升级"]
+    assert recovered.insufficient is True
+    assert recovered.analyses == []
+
+
+@pytest.mark.asyncio
+async def test_token_cap_salvages_only_complete_claims_without_model_call(env):
+    original = ('{"answer":"简述","claims":['
+                '{"text":"农业升级","chunk_ids":["c1"],"quotes":["农业调整"]},'
+                '{"text":"未完成","chunk_ids":["c2"],"quotes":["工')
+    s = replace(env[0], llm_max_output_tokens=12)
+    outcome = ExecOutcome(original, None, telemetry={"per_call": [{"output": 12}]})
+    rt = FakeRuntime(VALID)
+    fixed, meta = await _recover_qa_output(outcome, s, rt, time.monotonic() + 30)
+    assert rt.calls == []
+    assert meta["output_parse"]["classification"] == INCOMPLETE_JSON
+    assert meta["output_parse"]["token_cap_reached"] is True
+    assert meta["output_parse"]["recovery"] == "complete_claims_only"
+    assert [claim.chunk_ids for claim in fixed.final_output.claims] == [["c1"]]
+
+
+@pytest.mark.asyncio
+async def test_incomplete_qa_below_output_limit_remains_fail_closed(env):
+    original = ('{"answer":"回答","claims":['
+                '{"text":"事实","chunk_ids":["c1"],"quotes":["引文"]},')
+    s = replace(env[0], llm_max_output_tokens=30)
+    outcome = ExecOutcome(original, None, telemetry={"per_call": [{"output": 12}]})
+    rt = FakeRuntime(VALID)
+    unchanged, meta = await _recover_qa_output(outcome, s, rt, time.monotonic() + 30)
+    assert unchanged.final_output == original
+    assert meta["output_parse"]["repair"] == "not_attempted"
+    assert not meta["output_parse"]["token_cap_reached"]
+    assert not rt.calls
+
+
+def test_complete_multijson_remains_ambiguous_and_not_salvaged():
+    raw = '{"answer":"A","claims":[]} {"answer":"B","claims":[]}'
+    classification, parsed, _ = classify_output(raw)
+    assert classification == MULTIPLE_OBJECTS and parsed is None
+    assert recover_complete_claims(raw) is None

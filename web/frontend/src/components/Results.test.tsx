@@ -82,6 +82,17 @@ describe("Results", () => {
     expect(html).toContain("data-chunk-id=\"B\"");
   });
 
+  it("renders failed QA status without an empty conclusion", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      status: "failed",
+      error: { code: "OUTPUT_PARSE", message: "解析失败" },
+      evidence_status: "none",
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("本轮研究未完成");
+    expect(html).not.toContain("研究结论");
+  });
+
   it("keeps plain QA layout unchanged without analysis", () => {
     const html = renderToStaticMarkup(<Results result={makeResult({
       task_type: "qa",

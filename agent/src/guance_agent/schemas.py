@@ -1,7 +1,7 @@
 """工具契约与对外结果，不依赖 Agent SDK。"""
 from typing import Literal
 
-from pydantic import BaseModel, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError, model_validator
 
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
@@ -139,8 +139,17 @@ class AgentOutput(BaseModel):
                 data["answer"] = ""
             if data.get("insufficient") is None:
                 data["insufficient"] = False
-            if data.get("analyses") is None:
-                data["analyses"] = []
+            # analyses 是可选增值能力：单条格式错误不能使已完整的事实回答失败。
+            # 仅筛结构有效草稿；依赖关系依旧由 finalize_qa_analysis 严格把关。
+            drafts = data.get("analyses")
+            valid = []
+            if isinstance(drafts, list):
+                for draft in drafts:
+                    try:
+                        valid.append(QAAnalysisDraft.model_validate(draft))
+                    except (ValidationError, ValueError, TypeError):
+                        continue
+            data["analyses"] = valid
         return data
 
 class EvidenceRef(SourceMeta):

@@ -8,6 +8,7 @@ from .config import Settings
 from .schemas import ChunkSpan, Hit, Passage
 
 FYP_ALIASES = {f"{n}五": f"第{n}个五年规划" for n in ("十一", "十二", "十三", "十四", "十五")}
+FYP_ALIASES.update({"十五": "第十个五年计划", "十五计划": "第十个五年计划"})
 META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label")
 
 class KBNotFound(Exception):

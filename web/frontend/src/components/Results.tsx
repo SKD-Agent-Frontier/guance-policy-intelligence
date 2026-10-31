@@ -90,6 +90,15 @@ function AnswerFallback({ result, onEvidence }: ResultsProps) {
 
 function QAResults({ result, onEvidence }: ResultsProps) {
   const claims = result.claims ?? [];
+  if (result.status !== "completed") {
+    // 失败不是“没有政策结论”。不展示空的研究结论卡片，避免误导。
+    return <div className="results-content results-content--qa">
+      <section className="results-notice" role="alert">
+        <strong>本轮研究未完成</strong>
+        <p>{result.error?.message || "研究执行未完成，请查看下方诊断信息。"}</p>
+      </section>
+    </div>;
+  }
   return (
     <div className="results-content results-content--qa">
       <Header title="研究结论" />
