@@ -69,7 +69,7 @@ describe("advanced conversation handoff", () => {
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
     fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
     fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
-    fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     fireEvent.click(screen.getByRole("button", { name: "新建研究" }));
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
     fireEvent.click(screen.getByRole("button", { name: "高级选择 · 指定政策编号" }));
