@@ -651,12 +651,16 @@ test("Landing page: template and advanced panels float without shifting the hero
     };
   });
   const original = await measure();
-  // Keep the original landing-page background crop (29vh, at most 330px).
+  // The approved mountain/cloud artwork must remain visible in full, rather than
+  // reusing the old short 29vh cover crop that obscured the mountain composition.
   const scene = page.locator(".architecture-scene");
   const sceneHeight = await scene.evaluate((element) => element.getBoundingClientRect().height);
-  expect(sceneHeight).toBeGreaterThanOrEqual(259);
-  expect(sceneHeight).toBeLessThanOrEqual(263);
-  await expect(scene.locator("img")).toHaveCSS("object-position", "50% 47%");
+  expect(sceneHeight).toBeGreaterThanOrEqual(367);
+  expect(sceneHeight).toBeLessThanOrEqual(371);
+  const artwork = scene.locator("img");
+  await expect(artwork).toHaveAttribute("src", "/research-mountain-architecture.webp");
+  await expect(artwork).toHaveCSS("object-fit", "fill");
+  await expect.poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
 
   await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
   const advanced = page.locator(".advanced-fields");
