@@ -1720,3 +1720,134 @@ textarea:focus-visible {
     font-size: 12px;
   }
 }
+
+/* Official product identity: the red book-seal mark is shared by nav, sidebar, and home. */
+.sidebar-brand-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: contain;
+}
+.global-brand .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.global-brand .brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.home-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+}
+.home-brand-lockup > img {
+  display: block;
+  width: 58px;
+  height: 52px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+.home-brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: nowrap;
+}
+.home-brand-copy strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+}
+.home-brand-copy span {
+  color: #6c625d;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+}
+@media (max-width: 768px) {
+  .home-brand-lockup { gap: 10px; }
+  .home-brand-lockup > img { width: 43px; height: 40px; }
+  .home-brand-copy strong { font-size: 21px; }
+  .home-brand-copy span { font-size: 10px; letter-spacing: 0.06em; }
+}
+
+/* Sidebar navigation and history are readable at both expanded and collapsed sizes. */
+.app-sidebar .sidebar-brand-row {
+  height: 38px;
+  gap: 12px;
+}
+.app-sidebar .sidebar-brand-row strong {
+  font-size: 16px;
+}
+.app-sidebar .sidebar-brand-toggle {
+  width: 26px;
+  height: 26px;
+}
+.app-sidebar .sidebar-brand-mark {
+  width: 26px;
+  height: 26px;
+  flex-basis: 26px;
+}
+.app-sidebar .sidebar-primary {
+  gap: 7px;
+}
+.app-sidebar .side-link {
+  min-height: 46px;
+  gap: 13px;
+  font-size: 14px;
+}
+.app-sidebar .side-link > svg {
+  width: 24px;
+  height: 24px;
+}
+.app-sidebar .sidebar-home-link,
+.app-sidebar .new-link,
+.app-sidebar .sidebar-history-shortcut {
+  width: 46px;
+  justify-content: center;
+  padding: 0;
+}
+.app-sidebar .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.app-sidebar .sidebar-session-count {
+  margin-left: auto;
+  font-size: 12px;
+}
+.app-sidebar .history-link {
+  padding: 11px 9px;
+}
+.app-sidebar .history-type {
+  font-size: 12px;
+}
+.app-sidebar .history-question {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.app-sidebar .sidebar-empty {
+  font-size: 13px;
+}
+.app-sidebar .local-demo-note {
+  font-size: 12px;
+}
+.app-sidebar .sidebar-history-shortcut:focus-visible,
+.app-sidebar .sidebar-section-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
