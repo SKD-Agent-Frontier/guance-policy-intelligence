@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   FileText,
@@ -51,6 +51,8 @@ export function ResearchForm({
 }: Props) {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const composerRef = useRef<HTMLElement>(null);
+  const templatePanelRef = useRef<HTMLDivElement>(null);
+  const advancedPanelRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const targetRefs = useRef<Array<HTMLInputElement | null>>([]);
   const targetValuesRef = useRef<string[]>([]);
@@ -84,6 +86,21 @@ export function ResearchForm({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [templatesOpen]);
+  // Bound floating panels to the visible viewport. Otherwise their absolute-positioned
+  // overflow makes the document scroll below the architecture scene, leaving a white strip.
+  useLayoutEffect(() => {
+    if (!enableTemplates) return;
+    const panel = templatesOpen ? templatePanelRef.current : advancedDraft.open ? advancedPanelRef.current : null;
+    if (!panel) return;
+    const fitViewport = () => {
+      const available = window.innerHeight - panel.getBoundingClientRect().top - 16;
+      panel.style.maxHeight = `${Math.max(96, Math.floor(available))}px`;
+    };
+    fitViewport();
+    window.addEventListener("resize", fitViewport);
+    return () => window.removeEventListener("resize", fitViewport);
+  }, [advancedDraft.open, enableTemplates, templatesOpen]);
+
   useEffect(() => {
     if (!advancedDraft.open || advancedDraft.focusVersion === 0) return;
     const index = targetValuesRef.current.findIndex((item) => !isPlanId(item.trim()));
@@ -188,7 +205,7 @@ export function ResearchForm({
         {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
       </div>}
       {enableTemplates && templatesOpen && (
-        <div className="prompt-template-panel" id="prompt-template-panel" role="region" aria-label="指令模板列表">
+        <div className="prompt-template-panel" ref={templatePanelRef} id="prompt-template-panel" role="region" aria-label="指令模板列表">
           <header className="prompt-template-heading">
             <div className="prompt-template-heading-title"><FileText size={17} aria-hidden="true" /><strong>{modes.find((item) => item.id === mode)?.label} · 指令模板</strong></div>
             <button type="button" className="prompt-template-close" aria-label="关闭指令模板" onClick={() => setTemplatesOpen(false)}><X size={17} aria-hidden="true" /></button>
@@ -231,7 +248,7 @@ export function ResearchForm({
             {advancedDraft.open ? "收起高级选择" : "高级选择 · 指定政策编号"}
           </button>
           {advancedDraft.open && (
-            <div className="advanced-fields">
+            <div className="advanced-fields" ref={advancedPanelRef}>
               {mode === "extract" ? (
                 <div className="advanced-field">
                   <label htmlFor="extract-planid">政策编号（planid）</label>
