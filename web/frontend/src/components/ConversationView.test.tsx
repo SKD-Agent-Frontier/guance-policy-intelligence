@@ -80,7 +80,7 @@ describe("ConversationView", () => {
 it("shows only a lightweight animated running status without a separate execution card", () => {
   const active: Conversation = {
     id: "running", title: "政策问答", mode: "qa", busy: "running",
-    preparation: null, advancedDraft: { targets: "", dimensions: "" } as Conversation["advancedDraft"],
+    preparation: null, advancedDraft: createAdvancedDraft(),
     messages: [
       { id: "u1", kind: "user", text: "数字经济政策有哪些？" },
       { id: "legacy", kind: "execution", text: "研究任务正在执行。" },
