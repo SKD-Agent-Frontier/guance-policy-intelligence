@@ -8,6 +8,7 @@ from openai import APIStatusError
 
 from .context import RunContext, sanitize_error_detail
 from .kb import KBNoText, KBNotFound, normalize_fyp
+from .literal_keywords import literal_hit
 from .schemas import Passage, ToolResult
 
 
@@ -97,6 +98,14 @@ async def _call(ctx, name, fn, *args, **kwargs):
                 result = ToolResult(status="backend_error",
                                     message="检索服务异常，暂时不可用（详情只写日志）")
         else:
+            # Semantic/BM25 token overlap does not qualify as a literal keyword match.
+            term = ctx.literal_keyword
+            if name == "kb_search" and term and isinstance(data, list):
+                data = [hit for hit in data if literal_hit(hit, term)]
+                ctx.literal_hit_ids.update(hit.chunk_id for hit in data)
+            elif name == "kb_read" and term and isinstance(data, Passage):
+                if term in data.content and kwargs.get("chunk_id"):
+                    ctx.literal_hit_ids.add(kwargs["chunk_id"])
             # 返回类型必须与本次操作匹配，否则拒绝而不是悄悄登记为证据
             if not isinstance(data, list if name == "kb_search" else Passage):
                 detail = f"{name} 返回类型错误: {type(data).__name__}"
