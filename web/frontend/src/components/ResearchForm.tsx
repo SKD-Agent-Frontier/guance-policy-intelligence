@@ -87,8 +87,8 @@ export function ResearchForm({
   useEffect(() => {
     if (!advancedDraft.open || advancedDraft.focusVersion === 0) return;
     const index = targetValuesRef.current.findIndex((item) => !isPlanId(item.trim()));
-    if (index >= 0) targetRefs.current[index]?.focus({ preventScroll: true });
-  }, [advancedDraft.focusVersion, advancedDraft.open, mode]);
+    if (index >= 0) targetRefs.current[index]?.focus(enableTemplates ? { preventScroll: true } : undefined);
+  }, [advancedDraft.focusVersion, advancedDraft.open, mode, enableTemplates]);
 
   const submitAdvanced = () => {
     if (busy || !onAdvancedSubmit) return;
