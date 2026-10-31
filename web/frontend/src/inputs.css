@@ -605,3 +605,301 @@
     animation: none;
   }
 }
+
+/* Shared composer used on the landing page and in every conversation. */
+.research-composer {
+  width: min(820px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.research-composer .composer-fields:focus-within {
+  border-color: rgba(178, 41, 36, 0.58);
+  box-shadow: 0 0 0 3px rgba(178, 41, 36, 0.08);
+}
+.composer-topline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: #78716d;
+  font-size: 12px;
+}
+.composer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.research-composer .mode-tabs {
+  position: static;
+  display: flex;
+  justify-content: space-around;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-bottom: 7px;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+.research-composer .mode-tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  min-height: 32px;
+  gap: 0;
+  padding: 0 8px;
+  color: #635b57;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.research-composer .mode-tab.is-active {
+  color: #b22924;
+  font-weight: 600;
+}
+.research-composer .mode-tab.is-active::after {
+  height: 2px;
+}
+.research-composer .composer-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 5px 4px 14px;
+  border: 1px solid #e8e5e4;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(48, 39, 36, 0.07);
+  animation: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.research-composer .composer-question {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  max-height: 200px;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: hidden;
+  padding: 6px 2px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.composer-count {
+  justify-self: end;
+  min-height: 0;
+  margin-top: 2px;
+  color: #9a928e;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.composer-count.is-over-limit,
+.advanced-validation {
+  color: #a94740;
+}
+.research-composer .composer-footer {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-top: 1px solid #efedeb;
+}
+.research-composer .active-mode-label {
+  display: inline-flex;
+  color: #776e69;
+  font-size: 12px;
+}
+.research-composer .submit-button {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  gap: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: #b22924;
+  color: #fff;
+  font-size: 0;
+}
+.research-composer .composer-fields > .submit-button {
+  flex: 0 0 36px;
+}
+.research-composer .submit-button:disabled {
+  opacity: 1;
+  background: #b22924;
+  color: #fff;
+  cursor: not-allowed;
+}
+.research-composer .submit-button:hover:not(:disabled) {
+  background: #8f211d;
+}
+.research-composer .composer-hint {
+  display: block;
+  color: #99918d;
+  font-size: 11px;
+  text-align: right;
+}
+.advanced-entry {
+  margin: 2px 0 0;
+  padding-top: 4px;
+}
+.advanced-toggle {
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: #7d716d;
+  font-size: 12px;
+  cursor: pointer;
+}
+.advanced-toggle:hover,
+.advanced-submit:hover:not(:disabled) {
+  color: var(--accent);
+}
+.advanced-fields {
+  display: grid;
+  gap: 11px;
+  padding: 10px 0 3px;
+}
+.advanced-field,
+.advanced-targets,
+.advanced-dimensions {
+  display: grid;
+  gap: 6px;
+  color: #665d59;
+  font-size: 12px;
+}
+.advanced-field input,
+.advanced-field textarea,
+.advanced-targets input {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.advanced-field textarea {
+  resize: vertical;
+}
+.advanced-targets {
+  gap: 7px;
+}
+.advanced-target-row {
+  display: flex;
+  gap: 7px;
+}
+.advanced-target-row input {
+  flex: 1;
+  min-width: 0;
+}
+.advanced-remove-target {
+  width: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: #817772;
+  cursor: pointer;
+}
+.advanced-remove-target:hover {
+  color: var(--accent);
+}
+.advanced-targets .text-button {
+  justify-self: start;
+}
+.advanced-validation {
+  margin: 0;
+  font-size: 11px;
+}
+.advanced-note {
+  margin: -4px 0 0;
+  color: #887e79;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.advanced-submit {
+  justify-self: start;
+  border: 1px solid #e2d5d2;
+  border-radius: 4px;
+  padding: 7px 10px;
+  background: white;
+  color: #8f332e;
+  font-size: 12px;
+  cursor: pointer;
+}
+.advanced-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.research-composer .choice-chips {
+  margin: 0;
+}
+.research-composer .choice-chip {
+  font-size: 11px;
+}
+.custom-dimensions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #756b67;
+  font-size: 11px;
+}
+.custom-dimensions button {
+  border: 1px solid #e6d5d2;
+  border-radius: 12px;
+  padding: 3px 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+}
+@media (max-width: 768px) {
+  .research-composer {
+    width: 100%;
+  }
+  .research-composer:has(.composer-question) {
+    height: auto;
+    min-height: 0;
+  }
+  .research-composer .mode-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .research-composer .mode-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .research-composer .mode-tab {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 clamp(6px, 1.8vw, 9px);
+    font-size: 12px;
+  }
+  .research-composer .composer-question {
+    min-height: 36px;
+    font-size: 14px;
+  }
+  .research-composer .composer-footer {
+    height: auto;
+    min-height: 40px;
+  }
+  .research-composer .composer-hint {
+    font-size: 10px;
+  }
+}

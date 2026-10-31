@@ -3,9 +3,166 @@ export type TaskType = "qa" | "extract" | "organize" | "compare" | "compare_plan
 export interface ResearchRequest {
   question: string;
   task_type: TaskType;
-  targets?: string[];
-  dimensions?: string[];
+  targets?: string[] | null;
+  dimensions?: string[] | null;
   session_id?: string | null;
+}
+
+export type PreparationStatus = "needs_clarification" | "ready" | "blocked";
+
+export interface PreparationToken {
+  state_id: string;
+  revision: number;
+}
+
+export interface ResearchPreparationRequest {
+  mode: TaskType;
+  message: string;
+  state?: PreparationToken;
+}
+
+export interface PreparationOption {
+  id: string;
+  question: string;
+  choices: string[];
+}
+
+export interface TimeScope {
+  start: string | null;
+  end: string | null;
+  precision: "exact" | "year" | "range" | "unspecified";
+  timezone: string | null;
+}
+
+export interface Condition {
+  id: string;
+  text: string;
+}
+
+export interface CompletedQuestion {
+  question_id: string;
+  answer: string;
+}
+
+export interface ConditionExecutionStatus {
+  condition_id: string;
+  status: "executable_filter" | "request_only" | "unrestricted" | "pending";
+  value: string | null;
+  reason: string;
+}
+
+export interface PreparationState extends PreparationToken {
+  expires_at: string;
+  mode: TaskType;
+  original_request: string;
+  topic: string | null;
+  time_scope: TimeScope | null;
+  area: string | null;
+  dimensions: string[];
+  confirmed_conditions: Condition[];
+  pending_conditions: Condition[];
+  completed_questions: CompletedQuestion[];
+  clarification_count: number;
+  condition_statuses: ConditionExecutionStatus[];
+}
+
+export interface PreparedRequest {
+  task_type: TaskType;
+  question: string;
+  targets?: string[] | null;
+  dimensions?: string[] | null;
+}
+
+export interface PreparationResponse {
+  status: PreparationStatus;
+  mode: TaskType;
+  message: string;
+  options: PreparationOption[];
+  state: PreparationState;
+  request: PreparedRequest | null;
+  warnings: string[];
+}
+
+export interface CatalogDatasetInfo {
+  generation_id: string;
+  revision: number;
+  total_documents: number;
+  partial: boolean | null;
+  source: "current_published_frozen_release" | "demo_synthetic";
+}
+
+export interface PolicyMatch {
+  field: "title" | "body";
+  offset: number;
+  snippet: string;
+}
+
+export interface PolicyListItem {
+  planid: string;
+  title: string | null;
+  area: string | null;
+  fyp: string | null;
+  year?: number | null;
+  plantype_label: string | null;
+  matches: PolicyMatch[];
+}
+
+export interface PolicyListResponse {
+  dataset: CatalogDatasetInfo;
+  query: {
+    q: string | null;
+    area: string | null;
+    fyp: string | null;
+    plantype: string | null;
+    match_mode: "literal" | null;
+  };
+  matched_documents: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  items: PolicyListItem[];
+}
+
+export interface PolicySection {
+  index: number;
+  level: number;
+  path: string;
+  start: number;
+  end: number;
+}
+
+export interface PolicyDetailResponse {
+  dataset: CatalogDatasetInfo;
+  policy: {
+    planid: string;
+    title: string | null;
+    area: string | null;
+    fyp: string | null;
+    year?: number | null;
+    plantype_label: string | null;
+    body_chars: number;
+    sections: PolicySection[];
+  };
+}
+
+export interface PolicyContentResponse {
+  dataset: CatalogDatasetInfo;
+  planid: string;
+  title: string | null;
+  offset: number;
+  limit: number;
+  total_chars: number;
+  has_more: boolean;
+  text: string;
+}
+
+export interface PolicyListParams {
+  q?: string;
+  area?: string;
+  fyp?: string;
+  plantype?: string;
+  page?: number;
+  page_size?: number;
 }
 
 export type RunStatus = "completed" | "failed" | "limit_reached";

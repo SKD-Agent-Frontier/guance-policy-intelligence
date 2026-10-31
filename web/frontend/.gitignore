@@ -3,4 +3,5 @@ dist/
 coverage/
 playwright-report/
 test-results/
+test-results-mock/
 *.tsbuildinfo

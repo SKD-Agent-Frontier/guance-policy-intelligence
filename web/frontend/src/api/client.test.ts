@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoClient as researchClient } from "./demoClient";
-import type { ResearchRequest } from "../types";
+import type { ResearchPreparationRequest, ResearchRequest } from "../types";
 
 const request = (overrides: Partial<ResearchRequest> = {}): ResearchRequest => ({
   question: "示例：演示不同人才支持方式",
@@ -111,5 +111,73 @@ describe("researchClient demo responses", () => {
     expect(limited.status).toBe("limit_reached");
     expect(limited.claims).toEqual([]);
     expect(limited.structured).toEqual({});
+  });
+
+  it("exposes preparation as a separate operation from task submission", () => {
+    expect(researchClient).toHaveProperty("prepare");
+    expect(typeof (researchClient as unknown as { prepare?: unknown }).prepare).toBe("function");
+  });
+
+  it("clarifies a QA topic and makes a direct question ready without executing it", async () => {
+    vi.useFakeTimers();
+    const initial = researchClient.prepare({ mode: "qa", message: "数字经济" } satisfies ResearchPreparationRequest);
+    await vi.advanceTimersByTimeAsync(150);
+    const clarification = await initial;
+    expect(clarification.status).toBe("needs_clarification");
+    expect(clarification.request).toBeNull();
+    expect(clarification.options[0]).toMatchObject({ id: "aspect", choices: expect.any(Array) });
+
+    const ready = researchClient.prepare({ mode: "qa", message: "什么是数字经济？" });
+    await vi.advanceTimersByTimeAsync(150);
+    await expect(ready).resolves.toMatchObject({ status: "ready", request: { task_type: "qa" } });
+  });
+
+  it("supports dynamic multi-round organize clarification and preserves imprecise time warnings", async () => {
+    vi.useFakeTimers();
+    const first = researchClient.prepare({ mode: "organize", message: "梳理" });
+    await vi.advanceTimersByTimeAsync(150);
+    const topicPrompt = await first;
+    expect(topicPrompt.options[0]?.id).toBe("topic");
+
+    const second = researchClient.prepare({
+      mode: "organize",
+      message: "数字经济",
+      state: { state_id: topicPrompt.state.state_id, revision: topicPrompt.state.revision },
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    const scopePrompt = await second;
+    expect(scopePrompt.status).toBe("needs_clarification");
+    expect(scopePrompt.options[0]?.id).toBe("scope");
+
+    const partialScope = researchClient.prepare({
+      mode: "organize",
+      message: "先按时间",
+      state: { state_id: scopePrompt.state.state_id, revision: scopePrompt.state.revision },
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    const nextPrompt = await partialScope;
+    expect(nextPrompt.status).toBe("needs_clarification");
+
+    const ready = researchClient.prepare({
+      mode: "organize",
+      message: "近五年，北京市，按支持对象分类",
+      state: { state_id: nextPrompt.state.state_id, revision: nextPrompt.state.revision },
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    const response = await ready;
+    expect(response.status).toBe("ready");
+    expect(response.request?.question).toContain("近五年");
+    expect(response.warnings.join(" ")).toContain("不保证按发布日期精确过滤");
+    expect(response.state.condition_statuses).toContainEqual(expect.objectContaining({
+      condition_id: "time_scope",
+      status: "request_only",
+    }));
+  });
+
+  it.each(["extract", "compare", "compare_plans"] as const)("keeps %s in blocked preparation mode", async (mode) => {
+    vi.useFakeTimers();
+    const pending = researchClient.prepare({ mode, message: "需要处理" });
+    await vi.advanceTimersByTimeAsync(150);
+    await expect(pending).resolves.toMatchObject({ status: "blocked", mode, request: null });
   });
 });
