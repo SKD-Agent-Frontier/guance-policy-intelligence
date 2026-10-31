@@ -4,7 +4,7 @@
 }
 .catalog-page {
   min-height: 100vh;
-  padding: clamp(22px, 4vw, 48px) clamp(18px, 5vw, 64px) 64px;
+  padding: 16px clamp(18px, 5vw, 64px) 64px;
   color: var(--ink, #231815);
   background: #fff;
 }
@@ -473,7 +473,7 @@
 }
 @media (max-width: 720px) {
   .catalog-page {
-    padding: 22px 14px 42px;
+    padding: 16px 14px 42px;
   }
   .catalog-header {
     margin-bottom: 18px;
