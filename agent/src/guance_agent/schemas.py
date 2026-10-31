@@ -113,12 +113,20 @@ class Claim(BaseModel):
     # 提取时模型只给定位线索，不给引文；引文由程序从原文截取后写回 quotes
     anchors: list[str] = Field(default_factory=list)
 
+class QAAnalysisDraft(BaseModel):
+    """Schema-safe derived interpretation. Source dependencies are verified later."""
+    kind: Literal["synthesis", "comparison", "implication"]
+    text: str
+    scope_note: str
+    supporting_claim_indexes: list[int]
+
+
 class AgentOutput(BaseModel):
     answer: str = ""
     claims: list[Claim] = Field(default_factory=list)
     insufficient: bool = False
-    # Optional derived interpretations; validated against retained facts after QA verification.
-    analyses: list[dict] = Field(default_factory=list)
+    # Typed shape is required by the SDK strict structured-output mode.
+    analyses: list[QAAnalysisDraft] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
