@@ -120,3 +120,21 @@ def test_backwards_compatible_unstructured_qa_and_private_candidates(env):
     # Without the actual post-run quote verification stage no analysis is deliverable.
     finalize_qa_analysis(result)
     assert result.structured is None
+
+def test_optional_malformed_analysis_does_not_block_valid_policy_facts():
+    payload = {
+        "answer": "已形成可引用的事实",
+        "claims": [{"text": "产业结构调整目标", "chunk_ids": ["source-1"], "quotes": ["结构调整"]}],
+        "insufficient": False,
+        "analyses": [
+            {"kind": "unknown", "text": "错误类型", "scope_note": "局部",
+             "supporting_claim_indexes": [0]},
+            {"kind": "synthesis", "text": "基于两项事实的归纳结论",
+             "scope_note": "仅限这两项事实", "supporting_claim_indexes": [0, 1]},
+        ],
+    }
+    output = AgentOutput.model_validate(payload)
+    assert output.answer == "已形成可引用的事实"
+    assert len(output.claims) == 1
+    assert len(output.analyses) == 1
+    assert output.analyses[0].kind == "synthesis"
