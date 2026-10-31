@@ -7,7 +7,7 @@ from guance_agent.literal_keywords import enforce_literal_result, literal_hit, l
 from guance_agent.schemas import Claim
 
 
-@pytest.mark.parametrize(("request", "expected"), [
+@pytest.mark.parametrize(("question", "expected"), [
     ("数字经济相关政策", "数字经济"),
     ("数字经济的相关政策", "数字经济"),
     ("帮我查询数字经济相关政策；关注产业政策", "数字经济"),
@@ -18,8 +18,8 @@ from guance_agent.schemas import Claim
     ("你好吗？", None),
     ("政策有哪些", None),
 ])
-def test_full_keyword_is_extracted_without_splitting(request, expected):
-    assert literal_keyword(request) == expected
+def test_full_keyword_is_extracted_without_splitting(question, expected):
+    assert literal_keyword(question) == expected
 
 
 def test_candidate_needs_contiguous_term():
