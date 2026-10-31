@@ -24,6 +24,7 @@ class PolicyItem(BaseModel):
     area: str | None
     fyp: str | None
     plantype_label: str | None
+    year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     matches: list[MatchSnippet] = Field(default_factory=list)
 
 
@@ -59,6 +60,7 @@ class PolicyDetail(BaseModel):
     area: str | None
     fyp: str | None
     plantype_label: str | None
+    year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     body_chars: int
     sections: list[SectionInfo]
 

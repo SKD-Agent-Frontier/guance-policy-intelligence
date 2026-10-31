@@ -102,6 +102,7 @@ export interface PolicyListItem {
   title: string | null;
   area: string | null;
   fyp: string | null;
+  year?: number | null;
   plantype_label: string | null;
   matches: PolicyMatch[];
 }
@@ -137,6 +138,7 @@ export interface PolicyDetailResponse {
     title: string | null;
     area: string | null;
     fyp: string | null;
+    year?: number | null;
     plantype_label: string | null;
     body_chars: number;
     sections: PolicySection[];

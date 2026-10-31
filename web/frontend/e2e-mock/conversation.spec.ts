@@ -420,13 +420,13 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
     }
     if (/\/POLICY-MOCK-[12]$/.test(path)) {
       const planid = path.split("/").at(-1);
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, policy: { planid, title: "数字经济政策（Mock）", area: "北京市", fyp: "十四五", plantype_label: "实施意见", body_chars: total, sections: [{ index: 0, level: 1, path: "第一章 总则", start: 0, end: total }] } }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, policy: { planid, title: "数字经济政策（Mock）", area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", body_chars: total, sections: [{ index: 0, level: 1, path: "第一章 总则", start: 0, end: total }] } }) });
       return;
     }
     listRequests.push(url);
     const pageNumber = Number(url.searchParams.get("page") ?? 1);
     const q = url.searchParams.get("q");
-    const item = (planid: string, title: string) => ({ planid, title, area: "北京市", fyp: "十四五", plantype_label: "实施意见", matches: q ? [{ field: "title", offset: 0, snippet: title }] : [] });
+    const item = (planid: string, title: string) => ({ planid, title, area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", matches: q ? [{ field: "title", offset: 0, snippet: title }] : [] });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, query: { q, area: url.searchParams.get("area"), fyp: url.searchParams.get("fyp"), plantype: url.searchParams.get("plantype"), match_mode: q ? "literal" : null }, matched_documents: 2, page: pageNumber, page_size: Number(url.searchParams.get("page_size") ?? 20), total_pages: 2, items: [item(pageNumber === 1 ? "POLICY-MOCK-1" : "POLICY-MOCK-2", pageNumber === 1 ? "数字经济政策（Mock）" : "数字经济促进意见（Mock）")] }) });
   });
 
@@ -434,6 +434,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.goto("/");
   await page.getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await expect(page.locator(".catalog-header p")).toHaveCount(0);
   await expect(page.getByText("当前库共有 2 篇政策文献")).toBeVisible();
   await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
   await page.screenshot({ path: join(directory, "catalog-initial-blank.png"), fullPage: true });
@@ -446,14 +447,32 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   expect(applied.searchParams.get("q")).toBe("数字经济");
   expect(applied.searchParams.get("area")).toBe("北京市");
   expect(applied.searchParams.get("fyp")).toBe("十四五");
+  const firstPolicyCard = page.locator(".catalog-policy-card").first();
+  const firstTitleMark = firstPolicyCard.locator(".catalog-policy-title mark");
+  const firstSnippetMark = firstPolicyCard.locator(".catalog-snippet mark");
+  await expect(firstTitleMark).toHaveText("数字经济");
+  await expect(firstSnippetMark).toHaveText("数字经济");
+  await expect(firstTitleMark).toHaveCSS("color", "rgb(178, 41, 36)");
+  await expect(firstSnippetMark).toHaveCSS("color", "rgb(178, 41, 36)");
+  await expect(firstPolicyCard.locator(".catalog-policy-meta")).toContainText("十四五");
+  await expect(firstPolicyCard.locator(".catalog-policy-meta")).not.toContainText("第十四个五年规划");
   await page.screenshot({ path: join(directory, "catalog-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "下一页", exact: false }).click();
   await expect(page.getByRole("button", { name: /数字经济促进意见/ })).toBeVisible();
   expect(listRequests.at(-1)?.searchParams.get("page")).toBe("2");
 
   const policyCard = page.getByRole("button", { name: /数字经济促进意见/ });
+  await expect(policyCard.locator(".catalog-policy-title mark")).toHaveText("数字经济");
+  await expect(policyCard.locator(".catalog-snippet mark")).toHaveText("数字经济");
+  await expect(policyCard.locator(".catalog-policy-title mark")).toHaveCSS("color", "rgb(178, 41, 36)");
+  await expect(policyCard.locator(".catalog-snippet mark")).toHaveCSS("color", "rgb(178, 41, 36)");
+  await expect(policyCard.locator(".catalog-policy-meta")).toContainText("十四五");
+  await expect(policyCard.locator(".catalog-policy-meta")).not.toContainText("第十四个五年规划");
   await policyCard.hover();
-  await expect(page.getByRole("complementary", { name: "政策详情预览" })).toBeVisible();
+  const preview = page.getByRole("complementary", { name: "政策详情预览" });
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("十四五");
+  await expect(preview).not.toContainText("第十四个五年规划");
   await expect(page.getByRole("region", { name: "政策原文" }).locator("pre")).not.toBeEmpty();
   await page.screenshot({ path: join(directory, "catalog-hover-preview.png"), fullPage: true });
   await policyCard.click();
