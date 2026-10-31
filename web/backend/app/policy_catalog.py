@@ -29,7 +29,17 @@ DEFAULT_CONTENT_LIMIT = 4000
 
 # 与 guance_rag.storage.body_origin 同语义：跳过 BOM 与正文前的空白。
 FYP_ALIASES = {f"{n}五": f"第{n}个五年规划" for n in
-               ("十一", "十二", "十三", "十四", "十五")}
+               ("十", "十一", "十二", "十三", "十四", "十五")}
+PLANNING_YEARS = {"第十个五年规划": 2001, "第十一个五年规划": 2006,
+                  "第十二个五年规划": 2011, "第十三个五年规划": 2016,
+                  "第十四个五年规划": 2021, "第十五个五年规划": 2026}
+PLANNING_ORDINALS = re.compile(r"第(十|十一|十二|十三|十四|十五)个五年(?:规划|计划)\Z")
+TITLE_YEARS = re.compile(r"(?<!\d)((?:19|20)\d{2})年")
+VISION_YEAR = re.compile(r"((?:19|20)\d{2})年远景")
+YEAR_RANGE = re.compile(r"(?:19|20)\d{2}\s*[—–~～至到-]\s*(?:19|20)\d{2}年?")
+ADMIN_LEVEL_ORDER = {"国家": 0, "国家级": 0, "省": 1, "省级": 1,
+                     "市": 2, "市级": 2, "区县": 3, "区县级": 3,
+                     "县": 3, "县级": 3}
 
 
 class CatalogUnavailable(RuntimeError):
@@ -63,6 +73,11 @@ class PolicyRecord:
     document_id: str
     body: str
     sections: tuple[SectionMeta, ...]
+    admin_level: str | None = None
+
+    @property
+    def year(self) -> int | None:
+        return reference_year(self.title, self.fyp)
 
 
 @dataclass(frozen=True)
@@ -93,7 +108,42 @@ def normalize_fyp(value: str | None) -> str | None:
         return None
     key = "".join(char for char in value if not char.isspace()
                   and char not in '"\'“”‘’')
-    return FYP_ALIASES.get(key, value)
+    alias = FYP_ALIASES.get(key)
+    if alias:
+        return alias
+    planning_period = PLANNING_ORDINALS.fullmatch(key)
+    if planning_period:
+        return f"第{planning_period.group(1)}个五年规划"
+    return value
+
+
+def reference_year(title: str | None, fyp: str | None) -> int | None:
+    """返回目录排序/展示用参考年份；不从正文或远景目标推断。"""
+    if title:
+        vision_years = set(VISION_YEAR.findall(title))
+        years = [int(match) for match in TITLE_YEARS.findall(title)
+                 if match not in vision_years]
+        if not YEAR_RANGE.search(title) and len(set(years)) == 1:
+            return years[0]
+    if fyp:
+        normalized = normalize_fyp(fyp)
+        match = PLANNING_ORDINALS.fullmatch(normalized or "")
+        if match:
+            ordinal = match.group(1)
+            canonical = f"第{ordinal}个五年规划"
+            return PLANNING_YEARS.get(canonical)
+    return None
+
+
+def _sort_key(record: PolicyRecord, q: str | None) -> tuple:
+    title_hit = bool(q is not None and record.title and q in record.title)
+    year = record.year
+    admin_rank = ADMIN_LEVEL_ORDER.get(record.admin_level or "", len(ADMIN_LEVEL_ORDER))
+    report = any(value == "政府工作报告"
+                 for value in (record.fyp, record.plantype_label))
+    report = report or bool(record.title and record.title.rstrip().endswith("政府工作报告"))
+    return (0 if q is None or title_hit else 1,
+            year is None, -(year or 0), admin_rank, not report, record.planid)
 
 
 def _relative(path: Path, root: Path) -> Path:
@@ -215,10 +265,12 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
                 document_id=did,
                 body=bodies[did],
                 sections=(),
+                admin_level=(meta.get("admin_level") or None),
             ))
         sections = _read_sections(conn, set(document_ids), origins, lengths)
         records = [PolicyRecord(**{**record.__dict__, "sections": sections.get(
             record.document_id, ())}) for record in records]
+        records.sort(key=lambda record: record.planid)
     except CatalogUnavailable:
         raise
     except (sqlite3.Error, OSError, ValueError, KeyError, TypeError) as exc:
@@ -228,7 +280,6 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
             conn.rollback()
         finally:
             conn.close()
-    records.sort(key=lambda record: record.planid)
     return CatalogSnapshot(generation_id=generation, revision=revision,
                            partial=manifest.get("partial"), records=tuple(records))
 
@@ -272,6 +323,7 @@ class PolicyCatalogService:
                 if not matches:
                     continue
             matched.append((record, matches))
+        matched.sort(key=lambda item: _sort_key(item[0], q))
         matched_documents = len(matched)
         start = (page - 1) * page_size
         page_items = matched[start:start + page_size]
@@ -279,6 +331,7 @@ class PolicyCatalogService:
         for record, matches in page_items:
             item = {"planid": record.planid, "title": record.title, "area": record.area,
                     "fyp": record.fyp, "plantype_label": record.plantype_label,
+                    "year": record.year,
                     "matches": matches if q is not None else []}
             items.append(item)
         total_pages = (matched_documents + page_size - 1) // page_size if page_size else 0
@@ -298,6 +351,7 @@ class PolicyCatalogService:
                 "policy": {"planid": record.planid, "title": record.title,
                            "area": record.area, "fyp": record.fyp,
                            "plantype_label": record.plantype_label,
+                           "year": record.year,
                            "body_chars": len(record.body),
                            "sections": [section.as_dict() for section in record.sections]}}
 

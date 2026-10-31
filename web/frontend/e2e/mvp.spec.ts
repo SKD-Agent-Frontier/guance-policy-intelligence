@@ -74,6 +74,7 @@ test("Demo: global navigation, sidebar, and catalog stay available across views"
 
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
+  await expect(page.locator(".catalog-header p")).toHaveCount(0);
   await expect(page.getByText("当前库共有 1 篇政策文献")).toBeVisible();
   await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "数据", exact: true })).toHaveCount(0);

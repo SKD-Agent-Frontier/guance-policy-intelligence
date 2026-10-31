@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PolicyCatalog } from "./PolicyCatalog";
@@ -30,6 +30,7 @@ type TestItem = {
   title: string | null;
   area: string | null;
   fyp: string | null;
+  year?: number | null;
   plantype_label: string | null;
   matches: Array<{ field: "title" | "body"; offset: number; snippet: string }>;
 };
@@ -91,10 +92,53 @@ describe("PolicyCatalog", () => {
   it("only shows the library count before an explicit search", async () => {
     render(<PolicyCatalog />);
     expect(await screen.findByText("当前库共有 506 篇政策文献")).toBeVisible();
+    expect(screen.queryByText("按政策元数据筛选，或检索标题与原文中的字面内容。")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /数字经济政策/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "目录分页" })).not.toBeInTheDocument();
     expect(catalog.detail).not.toHaveBeenCalled();
     expect(catalog.content).not.toHaveBeenCalled();
+  });
+
+  it("highlights every applied literal occurrence in titles and snippets safely", async () => {
+    const query = "A+B";
+    const title = 'A+B <img src=x onerror="alert(1)"> NEW A+B';
+    const snippet = '  A+B <script>alert("x")</script> NEW A+B  ';
+    const user = userEvent.setup();
+    const { container } = render(<PolicyCatalog />);
+    await screen.findByText("当前库共有 506 篇政策文献");
+    await user.type(screen.getByLabelText("关键词字面检索"), query);
+    catalog.list.mockResolvedValueOnce(listResponse([
+      {
+        planid: "P-1",
+        title,
+        area: null,
+        fyp: null,
+        plantype_label: null,
+        matches: [
+          { field: "title", offset: 0, snippet: title },
+          { field: "body", offset: 0, snippet },
+        ],
+      },
+    ], 1, query) as never);
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+
+    const titleElement = await screen.findByText((_, element) =>
+      element?.classList.contains("catalog-policy-title") === true,
+    );
+    const snippets = container.querySelectorAll<HTMLElement>(".catalog-snippet");
+    expect(titleElement.textContent).toBe(title);
+    expect(snippets).toHaveLength(2);
+    expect(snippets[1].textContent).toBe(snippet);
+    expect(titleElement.querySelectorAll("mark")).toHaveLength(2);
+    expect(snippets[0].querySelectorAll("mark")).toHaveLength(2);
+    expect(snippets[1].querySelectorAll("mark")).toHaveLength(2);
+    expect(container.querySelector("img, script")).toBeNull();
+
+    await user.clear(screen.getByLabelText("关键词字面检索"));
+    await user.type(screen.getByLabelText("关键词字面检索"), "NEW");
+    expect(titleElement.querySelectorAll("mark")).toHaveLength(2);
+    expect(snippets[1].querySelectorAll("mark")).toHaveLength(2);
+    expect(catalog.list).toHaveBeenCalledTimes(2);
   });
 
   it("opens a standalone original view and restores the search on return", async () => {
@@ -210,6 +254,41 @@ describe("PolicyCatalog", () => {
     await user.click(screen.getByRole("button", { name: /上一页/ }));
     await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 0, 4000, expect.any(AbortSignal)));
 
+  });
+
+  it.each([
+    { fyp: "十一五", year: null, expected: "十一五" },
+    { fyp: "十二五", year: null, expected: "十二五" },
+    { fyp: "第十四个五年规划", year: null, expected: "十四五" },
+    { fyp: "第十三个五年规划", year: null, expected: "十三五" },
+    { fyp: "十五五", year: null, expected: "十五五" },
+    { fyp: "十五", year: null, expected: "十五" },
+    { fyp: "第十个五年规划", year: null, expected: "十五" },
+    { fyp: "第十个五年计划", year: null, expected: "十五" },
+    { fyp: "政府工作报告", year: 2016, expected: "2016年", body: "正文提到十三五，但该文是工作报告。" },
+    { fyp: null, year: 2020, expected: "2020年" },
+    { fyp: "不识别的政策名称", year: null, expected: "未提供" },
+  ])("formats period consistently in the card and preview: $expected", async ({ fyp, year, expected, body }) => {
+    const periodList = listResponse([
+      { planid: "P-1", title: "规划期测试", area: null, fyp, year, plantype_label: null, matches: [] },
+    ]);
+    catalog.detail.mockResolvedValueOnce({
+      ...detailResponse("P-1", "规划期测试"),
+      policy: { ...detailResponse("P-1", "规划期测试").policy, fyp, year },
+    } as never);
+    if (body) catalog.content.mockResolvedValueOnce(contentResponse("P-1", 0, body) as never);
+
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await screen.findByText("当前库共有 506 篇政策文献");
+    catalog.list.mockResolvedValueOnce(periodList as never);
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    const card = await screen.findByRole("button", { name: /规划期测试/ });
+    expect(card.querySelector(".catalog-policy-meta")?.children[1].textContent).toBe(expected);
+    await user.hover(card);
+    const preview = await screen.findByRole("complementary", { name: "政策详情预览" });
+    expect(within(preview).getByText("规划期").nextElementSibling?.textContent).toBe(expected);
+    if (body) expect(await within(preview).findByText(body)).toBeVisible();
   });
 
   it("shows the detail dataset version when it differs from the directory snapshot", async () => {

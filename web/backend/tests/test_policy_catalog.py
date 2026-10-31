@@ -26,10 +26,10 @@ BODY_3 = "广东省数据管理条例。规范数据要素流通，未使用关�
 BODY_4 = "北京市养老服务方案。建设社区养老设施，完善服务标准。"
 
 
-def _record(planid, title, area, fyp, plantype, body, sections=()):
+def _record(planid, title, area, fyp, plantype, body, sections=(), admin_level=None):
     return PolicyRecord(planid=planid, title=title, area=area, fyp=fyp,
                         plantype_label=plantype, document_id=f"doc-{planid}",
-                        body=body, sections=sections)
+                        body=body, sections=sections, admin_level=admin_level)
 
 
 def _snapshot():
@@ -95,6 +95,83 @@ def test_items_are_unique_and_complete_across_pages(client):
     assert planids == ["10001", "10002", "10003", "10004"]
     assert len(planids) == len(set(planids))
     assert first["total_pages"] == 2 and second["total_pages"] == 2
+
+
+def test_catalog_sorts_title_match_then_year_level_report_and_planid():
+    records = (
+        _record("900", "2024年无标题命中", "x", None, "其他", "关键词", admin_level="国家级"),
+        _record("800", "2020年关键词政策", "x", None, "其他", "正文", admin_level="县级"),
+        _record("700", "2022年关键词政策", "x", None, "其他", "正文", admin_level="市级"),
+        _record("600", "2022年关键词政策", "x", None, "其他", "正文", admin_level="省级"),
+        _record("500", "2022年关键词政策", "x", "政府工作报告", "其他", "正文", admin_level="省级"),
+        _record("400", "2022年关键词政策", "x", None, "其他", "正文", admin_level="省级"),
+        _record("300", "未知标题", "x", None, "其他", "关键词", admin_level="国家级"),
+    )
+    service = PolicyCatalogService(CatalogSnapshot("g", 1, None, records))
+    all_ids = [item["planid"] for item in service.list_policies(
+        q="关键词", area=None, fyp=None, plantype=None, page=1, page_size=20)["items"]]
+    assert all_ids == ["500", "400", "600", "700", "800", "900", "300"]
+    pages = [item["planid"] for page in (1, 2, 3, 4) for item in service.list_policies(
+        q="关键词", area=None, fyp=None, plantype=None, page=page, page_size=2)["items"]]
+    assert pages == all_ids
+
+
+def test_same_year_admin_levels_sort_national_to_county_then_unknown():
+    records = (
+        _record("a", "2022年关键词政策", "x", None, "其他", "正文"),
+        _record("d", "2022年关键词政策", "x", None, "其他", "正文", admin_level="县级"),
+        _record("c", "2022年关键词政策", "x", None, "其他", "正文", admin_level="市级"),
+        _record("b", "2022年关键词政策", "x", None, "其他", "正文", admin_level="省级"),
+        _record("e", "2022年关键词政策", "x", None, "其他", "正文", admin_level="国家级"),
+    )
+    service = PolicyCatalogService(CatalogSnapshot("g", 1, None, records))
+    items = service.list_policies(q="关键词", area=None, fyp=None, plantype=None,
+                                  page=1, page_size=20)["items"]
+    assert [item["planid"] for item in items] == ["e", "b", "c", "d", "a"]
+
+
+def test_year_inference_and_known_planning_period_rules():
+    cases = (
+        _record("1", "中华人民共和国2016年政府工作报告", "x", "政府工作报告", "其他", "正文"),
+        _record("2", "河南省国民经济和社会发展第十四个五年规划和2035年远景目标纲要",
+                "x", "第十四个五年规划", "其他", "正文"),
+        _record("3", "多年份2016年与2020年文件", "x", "第十三个五年规划", "其他", "正文"),
+        _record("4", "2035年远景目标纲要", "x", None, "其他", "正文"),
+        _record("5", "短别名规划", "x", "十五五", "其他", "正文"),
+        _record("6", "2035年远景展望", "x", None, "其他", "正文"),
+        _record("7", "2021—2025年规划文本", "x", None, "其他", "正文"),
+    )
+    service = PolicyCatalogService(CatalogSnapshot("g", 1, None, cases))
+    assert [record.year for record in cases] == [
+        2016, 2021, 2016, None, 2026, None, None,
+    ]
+    ordered = service.list_policies(q=None, area=None, fyp=None, plantype=None,
+                                    page=1, page_size=20)["items"]
+    assert [item["planid"] for item in ordered] == ["5", "2", "1", "3", "4", "6", "7"]
+
+
+def test_short_tenth_plan_alias_matches_metadata_plan_name():
+    record = _record("1", "第十个规划", "x", "第十个五年计划", "其他", "正文")
+    service = PolicyCatalogService(CatalogSnapshot("g", 1, None, (record,)))
+    alias = service.list_policies(q=None, area=None, fyp="十五", plantype=None,
+                                  page=1, page_size=20)
+    full_name = service.list_policies(q=None, area=None, fyp="第十个五年计划",
+                                      plantype=None, page=1, page_size=20)
+    assert alias["matched_documents"] == full_name["matched_documents"] == 1
+    assert alias["items"][0]["year"] == full_name["items"][0]["year"] == 2001
+
+
+def test_reference_year_does_not_search_arbitrary_fyp_text():
+    record = _record("1", "普通政策", "x", "某某第十四个五年规划相关材料", "其他", "正文")
+    assert record.year is None
+
+
+def test_title_hit_beats_newer_body_only_hit_and_list_detail_year_match(client):
+    response = client.get("/api/policies", params={"q": "数字经济"}).json()
+    assert response["items"][0]["planid"] == "10001"
+    assert response["items"][0]["year"] == 2021
+    detail = client.get("/api/policies/10001").json()["policy"]
+    assert detail["year"] == response["items"][0]["year"]
 
 
 def test_page_beyond_last_is_empty(client):
@@ -371,7 +448,12 @@ def test_loader_reads_only_current_release(tmp_path):
     assert snapshot.generation_id == "generation-current"
     assert snapshot.revision == 7
     assert [record.planid for record in snapshot.records] == ["11111", "22222"]
+    assert all(record.admin_level == "市级" for record in snapshot.records)
+    assert [record.year for record in snapshot.records] == [2021, 2021]
     service = PolicyCatalogService(snapshot)
+    listed = service.list_policies(q=None, area=None, fyp=None, plantype=None,
+                                   page=1, page_size=20)["items"]
+    assert listed[0]["year"] == service.get_policy("11111")["policy"]["year"] == 2021
     result = service.list_policies(q="数字经济", area=None, fyp=None, plantype=None,
                                    page=1, page_size=20)
     assert result["matched_documents"] == 1

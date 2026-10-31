@@ -213,6 +213,10 @@
   -webkit-line-clamp: 2;
   white-space: pre-wrap;
 }
+.catalog-highlight {
+  color: #b22924;
+  background: transparent;
+}
 .catalog-pagination {
   padding: 17px 0;
   display: flex;

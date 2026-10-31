@@ -16,9 +16,54 @@ type Filters = Omit<CatalogParams, "page" | "page_size">;
 
 const PAGE_SIZE = 20;
 const CONTENT_PAGE_SIZE = 4000;
+const KNOWN_PERIODS: Record<string, string> = {
+  "十一五": "十一五",
+  "第十一个五年规划": "十一五",
+  "第十一个五年计划": "十一五",
+  "十二五": "十二五",
+  "第十二个五年规划": "十二五",
+  "第十二个五年计划": "十二五",
+  "十三五": "十三五",
+  "第十三个五年规划": "十三五",
+  "第十三个五年计划": "十三五",
+  "十四五": "十四五",
+  "第十四个五年规划": "十四五",
+  "第十四个五年计划": "十四五",
+  "十五五": "十五五",
+  "第十五个五年规划": "十五五",
+  "第十五个五年计划": "十五五",
+  "十五": "十五",
+  "第十个五年规划": "十五",
+  "第十个五年计划": "十五",
+};
 
 function metadata(value: string | null | undefined) {
   return value?.trim() || "未提供";
+}
+
+function formatPeriod(fyp: string | null | undefined, year: number | null | undefined) {
+  const normalized = fyp?.trim();
+  if (normalized && KNOWN_PERIODS[normalized]) return KNOWN_PERIODS[normalized];
+  return typeof year === "number" && Number.isInteger(year) && year >= 1 && year <= 9999
+    ? `${year}年`
+    : "未提供";
+}
+
+function highlightLiteral(text: string, query: string | null | undefined): React.ReactNode {
+  if (!query) return text;
+
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  let matchStart = text.indexOf(query, cursor);
+  while (matchStart !== -1) {
+    if (matchStart > cursor) parts.push(text.slice(cursor, matchStart));
+    const matchEnd = matchStart + query.length;
+    parts.push(<mark className="catalog-highlight" key={`${matchStart}-${matchEnd}`}>{text.slice(matchStart, matchEnd)}</mark>);
+    cursor = matchEnd;
+    matchStart = text.indexOf(query, cursor);
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
 }
 
 function sameVersion(left: PolicyListResponse["dataset"], right: PolicyListResponse["dataset"]) {
@@ -278,7 +323,6 @@ export function PolicyCatalog() {
         <div>
           <div className="catalog-eyebrow"><BookOpenText size={15} /> 当前发布库</div>
           <h1>政策文献目录</h1>
-          <p>按政策元数据筛选，或检索标题与原文中的字面内容。</p>
         </div>
         {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
       </header>
@@ -357,12 +401,12 @@ export function PolicyCatalog() {
                   onFocus={() => previewPolicy(item.planid)}
                   onBlur={dismissPreview}
                 >
-                  <span className="catalog-policy-title">{metadata(item.title)}</span>
+                  <span className="catalog-policy-title">{highlightLiteral(item.title?.trim() ? item.title : "未提供", list.query.q)}</span>
                   <span className="catalog-policy-meta">
-                    <span>{metadata(item.area)}</span><span>{metadata(item.fyp)}</span><span>{metadata(item.plantype_label)}</span>
+                    <span>{metadata(item.area)}</span><span>{formatPeriod(item.fyp, item.year)}</span><span>{metadata(item.plantype_label)}</span>
                   </span>
                   <span className="catalog-policy-id">planid：{item.planid}</span>
-                  {item.matches.map((match, index) => <span className="catalog-snippet" key={`${match.field}-${match.offset}-${index}`}>{match.snippet}</span>)}
+                  {item.matches.map((match, index) => <span className="catalog-snippet" key={`${match.field}-${match.offset}-${index}`}>{highlightLiteral(match.snippet, list.query.q)}</span>)}
                 </button>
               ))}
             </div>
@@ -408,7 +452,7 @@ export function PolicyCatalog() {
                 {!reading && <>
                 <dl className="catalog-metadata">
                   <div><dt>地区</dt><dd>{metadata(policy.area)}</dd></div>
-                  <div><dt>规划期</dt><dd>{metadata(policy.fyp)}</dd></div>
+                  <div><dt>规划期</dt><dd>{formatPeriod(policy.fyp, policy.year)}</dd></div>
                   <div><dt>政策类型</dt><dd>{metadata(policy.plantype_label)}</dd></div>
                   <div><dt>planid</dt><dd>{policy.planid}</dd></div>
                 </dl>

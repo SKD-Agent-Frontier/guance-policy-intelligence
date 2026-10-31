@@ -47,6 +47,7 @@
 3. `matched_documents` 是应用全部筛选条件后的**全库精确数量**，与 `page_size` 完全无关。
 4. 命中片段 `snippet` 直接来自冻结原文（前后各 60 字符，可能包含原文换行）；`offset` 是该字段字符串内的 Unicode 码点偏移，可用 `字段字符串[offset:offset+len(q)] == q` 复核。
 5. 精确检索与 Agent 的 `kb_search`（BM25 相关性检索）是**两套不同能力**：本接口不返回语义相关结果，也不对语义相关性做全库计数。
+6. 全部筛选与字面匹配完成后，先对完整匹配集合排序，再分页：标题命中优先于仅正文命中；同档按参考年份降序、行政层级（国家、省、市、区县、未知）、政府工作报告优先、`planid` 升序。没有 `q` 时所有文献处于同一命中档。
 
 ### （三）响应
 
@@ -77,6 +78,7 @@
       "area": "云南省",
       "fyp": "政府工作报告",
       "plantype_label": "专项规划",
+      "year": 2019,
       "matches": [
         {"field": "body", "offset": 735,
          "snippet": "…推动数字经济快速萌芽，落地一批工业和农业精深加工大项目…"}
@@ -86,11 +88,11 @@
 }
 ```
 
-- 上述示例取自真实当前发布库：`q=数字经济`，且没有 `area/fyp/plantype` 筛选；`matched_documents=90` 是去掉地区条件后的全库精确数量。若加 `area=云南省`，同一请求会变为 `matched_documents=2`（示例政策属于云南省）。
+- 上述示例取自真实当前发布库：`q=数字经济`，且没有 `area/fyp/plantype` 筛选；`matched_documents=90` 是去掉地区条件后的全库精确数量。若加 `area=云南省`，同一请求会变为 `matched_documents=2`（示例政策属于云南省）。其中列表项用于展示真实字段，不代表新排序规则下的首条记录；示例中的真实元数据与数值保持不变。
 - 无 `q` 时 `query.match_mode` 为 `null`，`items[].matches` 为空数组。
 - 数据缺失时 `title/area/fyp/plantype_label` 为 `null`，不编造。
 - `page` 超出 `total_pages` 时返回空 `items`，`matched_documents` 不变。
-- 默认稳定排序：按 `planid` 升序。
+- `year` 为参考年份；其规则见下文，不代表发布日期。
 
 ## 四、单篇政策详情
 
@@ -106,6 +108,7 @@
     "area": "云南省",
     "fyp": "政府工作报告",
     "plantype_label": "专项规划",
+    "year": 2019,
     "body_chars": 17674,
     "sections": [
       {"index": 0, "level": 4, "path": "一、2018年工作回顾", "start": 96, "end": 5297},
@@ -116,6 +119,7 @@
 ```
 
 - 上述示例取自真实当前发布库（同一篇 `planid=12915`）。
+- 列表和详情中的 `year` 使用同一推导规则：标题含单一明确文献年份时使用该年（忽略“2035年远景目标”等远景年份）；标题年份有歧义时不从中择取，继续检查规范规划期。已知第十至第十五个五年规划/计划按起始年映射，分别为 2001、2006、2011、2016、2021、2026；仍无法确定时为 `null`。不从正文提取年份，`year` 不是发布日期。
 - 章节 `start/end` 为相对正文起点的 Unicode 码点偏移，`0 <= start < end <= body_chars`。
 - 章节列表不包含发布结构中的全文根节点（`kind=root`，路径为空）；只有真实章节会出现在 `sections`。
 - 不暴露任何文件系统路径、快照文件名或内部 document_id。
@@ -181,7 +185,7 @@ export type PolicyListResponse = {
   page: number; page_size: number; total_pages: number;
   items: Array<{
     planid: string; title: string | null; area: string | null;
-    fyp: string | null; plantype_label: string | null;
+    fyp: string | null; plantype_label: string | null; year: number | null;
     matches: Array<{ field: "title" | "body"; offset: number; snippet: string }>;
   }>;
 };
