@@ -27,6 +27,7 @@ from .policy_schemas import (
     PolicyListResponse,
     RegionTreeResponse,
 )
+from .research_planning import ResearchResolveRequest, resolve_research
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["policies"])
@@ -276,3 +277,10 @@ async def resolve_compare_request(request: Request, payload: CompareResolveReque
     """用真实发布目录发现跨省比较对象；不调用 Agent，也不生成虚构编号。"""
     service = await _catalog(request)
     return await asyncio.to_thread(resolve_compare, payload.question, service)
+
+
+@router.post("/research/resolve")
+async def resolve_research_request(request: Request, payload: ResearchResolveRequest):
+    """统一自然语言任务发现：由系统定位真实政策编号，用户无需手填。"""
+    service = await _catalog(request)
+    return await asyncio.to_thread(resolve_research, payload.mode, payload.question, service)

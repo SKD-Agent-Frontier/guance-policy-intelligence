@@ -16,7 +16,7 @@ vi.mock("../api/client", () => ({
     }
   },
   validatePreparationResponse: (response: unknown) => response,
-  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
 
 const STATE = {
@@ -123,38 +123,37 @@ describe("useConversations", () => {
     });
   });
 
-  it.each([
-    ["extract", "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-    ["compare_plans", "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-  ] as const)("hands %s messages to the advanced draft without API calls", async (mode, guidance) => {
-    const { result } = renderHook(() => useConversations());
-    act(() => result.current.setMode(mode));
-
-    await act(async () => { await result.current.send("比较这些政策"); });
-
-    expect(mockedClient.prepare).not.toHaveBeenCalled();
-    expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(result.current.active?.messages).toEqual([
-      { id: expect.any(String), kind: "user", text: "比较这些政策" },
-      { id: expect.any(String), kind: "advanced_guidance", text: guidance },
-    ]);
-    expect(result.current.active?.advancedDraft).toMatchObject({
-      open: true,
-      question: "比较这些政策",
-      focusVersion: 1,
-    });
-  });
-
+  it.each(["extract", "compare_plans"] as const)(
+    "asks for a named policy in %s only when automatic discovery is ambiguous",
+    async (mode) => {
+      mockedClient.resolveResearch.mockResolvedValue({
+        status: "needs_clarification", request: null,
+        policies: [], message: "请补充需要研究的政策名称。",
+      });
+      const { result } = renderHook(() => useConversations());
+      act(() => result.current.setMode(mode));
+      await act(async () => { await result.current.send("比较这些政策"); });
+      expect(mockedClient.resolveResearch).toHaveBeenCalledWith(mode, "比较这些政策");
+      expect(mockedClient.submit).not.toHaveBeenCalled();
+      expect(result.current.active?.messages.at(-1)).toMatchObject({
+        kind: "advanced_guidance", text: "请补充需要研究的政策名称。",
+      });
+      expect(result.current.active?.advancedDraft.open).toBe(false);
+    },
+  );
 
   it("automatically resolves a clear compare question and executes without a planid form", async () => {
-    mockedClient.resolveCompare.mockResolvedValue({
+    mockedClient.resolveResearch.mockResolvedValue({
       status: "ready",
       message: "已定位",
-      targets: ["P-ZJ", "P-JS"],
-      dimensions: ["发展目标"],
+      request: {
+        task_type: "compare",
+        question: "比较浙江和江苏十四五数字经济发展目标的异同",
+        targets: ["P-ZJ", "P-JS"], dimensions: ["发展目标"],
+      },
       policies: [
-        { area: "浙江", planid: "P-ZJ", title: "浙江省数字经济发展十四五规划", fyp: "十四五", match: "title" },
-        { area: "江苏", planid: "P-JS", title: "江苏省数字经济发展十四五规划", fyp: "十四五", match: "title" },
+        { area: "浙江", planid: "P-ZJ", title: "浙江省数字经济发展十四五规划", fyp: "十四五" },
+        { area: "江苏", planid: "P-JS", title: "江苏省数字经济发展十四五规划", fyp: "十四五" },
       ],
     });
     mockedClient.submit.mockResolvedValue(RESULT);
@@ -163,7 +162,7 @@ describe("useConversations", () => {
 
     await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
 
-    expect(mockedClient.resolveCompare).toHaveBeenCalledWith("比较浙江和江苏十四五数字经济发展目标的异同");
+    expect(mockedClient.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五数字经济发展目标的异同");
     expect(mockedClient.prepare).not.toHaveBeenCalled();
     expect(mockedClient.submit).toHaveBeenCalledWith({
       task_type: "compare",
@@ -172,16 +171,14 @@ describe("useConversations", () => {
       dimensions: ["发展目标"],
     }, undefined);
     expect(result.current.active?.advancedDraft.open).toBe(false);
-    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(false);
+    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(true);
   });
 
   it("does not fabricate compare targets when the published catalog cannot resolve them", async () => {
-    mockedClient.resolveCompare.mockResolvedValue({
+    mockedClient.resolveResearch.mockResolvedValue({
       status: "needs_clarification",
       message: "没有找到匹配文献",
-      targets: [],
-      policies: [],
-      dimensions: [],
+      request: null, policies: [],
     });
     const { result } = renderHook(() => useConversations());
     act(() => result.current.setMode("compare"));
@@ -192,7 +189,7 @@ describe("useConversations", () => {
     expect(result.current.active?.messages.at(-1)).toEqual({
       id: expect.any(String), kind: "advanced_guidance", text: "没有找到匹配文献",
     });
-    expect(result.current.active?.advancedDraft.open).toBe(true);
+    expect(result.current.active?.advancedDraft.open).toBe(false);
   });
 
   it("keeps each conversation's advanced draft and resets it when mode changes", () => {

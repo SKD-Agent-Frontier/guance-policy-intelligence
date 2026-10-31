@@ -1,5 +1,12 @@
 export type TaskType = "qa" | "extract" | "organize" | "compare" | "compare_plans";
 
+export interface ResearchResolution {
+  status: "ready" | "needs_clarification";
+  message: string;
+  request: ResearchRequest | null;
+  policies: Array<{ area: string | null; planid: string; title: string | null; fyp: string | null }>;
+}
+
 export interface CompareResolution {
   status: "ready" | "needs_clarification";
   message: string;

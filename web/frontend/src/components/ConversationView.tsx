@@ -196,7 +196,6 @@ function Message({
   onRegenerate,
   onEditAndResend,
   onRestartPreparation,
-  onSpecifyPolicies,
   onEvidence,
 }: {
   message: ConversationMessage;
@@ -241,7 +240,7 @@ function Message({
     </div>
   );
   if (message.kind === "advanced_guidance") return <article className="conversation-message message-system">
-    <div ref={contentRef}><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={!canChangeHistory} onClick={onSpecifyPolicies}>指定政策对象</button>}</div>
+    <div ref={contentRef}><p>{message.text}</p></div>
     <MessageActions text={message.text} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} />
   </article>;
   if (message.kind === "execution") return null;
@@ -276,7 +275,7 @@ function Message({
           {!primary && <p className="clarification-free-text">请在下方输入你希望补充或修改的条件。</p>}
         </div>
       )}
-      {response.status === "blocked" && <div className="preparation-status-note">当前无法自动准备研究。{["extract", "compare", "compare_plans"].includes(response.mode) ? "可在下方使用高级选择入口，明确指定政策编号后继续。" : "你可以修改输入条件，再重新开始准备。"}{isLatest && <button type="button" className="retry-inline" onClick={onRestartPreparation}>重新开始准备</button>}</div>}
+      {response.status === "blocked" && <div className="preparation-status-note">当前无法自动准备研究。{["extract", "compare", "compare_plans"].includes(response.mode) ? "请补充政策名称或研究范围后重新尝试。" : "你可以修改输入条件，再重新开始准备。"}{isLatest && <button type="button" className="retry-inline" onClick={onRestartPreparation}>重新开始准备</button>}</div>}
       </div>
       <MessageActions contentRef={contentRef} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} />
     </article>

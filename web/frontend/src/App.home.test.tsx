@@ -7,7 +7,7 @@ import type { PreparationResponse, ResearchPreparationRequest } from "./types";
 
 vi.mock("./api/client", async (importOriginal) => ({
   ...await importOriginal<typeof import("./api/client")>(),
-  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
 
 vi.mock("./components/PolicyCatalog", () => ({
@@ -96,17 +96,16 @@ describe("independent home composer and history conversations", () => {
   });
 
   it("restores default QA home mode independently of an earlier comparison session", async () => {
-    client.resolveCompare.mockResolvedValue({
+    client.resolveResearch.mockResolvedValue({
       status: "needs_clarification",
       message: "当前发布库需要更明确的政策对象",
-      targets: [],
+      request: null,
       policies: [],
-      dimensions: [],
     });
     render(<App />);
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
     await submitHome("比较浙江和江苏十四五的数字经济政策");
-    expect(client.resolveCompare).toHaveBeenCalledTimes(1);
+    expect(client.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五的数字经济政策");
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
 
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
@@ -123,7 +122,7 @@ describe("independent home composer and history conversations", () => {
     }
     fireEvent.click(screen.getByTitle("比较浙江和江苏十四五的数字经济政策"));
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue("比较浙江和江苏十四五的数字经济政策");
+    expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
   });
 
 
@@ -142,10 +141,10 @@ describe("independent home composer and history conversations", () => {
 
     const question = "比较浙江和江苏十四五数字经济发展目标的异同";
     expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue(question);
-    expect(client.resolveCompare).not.toHaveBeenCalled();
+    expect(client.resolveResearch).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
 
-    expect(client.resolveCompare).toHaveBeenCalledWith(question);
+    expect(client.resolveResearch).toHaveBeenCalledWith("compare", question);
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent(question);
     expect(screen.queryByRole("button", { name: "指令模板" })).not.toBeInTheDocument();
 
