@@ -129,14 +129,19 @@ def verified_qa_outline(claims: list[Claim], question: str) -> tuple[str, list[s
 
     required = ["主要发展机遇", "面临挑战"] if "机遇" in question and "挑战" in question else []
     missing = [label for label in required if not groups.get(label)]
-    ordered = [label for label in _GROUP_ORDER if label in groups]
-    ordered += [label for label in groups if label not in ordered]
-    ordered += missing
-
+    overview = groups.pop("总体发展环境", []) if required else []
     if required:
-        intro = ("根据本轮可追溯到政策原文的事实，相关发展环境可从总体条件、"
-                 "主要发展机遇与面临挑战三个方面考察。以下仅归纳已有证据支持的内容。")
+        # The overall assessment belongs in the opening paragraph, not in a
+        # third top-level section ahead of the two dimensions the user asked.
+        ordered = list(required)
+        ordered += [label for label in groups if label not in ordered]
+        intro = ("根据本轮可追溯到政策原文的事实，相关发展环境涉及"
+                 "发展机遇与面临挑战两个方面。以下仅归纳已有证据支持的内容。")
+        if overview:
+            intro += "\n" + "\n".join(claim.text.strip() for claim in overview)
     else:
+        ordered = [label for label in _GROUP_ORDER if label in groups]
+        ordered += [label for label in groups if label not in ordered]
         intro = "根据本轮已取得并通过原文核验的政策事实，可从以下方面梳理："
 
     lines = [intro]
@@ -150,7 +155,7 @@ def verified_qa_outline(claims: list[Claim], question: str) -> tuple[str, list[s
             lines.append(f"（{_number(j)}）{_short_heading(claim.text)}")
             lines.append(claim.text.strip())
 
-    covered = [label for label in ordered if groups.get(label)]
+    covered = (["总体发展环境"] if overview else []) + [label for label in ordered if groups.get(label)]
     closing = "综上，本轮证据涉及" + "、".join(covered) + "。"
     if missing:
         closing += "关于" + "、".join(missing) + "尚需补充证据，不能视为完整回答。"
