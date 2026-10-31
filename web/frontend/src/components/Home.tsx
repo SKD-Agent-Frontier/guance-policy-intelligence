@@ -25,7 +25,6 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
             <div className="home-brand-copy"><strong>管策智研</strong><span>政策智能研究助手</span></div>
           </div>
           <h1>让政策更可理解<br />让决策更有依据</h1>
-          <p className="home-subtitle">基于权威政策文献的智能研究助手</p>
         </div>
         <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} />
       </div>
