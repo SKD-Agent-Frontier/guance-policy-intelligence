@@ -21,6 +21,7 @@ def effective_prompt(structured: bool, task_type: str = "qa") -> str:
         prompt += '\n只输出一个 JSON 对象，不加其他文字。结构示例：' + AgentOutput(
             answer="回答正文", claims=[], insufficient=False).model_dump_json()
         prompt += '\n政策结论 claims 的每项格式：{"text":"结论","chunk_ids":["本轮证据ID"],"quotes":["逐字引文"]}'
+        prompt += '\n可选 analyses 的每项格式：{"kind":"synthesis","text":"归纳判断","scope_note":"仅适用于已读政策条款","supporting_claim_indexes":[0,1]}。仅用于确实要求分析的任务。'
     return prompt
 
 
