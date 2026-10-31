@@ -72,3 +72,57 @@ def test_vague_comparison_requests_clarification_without_manual_id_requirement()
     assert result["status"] == "needs_clarification"
     assert result["targets"] == []
     assert "五年规划" in result["message"]
+
+def test_zhejiang_beijing_digital_economy_goals_never_select_fire_or_high_tech_plans():
+    question = "比较浙江和北京十四五数字经济发展目标的异同"
+    service = catalog(
+        record("24037", "浙江省消防事业发展“十四五”规划", "浙江省",
+               body="推进数字经济相关技术应用。总体目标为降低火灾死亡人数。"),
+        record("26147", "北京市“十四五”时期高精尖产业发展规划", "北京市",
+               body="培育数字经济产业。推动先进制造业。"),
+    )
+    result = resolve_compare(question, service)
+    assert result["status"] == "needs_clarification"
+    assert result["targets"] == []
+    assert "浙江" in result["message"]
+    assert "正文" in result["message"]
+
+
+def test_true_topic_policy_outscores_unrelated_mention_despite_decoy_frequency():
+    question = "比较浙江和北京十四五数字经济发展目标的异同"
+    service = catalog(
+        record("fire", "浙江省消防事业发展“十四五”规划", "浙江省",
+               body="数字经济" * 40),
+        record("z", "浙江省数字经济发展“十四五”规划", "浙江省",
+               body="到2025年数字经济规模达到一定目标。"),
+        record("tech", "北京市“十四五”时期高精尖产业发展规划", "北京市",
+               body="数字经济" * 40),
+        record("b", "北京市数字经济发展“十四五”规划", "北京市",
+               body="数字经济产业增加值目标。"),
+    )
+    result = resolve_compare(question, service)
+    assert result["status"] == "ready"
+    assert result["targets"] == ["z", "b"]
+    assert all(item["match"] == "title" for item in result["policies"])
+
+
+def test_missing_one_direct_topic_policy_never_substitutes_body_only_alternative():
+    service = catalog(
+        record("z", "浙江数字经济十四五规划", "浙江省"),
+        record("tech", "北京高精尖产业十四五规划", "北京市",
+               body="数字经济发展目标。"),
+    )
+    result = resolve_compare("比较浙江和北京十四五数字经济发展目标的异同", service)
+    assert result["status"] == "needs_clarification"
+    assert result["targets"] == []
+    assert "北京" in result["message"]
+    assert "正文" in result["message"]
+
+
+def test_unmatched_topic_remains_clarification_not_nonexistence_claim():
+    service = catalog(record("z", "浙江省生态环境十四五规划", "浙江省"))
+    result = resolve_compare("比较浙江和北京十四五数字经济发展目标的异同", service)
+    assert result["status"] == "needs_clarification"
+    assert result["targets"] == []
+    assert "当前发布库" in result["message"]
+    assert "不存在" not in result["message"]
