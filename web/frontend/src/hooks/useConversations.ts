@@ -107,6 +107,7 @@ export function useConversations() {
   // These maps are session-local, like the conversation history itself.
   const resultRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
   const advancedRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
+  const pendingNaturalLanguage = useRef(new Map<string, { mode: TaskType; question: string }>());
   const userModes = useRef(new Map<string, TaskType>());
 
   const updateSessions = useCallback((updater: (current: Conversation[]) => Conversation[]) => {
@@ -232,69 +233,50 @@ export function useConversations() {
     const conversation = sessionsRef.current.find((item) => item.id === conversationId);
     if (!conversation || !text.trim()) return;
     if (operations.current.has(conversationId)) return;
-    // 比较对象属于系统检索责任：普通提问先自动定位，手动 planid 只留在高级入口。
-    if (conversation.mode === "compare") {
+    if (isAdvancedMode(conversation.mode)) {
       const token = beginOperation(conversationId);
       if (!token) return;
       appendMessage(conversationId, message("user", { text }));
+      const pending = pendingNaturalLanguage.current.get(conversationId);
+      // 回答澄清问题时仍保留原研究任务；用户无需重新填写对象或编号。
+      const question = pending?.mode === conversation.mode
+        ? `${pending.question}；补充条件：${text}` : text;
       setBusy(conversationId, "preparing");
       try {
-        const resolved = await researchClient.resolveCompare(text);
+        const resolution = await researchClient.resolveResearch(conversation.mode, question);
         if (!isCurrent(conversationId, token)) return;
-        if (resolved.status === "ready" && resolved.targets.length >= 2
-            && resolved.targets.length <= 8
-            && new Set(resolved.targets).size === resolved.targets.length) {
-          await execute(conversationId, {
-            task_type: "compare",
-            question: text,
-            targets: resolved.targets,
-            dimensions: resolved.dimensions.length ? resolved.dimensions : null,
-          }, scenario, token);
+        const request = resolution.request;
+        const count = request?.targets?.length ?? 0;
+        const valid = resolution.status === "ready" && request?.task_type === conversation.mode
+          && count >= (conversation.mode === "extract" ? 1 : 2)
+          && count <= (conversation.mode === "extract" ? 1 : 8)
+          && new Set(request.targets).size === count;
+        if (valid && request) {
+          pendingNaturalLanguage.current.delete(conversationId);
+          // 研究范围由已发布政策目录给出；绝不从未核验的模型文本生成编号。
+          if (resolution.message && resolution.policies.length > 1) {
+            appendMessage(conversationId, message("advanced_guidance", { text: resolution.message }));
+          }
+          await execute(conversationId, request, scenario, token);
         } else {
-          // 仅检索不确定时才展开可选的人工定位入口；明确问题直接执行。
-          updateConversation(conversationId, (current) => ({
-            ...current,
-            advancedDraft: {
-              ...current.advancedDraft,
-              open: true,
-              question: text,
-              focusVersion: current.advancedDraft.focusVersion + 1,
-            },
+          pendingNaturalLanguage.current.set(conversationId, { mode: conversation.mode, question });
+          appendMessage(conversationId, message("advanced_guidance", {
+            text: resolution.message || "当前无法可靠确定研究对象，请用自然语言补充政策名称或研究范围。",
           }));
-          appendMessage(conversationId, message("advanced_guidance", { text: resolved.message }));
           setBusy(conversationId, "idle");
         }
       } catch (error) {
         if (isCurrent(conversationId, token)) {
-          const mapped = apiError(error, "execution");
+          const mapped = apiError(error, "prepare");
           appendMessage(conversationId, message("error", {
             code: mapped.code,
-            text: `自动定位比较政策失败：${mapped.text}。请重新提交问题重试。`,
+            text: `研究对象自动定位失败：${mapped.text}。可以重试本次研究。`,
           }));
           setBusy(conversationId, "idle");
         }
       } finally {
         finishOperation(conversationId, token);
       }
-      return;
-    }
-    if (isAdvancedMode(conversation.mode)) {
-      appendMessage(conversationId, message("user", { text }));
-      updateConversation(conversationId, (current) => ({
-        ...current,
-        advancedDraft: {
-          ...current.advancedDraft,
-          open: true,
-          question: text,
-          focusVersion: current.advancedDraft.focusVersion + 1,
-        },
-      }));
-      const guidance = {
-        extract: "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
-        compare: "系统会优先自动检索并确定比较文献；需要覆盖自动选择时，可使用高级入口。",
-        compare_plans: "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
-      }[conversation.mode];
-      appendMessage(conversationId, message("advanced_guidance", { text: guidance }));
       return;
     }
     if (conversation.messages.at(-1)?.kind === "error"
