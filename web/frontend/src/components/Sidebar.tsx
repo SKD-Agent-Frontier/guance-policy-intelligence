@@ -1,4 +1,4 @@
-import { BookOpenText, ChevronLeft, FilePlus2, Home, Settings2 } from "lucide-react";
+import { ChevronLeft, FilePlus2, Home, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Conversation } from "../conversationTypes";
 import type { TaskType } from "../types";
@@ -44,9 +44,9 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpa
   return <>
     {mobileOpen && <button className="sidebar-scrim" aria-label="关闭侧栏" type="button" onClick={onCloseMobile} />}
     <aside className={`app-sidebar ${isCollapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`} aria-label="全局侧栏">
-      <div className="sidebar-brand-row" title="研究工作台">
-        {isCollapsed ? <button type="button" className="sidebar-brand-toggle" title="展开侧栏" aria-label="展开侧栏" onClick={onExpand}><BookOpenText size={20} aria-hidden="true" /></button> : <BookOpenText size={20} aria-hidden="true" />}
-        {!isCollapsed && <><strong>研究工作台</strong><button type="button" className="sidebar-collapse" title="收起侧栏" aria-label="收起侧栏" onClick={onToggle}><ChevronLeft size={16} /></button></>}
+      <div className="sidebar-brand-row" title="管策智研 · 政策智能研究助手">
+        {isCollapsed ? <button type="button" className="sidebar-brand-toggle" title="展开侧栏" aria-label="展开侧栏" onClick={onExpand}><img className="sidebar-brand-mark" src="/guance-mark.svg" alt="" /></button> : <img className="sidebar-brand-mark" src="/guance-mark.svg" alt="" />}
+        {!isCollapsed && <><strong>管策智研</strong><button type="button" className="sidebar-collapse" title="收起侧栏" aria-label="收起侧栏" onClick={onToggle}><ChevronLeft size={16} /></button></>}
       </div>
       <nav className="sidebar-primary" aria-label="工作台导航">
         <button type="button" className="side-link sidebar-home-link" title="返回首页" aria-label="返回首页" onClick={() => closeAnd(onHome)}><Home size={20} /></button>
