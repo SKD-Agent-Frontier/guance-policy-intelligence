@@ -54,7 +54,7 @@ describe("ResearchForm", () => {
     const onSend = vi.fn();
     render(<ControlledForm onSend={onSend} enableTemplates />);
     const trigger = screen.getByRole("button", { name: "指令模板" });
-    expect(trigger).toHaveAttribute("title", "指令模板");
+    expect(trigger).toHaveAccessibleName("指令模板");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
 
