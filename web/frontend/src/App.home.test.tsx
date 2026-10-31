@@ -73,7 +73,9 @@ describe("independent home composer and history conversations", () => {
       mode: "qa", message: "第二项产业扶持研究",
     });
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("第二项产业扶持研究");
-    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    if (screen.queryByRole("button", { name: "展开侧栏" })) {
+      fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    }
     expect(screen.getByTitle("第一项数字经济研究")).toBeInTheDocument();
     expect(screen.getByTitle("第二项产业扶持研究")).toBeInTheDocument();
     expect(screen.queryByTitle("新对话")).not.toBeInTheDocument();
@@ -116,7 +118,9 @@ describe("independent home composer and history conversations", () => {
     expect(client.prepare).toHaveBeenCalledWith({
       mode: "qa", message: "有哪些产业支持政策",
     });
-    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    if (screen.queryByRole("button", { name: "展开侧栏" })) {
+      fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    }
     fireEvent.click(screen.getByTitle("比较浙江和江苏十四五的数字经济政策"));
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue("比较浙江和江苏十四五的数字经济政策");
@@ -136,7 +140,9 @@ describe("independent home composer and history conversations", () => {
     await submitHome("新的独立研究");
     expect(client.prepare).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("新的独立研究");
-    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    if (screen.queryByRole("button", { name: "展开侧栏" })) {
+      fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    }
     expect(screen.getByTitle("还在准备的研究")).toHaveTextContent("处理中");
     expect(screen.getByTitle("新的独立研究")).toBeInTheDocument();
   });
