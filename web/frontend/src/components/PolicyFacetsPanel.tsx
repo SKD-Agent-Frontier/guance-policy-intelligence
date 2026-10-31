@@ -91,7 +91,7 @@ export function PolicyFacetsPanel({
       onMouseLeave={() => { setHovered(false); setManualOpen(null); }}>
       <button type="button" className="policy-facets__toggle"
         aria-expanded={open} aria-controls="policy-facets-content"
-        onClick={() => setManualOpen(!open)}>
+        onClick={() => setManualOpen(previous => previous === true ? false : true)}>
         <span>按维度查找</span>
         <ChevronDown size={17} aria-hidden="true" className={open ? "is-expanded" : ""} />
       </button>
