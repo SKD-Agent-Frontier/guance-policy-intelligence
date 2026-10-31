@@ -201,6 +201,55 @@ beforeEach(() => {
 });
 
 describe("PolicyCatalog facet integration", () => {
+  it("offers real policy-type choices alongside exact text input and clears the choice", async () => {
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await screen.findByText("当前库共有 3 篇政策文献");
+
+    await user.click(screen.getByRole("button", { name: "展开政策类型选项" }));
+    const options = screen.getByRole("listbox", { name: "政策类型选项" });
+    expect(within(options).getByRole("option", { name: "专项规划 2" })).toBeVisible();
+    expect(within(options).getByRole("option", { name: "unclassified 1" })).toBeVisible();
+
+    await user.click(within(options).getByRole("option", { name: "专项规划 2" }));
+    expect(screen.getByLabelText("政策类型精确筛选")).toHaveValue("专项规划");
+    expect(screen.queryByRole("listbox", { name: "政策类型选项" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ plantype: "专项规划", ...pin }),
+      expect.any(AbortSignal),
+    ));
+
+    await user.click(screen.getByRole("button", { name: "展开政策类型选项" }));
+    await user.click(within(screen.getByRole("listbox", { name: "政策类型选项" }))
+      .getByRole("option", { name: "全部类型" }));
+    expect(screen.getByLabelText("政策类型精确筛选")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    await waitFor(() => expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("plantype"));
+
+    await user.type(screen.getByLabelText("政策类型精确筛选"), "自定义类型");
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ plantype: "自定义类型", ...pin }),
+      expect.any(AbortSignal),
+    ));
+  });
+
+  it("retains text-based policy-type search when facets are unavailable", async () => {
+    catalog.facets.mockRejectedValue(new ApiError("http", "维度接口缺失", 503));
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await screen.findByText("当前库共有 3 篇政策文献");
+
+    expect(screen.getByRole("button", { name: "展开政策类型选项" })).toBeDisabled();
+    await user.type(screen.getByLabelText("政策类型精确筛选"), "专项规划");
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(
+      { plantype: "专项规划", page: 1, page_size: 20 },
+      expect.any(AbortSignal),
+    ));
+  });
+
   it("applies year and fyp independently with the same search filters and complete version pin", async () => {
     const user = userEvent.setup();
     const panel = await readyCatalog();
