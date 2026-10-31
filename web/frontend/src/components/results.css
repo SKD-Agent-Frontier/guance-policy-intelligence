@@ -123,8 +123,12 @@
 }
 .qa-claims .results-section-title > span:last-child {
   color: var(--ink);
-  font: inherit;
+  font-family: inherit;
+  font-size: 0.5em;
+  font-weight: inherit;
   letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
 }
 
 .qa-claim {
