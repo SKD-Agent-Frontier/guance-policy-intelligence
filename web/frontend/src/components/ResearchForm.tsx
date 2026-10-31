@@ -1,12 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  ArrowUp,
-  FileText,
-  LayoutTemplate,
-  X,
-} from "lucide-react";
-import type { ResearchRequest, TaskType } from "../types";
-import type { AdvancedDraft } from "../conversationTypes";
+import { ArrowLeft, ArrowUp, Check, ChevronRight, FileText, LayoutTemplate, Plus, X } from "lucide-react";
+import type { TaskType } from "../types";
 import { promptTemplates } from "../promptTemplates";
 
 type Props = {
@@ -16,21 +10,20 @@ type Props = {
   onChange: (value: string) => void;
   onModeChange: (mode: TaskType) => void;
   onSend: (message: string) => void;
-  onAdvancedSubmit?: (request: ResearchRequest) => void;
-  advancedDraft: AdvancedDraft;
-  onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
-  onOpenCatalog?: () => void;
+  /** The toolbar remains available in home and conversation composers. */
   hideModeTabs?: boolean;
   enableTemplates?: boolean;
 };
 
 const modes: { id: TaskType; label: string }[] = [
   { id: "qa", label: "政策问答" },
-  { id: "extract", label: "要素提取" },
   { id: "organize", label: "文献梳理" },
+  { id: "extract", label: "要素提取" },
   { id: "compare", label: "政策比较" },
   { id: "compare_plans", label: "多方案分析" },
 ];
+
+type MenuPanel = "root" | "modes" | "templates" | null;
 
 export function ResearchForm({
   mode,
@@ -39,14 +32,15 @@ export function ResearchForm({
   onChange,
   onModeChange,
   onSend,
-  hideModeTabs = false,
-  enableTemplates = false,
 }: Props) {
-  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [panel, setPanel] = useState<MenuPanel>(null);
+  const [templateMode, setTemplateMode] = useState<TaskType>(mode);
   const composerRef = useRef<HTMLElement>(null);
-  const templatePanelRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isOpen = panel !== null;
 
+  const closeMenu = () => setPanel(null);
   const resize = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -57,16 +51,17 @@ export function ResearchForm({
   };
 
   useEffect(resize, [value]);
-  useEffect(() => { setTemplatesOpen(false); }, [mode, enableTemplates]);
   useEffect(() => {
-    if (!templatesOpen) return;
+    closeMenu();
+    setTemplateMode(mode);
+  }, [mode]);
+  useEffect(() => {
+    if (!isOpen) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && !composerRef.current?.contains(event.target)) {
-        setTemplatesOpen(false);
-      }
+      if (event.target instanceof Node && !composerRef.current?.contains(event.target)) closeMenu();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setTemplatesOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -74,60 +69,58 @@ export function ResearchForm({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [templatesOpen]);
+  }, [isOpen]);
 
-  // Keep the template popover within the viewport without moving the page itself.
+  // Popovers float over the background instead of pushing the page down.
   useLayoutEffect(() => {
-    if (!enableTemplates || !templatesOpen || !templatePanelRef.current) return;
-    const panel = templatePanelRef.current;
-    const fit = () => {
-      const available = window.innerHeight - panel.getBoundingClientRect().top - 16;
-      panel.style.maxHeight = `${Math.max(96, Math.floor(available))}px`;
+    if (!isOpen || !menuRef.current) return;
+    const element = menuRef.current;
+    const fitViewport = () => {
+      const rect = element.getBoundingClientRect();
+      const inConversation = !!composerRef.current?.closest(".conversation-composer-wrap");
+      const available = inConversation ? rect.bottom - 16 : window.innerHeight - rect.top - 16;
+      element.style.maxHeight = `${Math.max(100, Math.floor(available))}px`;
     };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [enableTemplates, templatesOpen]);
+    fitViewport();
+    window.addEventListener("resize", fitViewport);
+    return () => window.removeEventListener("resize", fitViewport);
+  }, [isOpen, panel]);
+
   const send = () => {
     const message = value.trim();
-    if (!busy && message && Array.from(message).length <= 4000) onSend(message);
+    if (!busy && message && Array.from(message).length <= 4000) {
+      closeMenu();
+      onSend(message);
+    }
+  };
+
+  const selectMode = (next: TaskType) => {
+    // Unedited examples are transient helper text, never part of a mode constraint.
+    if (next !== mode && promptTemplates[templateMode].some((item) => item.prompt === value)) onChange("");
+    onModeChange(next);
+    closeMenu();
+    textareaRef.current?.focus();
   };
 
   const messageLength = Array.from(value).length;
+  const currentLabel = modes.find((item) => item.id === mode)?.label ?? "政策问答";
+
   return (
     <section className="research-composer" ref={composerRef} aria-label="研究需求">
-      {!hideModeTabs && <div className="mode-tabs" role="tablist" aria-label="研究模式">
-        {modes.map(({ id, label }) => (
-          <button
-            key={id}
-            className={`mode-tab ${mode === id ? "is-active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={mode === id}
-            onClick={() => {
-              if (id !== mode && enableTemplates && promptTemplates[mode].some((template) => template.prompt === value)) onChange("");
-              setTemplatesOpen(false);
-              onModeChange(id);
-            }}
-          >
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>}
-      <div className={`composer-fields${enableTemplates ? " composer-fields--with-templates" : ""}`}>
-        {enableTemplates && (
-          <button
-            type="button"
-            className={`prompt-template-trigger${templatesOpen ? " is-open" : ""}`}
-            aria-label="指令模板"
-            aria-haspopup="true"
-            aria-expanded={templatesOpen}
-            aria-controls="prompt-template-panel"
-            onClick={() => setTemplatesOpen((open) => !open)}
-          >
-            <LayoutTemplate size={19} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-        )}
+      <div className="composer-fields composer-fields--with-templates">
+        <button
+          type="button"
+          className={`prompt-template-trigger${isOpen ? " is-open" : ""}`}
+          aria-label="更多功能"
+          title="更多功能"
+          aria-haspopup="true"
+          aria-expanded={isOpen}
+          aria-controls="research-extra-panel"
+          disabled={busy}
+          onClick={() => setPanel((current) => current ? null : "root")}
+        >
+          <Plus size={21} strokeWidth={1.9} aria-hidden="true" />
+        </button>
         <textarea
           ref={textareaRef}
           className="composer-question"
@@ -148,33 +141,75 @@ export function ResearchForm({
           <ArrowUp size={17} strokeWidth={2.4} />
         </button>
       </div>
+      {mode !== "qa" && (
+        <div className="composer-current-mode">
+          <span>{currentLabel}</span>
+          <button type="button" aria-label="恢复默认模式" title="恢复政策问答" disabled={busy} onClick={() => selectMode("qa")}><X size={12} /></button>
+        </div>
+      )}
       {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
         {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
       </div>}
-      {enableTemplates && templatesOpen && (
-        <div className="prompt-template-panel" ref={templatePanelRef} id="prompt-template-panel" role="region" aria-label="指令模板列表">
-          <header className="prompt-template-heading">
-            <div className="prompt-template-heading-title"><FileText size={17} aria-hidden="true" /><strong>{modes.find((item) => item.id === mode)?.label} · 指令模板</strong></div>
-            <button type="button" className="prompt-template-close" aria-label="关闭指令模板" onClick={() => setTemplatesOpen(false)}><X size={17} aria-hidden="true" /></button>
-          </header>
-          <div className="prompt-template-grid">
-            {promptTemplates[mode].map((template) => (
-              <button
-                type="button"
-                key={template.id}
-                className={`prompt-template-card${value === template.prompt ? " is-selected" : ""}`}
-                aria-pressed={value === template.prompt}
-                onClick={() => { onChange(template.prompt); textareaRef.current?.focus(); }}
-              >
-                <span className="prompt-template-card-icon"><FileText size={17} aria-hidden="true" /></span>
-                <span className="prompt-template-card-content">
-                  <strong>{template.title}</strong>
-                  <span>{template.prompt}</span>
-                </span>
-                {value === template.prompt && <span className="prompt-template-selected" aria-hidden="true">✓</span>}
+      {panel && (
+        <div
+          className={`research-extra-panel research-extra-panel--${panel}`}
+          id="research-extra-panel"
+          ref={menuRef}
+          role="region"
+          aria-label={panel === "root" ? "更多功能菜单" : panel === "modes" ? "研究模式选择" : "指令模板列表"}
+        >
+          {panel === "root" ? (
+            <div className="extra-menu-items">
+              <button type="button" className="extra-menu-item" onClick={() => setPanel("modes")}>
+                <FileText size={18} aria-hidden="true" /><span>研究模式</span><span className="extra-menu-current">{currentLabel}</span><ChevronRight size={16} aria-hidden="true" />
               </button>
-            ))}
-          </div>
+              <button type="button" className="extra-menu-item" onClick={() => { setTemplateMode(mode); setPanel("templates"); }}>
+                <LayoutTemplate size={18} aria-hidden="true" /><span>指令模板</span><ChevronRight className="extra-menu-chevron" size={16} aria-hidden="true" />
+              </button>
+            </div>
+          ) : panel === "modes" ? (
+            <>
+              <header className="extra-panel-header">
+                <button type="button" aria-label="返回更多功能" onClick={() => setPanel("root")}><ArrowLeft size={17} /></button>
+                <strong>研究模式</strong>
+                <button type="button" aria-label="关闭更多功能" onClick={closeMenu}><X size={17} /></button>
+              </header>
+              <div className="extra-menu-items" role="group" aria-label="可选研究模式">
+                {modes.map(({ id, label }) => (
+                  <button type="button" key={id} className="extra-menu-item" aria-pressed={mode === id} onClick={() => selectMode(id)}>
+                    <span>{label}</span>{mode === id && <Check size={17} aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <header className="extra-panel-header">
+                <button type="button" aria-label="返回更多功能" onClick={() => setPanel("root")}><ArrowLeft size={17} /></button>
+                <strong>指令模板</strong>
+                <button type="button" aria-label="关闭更多功能" onClick={closeMenu}><X size={17} /></button>
+              </header>
+              <div className="extra-template-modes" role="group" aria-label="模板分类">
+                {modes.map(({ id, label }) => (
+                  <button type="button" key={id} aria-pressed={templateMode === id} className={templateMode === id ? "is-active" : ""} onClick={() => setTemplateMode(id)}>{label}</button>
+                ))}
+              </div>
+              <div className="prompt-template-grid">
+                {promptTemplates[templateMode].map((template) => (
+                  <button
+                    type="button"
+                    key={template.id}
+                    className={`prompt-template-card${value === template.prompt ? " is-selected" : ""}`}
+                    aria-pressed={value === template.prompt}
+                    onClick={() => { onChange(template.prompt); closeMenu(); textareaRef.current?.focus(); }}
+                  >
+                    <span className="prompt-template-card-icon"><FileText size={17} aria-hidden="true" /></span>
+                    <span className="prompt-template-card-content"><strong>{template.title}</strong><span>{template.prompt}</span></span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </section>
