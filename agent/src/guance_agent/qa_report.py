@@ -1,0 +1,110 @@
+"""Evidence-only fallback for multi-aspect QA reports.
+
+The model should compose its own report. When verification removes claims, we
+must not publish its now-unsupported prose; rebuild a readable outline from
+surviving evidence, with explicit gaps rather than invented conclusions.
+"""
+import re
+from collections import OrderedDict
+
+from .schemas import Claim
+
+_CHINESE = "一二三四五六七八九十"
+_CATEGORIES = (
+    ("总体发展环境", ("总体", "整体环境", "外部环境", "发展环境")),
+    ("主要发展机遇", ("机遇", "机会", "有利条件")),
+    ("面临挑战", ("挑战", "困难", "发展瓶颈", "制约", "不足")),
+)
+_GROUP_ORDER = ("总体发展环境", "主要发展机遇", "面临挑战")
+
+
+def needs_outline(question: str) -> bool:
+    """Only require a report outline for genuinely multi-part QA, not a fact lookup."""
+    text = question or ""
+    pairs = (("机遇", "挑战"), ("优势", "劣势"), ("优势", "不足"),
+             ("成效", "问题"), ("问题", "对策"), ("现状", "趋势"))
+    return any(a in text and b in text for a, b in pairs)
+
+
+def _number(index: int) -> str:
+    if 1 <= index <= 10:
+        return _CHINESE[index - 1]
+    if 11 <= index <= 19:
+        return "十" + _CHINESE[index - 11]
+    if index == 20:
+        return "二十"
+    return str(index)
+
+
+def _category(claim: Claim, question: str) -> str:
+    dimension = (claim.dimension or "").strip()
+    for label, aliases in _CATEGORIES:
+        if any(alias in dimension for alias in aliases):
+            return label
+    # Only classify from the claim's explicit language; do not infer policy
+    # opportunities from a generic mention of infrastructure or markets.
+    text = claim.text
+    for label, aliases in _CATEGORIES:
+        if any(alias in text for alias in aliases):
+            return label
+    if dimension and len(dimension) <= 30 and "\n" not in dimension:
+        return dimension
+    return "其他已核验事实"
+
+
+def _short_heading(text: str) -> str:
+    """Use a substring of the verified claim, never manufacture a new fact."""
+    cleaned = re.sub(
+        r"^(?:发展)?(?:机遇|挑战)(?:之[一二三四五六七八九十]|包括|是|为)?\s*",
+        "", text.strip(),
+    ).lstrip("一二三四五六七八九十、：:， ")
+    head = re.split(r"[，。；;：:\n]", cleaned, maxsplit=1)[0].strip()
+    if not head:
+        head = text.strip()
+    return head[:36] + ("…" if len(head) > 36 else "")
+
+
+def verified_qa_outline(claims: list[Claim], question: str) -> tuple[str, list[str]]:
+    """Return a structured summary and dimensions without evidence.
+
+    The summary only reports categories in *surviving* facts; it is not a
+    substitute for a model-generated, evidence-linked interpretation.
+    """
+    if not claims:
+        return "本轮缺少可核验的政策事实，暂不能完成分项归纳。", []
+
+    groups: dict[str, list[Claim]] = OrderedDict()
+    for claim in claims:
+        groups.setdefault(_category(claim, question), []).append(claim)
+
+    required = ["主要发展机遇", "面临挑战"] if "机遇" in question and "挑战" in question else []
+    missing = [label for label in required if not groups.get(label)]
+    ordered = [label for label in _GROUP_ORDER if label in groups]
+    ordered += [label for label in groups if label not in ordered]
+    ordered += missing
+
+    if required:
+        intro = ("根据本轮可追溯到政策原文的事实，相关发展环境可从总体条件、"
+                 "主要发展机遇与面临挑战三个方面考察。以下仅归纳已有证据支持的内容。")
+    else:
+        intro = "根据本轮已取得并通过原文核验的政策事实，可从以下方面梳理："
+
+    lines = [intro]
+    for i, label in enumerate(ordered, start=1):
+        lines.extend(["", f"{_number(i)}、{label}"])
+        items = groups.get(label, [])
+        if not items:
+            lines.append("本轮尚未取得足以支持这一方面的原文证据，暂不能作出判断。")
+            continue
+        for j, claim in enumerate(items, start=1):
+            lines.append(f"（{_number(j)}）{_short_heading(claim.text)}")
+            lines.append(claim.text.strip())
+
+    covered = [label for label in ordered if groups.get(label)]
+    closing = "综上，本轮证据涉及" + "、".join(covered) + "。"
+    if missing:
+        closing += "关于" + "、".join(missing) + "尚需补充证据，不能视为完整回答。"
+    else:
+        closing += "以上为已核验材料范围内的归纳，不代表对全部相关情况的穷尽。"
+    lines.extend(["", closing])
+    return "\n".join(lines), missing

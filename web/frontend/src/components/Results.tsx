@@ -11,6 +11,7 @@ import type {
   QAAnalysisResult,
   RunResult,
 } from "../types";
+import { AnswerOutline } from "./AnswerOutline";
 import "./results.css";
 
 interface ResultsProps {
@@ -81,7 +82,7 @@ function AnswerFallback({ result, onEvidence }: ResultsProps) {
   const claims = result.claims ?? [];
   return (
     <section className="results-fallback">
-      {result.answer && <p className="results-answer">{result.answer}</p>}
+      {result.answer && <div className="results-answer"><AnswerOutline text={result.answer} /></div>}
       {claims.length > 0 && <div className="results-claim-list">{claims.map((claim, index) => <Fact key={`${index}-${claim.text}`} claim={claim} onEvidence={onEvidence} />)}</div>}
       {!result.answer && claims.length === 0 && <p className="results-empty">本次任务没有可展示的结构化结果。</p>}
     </section>
@@ -102,7 +103,7 @@ function QAResults({ result, onEvidence }: ResultsProps) {
   return (
     <div className="results-content results-content--qa">
       <Header title="研究结论" />
-      {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><p>{result.answer}</p></div>}
+      {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><AnswerOutline text={result.answer} /></div>}
       {result.structured && "schema_version" in result.structured
         && result.structured.schema_version === "qa-analysis/1"
         && (result.structured as QAAnalysisResult).analyses.length > 0 && (
