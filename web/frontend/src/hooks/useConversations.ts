@@ -389,8 +389,8 @@ export function useConversations() {
     setActiveId(id);
   }, []);
 
-  const newConversation = useCallback(() => {
-    const conversation = createConversation();
+  const newConversation = useCallback((mode: TaskType = "qa") => {
+    const conversation = createConversation(mode);
     updateSessions((current) => [conversation, ...current]);
     activeIdRef.current = conversation.id;
     setActiveId(conversation.id);
