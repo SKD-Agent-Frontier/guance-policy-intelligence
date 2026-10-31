@@ -404,7 +404,7 @@ export function useConversations() {
     if (index < 0) return;
     const target = conversation.messages[index];
     if (target.kind === "user" || target.kind === "execution") return;
-    const userIndex = conversation.messages.findLastIndex((item, i) => i < index && item.kind === "user");
+    const userIndex = conversation.messages.slice(0, index).map((item) => item.kind).lastIndexOf("user");
     if (userIndex < 0) return;
 
     // A completed answer can reuse the precisely prepared request, avoiding
@@ -415,9 +415,11 @@ export function useConversations() {
       lastOperations.current.delete(conversation.id);
       updateConversation(conversation.id, (current) => ({
         ...current, messages: retained, busy: "idle",
-        preparation: [...retained].reverse().find((item) => item.kind === "preparation")?.kind === "preparation"
-          ? (retained.filter((item) => item.kind === "preparation").at(-1) as Extract<ConversationMessage, {kind: "preparation"}>).response
-          : null,
+        preparation: (() => {
+          const prior = retained.filter((item) => item.kind === "preparation").at(-1);
+          return prior?.kind === "preparation" ? prior.response : null;
+        })(),
+        advancedDraft: createAdvancedDraft(),
       }));
       const token = beginOperation(conversation.id);
       if (!token) return;
