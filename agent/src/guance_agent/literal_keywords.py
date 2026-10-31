@@ -16,7 +16,7 @@ def literal_keyword(question: str) -> str | None:
     first = re.sub(r"^(?:关于|有关|针对|围绕)\s*", "", first)
     match = re.fullmatch(
         r"(?P<term>[\u4e00-\u9fffA-Za-z0-9]{2,32}?)(?:的)?"
-        r"(?:相关|有关)?政策(?:有哪些|有哪一些|是什么|吗)?", first,
+        r"(?:相关|有关)?(?:有哪些|有哪一些)?政策(?:有哪些|有哪一些|是什么|吗)?", first,
     )
     if not match:
         return None
