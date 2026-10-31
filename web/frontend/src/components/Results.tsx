@@ -154,6 +154,16 @@ function ComparisonResults({ result, onEvidence, plans = false }: ResultsProps &
   return (
     <div className="results-content results-content--compare">
       <Header title={plans ? "方案对照" : "政策比较矩阵"} note={plans ? "分析仅依赖下方已列出的支持条款，适用条件按原文呈现。" : undefined} />
+      {structured.task_completion?.status === "partial" && (
+        <div className="comparison-task-status" role="status">
+          <strong>本轮仅完成部分比较</strong>
+          <p>以下展示已取得依据的政策事实；未形成足够相关证据的维度不生成异同判断。
+            {structured.task_completion.unsupported_dimensions.length > 0
+              ? `待补充：${structured.task_completion.unsupported_dimensions.join("、")}`
+              : ""}
+          </p>
+        </div>
+      )}
       {structured.evaluation_criteria && structured.evaluation_criteria.length > 0 && <div className="comparison-criteria"><span>评价标准</span>{structured.evaluation_criteria.map((criterion) => <em key={criterion}>{criterion}</em>)}</div>}
       {rows.length > 0 && (
         <div className="comparison-scroll" role="region" aria-label="政策比较矩阵" tabIndex={0}>

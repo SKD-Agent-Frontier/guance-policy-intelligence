@@ -496,6 +496,12 @@ export interface ComparisonAnalysis {
 }
 
 export interface ComparisonResult {
+  task_completion?: {
+    status: "complete" | "partial";
+    requested_dimensions: string[];
+    supported_dimensions: string[];
+    unsupported_dimensions: string[];
+  };
   objects: ComparisonObject[];
   dimensions: string[];
   matrix: {

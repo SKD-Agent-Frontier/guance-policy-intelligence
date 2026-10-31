@@ -125,8 +125,10 @@ def _score(record: PolicyRecord, period: str, topic: str) -> int | None:
     title = record.title or ""
     # 整词连续匹配；例如「数字经济」绝不能拆成「数字」「经济」。
     in_title = topic in title
-    in_body = topic in record.body
-    if not (in_title or in_body):
+    # A word in an incidental paragraph does NOT make an emergency / fire /
+    # infrastructure plan representative of the requested research topic.
+    # Body-only matches can be offered for review, never auto-picked.
+    if not in_title:
         return None
     requested_period = normalize_fyp(period)
     metadata_period = normalize_fyp(record.fyp)
@@ -136,7 +138,7 @@ def _score(record: PolicyRecord, period: str, topic: str) -> int | None:
     if metadata_period != requested_period and not period_in_title:
         return None
     return (
-        (100 if in_title else 15)
+        100
         + (30 if period_in_title else 0)
         + (8 if "规划" in title else 0)
         + (4 if "专项" in title else 0)
@@ -160,6 +162,7 @@ def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
     selected: list[dict] = []
     for area in areas:
         candidates: list[tuple[int, PolicyRecord]] = []
+        body_only: list[PolicyRecord] = []
         for record in catalog.snapshot.records:
             if _canonical_area(record.area) != area:
                 continue
@@ -168,10 +171,25 @@ def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
             score = _score(record, period, topic)
             if score is not None:
                 candidates.append((score, record))
+            elif topic in (record.body or ""):
+                # Only for an explanation when no topical title exists. No auto substitution.
+                requested = normalize_fyp(period)
+                metadata = normalize_fyp(record.fyp)
+                if (not metadata or metadata == requested) and (
+                    metadata == requested or period in (record.title or "")
+                ):
+                    body_only.append(record)
         candidates.sort(key=lambda pair: (-pair[0], pair[1].planid))
         if not candidates:
+            hint = (
+                f"找到了{len(body_only)}篇仅在正文出现「{topic}」的政策，但它们的"
+                "文件主题不匹配；不会把这些文献自动替代为研究对象。"
+                if body_only else "当前发布库未找到题名直接对应研究主题的政策。"
+            )
             return {"status": "needs_clarification",
-                    "message": f"当前发布政策库未找到{area}地区「{period}·{topic}」的可定位文献；不会以其它地区或时期的政策替代。可调整主题或改用高级入口。",
+                    "message": f"{area}「{period}·{topic}」没有可安全自动选择的主题政策。{hint}"
+                               "请核对文献目录，选定合适文件后使用高级入口；"
+                               "如需要，也可调整研究范围。当前不生成比较结论。",
                     "targets": [], "policies": selected, "dimensions": dimensions}
         top_score, top = candidates[0]
         # 多份候选同分意味着无法根据明确条件辨识原意，不任意按编号挑选。
