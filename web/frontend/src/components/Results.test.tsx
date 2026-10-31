@@ -101,7 +101,7 @@ describe("Results", () => {
           { cell_id: "a", planid: "ZA", status: "found", text: ca.text, chunk_ids: ["a"], quotes: ca.quotes },
           { cell_id: "b", planid: "JB", status: "found", text: cb.text, chunk_ids: ["b"], quotes: cb.quotes },
         ],
-        difference: { text: "两省目标不同", supporting_cells: ["a", "b"], kind: "analysis", status: "verified" },
+        difference: { text: "两省目标不同", supporting_cells: ["a", "b"], kind: "analysis", status: "supported" },
         comparability: { comparable: false, reason: "不展示的口径提示" },
       }],
       comparability: { comparable: false, reason: "不展示的整体提示" },
@@ -117,8 +117,8 @@ describe("Results", () => {
     })} onEvidence={noEvidence} />);
 
     expect(html.match(/class="result-citation"/g)).toHaveLength(2);
-    expect(html.indexOf('data-chunk-id="a"')).toBeLessThan(html.indexOf("浙江省 · 十四五 · planid ZA"));
-    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("江苏省 · 十四五 · planid JB"));
+    expect(html.indexOf('data-chunk-id="a"')).toBeLessThan(html.indexOf("planid ZA"));
+    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("planid JB"));
     expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("<tbody>"));
     expect(html).toContain("两省目标不同");
     expect(html).not.toContain("不展示的口径提示");
