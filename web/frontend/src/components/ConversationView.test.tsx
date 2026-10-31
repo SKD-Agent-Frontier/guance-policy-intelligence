@@ -66,6 +66,10 @@ describe("ConversationView", () => {
     render(<ConversationView conversation={conversationFixture()} onModeChange={vi.fn()} onSend={onSend} onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "后端动态问题二" })).toBeInTheDocument();
+    // Conversation bubbles no longer repeat speaker names above their content.
+    expect(screen.queryByText("你", { selector: ".message-role" })).not.toBeInTheDocument();
+    expect(screen.queryByText("研究助手", { selector: ".message-role" })).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".message-user .message-role, .message-preparation .message-role")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "旧选项" })).toBeDisabled();
     expect(screen.queryByText(/这是历史准备消息/)).not.toBeInTheDocument();
     expect(screen.queryByText("当前已确认")).not.toBeInTheDocument();
@@ -143,6 +147,7 @@ describe("conversation simplification and original source reader", () => {
     expect(screen.queryByText("结论与本次检索到的原文逐条关联。")).not.toBeInTheDocument();
     expect(screen.getByText("依据与引句")).toBeInTheDocument();
     expect(screen.getByText("1 条结论")).toBeInTheDocument();
+    expect(document.querySelector(".qa-claims .results-section-title > span:last-child")).toHaveTextContent("1 条结论");
     expect(screen.queryByText("研究请求已准备完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
     expect(screen.queryByText("正式研究结果")).not.toBeInTheDocument();
