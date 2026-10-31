@@ -153,7 +153,6 @@ export function ResearchForm({
             type="button"
             className={`prompt-template-trigger${templatesOpen ? " is-open" : ""}`}
             aria-label="指令模板"
-            title="指令模板"
             aria-haspopup="true"
             aria-expanded={templatesOpen}
             aria-controls="prompt-template-panel"
