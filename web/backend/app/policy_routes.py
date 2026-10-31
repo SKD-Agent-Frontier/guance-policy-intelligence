@@ -9,7 +9,6 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from .compare_resolution import CompareResolveRequest, resolve_compare
-from .research_planning import ResearchResolveRequest, resolve_research
 from .policy_catalog import (
     DEFAULT_CONTENT_LIMIT,
     DEFAULT_PAGE_SIZE,
@@ -21,6 +20,7 @@ from .policy_catalog import (
     load_published_catalog,
 )
 from .policy_regions import RegionResourceUnavailable, load_region_mapping, load_region_tree
+from .research_planning import ResearchResolveRequest, resolve_research
 from .policy_schemas import (
     PolicyContentResponse,
     PolicyDetailResponse,
