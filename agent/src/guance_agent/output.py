@@ -133,6 +133,7 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     result.dropped_chunk_ids = list(dict.fromkeys(dropped))
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
     if task.task_type == "qa" and parsed.analyses:
+        result.meta["analysis_drafts_received"] = len(parsed.analyses)
         result._qa_analysis_candidates = prepare_candidates(
             [item.model_dump() for item in parsed.analyses], parsed.claims, result.claims)
     # 提示一律进 warnings：answer 保持模型原话，便于评测比对，也不依赖某个渲染器才可见。
