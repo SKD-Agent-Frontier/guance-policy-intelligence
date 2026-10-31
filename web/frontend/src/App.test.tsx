@@ -42,7 +42,10 @@ describe("App navigation", () => {
     mockState.setMode.mockClear();
     mockState.send.mockClear();
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("keeps the home icon and global sidebar available from home, workspace, and catalog", () => {
     render(<App />);
@@ -59,5 +62,35 @@ describe("App navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "文献" }));
     expect(screen.getByLabelText("实际政策目录")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
+  });
+
+  it("opens recent conversations from the sidebar history icon", () => {
+    render(<App />);
+    expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "展开最近研究" }));
+    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByTitle("新对话")).toBeInTheDocument();
+  });
+
+  it("keeps the mobile sidebar open when opening recent research", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
+    expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "展开最近研究" }));
+    expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
+    expect(screen.getByText("最近研究")).toBeInTheDocument();
+  });
+
+  it("hides the brand on home while keeping the hamburger and accessible settings icon", () => {
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "管策智研首页" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开侧栏" })).toBeInTheDocument();
+    const settings = screen.getByRole("button", { name: "身份与环境设置" });
+    expect(settings).toBeInTheDocument();
+    expect(settings).toHaveAccessibleName("身份与环境设置");
+    expect(settings).not.toHaveTextContent("学号");
+    settings.focus();
+    expect(settings).toHaveFocus();
   });
 });

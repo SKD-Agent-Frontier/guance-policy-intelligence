@@ -1,0 +1,2150 @@
+{
+  "final_acceptance_code_commit": "14d1f5846b964e12272e1103552dff46994a9d32",
+  "base_pr": 12,
+  "delivery_pr": 13,
+  "data_scope": "与既有本地服务隔离的同冻结发布BM25副本；8个冻结数据文件SHA-256一致",
+  "effective_configuration_of_controlled_process": {
+    "llm_model": "qwen3.8-27b",
+    "llm_request_timeout": 60.0,
+    "llm_max_retries": 2,
+    "run_timeout": 180.0,
+    "tool_timeout": 20.0,
+    "max_turns": 8,
+    "max_tool_calls": 20,
+    "top_k_default": 20,
+    "kb_backend": "rag",
+    "rag_mode": "bm25",
+    "structured_output": false,
+    "llm_max_output_tokens": 2000,
+    "llm_disable_thinking": true
+  },
+  "configuration_caveat": "这是实际验收进程的配置，不代表已取得历史截图进程的最终环境覆盖值",
+  "release": {
+    "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+    "revision": 1,
+    "documents": 506,
+    "mode": "bm25"
+  },
+  "independent_rag_diagnosis": {
+    "startup_seconds": 143.62665960000595,
+    "queries": [
+      {
+        "query": "舆论",
+        "top_k": 20,
+        "source_types": [
+          "text_chunk"
+        ],
+        "status": "ok",
+        "count": 20,
+        "documents": 17,
+        "seconds": 0.6867717999848537,
+        "planids": null
+      },
+      {
+        "query": "数字经济",
+        "top_k": 20,
+        "source_types": [
+          "text_chunk"
+        ],
+        "status": "ok",
+        "count": 20,
+        "documents": 8,
+        "seconds": 0.5947285000002012,
+        "planids": null
+      },
+      {
+        "query": "减税降费",
+        "top_k": 20,
+        "source_types": [
+          "text_chunk"
+        ],
+        "status": "ok",
+        "count": 4,
+        "documents": 1,
+        "seconds": 0.17784849999588914,
+        "planids": [
+          "12915"
+        ]
+      }
+    ],
+    "read": {
+      "planid": "12915",
+      "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+      "char_start": 6317,
+      "char_end": 6950,
+      "content_characters": 633,
+      "index_seconds": 0.024631200009025633,
+      "read_seconds": 0.025519700022414327,
+      "status": "ok"
+    }
+  },
+  "known_reference": {
+    "planid": "12915",
+    "title": "云南省2019年政府工作报告",
+    "fact": "落实更大规模减税降费措施，再为企业降成本900亿元以上",
+    "reference_checked_by": "主代理从冻结原文核对；不是人工验收确认"
+  },
+  "records": [
+    {
+      "phase": "baseline-isolated",
+      "case": "known",
+      "question": "planid=12915《云南省2019年政府工作报告》中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+      "agent_code_reference": "63ca017c287db14bfec7c0269f37b7e0915e58a0",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "python_submit",
+      "assessment": "已知文献硬性条件通过；修复前基线",
+      "wall_seconds": 13.48479689998203,
+      "result": {
+        "run_id": "run_f49b49db9d854a51a3e8d80d1fb80fe7",
+        "session_id": "s_ed5fd4f914b64eadb89f285fab5ae43f",
+        "status": "completed",
+        "evidence_status": "verified",
+        "answer": "【云南省2019年政府工作报告】\n根据《云南省2019年政府工作报告》（planid=12915）“二、2019年工作重点”中“巩固‘三去一降一补’成果”部分，落实更大规模减税降费措施的要求是“再为企业降成本900亿元以上”。",
+        "claims": [
+          {
+            "text": "落实更大规模减税降费措施，要求再为企业降成本900亿元以上",
+            "chunk_ids": [
+              "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7"
+            ],
+            "quotes": [
+              "落实好更大规模减税降费措施，再为企业降成本900亿元以上。"
+            ],
+            "dimension": null,
+            "anchors": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "document_id": "doc_1f5fd07146f33d3818ff030007a60834",
+            "document_version_id": "document_version_1f5fd07146f33d3818ff030007a60834264187094cdbf9a23abca6ba92217dea",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "cc432bb57f93d73c46b91b1d7d3c666644d008032af46c396b309353a5727ec7",
+            "section_id": "section_996bd916f5582e43e2750f382eb1d8fc",
+            "section_char_start": 5297,
+            "section_char_end": 17674,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 251,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "12915",
+            "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+            "parent_id": "parent_aed31398e01f0f0998d66904d0246e4b",
+            "title": "云南省2019年政府工作报告",
+            "area": "云南省",
+            "fyp": "政府工作报告",
+            "admin_level": "省",
+            "plantype_label": "专项规划",
+            "section_idx": 2,
+            "section_path": "二、2019年工作重点",
+            "char_start": 6317,
+            "char_end": 6617,
+            "chunk_char_start": 6317,
+            "chunk_char_end": 6950,
+            "truncated": true,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                6317,
+                6617
+              ]
+            ],
+            "complete": false,
+            "out_of_section": false
+          }
+        ],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 13471,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 311
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@3afe2f7a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok",
+            "objects": [
+              {
+                "classification": "ok"
+              }
+            ]
+          },
+          "llm": {
+            "model_calls": 2,
+            "input_tokens": 13564,
+            "output_tokens": 217,
+            "per_call": [
+              {
+                "input": 1290,
+                "output": 68
+              },
+              {
+                "input": 12274,
+                "output": 149
+              }
+            ],
+            "parse": "ok"
+          },
+          "quote_verification": {
+            "checked": 1,
+            "approved": 1,
+            "rejected": 0,
+            "unverified": 0,
+            "removed_claims": 0,
+            "removed_quotes": 0
+          },
+          "number_verification": "literal_only"
+        },
+        "warnings": [],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "objects",
+          "planids": [],
+          "titles": [
+            "云南省2019年政府工作报告"
+          ],
+          "areas": [
+            "云南省"
+          ],
+          "fyps": [],
+          "sub_query": "planid=12915云南省2019年政府工作报告中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+          "objects": [
+            {
+              "label": "云南省2019年政府工作报告",
+              "planid": "12915",
+              "origin": "title",
+              "llm": {
+                "model_calls": 2,
+                "input_tokens": 13564,
+                "output_tokens": 217,
+                "per_call": [
+                  {
+                    "input": 1290,
+                    "output": 68
+                  },
+                  {
+                    "input": 12274,
+                    "output": 149
+                  }
+                ]
+              },
+              "status": "ok",
+              "error_code": null,
+              "claims": 1,
+              "evidence": 1
+            }
+          ]
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "落实更大规模减税降费 再为企业降低成本",
+            "云南",
+            "",
+            8
+          ],
+          "kwargs": {
+            "planids": [
+              "12915"
+            ]
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.31544669999857433
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 2.1894994999747723
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 6.027452000009362
+        }
+      ],
+      "model_http_attempts": null,
+      "quote_checks": [
+        {
+          "claim": "落实更大规模减税降费措施，要求再为企业降成本900亿元以上",
+          "quote": "落实好更大规模减税降费措施，再为企业降成本900亿元以上。",
+          "results": [
+            true
+          ]
+        }
+      ],
+      "rag_stats": {
+        "generation_id": null,
+        "revision": null,
+        "documents": null,
+        "bm25_loads": null,
+        "queue_size": null
+      }
+    },
+    {
+      "phase": "baseline-isolated",
+      "case": "original",
+      "question": "了解舆论的最新政策",
+      "agent_code_reference": "63ca017c287db14bfec7c0269f37b7e0915e58a0",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "actual_http_api",
+      "assessment": "失败：MAX_TURNS；全部工具成功但未生成最终答案",
+      "wall_seconds": 141.01423780000187,
+      "result": {
+        "run_id": "run_1daad9a75ae44a04a028ba67833bc65c",
+        "session_id": "s_d56397bda9574eeb9f7d1da6cbc9689d",
+        "status": "limit_reached",
+        "evidence_status": "none",
+        "answer": "本次任务步骤过多，已停止，请缩小问题范围",
+        "claims": [],
+        "evidence_refs": [],
+        "dropped_chunk_ids": [],
+        "error": {
+          "code": "MAX_TURNS",
+          "message": "本次任务步骤过多，已停止，请缩小问题范围"
+        },
+        "meta": {
+          "elapsed_ms": 139572,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 412
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 196
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 274
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 183
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 11
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 4
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 46
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 4
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@3afe2f7a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true
+        },
+        "warnings": [],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "open",
+          "planids": [],
+          "titles": [],
+          "areas": [],
+          "fyps": [],
+          "sub_query": "了解舆论的最新政策"
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论管理 网络舆论 意识形态",
+            null,
+            null,
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.4142357000091579
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论引导 主流媒体 媒体融合 十四五",
+            null,
+            "十四五",
+            12
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.1980352000100538
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "网络舆情 治理 2023 2024 2025 最新政策",
+            null,
+            null,
+            12
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.27599160000681877
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "网络信息内容生态治理 清朗 舆论引导 网络生态",
+            null,
+            null,
+            12
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.18487779999850318
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "26871",
+            131,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": null,
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.013645900005940348
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "26871",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_1fc6837a27beeb1bff397a17e3da080c",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.00433820000034757
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "26871",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_476347347ad7157a96542995c3ec6c98",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.04712550001568161
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "34741",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_b310c84e1884dffd4ae6617a91a5521b",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.004836900014197454
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 1.9873855000187177
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 5.056329400016693
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 9.26419220000389
+        },
+        {
+          "turn": 4,
+          "elapsed_seconds": 12.749982200009981
+        },
+        {
+          "turn": 5,
+          "elapsed_seconds": 6.8217197000049055
+        },
+        {
+          "turn": 6,
+          "elapsed_seconds": 13.383006499992916
+        },
+        {
+          "turn": 7,
+          "elapsed_seconds": 82.25269439999829
+        },
+        {
+          "turn": 8,
+          "elapsed_seconds": 4.789255600015167
+        }
+      ],
+      "model_http_attempts": null,
+      "quote_checks": [],
+      "rag_stats": {
+        "generation_id": null,
+        "revision": null,
+        "documents": null,
+        "bm25_loads": null,
+        "queue_size": null
+      }
+    },
+    {
+      "phase": "after",
+      "case": "known",
+      "question": "planid=12915《云南省2019年政府工作报告》中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+      "agent_code_reference": "59f5f4d3d3df7d70c8cf95b0a57b208d7af6830e",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "python_submit",
+      "assessment": "已知文献通过；第一阶段修复后",
+      "wall_seconds": 17.520790399983525,
+      "result": {
+        "run_id": "run_f40d045ea7304aeab8d7b05cf75326b0",
+        "session_id": "s_d305b6d2833c438799330dc7a2786eff",
+        "status": "completed",
+        "evidence_status": "verified",
+        "answer": "【云南省2019年政府工作报告】\n《云南省2019年政府工作报告》（planid=12915）在“二、2019年工作重点”中提出：落实好更大规模减税降费措施，再为企业降成本900亿元以上。",
+        "claims": [
+          {
+            "text": "落实更大规模减税降费措施，要求再为企业降成本900亿元以上",
+            "chunk_ids": [
+              "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7"
+            ],
+            "quotes": [
+              "落实好更大规模减税降费措施，再为企业降成本900亿元以上。"
+            ],
+            "dimension": null,
+            "anchors": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "document_id": "doc_1f5fd07146f33d3818ff030007a60834",
+            "document_version_id": "document_version_1f5fd07146f33d3818ff030007a60834264187094cdbf9a23abca6ba92217dea",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "cc432bb57f93d73c46b91b1d7d3c666644d008032af46c396b309353a5727ec7",
+            "section_id": "section_996bd916f5582e43e2750f382eb1d8fc",
+            "section_char_start": 5297,
+            "section_char_end": 17674,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 251,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "12915",
+            "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+            "parent_id": "parent_aed31398e01f0f0998d66904d0246e4b",
+            "title": "云南省2019年政府工作报告",
+            "area": "云南省",
+            "fyp": "政府工作报告",
+            "admin_level": "省",
+            "plantype_label": "专项规划",
+            "section_idx": 2,
+            "section_path": "二、2019年工作重点",
+            "char_start": 6317,
+            "char_end": 6950,
+            "chunk_char_start": 6317,
+            "chunk_char_end": 6950,
+            "truncated": true,
+            "source": "kb_read",
+            "observed_ranges": [
+              [
+                6317,
+                6950
+              ]
+            ],
+            "complete": true,
+            "out_of_section": false
+          }
+        ],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 17514,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 134
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 6
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@3afe2f7a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok",
+            "objects": [
+              {
+                "classification": "ok"
+              }
+            ]
+          },
+          "llm": {
+            "model_calls": 3,
+            "input_tokens": 30875,
+            "output_tokens": 304,
+            "per_call": [
+              {
+                "input": 1290,
+                "output": 69
+              },
+              {
+                "input": 13923,
+                "output": 100
+              },
+              {
+                "input": 15662,
+                "output": 135
+              }
+            ],
+            "parse": "ok"
+          },
+          "quote_verification": {
+            "checked": 1,
+            "approved": 1,
+            "rejected": 0,
+            "unverified": 0,
+            "removed_claims": 0,
+            "removed_quotes": 0
+          },
+          "number_verification": "literal_only"
+        },
+        "warnings": [],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "objects",
+          "planids": [],
+          "titles": [
+            "云南省2019年政府工作报告"
+          ],
+          "areas": [
+            "云南省"
+          ],
+          "fyps": [],
+          "sub_query": "planid=12915云南省2019年政府工作报告中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+          "objects": [
+            {
+              "label": "云南省2019年政府工作报告",
+              "planid": "12915",
+              "origin": "title",
+              "llm": {
+                "model_calls": 3,
+                "input_tokens": 30875,
+                "output_tokens": 304,
+                "per_call": [
+                  {
+                    "input": 1290,
+                    "output": 69
+                  },
+                  {
+                    "input": 13923,
+                    "output": 100
+                  },
+                  {
+                    "input": 15662,
+                    "output": 135
+                  }
+                ]
+              },
+              "status": "ok",
+              "error_code": null,
+              "claims": 1,
+              "evidence": 1
+            }
+          ]
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "落实更大规模减税降费措施 为企业降低成本",
+            "云南",
+            "",
+            10
+          ],
+          "kwargs": {
+            "planids": [
+              "12915"
+            ]
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.13908779999474064
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "12915",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.007582400023238733
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 2.344212299998617
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 6.0090983000118285
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 6.502643599989824
+        }
+      ],
+      "model_http_attempts": null,
+      "quote_checks": [
+        {
+          "claim": "落实更大规模减税降费措施，要求再为企业降成本900亿元以上",
+          "quote": "落实好更大规模减税降费措施，再为企业降成本900亿元以上。",
+          "results": [
+            true
+          ]
+        }
+      ],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    },
+    {
+      "phase": "after",
+      "case": "open",
+      "question": "当前政策知识库中，关于数字经济发展有哪些具体支持措施？",
+      "agent_code_reference": "59f5f4d3d3df7d70c8cf95b0a57b208d7af6830e",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "python_submit",
+      "assessment": "失败：输出用满2000token且外层JSON不完整；未恢复或伪造结果",
+      "wall_seconds": 61.9693491999933,
+      "result": {
+        "run_id": "run_cd9ca9b834fd4d899c674da7d4af61fc",
+        "session_id": "s_8d88e0f18aa04e6e9d961d8e25a8ba0c",
+        "status": "failed",
+        "evidence_status": "none",
+        "answer": "模型输出无法解析为约定结构",
+        "claims": [],
+        "evidence_refs": [],
+        "dropped_chunk_ids": [],
+        "error": {
+          "code": "OUTPUT_PARSE",
+          "message": "模型输出无法解析为约定结构"
+        },
+        "meta": {
+          "elapsed_ms": 61962,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 152
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 4
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 5
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@3afe2f7a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "output_parse": {
+            "classification": "multiple_objects",
+            "repair": "not_attempted"
+          },
+          "llm": {
+            "model_calls": 3,
+            "input_tokens": 38598,
+            "output_tokens": 2267,
+            "per_call": [
+              {
+                "input": 1271,
+                "output": 67
+              },
+              {
+                "input": 17360,
+                "output": 200
+              },
+              {
+                "input": 19967,
+                "output": 2000
+              }
+            ],
+            "parse": "failed"
+          }
+        },
+        "warnings": [],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "open",
+          "planids": [],
+          "titles": [],
+          "areas": [],
+          "fyps": [],
+          "sub_query": "当前政策知识库中，关于数字经济发展有哪些具体支持措施？"
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "数字经济发展 支持措施",
+            null,
+            null,
+            15
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.15348770000855438
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "23132",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_aeb79c4c428d322b77559d875fb9f318",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.005579499993473291
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "18052",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_53854f1e42e948cc789c9da046d9ab4f",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.006356700003379956
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 2.1642573999997694
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 8.04591509999591
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 51.50099539998337
+        }
+      ],
+      "model_http_attempts": null,
+      "quote_checks": [],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    },
+    {
+      "phase": "after",
+      "case": "original",
+      "question": "了解舆论的最新政策",
+      "agent_code_reference": "59f5f4d3d3df7d70c8cf95b0a57b208d7af6830e",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "actual_http_api",
+      "assessment": "不合格：文本None误作筛选条件导致假阴性，不计为正常证据不足",
+      "wall_seconds": 8.054328300000634,
+      "result": {
+        "run_id": "run_53689cb3a28f4a4dbeaccb8491751173",
+        "session_id": "s_11f4513207494050a8a11c800866fd73",
+        "status": "completed",
+        "evidence_status": "insufficient",
+        "answer": "未检索到与「舆论」相关的政策原文。已用「舆论 舆论监督 意识形态 舆论引导」及「舆论」等关键词在全国范围、不限规划期进行检索，均返回 empty（未检索到相关政策原文）。建议：1）说明具体地区（如某省、市）或规划期（如十四五）后我再检索；2）或换成更具体的方向，如「网络舆情」「意识形态工作」「新闻舆论」「宣传思想」等，我再查一次。",
+        "claims": [],
+        "evidence_refs": [],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 8043,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "empty",
+              "message": "未检索到相关政策原文（检索词：舆论 舆论监督 意识形态 舆论引导；地区：None；规划期：None）",
+              "elapsed_ms": 43
+            },
+            {
+              "name": "kb_search",
+              "status": "empty",
+              "message": "未检索到相关政策原文（检索词：舆论；地区：None；规划期：None）",
+              "elapsed_ms": 37
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@3afe2f7a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok"
+          },
+          "llm": {
+            "model_calls": 3,
+            "input_tokens": 4154,
+            "output_tokens": 249,
+            "per_call": [
+              {
+                "input": 1262,
+                "output": 71
+              },
+              {
+                "input": 1390,
+                "output": 63
+              },
+              {
+                "input": 1502,
+                "output": 115
+              }
+            ],
+            "parse": "ok"
+          }
+        },
+        "warnings": [
+          "本次证据不足，以上结论可能不完整",
+          "本次仅依据当前冻结知识库收录的政策，不能确认实时最新政策或现行有效性。"
+        ],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "open",
+          "planids": [],
+          "titles": [],
+          "areas": [],
+          "fyps": [],
+          "sub_query": "了解舆论的最新政策"
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论 舆论监督 意识形态 舆论引导",
+            "None",
+            "None",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "empty",
+          "elapsed_seconds": 0.04360319999977946
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论",
+            "None",
+            "None",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "empty",
+          "elapsed_seconds": 0.037915199995040894
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 1.9222085000074003
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 1.6783351000049151
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 4.281366400013212
+        }
+      ],
+      "model_http_attempts": null,
+      "quote_checks": [],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    },
+    {
+      "phase": "final",
+      "case": "known",
+      "question": "planid=12915《云南省2019年政府工作报告》中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+      "agent_code_reference": "14d1f5846b964e12272e1103552dff46994a9d32",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "python_submit",
+      "assessment": "硬性条件通过：completed、verified、1条Claim和1个EvidenceRef",
+      "wall_seconds": 14.226728100009495,
+      "result": {
+        "run_id": "run_cbbddcf908d549e9835780be2f6922d0",
+        "session_id": "s_280c5553787149acb2e01bf431908cc0",
+        "status": "completed",
+        "evidence_status": "verified",
+        "answer": "【云南省2019年政府工作报告】\n《云南省2019年政府工作报告》提出，要落实更大规模减税降费措施，再为企业降低900亿元以上成本。原文位于“二、2019年工作重点”关于巩固“三去一降一补”成果部分。",
+        "claims": [
+          {
+            "text": "云南省2019年政府工作报告要求落实更大规模减税降费措施，再为企业降成本900亿元以上。",
+            "chunk_ids": [
+              "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7"
+            ],
+            "quotes": [
+              "落实好更大规模减税降费措施，再为企业降成本900亿元以上。"
+            ],
+            "dimension": null,
+            "anchors": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "document_id": "doc_1f5fd07146f33d3818ff030007a60834",
+            "document_version_id": "document_version_1f5fd07146f33d3818ff030007a60834264187094cdbf9a23abca6ba92217dea",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "cc432bb57f93d73c46b91b1d7d3c666644d008032af46c396b309353a5727ec7",
+            "section_id": "section_996bd916f5582e43e2750f382eb1d8fc",
+            "section_char_start": 5297,
+            "section_char_end": 17674,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 251,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "12915",
+            "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+            "parent_id": "parent_aed31398e01f0f0998d66904d0246e4b",
+            "title": "云南省2019年政府工作报告",
+            "area": "云南省",
+            "fyp": "政府工作报告",
+            "admin_level": "省",
+            "plantype_label": "专项规划",
+            "section_idx": 2,
+            "section_path": "二、2019年工作重点",
+            "char_start": 6317,
+            "char_end": 6950,
+            "chunk_char_start": 6317,
+            "chunk_char_end": 6950,
+            "truncated": true,
+            "source": "kb_read",
+            "observed_ranges": [
+              [
+                6317,
+                6950
+              ]
+            ],
+            "complete": true,
+            "out_of_section": false
+          }
+        ],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 14220,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 84
+            },
+            {
+              "name": "kb_read",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 22
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@965cc71a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok",
+            "objects": [
+              {
+                "classification": "ok"
+              }
+            ]
+          },
+          "llm": {
+            "model_calls": 3,
+            "input_tokens": 19282,
+            "output_tokens": 318,
+            "per_call": [
+              {
+                "input": 1435,
+                "output": 71
+              },
+              {
+                "input": 8054,
+                "output": 100
+              },
+              {
+                "input": 9793,
+                "output": 147
+              }
+            ],
+            "parse": "ok"
+          },
+          "quote_verification": {
+            "checked": 1,
+            "approved": 1,
+            "rejected": 0,
+            "unverified": 0,
+            "removed_claims": 0,
+            "removed_quotes": 0
+          },
+          "number_verification": "literal_only"
+        },
+        "warnings": [],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "objects",
+          "planids": [],
+          "titles": [
+            "云南省2019年政府工作报告"
+          ],
+          "areas": [
+            "云南省"
+          ],
+          "fyps": [],
+          "sub_query": "planid=12915云南省2019年政府工作报告中，落实更大规模减税降费措施，要求再为企业降低成本多少？",
+          "objects": [
+            {
+              "label": "云南省2019年政府工作报告",
+              "planid": "12915",
+              "origin": "title",
+              "llm": {
+                "model_calls": 3,
+                "input_tokens": 19282,
+                "output_tokens": 318,
+                "per_call": [
+                  {
+                    "input": 1435,
+                    "output": 71
+                  },
+                  {
+                    "input": 8054,
+                    "output": 100
+                  },
+                  {
+                    "input": 9793,
+                    "output": 147
+                  }
+                ]
+              },
+              "status": "ok",
+              "error_code": null,
+              "claims": 1,
+              "evidence": 1
+            }
+          ]
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "落实更大规模减税降费措施 再为企业降低成本",
+            "云南",
+            null,
+            5
+          ],
+          "kwargs": {
+            "planids": [
+              "12915"
+            ]
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.08784439999726601
+        },
+        {
+          "name": "kb_read",
+          "raw_arguments_before_validation": [
+            "12915",
+            null,
+            6000
+          ],
+          "kwargs": {
+            "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+            "offset": 0
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.02393710002070293
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 2.057881400018232
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 3.90478609999991
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 6.139142600004561
+        }
+      ],
+      "model_http_attempts": 3,
+      "quote_checks": [
+        {
+          "claim": "云南省2019年政府工作报告要求落实更大规模减税降费措施，再为企业降成本900亿元以上。",
+          "quote": "落实好更大规模减税降费措施，再为企业降成本900亿元以上。",
+          "results": [
+            true
+          ]
+        }
+      ],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    },
+    {
+      "phase": "final",
+      "case": "open",
+      "question": "当前政策知识库中，关于数字经济发展有哪些具体支持措施？",
+      "agent_code_reference": "14d1f5846b964e12272e1103552dff46994a9d32",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "python_submit",
+      "assessment": "有限有据回答：保留2条结论和2个来源，完整性仍为insufficient",
+      "wall_seconds": 58.933355499990284,
+      "result": {
+        "run_id": "run_f11c63cacdd642b5a1ff2798c7bae4e0",
+        "session_id": "s_0a32f53d81ea4542a52904c18f501303",
+        "status": "completed",
+        "evidence_status": "insufficient",
+        "answer": "以下仅保留可追溯到已读原文的结论：\n- 海西州规划提出加大数字经济领域重点项目投入，重点支持公益性、基础性、战略性项目，对引领性重大项目按“一企一策”扶持\n- 云南省“十四五”数字农业农村发展规划提出统筹涉农资金向数字农业农村领域倾斜、完善政府信息服务采购配套政策，并鼓励多元主体参与数字农业农村项目建设运营",
+        "claims": [
+          {
+            "text": "海西州规划提出加大数字经济领域重点项目投入，重点支持公益性、基础性、战略性项目，对引领性重大项目按“一企一策”扶持",
+            "chunk_ids": [
+              "chunk_aeb79c4c428d322b77559d875fb9f318"
+            ],
+            "quotes": [
+              "加大对数字经济领域重点项\n目建设资金投入力度，重点支持全州公益性、基础性、战略性的数字\n经济建设项目，对数字经济领域具有引领性的重大项目按照“一企一\n策”给予重点扶持"
+            ],
+            "dimension": null,
+            "anchors": []
+          },
+          {
+            "text": "云南省“十四五”数字农业农村发展规划提出统筹涉农资金向数字农业农村领域倾斜、完善政府信息服务采购配套政策，并鼓励多元主体参与数字农业农村项目建设运营",
+            "chunk_ids": [
+              "chunk_d21c0c1a9f3a0e1365dcd7226900fe18"
+            ],
+            "quotes": [
+              "按照分级保障原则，统筹涉农资金向数字农业农村领域倾斜，完善政府信息服务采购配套政策，对数字农业农村发展规划主要任务予以重点保障。探索创新多元投资机制，鼓励电信运营商、软硬件提供商、商务企业、金融服务企业、应用服务提供商等参与数字农业农村项目建设和运营管理"
+            ],
+            "dimension": null,
+            "anchors": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "document_id": "doc_5db88ba7c423ea60f27e29282c40c084",
+            "document_version_id": "document_version_5db88ba7c423ea60f27e29282c40c08491d734e8af0c9ea829d8c05e83c13460",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "2f43e428a4a35fcf898a27d41f7fc6dbe92f4c4a449c5d28c3a197da014acdb6",
+            "section_id": "section_e3f9f2d3ad5eb7d1b4794615d47a03d8",
+            "section_char_start": 42209,
+            "section_char_end": 42514,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 289,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "23132",
+            "chunk_id": "chunk_aeb79c4c428d322b77559d875fb9f318",
+            "parent_id": "parent_4cd107e1ac96b44d3fff15c727df986f",
+            "title": "海西州“十四五”数字经济发展规划",
+            "area": "海西蒙古族藏族自治州",
+            "fyp": "第十四个五年规划",
+            "admin_level": "市",
+            "plantype_label": "专项规划",
+            "section_idx": 91,
+            "section_path": "第六章 保障措施 / 第四节 加大资金扶持",
+            "char_start": 42220,
+            "char_end": 42514,
+            "chunk_char_start": 42220,
+            "chunk_char_end": 42514,
+            "truncated": false,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                42220,
+                42514
+              ]
+            ],
+            "complete": true,
+            "out_of_section": false
+          },
+          {
+            "document_id": "doc_2a12a49e016746591a9872a49d6e8370",
+            "document_version_id": "document_version_2a12a49e016746591a9872a49d6e8370c1464a968e80715d3681ee38e213b769",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "229ac17b9fc82389e2f45fba1b3bfac9be6084f09814f09445de236d0d2c4c2d",
+            "section_id": "section_1754e82b0c67b32ae4109745e5edb771",
+            "section_char_start": 7909,
+            "section_char_end": 8050,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 256,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "18365",
+            "chunk_id": "chunk_d21c0c1a9f3a0e1365dcd7226900fe18",
+            "parent_id": "parent_d8d068eacb7197f6d45a4df1bbc1f457",
+            "title": "云南省“十四五”数字农业农村发展规划",
+            "area": "云南省",
+            "fyp": "第十四个五年规划",
+            "admin_level": "省",
+            "plantype_label": "专项规划",
+            "section_idx": 21,
+            "section_path": "五、保障措施 / （三）加大政策支持",
+            "char_start": 7920,
+            "char_end": 8050,
+            "chunk_char_start": 7920,
+            "chunk_char_end": 8050,
+            "truncated": false,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                7920,
+                8050
+              ]
+            ],
+            "complete": true,
+            "out_of_section": false
+          }
+        ],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 58921,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 134
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 113
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 136
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@965cc71a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok"
+          },
+          "llm": {
+            "model_calls": 4,
+            "input_tokens": 80195,
+            "output_tokens": 2005,
+            "per_call": [
+              {
+                "input": 1416,
+                "output": 63
+              },
+              {
+                "input": 12367,
+                "output": 71
+              },
+              {
+                "input": 26632,
+                "output": 72
+              },
+              {
+                "input": 39780,
+                "output": 1799
+              }
+            ],
+            "parse": "ok"
+          },
+          "quotes_snapped": 1,
+          "quote_verification": {
+            "checked": 10,
+            "approved": 2,
+            "rejected": 8,
+            "unverified": 0,
+            "removed_claims": 8,
+            "removed_quotes": 8
+          },
+          "answer_rebuilt": "quote_verification"
+        },
+        "warnings": [
+          "有 8 句引文未能在已提供的原文范围内逐字核对",
+          "为避免未核验引文被采信，已移除 8 条结论及其 8 句引文"
+        ],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "open",
+          "planids": [],
+          "titles": [],
+          "areas": [],
+          "fyps": [],
+          "sub_query": "当前政策知识库中，关于数字经济发展有哪些具体支持措施？"
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "数字经济发展 支持措施",
+            "",
+            "",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.13501179998274893
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "数字经济 支持 政策 措施 人才 创新",
+            "",
+            "十四五",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.11384750000433996
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "数字经济 具体 支持措施 建设 项目 平台 基础设施",
+            "",
+            "",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.13861199998063967
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 1.8394587000075262
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 5.209872000006726
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 8.34681659998023
+        },
+        {
+          "turn": 4,
+          "elapsed_seconds": 42.87830889999168
+        }
+      ],
+      "model_http_attempts": 4,
+      "quote_checks": [
+        {
+          "claim": "海西州规划提出加大数字经济领域重点项目投入，重点支持公益性、基础性、战略性项目，对引领性重大项目按“一企一策”扶持",
+          "quote": "加大对数字经济领域重点项\n目建设资金投入力度，重点支持全州公益性、基础性、战略性的数字\n经济建设项目，对数字经济领域具有引领性的重大项目按照“一企一\n策”给予重点扶持",
+          "results": [
+            true
+          ]
+        },
+        {
+          "claim": "云南省“十四五”数字农业农村发展规划提出统筹涉农资金向数字农业农村领域倾斜、完善政府信息服务采购配套政策，并鼓励多元主体参与数字农业农村项目建设运营",
+          "quote": "按照分级保障原则，统筹涉农资金向数字农业农村领域倾斜，完善政府信息服务采购配套政策，对数字农业农村发展规划主要任务予以重点保障。探索创新多元投资机制，鼓励电信运营商、软硬件提供商、商务企业、金融服务企业、应用服务提供商等参与数字农业农村项目建设和运营管理",
+          "results": [
+            true
+          ]
+        }
+      ],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    },
+    {
+      "phase": "final",
+      "case": "original",
+      "question": "了解舆论的最新政策",
+      "agent_code_reference": "14d1f5846b964e12272e1103552dff46994a9d32",
+      "code_provenance": "主代理按本轮Git与操作记录对应的Agent代码版本；原采集器未逐次记录HEAD",
+      "transport": "actual_http_api",
+      "assessment": "有限有据回答：保留3条结论和3个来源，不能确认实时最新性",
+      "wall_seconds": 49.75908429999254,
+      "result": {
+        "run_id": "run_7fab807d6568423abd6df6c9d8d61e98",
+        "session_id": "s_621b1e7c31c345f7b61e85aae05ad09c",
+        "status": "completed",
+        "evidence_status": "insufficient",
+        "answer": "以下仅保留可追溯到已读原文的结论：\n- 盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制\n- 娄底市“十四五”规划纲要提出加强网络舆论引导和法制体系建设，建立网上重大舆情线上线下一体化快速处置机制\n- 咸阳市兴平市“十四五”规划纲要提出强化网络舆情管控，健全完善重大政策舆情风险评估机制，防范网络安全风险",
+        "claims": [
+          {
+            "text": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+            "chunk_ids": [
+              "chunk_1b4497da592c0e493a77a80e8216d07f"
+            ],
+            "quotes": [
+              "压紧压实意识形态工作责任，坚决维护政治安全。",
+              "强化网上正面舆论宣传引导",
+              "健全舆情快速反应处置一体化机制，\n提高精准排查和科学处置水平"
+            ],
+            "dimension": null,
+            "anchors": []
+          },
+          {
+            "text": "娄底市“十四五”规划纲要提出加强网络舆论引导和法制体系建设，建立网上重大舆情线上线下一体化快速处置机制",
+            "chunk_ids": [
+              "chunk_67aacb55456ba093f7be3c7fd38161e5"
+            ],
+            "quotes": [
+              "加强网络舆论引导和法制体系建设，建立网上重大舆情线上\n线下一体化快速处置机制。"
+            ],
+            "dimension": null,
+            "anchors": []
+          },
+          {
+            "text": "咸阳市兴平市“十四五”规划纲要提出强化网络舆情管控，健全完善重大政策舆情风险评估机制，防范网络安全风险",
+            "chunk_ids": [
+              "chunk_df0ea9b7a66bbef444d51d2d89a8fd13"
+            ],
+            "quotes": [
+              "强化网络舆情管控，扎实做好重要节点和敏感时期的舆论监管，\n健全完善重大政策舆情风险评估机制，防范网络安全风险。"
+            ],
+            "dimension": null,
+            "anchors": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "document_id": "doc_f1b8d1ba7616b9814684a8ded8a22974",
+            "document_version_id": "document_version_f1b8d1ba7616b9814684a8ded8a22974240f4866bf43e8954533c2c19cda514e",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "1865d1f6d4d45470462ee8a4fb64ef937272eb0e0ebebde2c8528817caf803e2",
+            "section_id": "section_7cc0ce317570546ec85c57a7aefb95aa",
+            "section_char_start": 39186,
+            "section_char_end": 40079,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 304,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [],
+            "planid": "43281",
+            "chunk_id": "chunk_1b4497da592c0e493a77a80e8216d07f",
+            "parent_id": "parent_bc284a513d5ed31e2bb7565c7ff40be3",
+            "title": "盐田区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+            "area": "盐田区",
+            "fyp": "第十四个五年规划",
+            "admin_level": "区县",
+            "plantype_label": "总体规划纲要",
+            "section_idx": 49,
+            "section_path": "第十章 保障措施 / 第一节 发挥党的核心领导作用",
+            "char_start": 39386,
+            "char_end": 39487,
+            "chunk_char_start": 39386,
+            "chunk_char_end": 39487,
+            "truncated": false,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                39386,
+                39487
+              ]
+            ],
+            "complete": true,
+            "out_of_section": false
+          },
+          {
+            "document_id": "doc_9a0f9ce0292339b9cecb8ba8bc6898c2",
+            "document_version_id": "document_version_9a0f9ce0292339b9cecb8ba8bc6898c219495d98e46e26b6875c959ccc5d367d",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "911a4a4379f9c7d3d01581397fa0698805741e23b008b84e35017559bc1d2ee7",
+            "section_id": "section_7539bb76c6cfee1367c748cb59d315f6",
+            "section_char_start": 8815,
+            "section_char_end": 109156,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 294,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [
+              "context_budget_exceeded:parent_dead4b4baffb93d6c9ef5c2cee4c42b6"
+            ],
+            "planid": "52109",
+            "chunk_id": "chunk_67aacb55456ba093f7be3c7fd38161e5",
+            "parent_id": "parent_dead4b4baffb93d6c9ef5c2cee4c42b6",
+            "title": "娄底市国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+            "area": "娄底市",
+            "fyp": "第十四个五年规划",
+            "admin_level": "市",
+            "plantype_label": "总体规划纲要",
+            "section_idx": 1,
+            "section_path": "第二章 发展环境",
+            "char_start": 99769,
+            "char_end": 100069,
+            "chunk_char_start": 99769,
+            "chunk_char_end": 100288,
+            "truncated": true,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                99769,
+                100069
+              ]
+            ],
+            "complete": false,
+            "out_of_section": false
+          },
+          {
+            "document_id": "doc_639999293071a8043376d71a0771c2d1",
+            "document_version_id": "document_version_639999293071a8043376d71a0771c2d1dc8aa72b30dd991863e8c59aab8086d8",
+            "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+            "source_hash": "d42ccf24d74f1b360e8a3234c9029c251f0ad1108f275a9f66728b59c2e2ebab",
+            "section_id": "section_7a86116eaed14b36ed956dabde7a818a",
+            "section_char_start": 0,
+            "section_char_end": 77379,
+            "offset_basis": "body_first_non_whitespace",
+            "offset_unit": "unicode_codepoint",
+            "body_origin": 277,
+            "contract_version": "proposal-v0.3",
+            "quality_warnings": [
+              "context_budget_exceeded:parent_2ae42e43b7f24b23607f5370d0a1ce3d"
+            ],
+            "planid": "43124",
+            "chunk_id": "chunk_df0ea9b7a66bbef444d51d2d89a8fd13",
+            "parent_id": "parent_2ae42e43b7f24b23607f5370d0a1ce3d",
+            "title": "咸阳市兴平市国民经济和社会发展第十四个五年规划和二O三五年远景纲要",
+            "area": "兴平市",
+            "fyp": "第十四个五年规划",
+            "admin_level": "区县",
+            "plantype_label": "总体规划纲要",
+            "section_idx": 0,
+            "section_path": "",
+            "char_start": 66338,
+            "char_end": 66638,
+            "chunk_char_start": 66338,
+            "chunk_char_end": 67005,
+            "truncated": true,
+            "source": "kb_search",
+            "observed_ranges": [
+              [
+                66338,
+                66638
+              ]
+            ],
+            "complete": false,
+            "out_of_section": false
+          }
+        ],
+        "dropped_chunk_ids": [],
+        "error": null,
+        "meta": {
+          "elapsed_ms": 49738,
+          "tool_calls": [
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 126
+            },
+            {
+              "name": "kb_search",
+              "status": "empty",
+              "message": "未检索到相关政策原文（检索词：舆情监测 舆论引导 新闻舆论 意识形态 网络舆情 处置机制；地区：未指定；规划期：第十五个五年规划）",
+              "elapsed_ms": 48
+            },
+            {
+              "name": "kb_search",
+              "status": "ok",
+              "message": "",
+              "elapsed_ms": 125
+            },
+            {
+              "name": "kb_search",
+              "status": "empty",
+              "message": "未检索到相关政策原文（检索词：舆论 舆情 意识形态；地区：未指定；规划期：第十五个五年规划）",
+              "elapsed_ms": 47
+            }
+          ],
+          "model": "qwen3.8-27b",
+          "prompt_version": "qa:json@965cc71a",
+          "tools": [
+            "kb_search",
+            "kb_read"
+          ],
+          "kb_backend": "rag",
+          "session_created": true,
+          "dropped_claims": 0,
+          "output_parse": {
+            "classification": "ok"
+          },
+          "llm": {
+            "model_calls": 5,
+            "input_tokens": 78456,
+            "output_tokens": 1092,
+            "per_call": [
+              {
+                "input": 1407,
+                "output": 75
+              },
+              {
+                "input": 13547,
+                "output": 79
+              },
+              {
+                "input": 13694,
+                "output": 78
+              },
+              {
+                "input": 24842,
+                "output": 67
+              },
+              {
+                "input": 24966,
+                "output": 793
+              }
+            ],
+            "parse": "ok"
+          },
+          "quotes_snapped": 4,
+          "quote_verification": {
+            "checked": 10,
+            "approved": 8,
+            "rejected": 2,
+            "unverified": 0,
+            "removed_claims": 2,
+            "removed_quotes": 5
+          },
+          "answer_rebuilt": "quote_verification"
+        },
+        "warnings": [
+          "有 2 句引文未能在已提供的原文范围内逐字核对",
+          "为避免未核验引文被采信，已移除 2 条结论及其 5 句引文",
+          "本次仅依据当前冻结知识库收录的政策，不能确认实时最新政策或现行有效性。"
+        ],
+        "task_type": "qa",
+        "structured": null,
+        "route": {
+          "kind": "open",
+          "planids": [],
+          "titles": [],
+          "areas": [],
+          "fyps": [],
+          "sub_query": "了解舆论的最新政策"
+        }
+      },
+      "tool_trace": [
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论 舆论引导 舆情 新闻舆论工作 最新政策",
+            null,
+            null,
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.12778159999288619
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆情监测 舆论引导 新闻舆论 意识形态 网络舆情 处置机制",
+            null,
+            "十五五",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "empty",
+          "elapsed_seconds": 0.049178200017195195
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "网络舆论 舆情 网络空间 舆论引导 正面宣传 网络意识形态",
+            null,
+            "十四五",
+            10
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "ok",
+          "elapsed_seconds": 0.1267754000145942
+        },
+        {
+          "name": "kb_search",
+          "raw_arguments_before_validation": [
+            "舆论 舆情 意识形态",
+            null,
+            "十五五",
+            5
+          ],
+          "kwargs": {
+            "planids": null
+          },
+          "status": "empty",
+          "elapsed_seconds": 0.04766490001929924
+        }
+      ],
+      "model_turns": [
+        {
+          "turn": 1,
+          "elapsed_seconds": 2.163726900005713
+        },
+        {
+          "turn": 2,
+          "elapsed_seconds": 5.453247600002214
+        },
+        {
+          "turn": 3,
+          "elapsed_seconds": 5.160539699980291
+        },
+        {
+          "turn": 4,
+          "elapsed_seconds": 9.181065000011586
+        },
+        {
+          "turn": 5,
+          "elapsed_seconds": 26.984317700000247
+        }
+      ],
+      "model_http_attempts": 5,
+      "quote_checks": [
+        {
+          "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+          "quote": "压紧压实意识形态工作责任，坚决维护政治安全。",
+          "results": [
+            true
+          ]
+        },
+        {
+          "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+          "quote": "强化网上正面舆论宣传引导",
+          "results": [
+            true
+          ]
+        },
+        {
+          "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+          "quote": "健全舆情快速反应处置一体化机制，\n提高精准排查和科学处置水平",
+          "results": [
+            true
+          ]
+        },
+        {
+          "claim": "娄底市“十四五”规划纲要提出加强网络舆论引导和法制体系建设，建立网上重大舆情线上线下一体化快速处置机制",
+          "quote": "加强网络舆论引导和法制体系建设，建立网上重大舆情线上\n线下一体化快速处置机制。",
+          "results": [
+            true
+          ]
+        },
+        {
+          "claim": "咸阳市兴平市“十四五”规划纲要提出强化网络舆情管控，健全完善重大政策舆情风险评估机制，防范网络安全风险",
+          "quote": "强化网络舆情管控，扎实做好重要节点和敏感时期的舆论监管，\n健全完善重大政策舆情风险评估机制，防范网络安全风险。",
+          "results": [
+            true
+          ]
+        }
+      ],
+      "rag_stats": {
+        "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+        "revision": 1,
+        "documents": 506,
+        "bm25_loads": 1,
+        "queue_size": 0
+      }
+    }
+  ],
+  "surviving_quote_positions": [
+    {
+      "case": "known",
+      "claim": "云南省2019年政府工作报告要求落实更大规模减税降费措施，再为企业降成本900亿元以上。",
+      "quote": "落实好更大规模减税降费措施，再为企业降成本900亿元以上。",
+      "planid": "12915",
+      "title": "云南省2019年政府工作报告",
+      "chunk_id": "chunk_5813229ad1f53c4a2d48e2e3af7cd0f7",
+      "quote_body_start": 6409,
+      "quote_body_end": 6438,
+      "document_id": "doc_1f5fd07146f33d3818ff030007a60834",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "cc432bb57f93d73c46b91b1d7d3c666644d008032af46c396b309353a5727ec7",
+      "in_observed_range": true
+    },
+    {
+      "case": "open",
+      "claim": "海西州规划提出加大数字经济领域重点项目投入，重点支持公益性、基础性、战略性项目，对引领性重大项目按“一企一策”扶持",
+      "quote": "加大对数字经济领域重点项\n目建设资金投入力度，重点支持全州公益性、基础性、战略性的数字\n经济建设项目，对数字经济领域具有引领性的重大项目按照“一企一\n策”给予重点扶持",
+      "planid": "23132",
+      "title": "海西州“十四五”数字经济发展规划",
+      "chunk_id": "chunk_aeb79c4c428d322b77559d875fb9f318",
+      "quote_body_start": 42236,
+      "quote_body_end": 42319,
+      "document_id": "doc_5db88ba7c423ea60f27e29282c40c084",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "2f43e428a4a35fcf898a27d41f7fc6dbe92f4c4a449c5d28c3a197da014acdb6",
+      "in_observed_range": true
+    },
+    {
+      "case": "open",
+      "claim": "云南省“十四五”数字农业农村发展规划提出统筹涉农资金向数字农业农村领域倾斜、完善政府信息服务采购配套政策，并鼓励多元主体参与数字农业农村项目建设运营",
+      "quote": "按照分级保障原则，统筹涉农资金向数字农业农村领域倾斜，完善政府信息服务采购配套政策，对数字农业农村发展规划主要任务予以重点保障。探索创新多元投资机制，鼓励电信运营商、软硬件提供商、商务企业、金融服务企业、应用服务提供商等参与数字农业农村项目建设和运营管理",
+      "planid": "18365",
+      "title": "云南省“十四五”数字农业农村发展规划",
+      "chunk_id": "chunk_d21c0c1a9f3a0e1365dcd7226900fe18",
+      "quote_body_start": 7920,
+      "quote_body_end": 8047,
+      "document_id": "doc_2a12a49e016746591a9872a49d6e8370",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "229ac17b9fc82389e2f45fba1b3bfac9be6084f09814f09445de236d0d2c4c2d",
+      "in_observed_range": true
+    },
+    {
+      "case": "original",
+      "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+      "quote": "压紧压实意识形态工作责任，坚决维护政治安全。",
+      "planid": "43281",
+      "title": "盐田区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+      "chunk_id": "chunk_1b4497da592c0e493a77a80e8216d07f",
+      "quote_body_start": 39386,
+      "quote_body_end": 39408,
+      "document_id": "doc_f1b8d1ba7616b9814684a8ded8a22974",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "1865d1f6d4d45470462ee8a4fb64ef937272eb0e0ebebde2c8528817caf803e2",
+      "in_observed_range": true
+    },
+    {
+      "case": "original",
+      "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+      "quote": "强化网上正面舆论宣传引导",
+      "planid": "43281",
+      "title": "盐田区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+      "chunk_id": "chunk_1b4497da592c0e493a77a80e8216d07f",
+      "quote_body_start": 39427,
+      "quote_body_end": 39439,
+      "document_id": "doc_f1b8d1ba7616b9814684a8ded8a22974",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "1865d1f6d4d45470462ee8a4fb64ef937272eb0e0ebebde2c8528817caf803e2",
+      "in_observed_range": true
+    },
+    {
+      "case": "original",
+      "claim": "盐田区“十四五”规划纲要提出压紧压实意识形态工作责任，强化网上正面舆论宣传引导，健全舆情快速反应处置一体化机制",
+      "quote": "健全舆情快速反应处置一体化机制，\n提高精准排查和科学处置水平",
+      "planid": "43281",
+      "title": "盐田区国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+      "chunk_id": "chunk_1b4497da592c0e493a77a80e8216d07f",
+      "quote_body_start": 39454,
+      "quote_body_end": 39484,
+      "document_id": "doc_f1b8d1ba7616b9814684a8ded8a22974",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "1865d1f6d4d45470462ee8a4fb64ef937272eb0e0ebebde2c8528817caf803e2",
+      "in_observed_range": true
+    },
+    {
+      "case": "original",
+      "claim": "娄底市“十四五”规划纲要提出加强网络舆论引导和法制体系建设，建立网上重大舆情线上线下一体化快速处置机制",
+      "quote": "加强网络舆论引导和法制体系建设，建立网上重大舆情线上\n线下一体化快速处置机制。",
+      "planid": "52109",
+      "title": "娄底市国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要",
+      "chunk_id": "chunk_67aacb55456ba093f7be3c7fd38161e5",
+      "quote_body_start": 99908,
+      "quote_body_end": 99947,
+      "document_id": "doc_9a0f9ce0292339b9cecb8ba8bc6898c2",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "911a4a4379f9c7d3d01581397fa0698805741e23b008b84e35017559bc1d2ee7",
+      "in_observed_range": true
+    },
+    {
+      "case": "original",
+      "claim": "咸阳市兴平市“十四五”规划纲要提出强化网络舆情管控，健全完善重大政策舆情风险评估机制，防范网络安全风险",
+      "quote": "强化网络舆情管控，扎实做好重要节点和敏感时期的舆论监管，\n健全完善重大政策舆情风险评估机制，防范网络安全风险。",
+      "planid": "43124",
+      "title": "咸阳市兴平市国民经济和社会发展第十四个五年规划和二O三五年远景纲要",
+      "chunk_id": "chunk_df0ea9b7a66bbef444d51d2d89a8fd13",
+      "quote_body_start": 66536,
+      "quote_body_end": 66591,
+      "document_id": "doc_639999293071a8043376d71a0771c2d1",
+      "generation_id": "local_generation_e125cd0f3a4faf24860081796440a6e73f26196edb6bb838dd93c7a92ec1078f",
+      "source_hash": "d42ccf24d74f1b360e8a3234c9029c251f0ad1108f275a9f66728b59c2e2ebab",
+      "in_observed_range": true
+    }
+  ],
+  "semantic_initial_review": {
+    "known": "900亿元以上是报告提出的降成本目标，回答没有改为已实现的财政支出或补贴",
+    "open": "海西资金支持保留公益性、基础性、战略性及引领性条件；云南措施限定数字农业农村领域，不能泛化至全部企业",
+    "original": "三项陈述均能在对应十四五原文中找到，不能据此称为实时最新或当前有效政策",
+    "reviewer": "主代理初核，供Rainier复核；字面核验不等于完整语义证明"
+  },
+  "metadata_caveat": {
+    "planid": "52109",
+    "reported_section_path": "第二章 发展环境",
+    "observed_frozen_text_heading": "第五十八章 强化网络空间治理／第一节 建设积极健康网络文化",
+    "treatment": "保留原始RunResult，未改冻结元数据；用真实chunk_id、版本和字符坐标定位，并记录章节标签限制"
+  },
+  "unresolved": [
+    "历史截图对应run及准备接口扩写请求未能确定，未冒充复现同一次超时",
+    "开放问题仍有模型引文被拒绝，两项最终结果保持insufficient",
+    "冷启动约29至144秒波动，本轮未优化RAG初始化",
+    "取消asyncio.to_thread等待不能强制终止底层同步查询；未重构RAG线程队列"
+  ]
+}

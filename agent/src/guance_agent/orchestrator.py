@@ -22,7 +22,14 @@ from .format_recovery import (
     repair_preserves_content,
 )
 from .kb import get_kb
-from .output import ERRORS, LIMIT_CODES, build_result, insufficient_message, rebuild_trusted_answer
+from .output import (
+    ERRORS,
+    LIMIT_CODES,
+    build_result,
+    finalize_qa_retrieval,
+    insufficient_message,
+    rebuild_trusted_answer,
+)
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -345,6 +352,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         if module is None:
             _attach(result, task)
     result.task_type = task.task_type
+    result = finalize_qa_retrieval(result, task)
     try:
         rt.finish(result, ctx)
     except OSError as exc:

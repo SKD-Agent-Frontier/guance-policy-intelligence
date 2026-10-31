@@ -8,6 +8,7 @@ LIMIT_CODES = frozenset({"MAX_TURNS", "RUN_TIMEOUT", "TOOL_BUDGET"})
 ERRORS = dict(INVALID_INPUT="问题为空、超长或格式不正确", SESSION_FORBIDDEN="无权访问该会话",
               CONFIG_ERROR="服务配置有误，请联系管理员",
               MAX_TURNS="本次任务步骤过多，已停止，请缩小问题范围", RUN_TIMEOUT="本次任务超时，已停止",
+              MODEL_TIMEOUT="模型请求超时，未能完成本次回答，请稍后再试",
               MODEL_UNAVAILABLE="模型服务暂时不可用，请稍后再试", MODEL_BAD_REQUEST="模型接口不支持本次请求参数",
               MODEL_UNAUTHORIZED="模型服务认证失败，请检查接口密钥与权限",
               MODEL_NOT_FOUND="模型或接口地址不存在，请检查模型名称与 Base URL",
@@ -46,6 +47,42 @@ def rebuild_trusted_answer(result, ctx, reason: str) -> None:
             f"- {claim.text}" for claim in result.claims)
     else:
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
+
+
+def finalize_qa_retrieval(result: RunResult, task: TaskRequest) -> RunResult:
+    """证据核验完成后，根据最终声明分类问答检索故障。"""
+    if task.task_type != "qa" or result.status != "completed" or result.error is not None:
+        return result
+    if result.meta.get("kb_backend") == "rag" and "最新" in task.question:
+        warning = "本次仅依据当前冻结知识库收录的政策，不能确认实时最新政策或现行有效性。"
+        if warning not in result.warnings:
+            result.warnings.append(warning)
+    calls = result.meta.get("tool_calls") or []
+    faults = [call for call in calls if call.get("status") in {"timeout", "backend_error"}]
+    if not faults:
+        return result
+
+    counts = {status: sum(call.get("status") == status for call in faults)
+              for status in ("timeout", "backend_error")}
+    tools = sorted({call.get("name") for call in faults
+                    if call.get("name") in {"kb_search", "kb_read"}})
+    code = "RAG_TIMEOUT" if counts["timeout"] else "RAG_BACKEND_ERROR"
+    message = ("检索服务超时，本次问答未能完成检索。" if code == "RAG_TIMEOUT"
+               else "检索服务发生错误，本次问答未能完成检索。")
+    result.meta["retrieval_failure"] = {
+        "code": code,
+        "timeout_count": counts["timeout"],
+        "backend_error_count": counts["backend_error"],
+        "tool_names": tools,
+    }
+    if result.claims:
+        result.warnings.append("部分检索失败；已保留有依据的结论，但结果可能不完整。")
+        return result
+
+    result.status = "failed"
+    result.error = RunError(code=code, message=message)
+    result.answer = message
+    return result
 
 def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext | None,
                  meta: dict, error: RunError | None = None) -> RunResult:

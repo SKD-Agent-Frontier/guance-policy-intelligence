@@ -53,7 +53,7 @@ describe("advanced conversation handoff", () => {
     expect(screen.getByRole("button", { name: "资金标准" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("textbox", { name: "自定义维度（选填）" })).toHaveValue("企业规模");
 
-    fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
     fireEvent.click(screen.getByRole("button", { name: "研究" }));
     expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");

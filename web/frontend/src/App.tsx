@@ -88,6 +88,7 @@ export default function App() {
       onCloseMobile={() => setMobileOpen(false)}
       onHome={() => setPage("home")}
       onNew={startNew}
+      onShowHistory={() => setCollapsed(false)}
       onSelect={openConversation}
       onSettings={() => openDialog("settings")}
     />
@@ -98,7 +99,7 @@ export default function App() {
             if (window.matchMedia?.("(max-width: 768px)").matches) setMobileOpen(true);
             else setCollapsed((value) => !value);
           }}><Menu size={19} /></button>
-          <button type="button" className="global-brand" onClick={() => setPage("home")} aria-label="管策智研首页"><span className="brand-mark"><BookOpenText size={19} strokeWidth={1.8} /></span><span>管策智研</span></button>
+          {page !== "home" && <button type="button" className="global-brand" onClick={() => setPage("home")} aria-label="管策智研首页"><span className="brand-mark"><BookOpenText size={19} strokeWidth={1.8} /></span><span>管策智研</span></button>}
         </div>
         <nav className="global-nav" aria-label="主导航">
           <button type="button" className={page !== "catalog" ? "is-current" : ""} onClick={goResearch}>研究</button>
@@ -107,7 +108,7 @@ export default function App() {
         </nav>
         <div className="topbar-trailing">
           <span className={`global-env-badge ${isRealMode ? "is-real" : "is-demo"}`}>{isRealMode ? "Real" : "Demo 数据"}</span>
-          <button type="button" className="identity-button" onClick={() => openDialog("settings")} aria-label="学号与环境设置"><span>学号</span><Settings2 size={15} /></button>
+          <button type="button" className="identity-button" onClick={() => openDialog("settings")} aria-label="身份与环境设置"><Settings2 size={17} /></button>
         </div>
       </header>
 

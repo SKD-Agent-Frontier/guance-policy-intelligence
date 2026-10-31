@@ -1,4 +1,5 @@
 from dataclasses import replace
+from hashlib import sha256
 
 from guance_agent.agent import build_agent, effective_prompt, prompt_version
 from guance_agent.config import Settings
@@ -35,3 +36,20 @@ def test_build_agent_uses_effective_prompt():
     for structured in (False, True):
         s = replace(Settings(), structured_output=structured)
         assert build_agent(s, "unused").instructions == effective_prompt(structured)
+
+
+def test_qa_output_budget_guidance_is_in_effective_prompt():
+    for structured in (False, True):
+        prompt = effective_prompt(structured)
+        assert "既定输出预算" in prompt
+        assert "3–5 项最相关且有本轮证据支持的措施" in prompt
+        assert "保留其中的条件、单位和适用范围" in prompt
+        assert "明确说明已覆盖的范围及未覆盖的部分" in prompt
+        assert "不要在生成后删减 claims 或引文" in prompt
+        assert "chunk_ids" in prompt and "逐字引文" in prompt
+        if structured:
+            assert "只输出一个 JSON 对象" not in prompt
+        else:
+            assert "只输出一个 JSON 对象，不加其他文字" in prompt
+        digest = sha256(prompt.encode()).hexdigest()[:8]
+        assert prompt_version(structured) == f"qa:{'schema' if structured else 'json'}@{digest}"
