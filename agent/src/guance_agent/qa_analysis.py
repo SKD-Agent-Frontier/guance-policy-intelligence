@@ -5,9 +5,7 @@ Accept only when every dependency survives the existing quote/number/keyword che
 Deterministic checks establish provenance, not semantic entailment or causal validity.
 """
 
-import re
-
-from .qa_report import needs_outline, verified_qa_outline
+from .qa_report import is_canonical_outline, needs_outline, verified_qa_outline
 from .schemas import Claim, RunResult
 
 MAX_ANALYSES = 3
@@ -61,10 +59,7 @@ def _apply_report_outline(result: RunResult, question: str) -> None:
         warning = "以下研究维度仍缺少可核验事实：" + "、".join(missing)
         if warning not in result.warnings:
             result.warnings.append(warning)
-    properly_structured = (
-        re.search(r"(?m)^\s*一、", result.answer)
-        and re.search(r"(?m)^\s*二、", result.answer)
-    )
+    properly_structured = is_canonical_outline(result.answer)
     already_rebuilt = bool(result.meta.get("answer_rebuilt"))
     # Never restore discarded original prose after a verifier has rebuilt it.
     if not properly_structured or (already_rebuilt and not result.meta.get("report_outline")):
