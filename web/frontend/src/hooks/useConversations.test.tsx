@@ -123,6 +123,43 @@ describe("useConversations", () => {
     });
   });
 
+  it("summarizes the first question and keeps that title across follow-ups and history", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("blocked"));
+    const { result } = renderHook(() => useConversations());
+    const firstId = result.current.activeId;
+    const question = "密云区在‘十一五’规划期间所处的发展环境总体如何？其中的机遇和挑战有哪些？";
+
+    await act(async () => { await result.current.send(question); });
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    expect(result.current.active?.messages.find((entry) => entry.kind === "user")).toMatchObject({ text: question });
+
+    await act(async () => { await result.current.send("请进一步分析面临的挑战"); });
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+
+    act(() => result.current.newConversation());
+    const secondId = result.current.activeId;
+    await act(async () => {
+      await result.current.send("我想了解沧州市在十三五期间经济社会发展取得了哪些重大成就");
+    });
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+    act(() => result.current.selectConversation(firstId));
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    act(() => result.current.selectConversation(secondId));
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+  });
+
+  it("updates the title only when editing the first user turn", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("blocked"));
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("密云区十一五发展环境分析有哪些重点？"); });
+    const first = result.current.active?.messages.find((entry) => entry.kind === "user");
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    await act(async () => {
+      await result.current.editAndResend(first!.id, "沧州市十三五经济社会发展取得了哪些重要成就？");
+    });
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+  });
+
   it.each(["extract", "compare_plans"] as const)(
     "asks for a named policy in %s only when automatic discovery is ambiguous",
     async (mode) => {
