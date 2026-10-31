@@ -120,6 +120,25 @@ describe("ResearchForm", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it("only one floating chooser is open at a time", () => {
+    render(<ControlledForm enableTemplates />);
+    fireEvent.click(screen.getByRole("tab", { name: "要素提取" }));
+    const templateButton = screen.getByRole("button", { name: "指令模板" });
+    const advancedButton = screen.getByRole("button", { name: "高级选择 · 指定政策编号" });
+
+    fireEvent.click(advancedButton);
+    expect(screen.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: "政策编号" })).toBeInTheDocument();
+
+    fireEvent.click(templateButton);
+    expect(screen.getByRole("region", { name: "指令模板列表" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "政策编号" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "高级选择 · 指定政策编号" }));
+    expect(screen.getByRole("textbox", { name: "政策编号" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
+  });
+
   it("does not show a template shortcut in the conversation composer by default", () => {
     render(<ControlledForm />);
     expect(screen.queryByRole("button", { name: "指令模板" })).not.toBeInTheDocument();
