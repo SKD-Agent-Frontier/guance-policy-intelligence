@@ -1779,21 +1779,27 @@ textarea:focus-visible {
 }
 
 /* Sidebar navigation and history are readable at both expanded and collapsed sizes. */
+/* Match the official 36px / 19px topbar logo and wordmark in PR #21. */
 .app-sidebar .sidebar-brand-row {
-  height: 38px;
-  gap: 12px;
+  height: 44px;
+  gap: 10px;
 }
 .app-sidebar .sidebar-brand-row strong {
-  font-size: 16px;
+  color: #302824;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: normal;
 }
 .app-sidebar .sidebar-brand-toggle {
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
 }
 .app-sidebar .sidebar-brand-mark {
-  width: 26px;
-  height: 26px;
-  flex-basis: 26px;
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
 }
 .app-sidebar .sidebar-primary {
   gap: 7px;
