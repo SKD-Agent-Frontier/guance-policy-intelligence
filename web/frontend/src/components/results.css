@@ -92,6 +92,41 @@
   margin-top: 31px;
 }
 
+/* Evidence-linked interpretations are distinct from policy facts and source quotes. */
+.qa-analysis {
+  margin-top: 32px;
+  padding: 22px 0;
+  border-top: 1px solid var(--border);
+}
+.qa-analysis > h2 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(23px, 2.4vw, 31px);
+  font-weight: 500;
+}
+.qa-analysis-disclaimer {
+  margin: 0 0 22px;
+  color: #756b66;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.qa-analysis-item {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.qa-analysis-item > p {
+  margin: 8px 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.85;
+}
+.qa-analysis-item > small { color: #847875; font-size: 12px; }
+.qa-analysis-sources { margin-top: 14px; display: grid; gap: 9px; }
+.qa-analysis-sources > span { font-size: 12px; color: #8b7770; }
+.qa-analysis-support { padding: 9px 12px; background: #faf8f7; font-size: 12px; line-height: 1.7; }
+.qa-analysis-support > span { display: block; margin-bottom: 6px; color: #635850; }
+
 .results-section-title {
   display: flex;
   align-items: center;
