@@ -2,96 +2,89 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { researchClient } from "./api/client";
+import { createDemoResult } from "./data/demo";
+import type { ResearchRequest } from "./types";
 
 vi.mock("./api/client", async (importOriginal) => ({
   ...await importOriginal<typeof import("./api/client")>(),
-  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
-
 vi.mock("./components/PolicyCatalog", () => ({
   PolicyCatalog: () => <div aria-label="政策目录测试页">目录</div>,
 }));
 
-describe("advanced conversation handoff", () => {
+const client = vi.mocked(researchClient);
+
+function ready(request: ResearchRequest) {
+  return {
+    status: "ready" as const,
+    request,
+    message: "已从冻结目录自动定位研究对象",
+    policies: [{ area: "衡水市", planid: "A", title: "政策A", fyp: "十三五" }],
+  };
+}
+
+async function ask(mode: string, question: string) {
+  fireEvent.click(screen.getByRole("tab", { name: mode }));
+  fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
+    target: { value: question },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+  });
+}
+
+describe("natural-language research mode handoff", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(researchClient.resolveCompare).mockResolvedValue({
-      status: "needs_clarification", message: "需要补充具体文献标题",
-      targets: [], policies: [], dimensions: [],
-    });
+    client.resolveResearch.mockImplementation(async (mode, question) => ready({
+      task_type: mode, question, targets: mode === "extract" ? ["A"] : ["A", "B"],
+    }));
+    client.submit.mockImplementation(async (request) => createDemoResult(request, "success"));
   });
   afterEach(cleanup);
 
   it.each([
-    ["政策比较", "比较下北京市2015和2016年的政府工作报告"],
-    ["要素提取", "提取北京市十四五规划中关于人工智能产业发展的支持措施"],
-    ["多方案分析", "分析这几份产业扶持政策的优势和局限"],
-  ])("opens %s from home with one normal guide and no network task", async (mode, question) => {
+    ["政策比较", "compare", "比较衡水市与河北其他地市十三五产业结构目标"],
+    ["要素提取", "extract", "提取北京市十四五规划的支持措施"],
+    ["多方案分析", "compare_plans", "分析两个产业扶持方案的适用性"],
+  ])("%s submits natural language without manual planids", async (label, mode, question) => {
     render(<App />);
-    fireEvent.click(screen.getByRole("tab", { name: mode }));
-    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
-
-    expect(screen.getByRole("main", { name: "研究工作区" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-    expect(screen.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getAllByRole("button", { name: "指定政策对象" })).toHaveLength(1);
-    expect(document.querySelector(".message-error")).toBeNull();
-    expect(screen.queryByText(/UNSUPPORTED_MODE/)).not.toBeInTheDocument();
-    expect(researchClient.prepare).not.toHaveBeenCalled();
-    expect(researchClient.submit).not.toHaveBeenCalled();
+    await ask(label, question);
+    expect(client.resolveResearch).toHaveBeenCalledWith(mode, question);
+    expect(client.submit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task_type: mode,
+        question,
+        targets: mode === "extract" ? ["A"] : ["A", "B"],
+      }),
+      expect.anything(),
+    );
+    expect(screen.queryByRole("button", { name: /高级选择/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /研究对象编号/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "指定政策对象" })).not.toBeInTheDocument();
   });
 
-  it("preserves question, IDs and dimensions through catalog and home navigation", async () => {
-    const question = "比较两份政策的企业支持措施";
+  it("only asks for missing context in words, then resumes the original research", async () => {
+    client.resolveResearch.mockResolvedValueOnce({
+      status: "needs_clarification", request: null,
+      message: "请说明两个方案的名称，不需要政策编号。", policies: [],
+    }).mockImplementationOnce(async (mode, question) => ready({
+      task_type: mode, question, targets: ["A", "B"],
+    }));
     render(<App />);
-    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
-    fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
-    fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "自定义维度（选填）" }), { target: { value: "企业规模" } });
-    fireEvent.click(screen.getByRole("button", { name: "前往文献目录查找编号" }));
-    expect(screen.getByLabelText("政策目录测试页")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "研究" }));
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-    expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
-    expect(screen.getByRole("button", { name: "资金标准" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("textbox", { name: "自定义维度（选填）" })).toHaveValue("企业规模");
-
-    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
-    expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("");
-    expect(screen.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("textbox", { name: "研究问题" })).not.toBeInTheDocument();
-    // Returning to history recovers the previous session's advanced draft.
-    fireEvent.click(screen.getByTitle(question));
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-    expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
-    expect(researchClient.prepare).not.toHaveBeenCalled();
-    expect(researchClient.submit).not.toHaveBeenCalled();
-  });
-
-  it("isolates drafts across conversations and focuses the missing target on return", async () => {
-    const question = "比较两份政策的企业支持措施";
-    render(<App />);
-    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
-    fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
-    fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
-    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
-    fireEvent.click(screen.getByRole("button", { name: "新建研究" }));
-    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
-    fireEvent.click(screen.getByRole("button", { name: "高级选择 · 指定政策编号" }));
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue("");
-    fireEvent.click(screen.getByTitle(question));
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-    expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
-    expect(screen.getByRole("button", { name: "资金标准" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "收起高级选择" }));
-    fireEvent.click(screen.getByRole("button", { name: "指定政策对象" }));
-    expect(screen.getByLabelText("研究对象编号 2")).toHaveFocus();
-    expect(researchClient.prepare).not.toHaveBeenCalled();
-    expect(researchClient.submit).not.toHaveBeenCalled();
+    await ask("多方案分析", "比较这两个方案");
+    expect(screen.getByText("请说明两个方案的名称，不需要政策编号。")).toBeInTheDocument();
+    expect(client.submit).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
+      target: { value: "衡水市和保定市的十三五规划" },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    });
+    expect(client.resolveResearch).toHaveBeenLastCalledWith(
+      "compare_plans", "比较这两个方案；补充条件：衡水市和保定市的十三五规划",
+    );
+    expect(client.submit).toHaveBeenCalledTimes(1);
   });
 });
