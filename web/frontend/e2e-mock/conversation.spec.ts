@@ -222,6 +222,13 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
 });
 
 test("Real client Mock API: advanced compare keeps its draft through catalog and sessions, then runs only valid targets", async ({ page }) => {
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ status: "needs_clarification", message: "没有明确的比较文献，请补充标题。",
+        targets: [], policies: [], dimensions: [] }),
+    });
+  });
   const prepareRequests: Record<string, unknown>[] = [];
   const runBodies: Record<string, unknown>[] = [];
   await page.route("**/api/research/prepare", async (route) => {
