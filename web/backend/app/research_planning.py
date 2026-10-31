@@ -10,7 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .compare_resolution import _DIMENSIONS, _areas as provinces_in_text, resolve_compare
+from .compare_resolution import _DIMENSIONS, resolve_compare
+from .compare_resolution import _areas as provinces_in_text
 from .policy_catalog import PolicyCatalogService, PolicyRecord, normalize_fyp
 
 Mode = Literal["extract", "compare", "compare_plans"]
