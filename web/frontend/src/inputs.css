@@ -1019,12 +1019,6 @@
   font-size: 14px;
 }
 .prompt-template-heading-title svg { color: var(--accent); }
-.prompt-template-hint {
-  margin: 7px 0 15px;
-  color: #817672;
-  font-size: 12px;
-  line-height: 1.6;
-}
 .prompt-template-close {
   display: grid;
   place-items: center;
