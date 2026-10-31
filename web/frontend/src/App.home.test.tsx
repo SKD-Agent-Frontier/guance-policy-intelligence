@@ -120,7 +120,7 @@ describe("independent home composer and history conversations", () => {
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
       fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     }
-    fireEvent.click(screen.getByTitle("比较浙江和江苏十四五的数字经济政策"));
+    fireEvent.click(screen.getByTitle("浙江与江苏“十四五”数字经济政策比较"));
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
   });
