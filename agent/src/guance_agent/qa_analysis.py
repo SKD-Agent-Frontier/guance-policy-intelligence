@@ -28,7 +28,7 @@ def prepare_candidates(analyses: list[dict], original: list[Claim], retained: li
         indexes = value.get("supporting_claim_indexes")
         if (not isinstance(text, str) or not 8 <= len(text.strip()) <= MAX_ANALYSIS_CHARS
                 or not isinstance(scope, str) or not 4 <= len(scope.strip()) <= MAX_SCOPE_CHARS
-                or kind not in KINDS
+                or not isinstance(kind, str) or kind not in KINDS
                 or not isinstance(indexes, list) or len(indexes) < 2 or len(indexes) > 8
                 or any(type(i) is not int or not 0 <= i < len(original) for i in indexes)
                 or len(set(indexes)) != len(indexes)):
