@@ -508,8 +508,25 @@ export interface ComparisonResult {
   evaluation_criteria?: string[];
 }
 
+export interface QAAnalysisResult {
+  schema_version: "qa-analysis/1";
+  analyses: {
+    kind: "synthesis" | "comparison" | "implication";
+    text: string;
+    scope_note: string;
+    supporting_claim_indexes: number[];
+    supporting_chunk_ids: string[];
+    verification: "evidence_linked_only";
+  }[];
+  verification: {
+    policy_facts: "existing_quote_and_number_checks";
+    analysis: "dependency_links_checked_semantics_not_verified";
+  };
+}
+
 export type StructuredResult =
   | OrganizeResult
+  | QAAnalysisResult
   | ComparisonResult
   | ExtractResult
   | DocumentIdentityFallback
