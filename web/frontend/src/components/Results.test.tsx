@@ -182,4 +182,43 @@ describe("Results", () => {
     expect(html).not.toContain('class="analysis-label">分析');
   });
 
+  it("renders report outline as four distinct semantic heading levels", () => {
+    const answer = [
+      "密云县的发展环境总体呈现机遇与挑战并存的特征。",
+      "",
+      "一、主要发展机遇",
+      "（一）奥运契机",
+      "1、旅游市场",
+      "（1）重点项目",
+      "围绕规划开展旅游产业建设。",
+      "",
+      "二、面临挑战",
+      "（一）基础设施条件",
+      "需要加强基础设施建设。",
+      "",
+      "综上，上述判断仅限现有原文。",
+    ].join("\n");
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa", answer, claims: [], structured: null,
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain('<h2 class="qa-outline-heading qa-outline-level-1"');
+    expect(html).toContain('<h3 class="qa-outline-heading qa-outline-level-2"');
+    expect(html).toContain('<h4 class="qa-outline-heading qa-outline-level-3"');
+    expect(html).toContain('<h5 class="qa-outline-heading qa-outline-level-4"');
+    expect(html).toContain("一、</span><span>主要发展机遇");
+    expect(html).toContain("（一）</span><span>奥运契机");
+    expect(html).toContain("1、</span><span>旅游市场");
+    expect(html).toContain("（1）</span><span>重点项目");
+    expect(html).toContain("综上，上述判断仅限现有原文");
+    expect(html).not.toContain("<ul");
+  });
+
+  it("leaves a single numeric fact as a paragraph instead of an outline heading", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa", answer: "提高就业率 1.5%，新增 200 个岗位。",
+    })} onEvidence={noEvidence} />);
+    expect(html).not.toContain("qa-outline-heading");
+    expect(html).toContain("提高就业率 1.5%");
+  });
+
 });
