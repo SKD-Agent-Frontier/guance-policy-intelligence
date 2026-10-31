@@ -91,13 +91,14 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
         ))}
         {conversation.busy !== "idle" && (
           <div className="conversation-progress" role="status" aria-live="polite">
-            <strong className="research-running-text">{conversation.busy === "preparing" ? "正在确认研究范围" : "正在研究中"}<span className="research-running-dots" aria-hidden="true">...</span></strong>
+            <strong className="research-running-text">正在研究中<span className="research-running-dots" aria-hidden="true">...</span></strong>
           </div>
         )}
       </div>
       <div className="conversation-composer-wrap">
         <ResearchForm
           mode={conversation.mode}
+          hideModeTabs
           value={draft}
           busy={conversation.busy !== "idle" || preparationConflict}
           onChange={setDraft}
@@ -109,7 +110,6 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
           onOpenCatalog={onOpenCatalog}
         />
       </div>
-      <p className="conversation-local-note">对话记录和准备状态仅保存在当前前端会话，刷新页面后会清空</p>
     </main>
   );
 }
@@ -148,6 +148,7 @@ function Message({
   }
   if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onEvidence={onEvidence} evidence={evidence} onCloseEvidence={onCloseEvidence} />;
 
+  if (message.response.status === "ready") return null;
   const response = message.response;
   const latestClarification = isLatest && response === conversation.preparation && response.status === "needs_clarification";
   const options = response.options ?? [];
@@ -238,16 +239,16 @@ function ResultMessage({
   onCloseEvidence: () => void;
 }) {
   const result = message.result;
-  const resultStatus = result.status === "completed" ? "研究完成" : result.status === "failed" ? "研究执行失败" : "达到执行限制";
-  const evidenceStatus = result.evidence_status === "verified" ? "引文核验通过" : result.evidence_status === "insufficient" ? "证据不足" : "无可核验引文";
-  return <article className="conversation-message result-message">
-    <div className="message-role">正式研究结果</div>
-    <div className="result-status-row"><span>{resultStatus}</span><span>{evidenceStatus}</span></div>
-    {result.evidence_status !== "verified" && <p className="result-evidence-caveat">本轮未形成足够的可核验证据，不能据此判断政策不存在。</p>}
-    {result.error && <div className="result-status-message"><strong>{result.error.code}</strong><p>{result.error.message}</p><p>{errorExplanation(result.error.code)}</p></div>}
-    {isLatest && result.status !== "completed" && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试本次研究</button>}
-    {result.warnings?.length > 0 && <ul className="result-warnings" aria-label="研究提醒">{result.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>}
+  return <article className="conversation-message result-message" data-result-message-id={message.id}>
     <div className="result-message-body"><Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} /></div>
-    {evidence && <div className="message-evidence-panel"><EvidencePanel result={evidence.result} selectedChunkId={evidence.chunkId} onClose={onCloseEvidence} /></div>}
+    {(result.evidence_status !== "verified" || result.warnings?.length > 0 || result.error) && (
+      <details className="result-followup-notes">
+        <summary>研究提示与核验信息</summary>
+        {result.evidence_status !== "verified" && <p>本轮未形成足够的可核验证据，不能据此判断政策不存在。</p>}
+        {result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
+        {result.warnings?.length > 0 && <ul>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+      </details>
+    )}
+    {isLatest && result.status !== "completed" && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试本次研究</button>}
   </article>;
 }
