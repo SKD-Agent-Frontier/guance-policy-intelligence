@@ -96,6 +96,37 @@ async def test_normalized_parameters_reach_backend(ctx):
     assert seen == [("农业", "甲", "第十四个五年规划", 3)]
 
 
+@pytest.mark.parametrize("area,fyp,expected_area,expected_fyp", [
+    ("None", "null", None, None),
+    (" NONE ", " NuLl ", None, None),
+    ("甲市", "十四五", "甲市", "第十四个五年规划"),
+    ("null", "十四五", None, "第十四个五年规划"),
+    ("甲市", "None", "甲市", None),
+])
+async def test_optional_filter_null_sentinels_reach_backend_as_none(
+        ctx, area, fyp, expected_area, expected_fyp):
+    seen = []
+
+    def backend(*args):
+        seen.append(args)
+        return []
+
+    await _call(ctx, "kb_search", backend, " None ", area, fyp, 3)
+
+    assert seen == [("None", expected_area, expected_fyp, 3)]
+
+
+@pytest.mark.parametrize("area,fyp", [(123, None), (None, False)])
+async def test_nonstring_optional_filters_remain_invalid(ctx, area, fyp):
+    def forbidden(*args):
+        pytest.fail("invalid filter values reached backend")
+
+    result = ToolResult.model_validate_json(
+        await _call(ctx, "kb_search", forbidden, "农业", area, fyp, 3))
+
+    assert result.status == "invalid_argument"
+
+
 class _WrongKB:
     """后端返回与操作不匹配的类型，用于验证工具层拒绝。"""
 

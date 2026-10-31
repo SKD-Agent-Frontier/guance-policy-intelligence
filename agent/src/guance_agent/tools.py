@@ -29,9 +29,11 @@ def _validate(s, name, args, kwargs):
                 raise ValueError(f"{key}须为不超过 50 字符的字符串")
         if type(top_k) is not int or not 1 <= top_k <= s.top_k_max:
             raise ValueError(f"top_k必须为 1–{s.top_k_max} 的整数")
-        if isinstance(area, str) and not area.strip():
+        if isinstance(area, str) and (not area.strip()
+                                      or area.strip().casefold() in {"none", "null"}):
             area = None
-        if isinstance(fyp, str) and not fyp.strip():
+        if isinstance(fyp, str) and (not fyp.strip()
+                                     or fyp.strip().casefold() in {"none", "null"}):
             fyp = None
         planids = kwargs.get("planids")
         if planids is not None:
