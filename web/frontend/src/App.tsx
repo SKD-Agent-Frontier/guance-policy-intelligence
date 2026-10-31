@@ -32,6 +32,7 @@ export default function App() {
   const [homeAdvancedDraft, setHomeAdvancedDraft] = useState(createAdvancedDraft);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const researchPageBeforeCatalog = useRef<"home" | "workspace">("home");
 
   useEffect(() => {
     if (dialog && dialogRef.current && !dialogRef.current.open) {
@@ -94,7 +95,14 @@ export default function App() {
     selectConversation(id);
     setPage("workspace");
   };
-  const goResearch = () => setPage(active?.messages.length ? "workspace" : "home");
+  const openCatalog = () => {
+    if (page === "home" || page === "workspace") researchPageBeforeCatalog.current = page;
+    setPage("catalog");
+  };
+  const goResearch = () => {
+    // The tab is navigation, not a shortcut back to whichever chat happened to be active.
+    if (page === "catalog") setPage(researchPageBeforeCatalog.current);
+  };
 
   return <div className={`app-shell app-page-${page}`}>
     <Sidebar
@@ -123,7 +131,7 @@ export default function App() {
         </div>
         <nav className="global-nav" aria-label="主导航">
           <button type="button" className={page !== "catalog" ? "is-current" : ""} onClick={goResearch}>研究</button>
-          <button type="button" className={page === "catalog" ? "is-current" : ""} onClick={() => setPage("catalog")}>文献</button>
+          <button type="button" className={page === "catalog" ? "is-current" : ""} onClick={openCatalog}>文献</button>
           <button type="button" onClick={() => openDialog("about")}>关于</button>
         </nav>
         <div className="topbar-trailing">
@@ -132,8 +140,8 @@ export default function App() {
         </div>
       </header>
 
-      {page === "home" && <div className="page-body page-body-home"><Home mode={homeMode} value={homeDraft} busy={false} onChange={setHomeDraft} onModeChange={(mode) => { setHomeMode(mode); setHomeAdvancedDraft(createAdvancedDraft()); }} onSend={beginHomeMessage} onAdvancedSubmit={beginHomeAdvanced} advancedDraft={homeAdvancedDraft} onAdvancedDraftChange={(patch) => setHomeAdvancedDraft((current) => ({ ...current, ...patch }))} onOpenCatalog={() => setPage("catalog")} /></div>}
-      {page === "workspace" && active && <div className="page-body page-body-workspace"><ConversationView conversation={active} onModeChange={setMode} onSend={beginWorkspaceMessage} onAdvancedSubmit={beginWorkspaceAdvanced} onRetry={() => void retry()} onRestartPreparation={() => void restartPreparation()} onAdvancedDraftChange={updateAdvancedDraft} onSpecifyPolicies={openAdvanced} onOpenCatalog={() => setPage("catalog")} /></div>}
+      {page === "home" && <div className="page-body page-body-home"><Home mode={homeMode} value={homeDraft} busy={false} onChange={setHomeDraft} onModeChange={(mode) => { setHomeMode(mode); setHomeAdvancedDraft(createAdvancedDraft()); }} onSend={beginHomeMessage} onAdvancedSubmit={beginHomeAdvanced} advancedDraft={homeAdvancedDraft} onAdvancedDraftChange={(patch) => setHomeAdvancedDraft((current) => ({ ...current, ...patch }))} onOpenCatalog={openCatalog} /></div>}
+      {page === "workspace" && active && <div className="page-body page-body-workspace"><ConversationView conversation={active} onModeChange={setMode} onSend={beginWorkspaceMessage} onAdvancedSubmit={beginWorkspaceAdvanced} onRetry={() => void retry()} onRestartPreparation={() => void restartPreparation()} onAdvancedDraftChange={updateAdvancedDraft} onSpecifyPolicies={openAdvanced} onOpenCatalog={openCatalog} /></div>}
       {page === "catalog" && <div className="page-body page-body-catalog"><PolicyCatalog /></div>}
     </div>
 
