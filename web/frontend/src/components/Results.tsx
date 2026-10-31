@@ -51,10 +51,10 @@ function Fact({ claim, onEvidence }: { claim: Claim; onEvidence: (chunkId: strin
   );
 }
 
-function Header({ eyebrow, title, note }: { eyebrow: string; title: string; note?: string }) {
+function Header({ eyebrow, title, note }: { eyebrow?: string; title: string; note?: string }) {
   return (
     <header className="results-heading">
-      <div className="results-kicker"><span className="results-kicker-mark" />{eyebrow}</div>
+      {eyebrow && <div className="results-kicker"><span className="results-kicker-mark" />{eyebrow}</div>}
       <h1>{title}</h1>
       {note && <p>{note}</p>}
     </header>
@@ -76,7 +76,7 @@ function QAResults({ result, onEvidence }: ResultsProps) {
   const claims = result.claims ?? [];
   return (
     <div className="results-content results-content--qa">
-      <Header eyebrow="政策问答" title="研究结论" note="结论与本次检索到的原文逐条关联。" />
+      <Header title="研究结论" />
       {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><p>{result.answer}</p></div>}
       {claims.length > 0 ? (
         <section className="qa-claims" aria-label="关联依据">

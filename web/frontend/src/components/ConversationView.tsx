@@ -228,51 +228,11 @@ function Message({
           {primary && <section className="clarification-question"><h2>{primary.question}</h2><div className="clarification-choices">{primary.choices.map((choice, choiceIndex) => <button type="button" key={`${primary.id}-${choiceIndex}`} disabled={!latestClarification || conversation.busy !== "idle"} onClick={() => onSend(choice)}>{choice}</button>)}</div></section>}
           {secondary.length > 0 && <details className="additional-questions"><summary>其他需要回答的问题（{secondary.length}）</summary>{secondary.map((option) => <section className="clarification-question" key={option.id}><h3>{option.question}</h3><div className="clarification-choices">{option.choices.map((choice, choiceIndex) => <button type="button" key={`${option.id}-${choiceIndex}`} disabled={!latestClarification || conversation.busy !== "idle"} onClick={() => onSend(choice)}>{choice}</button>)}</div></section>)}</details>}
           {!primary && <p className="clarification-free-text">请在下方输入你希望补充或修改的条件。</p>}
-          {!latestClarification && <p className="historic-option-note">这是历史准备消息，选项已停用。请在当前输入框补充条件。</p>}
         </div>
       )}
-      {response.status === "ready" && <div className="preparation-status-note">研究范围已准备完成，正在提交正式研究任务；准备完成不代表研究已完成。</div>}
       {response.status === "blocked" && <div className="preparation-status-note">当前无法自动准备研究。{["extract", "compare", "compare_plans"].includes(response.mode) ? "可在下方使用高级选择入口，明确指定政策编号后继续。" : "你可以修改输入条件，再重新开始准备。"}{isLatest && <button type="button" className="retry-inline" onClick={onRestartPreparation}>重新开始准备</button>}</div>}
-      {response.warnings?.length > 0 && <ul className="preparation-warnings" aria-label="研究范围提醒">{response.warnings.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
-      {stateSummary(response.state).length > 0 && <div className="preparation-confirmed-summary"><strong>当前已确认</strong>{response.state.topic && <span>主题：{response.state.topic}</span>}{response.state.confirmed_conditions.filter((condition) => condition.text.replace(/^主题[：:]\s*/, "") !== response.state.topic).map((condition) => <span key={condition.id}>{condition.text}</span>)}</div>}
-      <PreparationDetails response={response} />
     </article>
   );
-}
-
-function PreparationDetails({ response }: { response: Extract<ConversationMessage, { kind: "preparation" }>['response'] }) {
-  const state = response.state;
-  const scope = [
-    state.topic && ["主题", state.topic],
-    state.area && ["地区", state.area],
-    state.time_scope && ["时间范围", [state.time_scope.start, state.time_scope.end].filter(Boolean).join("—") || "未限定"],
-    state.dimensions.length > 0 && ["维度", state.dimensions.join("、")],
-  ].filter(Boolean) as [string, string][];
-  const statuses = state.condition_statuses ?? [];
-  return (
-    <details className="preparation-details">
-      <summary>查看已确认研究条件与执行边界</summary>
-      {scope.length > 0 && <dl className="preparation-scope">{scope.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
-      {state.confirmed_conditions.length > 0 && <section className="condition-list"><h3>已确认条件</h3>{state.confirmed_conditions.map((condition) => <p key={condition.id}>{condition.text}</p>)}</section>}
-      {state.pending_conditions.length > 0 && <section className="condition-list condition-pending"><h3>尚待确认</h3>{state.pending_conditions.map((condition) => <p key={condition.id}>{condition.text}</p>)}</section>}
-      {statuses.length > 0 && <section className="condition-list"><h3>条件执行边界</h3>{statuses.map((item) => <div className="condition-status" key={item.condition_id}><span className={`condition-status-label status-${item.status}`}>{statusLabel(item.status)}</span><p>{item.value ? `${item.value} · ` : ""}{item.reason}{item.status === "executable_filter" ? "（具备后续执行能力，不代表已完成筛选）" : ""}</p></div>)}</section>}
-      {response.status === "ready" && response.request && <p className="prepared-request-note">已准备的正式请求：{response.request.question}</p>}
-    </details>
-  );
-}
-
-function statusLabel(status: string) {
-  switch (status) {
-    case "executable_filter": return "可执行筛选";
-    case "request_only": return "仅作为请求条件";
-    case "unrestricted": return "未作限制";
-    case "pending": return "待确认";
-    default: return status;
-  }
-}
-
-function stateSummary(state: Extract<ConversationMessage, { kind: "preparation" }>['response']['state']) {
-  return [state.topic, ...state.confirmed_conditions.map((condition) => condition.text)].filter(Boolean);
 }
 
 function errorExplanation(code: string) {
