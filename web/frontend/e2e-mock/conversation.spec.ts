@@ -650,6 +650,9 @@ test("Landing page: template and advanced panels float without shifting the hero
     };
   });
   const original = await measure();
+  // The restored architecture scene must remain substantially taller than the old 29vh crop.
+  const sceneHeight = await page.locator(".architecture-scene").evaluate((element) => element.getBoundingClientRect().height);
+  expect(sceneHeight).toBeGreaterThan(0.45 * 900);
 
   await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
   const advanced = page.locator(".advanced-fields");
@@ -663,6 +666,7 @@ test("Landing page: template and advanced panels float without shifting the hero
   const templates = page.getByRole("region", { name: "指令模板列表" });
   await expect(templates).toBeVisible();
   await expect(templates).toHaveCSS("position", "absolute");
+  await expect(page.getByText("选择模板后将自动填入输入框，你可以继续修改后发送。")).toHaveCount(0);
   expect(await measure()).toEqual(original);
 
   await page.getByRole("button", { name: "关闭指令模板" }).click();
