@@ -604,6 +604,16 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
     meta["output_parse"]["token_cap_reached"] = cap_reached
     meta["output_parse"]["output_chars"] = len(outcome.final_output)
     if parsed is not None:
+        # 可选 analyses 的格式坏了也不能抹掉完整事实；记录弃用数，防止原始
+        # answer 里夹带没有可验证依赖的分析语句。
+        try:
+            payload = json.loads(outcome.final_output)
+        except (json.JSONDecodeError, TypeError):
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("analyses"), list):
+            dropped = len(payload["analyses"]) - len(parsed.analyses)
+            if dropped > 0:
+                meta["output_parse"]["analyses_dropped"] = dropped
         if deterministic:
             meta["output_parse"]["deterministic_repair"] = deterministic
             rt.log("qa_output_parse_repaired", classification=classification,
