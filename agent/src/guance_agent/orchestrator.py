@@ -478,6 +478,7 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
 
     # 保存业务事实及来源的快照。structured 可能包含依赖它们的矩阵/分析，
     # 不能在核验删改事实后继续原样展示这些派生内容。
+    research_gate = outcome.structured.get("research_gate")
     original_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in outcome.claims]
     output = AgentOutput(answer=outcome.answer, claims=outcome.claims,
                          insufficient=outcome.insufficient)
@@ -518,6 +519,14 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         elif not original_claims and not result.meta.get("answer_rebuilt"):
             result.structured = _business_document_metadata(services)
         rebuild_trusted_answer(result, ctx, "no_valid_claims")
+        # A deterministic eligibility rejection can be explained without claiming
+        # the policy document was searched exhaustively.
+        if (isinstance(research_gate, dict)
+                and research_gate.get("status") == "blocked"
+                and research_gate.get("reason") == "topic_mismatch"):
+            result.answer = outcome.answer
+            result.meta["research_gate"] = research_gate
+            result.evidence_status = "insufficient"
         result.warnings.append("未形成可核验的有效结论；原始回答和业务事实已移除，正文事实未经核验")
     return result
 
