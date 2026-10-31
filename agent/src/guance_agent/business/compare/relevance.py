@@ -36,7 +36,12 @@ def evidence_on_topic(unit, dimension: str, topic: str, title: str) -> bool:
     """Keep dimension-specific evidence under a topic-matched policy's remit."""
     if topic not in title:
         return False
+    # A topical title alone does not validate every clause under "发展目标":
+    # e.g. fire casualty figures in an incidental chapter are still off topic.
+    # When local source context carries no subject evidence, fail closed.
     source = (unit.text or "") + "\n" + (unit.section_path or "")
+    if topic not in source:
+        return False
     if "目标" in dimension:
         return bool(_GOAL.search(source))
     if any(part in dimension for part in ("支持", "政策工具", "措施")):
