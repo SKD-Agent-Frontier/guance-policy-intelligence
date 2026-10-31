@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ApiError, researchClient, validatePreparationResponse } from "../api/client";
 import type { DemoScenario } from "../data/demo";
 import { createAdvancedDraft, type AdvancedDraft, type Conversation, type ConversationMessage } from "../conversationTypes";
+import { summarizeConversationTitle } from "../conversationTitle";
 import type {
   PreparedRequest,
   ResearchPreparationRequest,
@@ -126,7 +127,9 @@ export function useConversations() {
     }
     updateConversation(id, (conversation) => ({
       ...conversation,
-      title: conversation.title === "新对话" && item.kind === "user" ? item.text.slice(0, 32) : conversation.title,
+      title: item.kind === "user" && !conversation.messages.some((entry) => entry.kind === "user")
+        ? summarizeConversationTitle(item.text, conversation.mode)
+        : conversation.title,
       messages: [...conversation.messages, item],
     }));
   }, [updateConversation]);
