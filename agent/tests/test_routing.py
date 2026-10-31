@@ -102,3 +102,9 @@ def test_historic_tenth_not_confused_with_2026_fifteenth_or_party_congress():
     assert parse_fyps("第十五个五年规划") == ("第十五个五年规划",)
     assert parse_fyps("十五五产业规划") == ("第十五个五年规划",)
     assert parse_fyps("十五届五中全会") == ()
+
+
+def test_generic_city_park_and_market_terms_are_not_area_filters():
+    assert parse_areas("研究产业园区的升级政策") == ()
+    assert parse_areas("优化城市更新的资金政策") == ()
+    assert parse_areas("数字经济市场分析") == ()
