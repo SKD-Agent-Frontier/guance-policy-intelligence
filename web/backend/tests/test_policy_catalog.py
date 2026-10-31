@@ -150,6 +150,17 @@ def test_year_inference_and_known_planning_period_rules():
     assert [item["planid"] for item in ordered] == ["5", "2", "1", "3", "4", "6", "7"]
 
 
+def test_reference_year_rejects_ambiguous_ranges_and_vision_years():
+    cases = (
+        _record("1", "宿迁市气象灾害防御规划（2015―2020年）", "x", None, "其他", "正文"),
+        _record("2", "某地2035年 远景目标纲要", "x", None, "其他", "正文"),
+        _record("3", "某地规划（2015/2020年）", "x", None, "其他", "正文"),
+        _record("4", "2021年某地规划和2035年远景目标", "x", None, "其他", "正文"),
+        _record("5", "GB/T 2021 技术规范", "x", None, "其他", "正文"),
+    )
+    assert [record.year for record in cases] == [None, None, None, 2021, None]
+
+
 def test_short_tenth_plan_alias_matches_metadata_plan_name():
     record = _record("1", "第十个规划", "x", "第十个五年计划", "其他", "正文")
     service = PolicyCatalogService(CatalogSnapshot("g", 1, None, (record,)))

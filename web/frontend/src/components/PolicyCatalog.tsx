@@ -44,6 +44,7 @@ function metadata(value: string | null | undefined) {
 function formatPeriod(fyp: string | null | undefined, year: number | null | undefined) {
   const normalized = fyp?.trim();
   if (normalized && KNOWN_PERIODS[normalized]) return KNOWN_PERIODS[normalized];
+  if (normalized && normalized !== "政府工作报告") return normalized;
   return typeof year === "number" && Number.isInteger(year) && year >= 1 && year <= 9999
     ? `${year}年`
     : "未提供";
