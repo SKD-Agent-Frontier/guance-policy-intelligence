@@ -26,7 +26,7 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
           </div>
           <h1>让政策更可理解<br />让决策更有依据</h1>
         </div>
-        <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} />
+        <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} enableTemplates />
       </div>
       <div className="architecture-scene" aria-hidden="true">
         <img src="/research-architecture.png" alt="" />

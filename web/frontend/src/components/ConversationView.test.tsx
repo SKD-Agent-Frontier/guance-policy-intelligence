@@ -189,4 +189,57 @@ describe("conversation simplification and original source reader", () => {
     fireEvent.click(screen.getByRole("button", { name: "返回研究对话" }));
     expect(screen.getByRole("heading", { name: "研究结论" })).toBeInTheDocument();
   });
+  it("shows copy and regenerate beneath the agent answer, and copy and edit beneath user text", () => {
+    const onRegenerate = vi.fn();
+    const onEditAndResend = vi.fn();
+    render(<ConversationView conversation={completedConversation()} onModeChange={vi.fn()} onSend={vi.fn()}
+      onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRegenerate={onRegenerate}
+      onEditAndResend={onEditAndResend} onRestartPreparation={vi.fn()}
+      onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+
+    expect(screen.getAllByRole("button", { name: "复制消息" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+    expect(onRegenerate).toHaveBeenCalledWith("result1");
+    fireEvent.click(screen.getByRole("button", { name: "编辑消息" }));
+    const editor = screen.getByRole("textbox", { name: "编辑消息内容" });
+    expect(editor).toHaveValue("研究问题");
+    fireEvent.change(editor, { target: { value: "修改后的研究问题" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存并发送" }));
+    expect(onEditAndResend).toHaveBeenCalledWith("u1", "修改后的研究问题");
+  });
+
+  it("copies assistant rendered content, not the message-action labels", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      renderCompleted();
+      const copies = screen.getAllByRole("button", { name: "复制消息" });
+      fireEvent.click(copies[1]);
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const copied = writeText.mock.calls[0][0] as string;
+      expect(copied).toContain("当前结论");
+      expect(copied).not.toContain("重新生成");
+      expect(screen.getByRole("button", { name: "已复制" })).toBeInTheDocument();
+    } finally {
+      if (previous) Object.defineProperty(navigator, "clipboard", previous);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("can cancel an inline edit without changing the original message", () => {
+    const onEdit = vi.fn();
+    render(<ConversationView conversation={completedConversation()} onModeChange={vi.fn()} onSend={vi.fn()}
+      onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRegenerate={vi.fn()}
+      onEditAndResend={onEdit} onRestartPreparation={vi.fn()}
+      onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑消息" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "编辑消息内容" }), {
+      target: { value: "未提交草稿" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.getByText("研究问题")).toBeInTheDocument();
+  });
+
 });

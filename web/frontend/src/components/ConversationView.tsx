@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { BookOpenText, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { BookOpenText, Check, Copy, Pencil, RotateCcw } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
 import { EvidenceOriginalReader, SourceHoverCard } from "./EvidenceOriginalReader";
@@ -12,6 +12,8 @@ type Props = {
   onSend: (message: string) => void;
   onAdvancedSubmit: (request: ResearchRequest) => void;
   onRetry: () => void;
+  onRegenerate?: (messageId: string) => void;
+  onEditAndResend?: (messageId: string, text: string) => void;
   onRestartPreparation: () => void;
   onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
   onSpecifyPolicies: () => void;
@@ -26,7 +28,7 @@ const labels: Record<TaskType, string> = {
   compare_plans: "多方案分析",
 };
 
-export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRestartPreparation, onAdvancedDraftChange, onSpecifyPolicies, onOpenCatalog }: Props) {
+export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRegenerate = () => {}, onEditAndResend = () => {}, onRestartPreparation, onAdvancedDraftChange, onSpecifyPolicies, onOpenCatalog }: Props) {
   const [draft, setDraft] = useState("");
   const [reader, setReader] = useState<{ result: RunResult; reference: EvidenceRef } | null>(null);
   const [hovered, setHovered] = useState<{ result: RunResult; reference: EvidenceRef; top: number; left: number } | null>(null);
@@ -149,6 +151,8 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
             conversation={conversation}
             onSend={(message) => { setDraft(""); onSend(message); }}
             onRetry={onRetry}
+            onRegenerate={onRegenerate}
+            onEditAndResend={onEditAndResend}
             onRestartPreparation={onRestartPreparation}
             onSpecifyPolicies={onSpecifyPolicies}
             onEvidence={openEvidence}
@@ -189,6 +193,8 @@ function Message({
   conversation,
   onSend,
   onRetry,
+  onRegenerate,
+  onEditAndResend,
   onRestartPreparation,
   onSpecifyPolicies,
   onEvidence,
@@ -198,20 +204,60 @@ function Message({
   conversation: Conversation;
   onSend: (message: string) => void;
   onRetry: () => void;
+  onRegenerate: (messageId: string) => void;
+  onEditAndResend: (messageId: string, text: string) => void;
   onRestartPreparation: () => void;
   onSpecifyPolicies: () => void;
   onEvidence: (result: RunResult, chunkId: string) => void;
 }) {
-  if (message.kind === "user") return <article className="conversation-message message-user"><p>{message.text}</p></article>;
-  if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
+  const [editing, setEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.kind === "user" ? message.text : "");
+  const contentRef = useRef<HTMLDivElement>(null);
+  const canChangeHistory = conversation.busy === "idle";
+  if (message.kind === "user") return (
+    <div className="message-user-wrap">
+      {editing ? (
+        <form className="conversation-edit-form" onSubmit={(event) => {
+          event.preventDefault();
+          if (!editedText.trim() || !canChangeHistory) return;
+          onEditAndResend(message.id, editedText);
+          setEditing(false);
+        }}>
+          <textarea aria-label="编辑消息内容" autoFocus value={editedText} rows={Math.min(8, Math.max(3, editedText.split("\n").length))}
+            onChange={(event) => setEditedText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") { event.preventDefault(); setEditing(false); }
+              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
+            }} />
+          <div className="conversation-edit-buttons">
+            <button type="button" onClick={() => setEditing(false)}>取消</button>
+            <button type="submit" disabled={!editedText.trim() || !canChangeHistory}>保存并发送</button>
+          </div>
+        </form>
+      ) : <>
+        <article className="conversation-message message-user"><p>{message.text}</p></article>
+        <MessageActions text={message.text} onEdit={() => { setEditedText(message.text); setEditing(true); }} disabled={!canChangeHistory} />
+      </>}
+    </div>
+  );
+  if (message.kind === "advanced_guidance") return <article className="conversation-message message-system">
+    <div ref={contentRef}><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={!canChangeHistory} onClick={onSpecifyPolicies}>指定政策对象</button>}</div>
+    <MessageActions text={message.text} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} />
+  </article>;
   if (message.kind === "execution") return null;
   if (message.kind === "error") {
     const preparationConflict = message.code === "PREPARATION_CONFLICT" || /409|PREPARATION_STATE|STATE_EXPIRED|REVISION_CONFLICT/i.test(message.code);
     const preparationBlocked = message.code === "UNSUPPORTED_MODE" || message.code === "PREPARATION_BLOCKED";
     const canRetry = isLatest && !["UNSUPPORTED_MODE", "PREPARATION_BLOCKED", "PREPARATION_RESTART", "RAG_EMPTY", "NO_EVIDENCE", "INSUFFICIENT_EVIDENCE"].includes(message.code);
-    return <article className="conversation-message message-error" role="alert"><div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>{isLatest && (preparationConflict || preparationBlocked) ? <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button> : canRetry && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试</button>}</article>;
+    return <article className="conversation-message message-error" role="alert">
+      <div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>
+      {isLatest && (preparationConflict || preparationBlocked) ? <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button> : canRetry && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试</button>}
+      <MessageActions text={message.text + "\n" + errorExplanation(message.code)}
+        onRegenerate={message.code === "PREPARATION_RESTART" ? undefined : () => onRegenerate(message.id)}
+        disabled={!canChangeHistory} />
+    </article>;
   }
-  if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onEvidence={onEvidence} />;
+  if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} onEvidence={onEvidence} />;
 
   if (message.response.status === "ready") return null;
   const response = message.response;
@@ -221,6 +267,7 @@ function Message({
   const secondary = options.slice(1);
   return (
     <article className={`conversation-message message-preparation prep-${response.status}`}>
+      <div ref={contentRef}>
       {response.message && (options[0]?.question !== response.message) && <p className="preparation-message-text">{response.message}</p>}
       {response.status === "needs_clarification" && (
         <div className="clarification-block">
@@ -230,6 +277,8 @@ function Message({
         </div>
       )}
       {response.status === "blocked" && <div className="preparation-status-note">当前无法自动准备研究。{["extract", "compare", "compare_plans"].includes(response.mode) ? "可在下方使用高级选择入口，明确指定政策编号后继续。" : "你可以修改输入条件，再重新开始准备。"}{isLatest && <button type="button" className="retry-inline" onClick={onRestartPreparation}>重新开始准备</button>}</div>}
+      </div>
+      <MessageActions contentRef={contentRef} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} />
     </article>
   );
 }
@@ -251,16 +300,21 @@ function ResultMessage({
   message,
   isLatest,
   onRetry,
+  onRegenerate,
+  disabled,
   onEvidence,
 }: {
   message: Extract<ConversationMessage, { kind: "result" }>;
   isLatest: boolean;
   onRetry: () => void;
+  onRegenerate: () => void;
+  disabled: boolean;
   onEvidence: (result: RunResult, chunkId: string) => void;
 }) {
   const result = message.result;
+  const bodyRef = useRef<HTMLDivElement>(null);
   return <article className="conversation-message result-message" data-result-message-id={message.id}>
-    <div className="result-message-body"><Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} /></div>
+    <div ref={bodyRef} className="result-message-body"><Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} /></div>
     {(result.evidence_status !== "verified" || result.warnings?.length > 0 || result.error) && (
       <details className="result-followup-notes">
         <summary>研究提示与核验信息</summary>
@@ -270,5 +324,58 @@ function ResultMessage({
       </details>
     )}
     {isLatest && result.status !== "completed" && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试本次研究</button>}
+    <MessageActions contentRef={bodyRef} text={result.answer} onRegenerate={onRegenerate} disabled={disabled} />
   </article>;
+}
+
+
+/** Chat-style controls live beneath message content and are excluded from copied text. */
+function MessageActions({
+  text, contentRef, onRegenerate, onEdit, disabled = false,
+}: {
+  text?: string;
+  contentRef?: RefObject<HTMLElement | null>;
+  onRegenerate?: () => void;
+  onEdit?: () => void;
+  disabled?: boolean;
+}) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (clearTimer.current) clearTimeout(clearTimer.current); }, []);
+
+  const copyMessage = async () => {
+    const content = (contentRef?.current?.innerText || contentRef?.current?.textContent || text || "").trim();
+    if (!content) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = content;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        const success = document.execCommand?.("copy");
+        field.remove();
+        if (!success) throw new Error("Clipboard unavailable");
+      }
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+    clearTimer.current = setTimeout(() => setCopyState("idle"), 1800);
+  };
+
+  return <div className="message-actions" aria-label="消息操作">
+    <button type="button" title={copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制"}
+      aria-label={copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制消息"}
+      onClick={() => void copyMessage()}>{copyState === "copied" ? <Check size={15} /> : <Copy size={15} />}</button>
+    {onRegenerate && <button type="button" title="重新生成（后续对话将被替换）" aria-label="重新生成"
+      disabled={disabled} onClick={onRegenerate}><RotateCcw size={15} /></button>}
+    {onEdit && <button type="button" title="编辑消息" aria-label="编辑消息"
+      disabled={disabled} onClick={onEdit}><Pencil size={15} /></button>}
+  </div>;
 }

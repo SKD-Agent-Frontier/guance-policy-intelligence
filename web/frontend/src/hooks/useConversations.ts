@@ -103,6 +103,11 @@ export function useConversations() {
   const generations = useRef(new Map<string, number>());
   const operations = useRef(new Map<string, number>());
   const lastOperations = useRef(new Map<string, LastOperation>());
+  // Keep the exact execution request associated with each assistant answer.
+  // These maps are session-local, like the conversation history itself.
+  const resultRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
+  const advancedRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
+  const userModes = useRef(new Map<string, TaskType>());
 
   const updateSessions = useCallback((updater: (current: Conversation[]) => Conversation[]) => {
     const next = updater(sessionsRef.current);
@@ -115,6 +120,10 @@ export function useConversations() {
   }, [updateSessions]);
 
   const appendMessage = useCallback((id: string, item: ConversationMessage) => {
+    if (item.kind === "user") {
+      const current = sessionsRef.current.find((conversation) => conversation.id === id);
+      if (current) userModes.current.set(item.id, current.mode);
+    }
     updateConversation(id, (conversation) => ({
       ...conversation,
       title: conversation.title === "新对话" && item.kind === "user" ? item.text.slice(0, 32) : conversation.title,
@@ -155,7 +164,9 @@ export function useConversations() {
     try {
       const result = await researchClient.submit(request, scenario);
       if (!isCurrent(conversationId, token)) return;
-      appendMessage(conversationId, message("result", { result }));
+      const answer = message("result", { result });
+      resultRequests.current.set(answer.id, { request, scenario });
+      appendMessage(conversationId, answer);
       const resultError = runResultError(result);
       if (resultError) appendMessage(conversationId, message("error", resultError));
       lastOperations.current.set(conversationId, {
@@ -332,7 +343,9 @@ export function useConversations() {
     if (!conversation) return;
     const token = beginOperation(conversationId);
     if (!token) return;
-    appendMessage(conversationId, message("user", { text: request.question }));
+    const userTurn = message("user", { text: request.question });
+    advancedRequests.current.set(userTurn.id, { request, scenario });
+    appendMessage(conversationId, userTurn);
     if (!isAdvancedMode(request.task_type) || request.task_type !== conversation.mode) {
       appendMessage(conversationId, message("error", {
         code: "UNSUPPORTED_MODE",
@@ -347,6 +360,85 @@ export function useConversations() {
       finishOperation(conversationId, token);
     }
   }, [appendMessage, beginOperation, execute, finishOperation]);
+
+  // Rewind a turn rather than mutating a rendered bubble. Any later turns depend
+  // on the old answer and must be removed before the new request is submitted.
+  const rewindToUser = useCallback((conversation: Conversation, userIndex: number) => {
+    const turn = conversation.messages[userIndex];
+    if (turn?.kind !== "user") return;
+    const mode = userModes.current.get(turn.id) ?? conversation.mode;
+    const retained = conversation.messages.slice(0, userIndex);
+    const prior = retained.filter((item) => item.kind === "preparation").at(-1);
+    const preparation = prior?.kind === "preparation" && prior.response.mode === mode
+      ? prior.response : null;
+    lastOperations.current.delete(conversation.id);
+    updateConversation(conversation.id, (current) => ({
+      ...current,
+      title: retained.some((item) => item.kind === "user") ? current.title : "新对话",
+      mode,
+      messages: retained,
+      preparation,
+      busy: "idle",
+      advancedDraft: createAdvancedDraft(),
+    }));
+  }, [updateConversation]);
+
+  const editAndResend = useCallback(async (messageId: string, editedText: string, scenario?: DemoScenario) => {
+    const text = editedText.trim();
+    const conversation = sessionsRef.current.find((item) => item.id === activeIdRef.current);
+    if (!text || !conversation || conversation.busy !== "idle" || operations.current.has(conversation.id)) return;
+    const index = conversation.messages.findIndex((item) => item.id === messageId && item.kind === "user");
+    if (index < 0) return;
+    const original = conversation.messages[index];
+    if (original.kind !== "user") return;
+    const advanced = advancedRequests.current.get(original.id);
+    rewindToUser(conversation, index);
+    if (advanced) await runAdvanced({ ...advanced.request, question: text }, scenario ?? advanced.scenario);
+    else await send(text, scenario);
+  }, [rewindToUser, runAdvanced, send]);
+
+  const regenerate = useCallback(async (messageId: string, scenario?: DemoScenario) => {
+    const conversation = sessionsRef.current.find((item) => item.id === activeIdRef.current);
+    if (!conversation || conversation.busy !== "idle" || operations.current.has(conversation.id)) return;
+    const index = conversation.messages.findIndex((item) => item.id === messageId);
+    if (index < 0) return;
+    const target = conversation.messages[index];
+    if (target.kind === "user" || target.kind === "execution") return;
+    const userIndex = conversation.messages.slice(0, index).map((item) => item.kind).lastIndexOf("user");
+    if (userIndex < 0) return;
+
+    // A completed answer can reuse the precisely prepared request, avoiding
+    // unnecessary preparation and preserving advanced selection parameters.
+    const saved = target.kind === "result" ? resultRequests.current.get(target.id) : undefined;
+    if (saved) {
+      const retained = conversation.messages.slice(0, index);
+      lastOperations.current.delete(conversation.id);
+      updateConversation(conversation.id, (current) => ({
+        ...current, messages: retained, busy: "idle",
+        preparation: (() => {
+          const prior = retained.filter((item) => item.kind === "preparation").at(-1);
+          return prior?.kind === "preparation" ? prior.response : null;
+        })(),
+        advancedDraft: createAdvancedDraft(),
+      }));
+      const token = beginOperation(conversation.id);
+      if (!token) return;
+      try {
+        await execute(conversation.id, saved.request, scenario ?? saved.scenario, token);
+      } finally {
+        finishOperation(conversation.id, token);
+      }
+      return;
+    }
+
+    // Clarifications, guidance and errors need the original user input replayed.
+    const original = conversation.messages[userIndex];
+    if (original.kind !== "user") return;
+    const advanced = advancedRequests.current.get(original.id);
+    rewindToUser(conversation, userIndex);
+    if (advanced) await runAdvanced(advanced.request, scenario ?? advanced.scenario);
+    else await send(original.text, scenario);
+  }, [beginOperation, execute, finishOperation, rewindToUser, runAdvanced, send, updateConversation]);
 
   const retry = useCallback(async () => {
     const conversationId = activeIdRef.current;
@@ -427,6 +519,8 @@ export function useConversations() {
     updateAdvancedDraft,
     openAdvanced,
     retry,
+    regenerate,
+    editAndResend,
     restartPreparation,
   };
 }

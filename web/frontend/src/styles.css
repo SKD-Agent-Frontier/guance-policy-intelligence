@@ -1271,6 +1271,91 @@ textarea:focus-visible {
   border-color: #f1e7e4;
   background: #fcf8f7;
 }
+
+/* Copy / regenerate / edit controls sit below the visible message, like chat history tools. */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 5px;
+  min-height: 28px;
+}
+.message-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #8e8580;
+  cursor: pointer;
+  transition: color 130ms ease, background-color 130ms ease;
+}
+.message-actions button:hover:not(:disabled),
+.message-actions button:focus-visible {
+  color: #51443d;
+  background: #f3efec;
+}
+.message-actions button:focus-visible {
+  outline: 2px solid #b99089;
+  outline-offset: 1px;
+}
+.message-actions button:disabled { opacity: .38; cursor: not-allowed; }
+.message-user-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 1014px;
+  margin: 0 auto 14px;
+}
+.message-user-wrap > .message-user { margin: 0; }
+.message-user-wrap .message-actions { justify-content: flex-end; }
+.conversation-edit-form {
+  width: min(720px, 100%);
+  padding: 12px;
+  border: 1px solid #e8dcda;
+  border-radius: 13px;
+  background: #fcf8f7;
+}
+.conversation-edit-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 94px;
+  max-height: 50vh;
+  padding: 9px 10px;
+  resize: vertical;
+  border: 1px solid #e1d7d3;
+  border-radius: 8px;
+  background: #fff;
+  color: #403833;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.conversation-edit-form textarea:focus { outline: 2px solid #c8aaa3; }
+.conversation-edit-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.conversation-edit-buttons button {
+  border: 1px solid #ded5d1;
+  border-radius: 8px;
+  padding: 7px 13px;
+  background: #fff;
+  color: #52463f;
+  cursor: pointer;
+}
+.conversation-edit-buttons button[type="submit"] {
+  border-color: #955b56;
+  background: #955b56;
+  color: #fff;
+}
+.conversation-edit-buttons button:disabled { opacity: .5; cursor: not-allowed; }
 .message-user .message-role {
   color: #9e625c;
 }
