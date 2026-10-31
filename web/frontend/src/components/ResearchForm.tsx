@@ -1,11 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
+  FileText,
+  LayoutTemplate,
   Plus,
   X,
 } from "lucide-react";
 import type { ResearchRequest, TaskType } from "../types";
 import type { AdvancedDraft } from "../conversationTypes";
+import { promptTemplates } from "../promptTemplates";
 
 type Props = {
   mode: TaskType;
@@ -19,6 +22,7 @@ type Props = {
   onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
   onOpenCatalog?: () => void;
   hideModeTabs?: boolean;
+  enableTemplates?: boolean;
 };
 
 const modes: { id: TaskType; label: string }[] = [
@@ -43,7 +47,10 @@ export function ResearchForm({
   onAdvancedDraftChange,
   onOpenCatalog,
   hideModeTabs = false,
+  enableTemplates = false,
 }: Props) {
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const composerRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const targetRefs = useRef<Array<HTMLInputElement | null>>([]);
   const targetValuesRef = useRef<string[]>([]);
@@ -59,6 +66,24 @@ export function ResearchForm({
   };
 
   useEffect(resize, [value]);
+  useEffect(() => { setTemplatesOpen(false); }, [mode, enableTemplates]);
+  useEffect(() => {
+    if (!templatesOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !composerRef.current?.contains(event.target)) {
+        setTemplatesOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setTemplatesOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [templatesOpen]);
   useEffect(() => {
     if (!advancedDraft.open || advancedDraft.focusVersion === 0) return;
     const index = targetValuesRef.current.findIndex((item) => !isPlanId(item.trim()));
@@ -103,7 +128,7 @@ export function ResearchForm({
     : advancedTargets.length >= 2 && advancedTargets.length <= 8 && advancedTargets.every(isPlanId) && new Set(advancedTargets).size === advancedTargets.length;
 
   return (
-    <section className="research-composer" aria-label="研究需求">
+    <section className="research-composer" ref={composerRef} aria-label="研究需求">
       {!hideModeTabs && <div className="mode-tabs" role="tablist" aria-label="研究模式">
         {modes.map(({ id, label }) => (
           <button
@@ -112,13 +137,27 @@ export function ResearchForm({
             type="button"
             role="tab"
             aria-selected={mode === id}
-            onClick={() => onModeChange(id)}
+            onClick={() => { setTemplatesOpen(false); onModeChange(id); }}
           >
             <span>{label}</span>
           </button>
         ))}
       </div>}
-      <div className="composer-fields">
+      <div className={`composer-fields${enableTemplates ? " composer-fields--with-templates" : ""}`}>
+        {enableTemplates && (
+          <button
+            type="button"
+            className={`prompt-template-trigger${templatesOpen ? " is-open" : ""}`}
+            aria-label="指令模板"
+            title="指令模板"
+            aria-haspopup="true"
+            aria-expanded={templatesOpen}
+            aria-controls="prompt-template-panel"
+            onClick={() => setTemplatesOpen((open) => !open)}
+          >
+            <LayoutTemplate size={19} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           className="composer-question"
@@ -142,6 +181,36 @@ export function ResearchForm({
       {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
         {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
       </div>}
+      {enableTemplates && templatesOpen && (
+        <div className="prompt-template-panel" id="prompt-template-panel" role="region" aria-label="指令模板列表">
+          <header className="prompt-template-heading">
+            <div className="prompt-template-heading-title"><FileText size={17} aria-hidden="true" /><strong>{modes.find((item) => item.id === mode)?.label} · 指令模板</strong></div>
+            <button type="button" className="prompt-template-close" aria-label="关闭指令模板" onClick={() => setTemplatesOpen(false)}><X size={17} aria-hidden="true" /></button>
+          </header>
+          <p className="prompt-template-hint">选择模板后将自动填入输入框，你可以继续修改后发送。</p>
+          <div className="prompt-template-grid">
+            {promptTemplates[mode].map((template) => (
+              <button
+                type="button"
+                key={template.id}
+                className={`prompt-template-card${value === template.prompt ? " is-selected" : ""}`}
+                aria-pressed={value === template.prompt}
+                onClick={() => { onChange(template.prompt); textareaRef.current?.focus(); }}
+              >
+                <span className="prompt-template-card-icon"><FileText size={17} aria-hidden="true" /></span>
+                <span className="prompt-template-card-content">
+                  <strong>{template.title}</strong>
+                  <span>{template.prompt}</span>
+                </span>
+                {value === template.prompt && <span className="prompt-template-selected" aria-hidden="true">✓</span>}
+              </button>
+            ))}
+          </div>
+          {(mode === "extract" || mode === "compare_plans") && (
+            <p className="prompt-template-mode-note">此模式仍可能需要使用高级选择指定政策编号；模板仅用于填写研究问题。</p>
+          )}
+        </div>
+      )}
       {advancedAvailable && (
         <div className="advanced-entry">
           <button
