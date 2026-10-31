@@ -22,6 +22,7 @@ from .format_recovery import (
     repair_preserves_content,
 )
 from .kb import get_kb
+from .literal_keywords import enforce_literal_result, literal_keyword
 from .output import (
     ERRORS,
     LIMIT_CODES,
@@ -329,6 +330,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                                      areas=decision.areas, fyps=decision.fyps,
                                      sub_query=decision.sub_query, blocked=decision.blocked)
         ctx.route = decision
+        if task.task_type == "qa" and decision.kind == "open":
+            ctx.literal_keyword = literal_keyword(task.question)
         async with _session_lock(task.session_id):
             if module is not None:
                 result = await _run_business(task, s, rt, ctx, deadline, decision, module)
@@ -350,6 +353,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                 result.warnings.append("核验超出本次运行时限，未完成逐条核验")
                 result.evidence_status = "insufficient"
         if module is None:
+            if task.task_type == "qa":
+                enforce_literal_result(result, ctx)
             _attach(result, task)
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
