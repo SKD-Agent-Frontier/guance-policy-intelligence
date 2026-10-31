@@ -134,7 +134,7 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
     if task.task_type == "qa" and parsed.analyses:
         result._qa_analysis_candidates = prepare_candidates(
-            parsed.analyses, parsed.claims, result.claims)
+            [item.model_dump() for item in parsed.analyses], parsed.claims, result.claims)
     # 提示一律进 warnings：answer 保持模型原话，便于评测比对，也不依赖某个渲染器才可见。
     if dropped_texts:
         result.warnings.append("以下结论缺少可核验证据，未被采信：" + "；".join(dropped_texts))
