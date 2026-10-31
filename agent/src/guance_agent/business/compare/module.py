@@ -6,7 +6,7 @@ RunResult 仍由基础层创建。这样新增业务不需要复制或绕开基�
 """
 import json
 
-from ..contract import BusinessError
+from ..contract import BusinessError, BusinessOutcome
 from .evidence import collect
 from .models import (
     ComparisonPlan,
@@ -16,6 +16,7 @@ from .models import (
     resolve_plan,
 )
 from .prompts import analysis_messages, comparison_messages, planning_messages
+from .relevance import explicit_comparison_topic, topic_mismatched_objects
 from .result import build_outcome
 
 
@@ -67,6 +68,22 @@ class PolicyComparisonModule:
         parsed = await ask(planning_messages(task, scheme=self.scheme), ComparisonPlan)
         plan = resolve_plan(parsed, task, scheme=self.scheme)
         collection = await collect(task, ctx, services, plan)
+        # A quoted passage can be true but unrelated to the comparison subject.
+        # Reject the entire run before selecting facts or drafting differences.
+        topic = explicit_comparison_topic(task.question)
+        if topic:
+            mismatch = topic_mismatched_objects(collection.objects, topic, task.targets)
+            if mismatch:
+                return BusinessOutcome(
+                    answer=f"本轮无法确认全部比较对象符合「{topic}」研究主题；"
+                           "已停止比较，未生成异同判断。请在政策目录核对研究对象："
+                           + "；".join(mismatch),
+                    insufficient=True,
+                    structured={"research_gate": {
+                        "status": "blocked", "reason": "topic_mismatch",
+                        "topic": topic, "mismatched_objects": mismatch,
+                    }},
+                )
         # 第二步仅让模型选择本轮已读证据编号。没有正文就不要求模型“补齐”事实。
         if collection.units:
             generated = await ask(comparison_messages(
