@@ -18,6 +18,7 @@ from .extract import build_messages, retrieve
 from .format_recovery import (
     REPAIRABLE,
     classify_output,
+    recover_complete_claims,
     repair_messages,
     repair_preserves_content,
 )
@@ -598,6 +599,10 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
         return outcome, None
     classification, parsed, deterministic = classify_output(outcome.final_output)
     meta = {"output_parse": {"classification": classification}}
+    last_output_tokens = ((outcome.telemetry or {}).get("per_call") or [{}])[-1].get("output")
+    cap_reached = isinstance(last_output_tokens, int) and last_output_tokens >= s.llm_max_output_tokens
+    meta["output_parse"]["token_cap_reached"] = cap_reached
+    meta["output_parse"]["output_chars"] = len(outcome.final_output)
     if parsed is not None:
         if deterministic:
             meta["output_parse"]["deterministic_repair"] = deterministic
@@ -605,6 +610,14 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
                    method=deterministic)
             return replace(outcome, final_output=parsed), meta
         return outcome, meta
+    if classification == "incomplete_json" and cap_reached:
+        recovered = recover_complete_claims(outcome.final_output)
+        if recovered is not None:
+            meta["output_parse"].update(
+                recovery="complete_claims_only", recovered_claims=len(recovered.claims))
+            rt.log("qa_output_parse_repaired", classification=classification,
+                   method="complete_claims_only", recovered_claims=len(recovered.claims))
+            return replace(outcome, final_output=recovered), meta
     if classification not in REPAIRABLE or len(outcome.final_output) > s.max_input_chars:
         meta["output_parse"]["repair"] = "not_attempted"
         rt.log("qa_output_parse_failed", classification=classification, repair="not_attempted")
