@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Results } from "./Results";
-import type { Claim, ComparisonResult, DocumentIdentityFallback, RunResult } from "../types";
+import type { Claim, ComparisonResult, DocumentIdentityFallback, EvidenceRef, RunResult } from "../types";
 
 const makeResult = (overrides: Partial<RunResult> = {}): RunResult => ({
   run_id: "run-current",
@@ -69,12 +69,61 @@ describe("Results", () => {
       coverage_notes: [],
       analysis_gaps: [],
     };
-    const html = renderToStaticMarkup(<Results result={makeResult({ structured, claims: [claim] })} onEvidence={noEvidence} />);
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      structured,
+      claims: [claim],
+      evidence_refs: [{ planid: "A", chunk_id: "chunk-a" } as EvidenceRef],
+    })} onEvidence={noEvidence} />);
 
     expect(html).toContain("已核验条款内容");
     expect(html).toContain("原文 1");
-    expect(html).toContain("整体时期口径不同");
+    expect(html.match(/data-chunk-id="chunk-a"/g)).toHaveLength(1);
+    expect(html.indexOf('data-chunk-id="chunk-a"')).toBeLessThan(html.indexOf("<tbody>"));
     expect(html).toContain("依据不足，无法判断");
+    expect(html).not.toContain("整体时期口径不同");
+    expect(html).not.toContain("口径需留意");
+    expect(html).not.toContain("横向对照各政策在相同维度下的已见内容");
+    expect(html).not.toContain("results-kicker");
     expect(html).not.toContain("不应渲染的不足分析文本");
   });
+  it("places policy-specific source links beside titles and removes repeated links from analysis", () => {
+    const ca: Claim = { text: "浙江目标", chunk_ids: ["a"], quotes: ["浙江原文"], dimension: "发展目标", anchors: [] };
+    const cb: Claim = { text: "江苏目标", chunk_ids: ["b"], quotes: ["江苏原文"], dimension: "发展目标", anchors: [] };
+    const structured: ComparisonResult = {
+      objects: [
+        { planid: "ZA", title: "浙江数字经济规划", area: "浙江省", fyp: "十四五", plantype_label: null },
+        { planid: "JB", title: "江苏数字经济规划", area: "江苏省", fyp: "十四五", plantype_label: null },
+      ],
+      dimensions: ["发展目标"],
+      matrix: [{
+        dimension: "发展目标",
+        cells: [
+          { cell_id: "a", planid: "ZA", status: "found", text: ca.text, chunk_ids: ["a"], quotes: ca.quotes },
+          { cell_id: "b", planid: "JB", status: "found", text: cb.text, chunk_ids: ["b"], quotes: cb.quotes },
+        ],
+        difference: { text: "两省目标不同", supporting_cells: ["a", "b"], kind: "analysis", status: "verified" },
+        comparability: { comparable: false, reason: "不展示的口径提示" },
+      }],
+      comparability: { comparable: false, reason: "不展示的整体提示" },
+      coverage_notes: [],
+      analysis_gaps: [],
+    };
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      structured, claims: [ca, cb],
+      evidence_refs: [
+        { planid: "ZA", chunk_id: "a" } as EvidenceRef,
+        { planid: "JB", chunk_id: "b" } as EvidenceRef,
+      ],
+    })} onEvidence={noEvidence} />);
+
+    expect(html.match(/class="result-citation"/g)).toHaveLength(2);
+    expect(html.indexOf('data-chunk-id="a"')).toBeLessThan(html.indexOf("浙江省 · 十四五 · planid ZA"));
+    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("江苏省 · 十四五 · planid JB"));
+    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("<tbody>"));
+    expect(html).toContain("两省目标不同");
+    expect(html).not.toContain("不展示的口径提示");
+    expect(html).not.toContain("不展示的整体提示");
+    expect(html).not.toContain('class="analysis-label">分析');
+  });
+
 });
