@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   FileText,
@@ -44,6 +44,7 @@ export function ResearchForm({
 }: Props) {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const composerRef = useRef<HTMLElement>(null);
+  const templatePanelRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const resize = () => {
@@ -74,6 +75,19 @@ export function ResearchForm({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [templatesOpen]);
+
+  // Keep the template popover within the viewport without moving the page itself.
+  useLayoutEffect(() => {
+    if (!enableTemplates || !templatesOpen || !templatePanelRef.current) return;
+    const panel = templatePanelRef.current;
+    const fit = () => {
+      const available = window.innerHeight - panel.getBoundingClientRect().top - 16;
+      panel.style.maxHeight = `${Math.max(96, Math.floor(available))}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [enableTemplates, templatesOpen]);
   const send = () => {
     const message = value.trim();
     if (!busy && message && Array.from(message).length <= 4000) onSend(message);
@@ -138,7 +152,7 @@ export function ResearchForm({
         {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
       </div>}
       {enableTemplates && templatesOpen && (
-        <div className="prompt-template-panel" id="prompt-template-panel" role="region" aria-label="指令模板列表">
+        <div className="prompt-template-panel" ref={templatePanelRef} id="prompt-template-panel" role="region" aria-label="指令模板列表">
           <header className="prompt-template-heading">
             <div className="prompt-template-heading-title"><FileText size={17} aria-hidden="true" /><strong>{modes.find((item) => item.id === mode)?.label} · 指令模板</strong></div>
             <button type="button" className="prompt-template-close" aria-label="关闭指令模板" onClick={() => setTemplatesOpen(false)}><X size={17} aria-hidden="true" /></button>
