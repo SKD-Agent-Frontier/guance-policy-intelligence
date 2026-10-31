@@ -250,7 +250,7 @@ export function useConversations() {
         const valid = resolution.status === "ready" && request?.task_type === conversation.mode
           && count >= (conversation.mode === "extract" ? 1 : 2)
           && count <= (conversation.mode === "extract" ? 1 : 8)
-          && new Set(request.targets).size === count;
+          && new Set(request?.targets ?? []).size === count;
         if (valid && request) {
           pendingNaturalLanguage.current.delete(conversationId);
           // 研究范围由已发布政策目录给出；绝不从未核验的模型文本生成编号。
