@@ -933,7 +933,8 @@ textarea:focus-visible {
   color: #625a56;
 }
 .app-sidebar .new-link,
-.app-sidebar .sidebar-home-link {
+.app-sidebar .sidebar-home-link,
+.app-sidebar .sidebar-history-toggle {
   width: 40px;
   justify-content: center;
   padding: 0;
@@ -1012,6 +1013,9 @@ textarea:focus-visible {
   border-bottom: 1px solid #efedeb;
   background: rgba(255, 255, 255, 0.97);
 }
+.app-page-home .topbar-leading {
+  margin-left: -6px;
+}
 .topbar-leading,
 .topbar-trailing {
   min-width: 200px;
@@ -1049,9 +1053,12 @@ textarea:focus-visible {
   background: #eff4ef;
   color: #54705a;
 }
-.menu-toggle:hover,
-.identity-button:hover {
+.menu-toggle:hover {
   background: #f6f3f1;
+  color: var(--accent);
+}
+.identity-button:hover {
+  background: transparent;
   color: var(--accent);
 }
 .global-brand {
@@ -1106,9 +1113,7 @@ textarea:focus-visible {
   content: "";
 }
 .identity-button {
-  border: 1px solid #ece8e6;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0;
 }
 .page-body {
   min-height: calc(100vh - 64px);

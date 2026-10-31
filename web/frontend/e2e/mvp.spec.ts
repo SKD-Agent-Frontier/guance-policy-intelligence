@@ -28,6 +28,31 @@ async function submitQuestion(page: Page, text: string) {
   await expect(page.getByRole("main", { name: "研究工作区" })).toBeVisible();
 }
 
+test("Demo: home top bar and recent research work on desktop and mobile", async ({ page }, info) => {
+  const directory = await artifactDirectory(info);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "管策智研首页" })).toHaveCount(0);
+  const hamburger = page.getByRole("button", { name: "打开侧栏" });
+  await expect(hamburger).toBeVisible();
+  const settings = page.getByRole("button", { name: "身份与环境设置" });
+  await expect(settings).toBeVisible();
+  expect(await settings.evaluate((element) => getComputedStyle(element).borderWidth)).toBe("0px");
+  await hamburger.hover();
+  expect(await hamburger.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(246, 243, 241)");
+  await page.getByRole("button", { name: "展开最近研究" }).click();
+  await expect(page.getByText("最近研究")).toBeVisible();
+  await page.screenshot({ path: join(directory, "pr13-desktop-history.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.getByRole("button", { name: "打开侧栏" }).click();
+  await page.getByRole("button", { name: "展开最近研究" }).click();
+  await expect(page.getByRole("button", { name: "关闭侧栏" })).toBeVisible();
+  await expect(page.getByText("最近研究")).toBeVisible();
+  await page.screenshot({ path: join(directory, "pr13-mobile-history.png"), fullPage: true });
+});
+
 test("Demo: global navigation, sidebar, and catalog stay available across views", async ({ page }, info) => {
   const directory = await artifactDirectory(info);
   const errors: string[] = [];
