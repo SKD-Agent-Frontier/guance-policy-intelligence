@@ -13,7 +13,7 @@ PLANID = re.compile(r"planid\s*[:：]?\s*([A-Za-z0-9_-]{2,32})", re.IGNORECASE)
 # 政策标题用书名号标注；只剥这一种最明确的写法
 TITLE = re.compile(r"《([^《》]{2,80})》")
 # 地区名必须带行政后缀，并排除「地区/各地/本市/全县」这类泛指
-AREA = re.compile(r"(?<![地该各本全])([\u4e00-\u9fa5]{2,4}(?:省|市|区|县|自治州|盟|旗))")
+AREA = re.compile(r"(?<![地该各本全])([\u4e00-\u9fa5]{2,4}(?:省|市(?!场)|区(?!域|块|间)|县|自治州|盟|旗))")
 # 规划期统一到 RAG 的规范期号口径
 PERIOD = re.compile(r"第?(十[一二三四五])(?:个)?五")
 # “十五”计划（2001—2005）不是“十五五”（2026—2030）。
@@ -77,7 +77,10 @@ def parse_areas(text: str) -> tuple[str, ...]:
     for raw in AREA.findall(PERIOD.sub(" ", text or "")):
         name = _trim_area(raw)
         # 「地区」是泛指，不是行政区名
-        if len(name) >= 2 and not name.endswith("地区"):
+        # “城市更新”“产业园区”等不是具体行政区，不能被强制作为检索过滤条件。
+        generic = ("地区", "城市", "上市", "园区", "社区", "景区", "校区",
+                   "片区", "街区", "辖区", "疫区")
+        if len(name) >= 2 and not name.endswith(generic):
             out.append(name)
     return tuple(dict.fromkeys(out))
 
