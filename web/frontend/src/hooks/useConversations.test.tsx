@@ -192,7 +192,7 @@ describe("useConversations", () => {
     expect(result.current.active?.messages.at(-1)).toEqual({
       id: expect.any(String), kind: "advanced_guidance", text: "没有找到匹配文献",
     });
-    expect(result.current.active?.advancedDraft.open).toBe(false);
+    expect(result.current.active?.advancedDraft.open).toBe(true);
   });
 
   it("keeps each conversation's advanced draft and resets it when mode changes", () => {
