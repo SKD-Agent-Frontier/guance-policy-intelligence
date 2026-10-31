@@ -1782,3 +1782,72 @@ textarea:focus-visible {
   .home-brand-copy strong { font-size: 21px; }
   .home-brand-copy span { font-size: 10px; letter-spacing: 0.06em; }
 }
+
+/* Sidebar navigation and history are readable at both expanded and collapsed sizes. */
+.app-sidebar .sidebar-brand-row {
+  height: 38px;
+  gap: 12px;
+}
+.app-sidebar .sidebar-brand-row strong {
+  font-size: 16px;
+}
+.app-sidebar .sidebar-brand-toggle {
+  width: 26px;
+  height: 26px;
+}
+.app-sidebar .sidebar-brand-mark {
+  width: 26px;
+  height: 26px;
+  flex-basis: 26px;
+}
+.app-sidebar .sidebar-primary {
+  gap: 7px;
+}
+.app-sidebar .side-link {
+  min-height: 46px;
+  gap: 13px;
+  font-size: 14px;
+}
+.app-sidebar .side-link > svg {
+  width: 24px;
+  height: 24px;
+}
+.app-sidebar .sidebar-home-link,
+.app-sidebar .new-link,
+.app-sidebar .sidebar-history-shortcut {
+  width: 46px;
+  justify-content: center;
+  padding: 0;
+}
+.app-sidebar .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.app-sidebar .sidebar-session-count {
+  margin-left: auto;
+  font-size: 12px;
+}
+.app-sidebar .history-link {
+  padding: 11px 9px;
+}
+.app-sidebar .history-type {
+  font-size: 12px;
+}
+.app-sidebar .history-question {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.app-sidebar .sidebar-empty {
+  font-size: 13px;
+}
+.app-sidebar .local-demo-note {
+  font-size: 12px;
+}
+.app-sidebar .sidebar-history-shortcut:focus-visible,
+.app-sidebar .sidebar-section-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
