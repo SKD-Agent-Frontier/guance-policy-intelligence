@@ -436,7 +436,7 @@ export function PolicyCatalog() {
     region_status: "地区状态", year: "年份", fyp_status: "规划期状态", plantype_status: "类型状态",
   };
   const filterValueLabel = (key: string, value: unknown) => {
-    if (key === "admin_level") return ({ national: "国家级", province: "省级", prefecture: "市级", county: "区县级", unclassified: "未分类" } as Record<string, string>)[String(value)] ?? String(value);
+    if (key === "admin_level") return ({ national: "国家级", province: "省级", prefecture: "市级", county: "区县级", unclassified: "其它" } as Record<string, string>)[String(value)] ?? String(value);
     if (["province_code", "prefecture_code", "county_code"].includes(key)) return regionLabel(String(value));
     if (key === "region_status") return ({ mapped: "已映射", unclassified: "未分类", not_applicable: "不适用" } as Record<string, string>)[String(value)] ?? String(value);
     if (key === "fyp_status") return "未提供";
