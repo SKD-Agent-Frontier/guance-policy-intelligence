@@ -1,10 +1,10 @@
 """Comparison relevance checks, independent of the school LLM and private corpus."""
 from types import SimpleNamespace
 
-from guance_agent.business.compare import relevance
 from guance_agent.business.compare.evidence import Collection, EvidenceUnit
 from guance_agent.business.compare.models import ComparisonPlan, GeneratedComparison
 from guance_agent.business.compare.result import build_outcome
+from guance_agent.business.compare import relevance
 
 
 QUESTION = "比较浙江和北京十四五数字经济发展目标的异同"
