@@ -196,7 +196,6 @@ function Message({
   onRegenerate,
   onEditAndResend,
   onRestartPreparation,
-  onSpecifyPolicies,
   onEvidence,
 }: {
   message: ConversationMessage;
