@@ -19,7 +19,7 @@ export interface ResearchClient {
 /** Real 模式只走真实 HTTP；Demo 模式只走本地模拟，两者不互相回退。 */
 export const researchClient: ResearchClient = {
   resolveCompare(question) {
-    return isRealMode ? realClient.resolveCompare(question) : Promise.resolve({
+    return isRealMode ? realClient.resolveCompare(question) : Promise.resolve<CompareResolution>({
       status: "needs_clarification", message: "演示模式不连接真实政策库，不能自动定位政策文献。请切换到真实模式进行比较。",
       targets: [], policies: [], dimensions: [],
     });
