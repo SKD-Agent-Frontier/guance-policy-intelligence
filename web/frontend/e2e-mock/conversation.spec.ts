@@ -310,7 +310,8 @@ test("Real client Mock API: advanced compare keeps its draft through catalog and
   await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(secondQuestion);
   await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("");
   await openSidebar(page);
-  await page.locator(".history-link").filter({ hasText: question }).click();
+  // History uses a summarized title, not the verbatim first question.
+  await page.locator(".history-link").nth(1).click();
   await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("POLICY-A");
   await expect(page.getByRole("textbox", { name: "研究对象编号 2" })).toHaveValue("POLICY-B");
   await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
