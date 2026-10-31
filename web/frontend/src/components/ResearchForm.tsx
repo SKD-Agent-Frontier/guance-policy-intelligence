@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, Check, ChevronRight, FileText, LayoutTemplate, Plus, X } from "lucide-react";
-import type { TaskType } from "../types";
+import type { ResearchRequest, TaskType } from "../types";
+import type { AdvancedDraft } from "../conversationTypes";
 import { promptTemplates } from "../promptTemplates";
 
 type Props = {
@@ -10,6 +11,11 @@ type Props = {
   onChange: (value: string) => void;
   onModeChange: (mode: TaskType) => void;
   onSend: (message: string) => void;
+  /** Legacy props remain accepted while callers migrate; no advanced fields are rendered. */
+  onAdvancedSubmit?: (request: ResearchRequest) => void;
+  advancedDraft?: AdvancedDraft;
+  onAdvancedDraftChange?: (patch: Partial<AdvancedDraft>) => void;
+  onOpenCatalog?: () => void;
   /** The toolbar remains available in home and conversation composers. */
   hideModeTabs?: boolean;
   enableTemplates?: boolean;
