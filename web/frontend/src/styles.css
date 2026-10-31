@@ -1072,20 +1072,20 @@ textarea:focus-visible {
 .global-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: 0;
   padding: 4px 0;
   background: transparent;
   color: #302824;
   font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
 }
 .global-brand .brand-mark {
-  width: 29px;
-  height: 29px;
+  width: 36px;
+  height: 36px;
 }
 .global-nav {
   position: absolute;
@@ -1151,11 +1151,6 @@ textarea:focus-visible {
   font-size: clamp(36px, 4vw, 52px);
   line-height: 1.3;
   white-space: nowrap;
-}
-.page-body-home .intro-block .home-subtitle {
-  color: #625b57;
-  font-size: clamp(14px, 1.35vw, 18px);
-  line-height: 1.65;
 }
 .page-body-home .architecture-scene {
   bottom: 0;
