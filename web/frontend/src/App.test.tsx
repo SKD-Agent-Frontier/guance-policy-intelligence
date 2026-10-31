@@ -72,7 +72,19 @@ describe("App navigation", () => {
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
   });
 
-  it("expands recent conversations from the sidebar book icon without changing page", () => {
+  it("shows the dedicated history icon while collapsed and opens the history section", () => {
+    render(<App />);
+    const sidebar = screen.getByRole("complementary", { name: "全局侧栏" });
+    expect(sidebar).toHaveClass("is-collapsed");
+    expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
+    expect(sidebar).not.toHaveClass("is-collapsed");
+    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByTitle("新对话")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "历史记录" })).toBeInTheDocument();
+  });
+
+  it("expands recent conversations from the official logo without changing page", () => {
     render(<App />);
     expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
