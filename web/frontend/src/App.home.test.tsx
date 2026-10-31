@@ -43,6 +43,19 @@ function needsClarification(request: ResearchPreparationRequest): PreparationRes
 
 const client = vi.mocked(researchClient);
 
+function chooseMode(label: string) {
+  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
+  fireEvent.click(screen.getByRole("button", { name: /研究模式/ }));
+  fireEvent.click(screen.getByRole("button", { name: label }));
+}
+
+function chooseTemplateCategory(label: string) {
+  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
+  fireEvent.click(screen.getByRole("button", { name: "指令模板" }));
+  fireEvent.click(screen.getByRole("button", { name: label }));
+}
+
+
 async function submitHome(text: string) {
   fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: text } });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
@@ -66,7 +79,8 @@ describe("independent home composer and history conversations", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
     expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("");
-    expect(screen.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "更多功能" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "恢复默认模式" })).not.toBeInTheDocument();
 
     await submitHome("第二项产业扶持研究");
     expect(client.prepare).toHaveBeenNthCalledWith(2, {
@@ -103,14 +117,15 @@ describe("independent home composer and history conversations", () => {
       policies: [],
     });
     render(<App />);
-    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
+    chooseMode("政策比较");
     await submitHome("比较浙江和江苏十四五的数字经济政策");
     expect(client.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五的数字经济政策");
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
 
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
     expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("");
-    expect(screen.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "更多功能" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "恢复默认模式" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "研究问题" })).not.toBeInTheDocument();
 
     await submitHome("有哪些产业支持政策");
@@ -133,9 +148,8 @@ describe("independent home composer and history conversations", () => {
       targets: [], policies: [], dimensions: [],
     });
     render(<App />);
-    fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
-    const trigger = screen.getByRole("button", { name: "指令模板" });
-    fireEvent.click(trigger);
+    chooseMode("政策比较");
+    chooseTemplateCategory("政策比较");
     const template = screen.getByRole("button", { name: /发展目标比较/ });
     fireEvent.click(template);
 
@@ -146,12 +160,13 @@ describe("independent home composer and history conversations", () => {
 
     expect(client.resolveResearch).toHaveBeenCalledWith("compare", question);
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent(question);
-    expect(screen.queryByRole("button", { name: "指令模板" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
-    expect(screen.getByRole("button", { name: "指令模板" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "更多功能" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("");
-    expect(screen.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "更多功能" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "恢复默认模式" })).not.toBeInTheDocument();
   });
 
   it("can start another home conversation while the original session is still preparing", async () => {
