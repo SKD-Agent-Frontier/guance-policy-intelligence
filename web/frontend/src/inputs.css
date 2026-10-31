@@ -996,7 +996,7 @@
 .prompt-template-panel::before {
   position: absolute;
   top: -7px;
-  left: calc(50% - min(440px, (100vw - 340px) / 2) + 19px);
+  left: 15%;
   width: 12px;
   height: 12px;
   transform: rotate(45deg);
