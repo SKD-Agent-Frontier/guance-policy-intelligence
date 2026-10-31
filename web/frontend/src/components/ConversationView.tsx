@@ -202,8 +202,8 @@ function Message({
   onSpecifyPolicies: () => void;
   onEvidence: (result: RunResult, chunkId: string) => void;
 }) {
-  if (message.kind === "user") return <article className="conversation-message message-user"><div className="message-role">你</div><p>{message.text}</p></article>;
-  if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><div className="message-role">研究助手</div><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
+  if (message.kind === "user") return <article className="conversation-message message-user"><p>{message.text}</p></article>;
+  if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
   if (message.kind === "execution") return null;
   if (message.kind === "error") {
     const preparationConflict = message.code === "PREPARATION_CONFLICT" || /409|PREPARATION_STATE|STATE_EXPIRED|REVISION_CONFLICT/i.test(message.code);
@@ -221,7 +221,6 @@ function Message({
   const secondary = options.slice(1);
   return (
     <article className={`conversation-message message-preparation prep-${response.status}`}>
-      <div className="message-role">研究助手</div>
       {response.message && (options[0]?.question !== response.message) && <p className="preparation-message-text">{response.message}</p>}
       {response.status === "needs_clarification" && (
         <div className="clarification-block">
