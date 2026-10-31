@@ -8,6 +8,7 @@ import type {
   ExtractResult,
   OrganizePolicy,
   OrganizeResult,
+  QAAnalysisResult,
   RunResult,
 } from "../types";
 import "./results.css";
@@ -78,6 +79,31 @@ function QAResults({ result, onEvidence }: ResultsProps) {
     <div className="results-content results-content--qa">
       <Header title="研究结论" />
       {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><p>{result.answer}</p></div>}
+      {result.structured && "schema_version" in result.structured
+        && result.structured.schema_version === "qa-analysis/1"
+        && (result.structured as QAAnalysisResult).analyses.length > 0 && (
+          <section className="qa-analysis" aria-label="研究分析">
+            <h2>研究分析</h2>
+            <p className="qa-analysis-disclaimer">以下为基于已读事实的归纳或推理，不是政策原文，也不代表推理已获语义验证。</p>
+            {(result.structured as QAAnalysisResult).analyses.map((analysis, index) => (
+              <article className="qa-analysis-item" key={index}>
+                <span className="analysis-label">分析</span>
+                <p>{analysis.text}</p>
+                <small>{analysis.scope_note}</small>
+                <div className="qa-analysis-sources">
+                  <span>依据事实</span>
+                  {analysis.supporting_claim_indexes.map(claimIndex => {
+                    const claim = claims[claimIndex];
+                    return claim ? <div key={claimIndex} className="qa-analysis-support">
+                      <span>事实 {claimIndex + 1}：{claim.text}</span>
+                      <CitationButtons claim={claim} onEvidence={onEvidence} compact />
+                    </div> : null;
+                  })}
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
       {claims.length > 0 ? (
         <section className="qa-claims" aria-label="关联依据">
           <div className="results-section-title"><span>依据与引句</span><span>{claims.length} 条结论</span></div>
