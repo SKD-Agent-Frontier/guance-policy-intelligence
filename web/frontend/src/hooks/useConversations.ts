@@ -221,6 +221,42 @@ export function useConversations() {
     const conversation = sessionsRef.current.find((item) => item.id === conversationId);
     if (!conversation || !text.trim()) return;
     if (operations.current.has(conversationId)) return;
+    // 比较对象属于系统检索责任：普通提问先自动定位，手动 planid 只留在高级入口。
+    if (conversation.mode === "compare") {
+      const token = beginOperation(conversationId);
+      if (!token) return;
+      appendMessage(conversationId, message("user", { text }));
+      setBusy(conversationId, "preparing");
+      try {
+        const resolved = await researchClient.resolveCompare(text);
+        if (!isCurrent(conversationId, token)) return;
+        if (resolved.status === "ready" && resolved.targets.length >= 2
+            && resolved.targets.length <= 8
+            && new Set(resolved.targets).size === resolved.targets.length) {
+          await execute(conversationId, {
+            task_type: "compare",
+            question: text,
+            targets: resolved.targets,
+            dimensions: resolved.dimensions.length ? resolved.dimensions : null,
+          }, scenario, token);
+        } else {
+          appendMessage(conversationId, message("advanced_guidance", { text: resolved.message }));
+          setBusy(conversationId, "idle");
+        }
+      } catch (error) {
+        if (isCurrent(conversationId, token)) {
+          const mapped = apiError(error, "execution");
+          appendMessage(conversationId, message("error", {
+            code: mapped.code,
+            text: `自动定位比较政策失败：${mapped.text}。请重新提交问题重试。`,
+          }));
+          setBusy(conversationId, "idle");
+        }
+      } finally {
+        finishOperation(conversationId, token);
+      }
+      return;
+    }
     if (isAdvancedMode(conversation.mode)) {
       appendMessage(conversationId, message("user", { text }));
       updateConversation(conversationId, (current) => ({
@@ -258,7 +294,7 @@ export function useConversations() {
     } finally {
       finishOperation(conversationId, token);
     }
-  }, [appendMessage, beginOperation, finishOperation, prepareAndMaybeExecute, updateConversation]);
+  }, [appendMessage, beginOperation, execute, finishOperation, isCurrent, prepareAndMaybeExecute, setBusy, updateConversation]);
 
   const updateAdvancedDraft = useCallback((patch: Partial<AdvancedDraft>) => {
     const conversationId = activeIdRef.current;
