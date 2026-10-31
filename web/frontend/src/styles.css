@@ -1155,12 +1155,7 @@ textarea:focus-visible {
 }
 .page-body-home .architecture-scene {
   bottom: 0;
-  /* Restore the full-height architectural scene instead of cropping it to 29vh. */
-  height: clamp(360px, 56vh, 650px);
-  max-height: none;
-}
-.page-body-home .architecture-scene img {
-  object-position: center bottom;
+  height: clamp(170px, 29vh, 330px);
 }
 .page-body-home .architecture-title {
   top: 23%;
@@ -1762,7 +1757,7 @@ textarea:focus-visible {
     font-size: clamp(30px, 8.4vw, 36px);
   }
   .page-body-home .architecture-scene {
-    height: clamp(260px, 48svh, 470px);
+    height: 180px;
   }
   .conversation-workspace {
     height: calc(100svh - 56px);
