@@ -240,6 +240,16 @@ export function useConversations() {
             dimensions: resolved.dimensions.length ? resolved.dimensions : null,
           }, scenario, token);
         } else {
+          // 仅检索不确定时才展开可选的人工定位入口；明确问题直接执行。
+          updateConversation(conversationId, (current) => ({
+            ...current,
+            advancedDraft: {
+              ...current.advancedDraft,
+              open: true,
+              question: text,
+              focusVersion: current.advancedDraft.focusVersion + 1,
+            },
+          }));
           appendMessage(conversationId, message("advanced_guidance", { text: resolved.message }));
           setBusy(conversationId, "idle");
         }
