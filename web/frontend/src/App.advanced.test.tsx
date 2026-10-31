@@ -60,8 +60,12 @@ describe("advanced conversation handoff", () => {
     expect(screen.getByRole("textbox", { name: "自定义维度（选填）" })).toHaveValue("企业规模");
 
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
+    expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("");
+    expect(screen.getByRole("tab", { name: "政策问答" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("textbox", { name: "研究问题" })).not.toBeInTheDocument();
+    // Returning to history recovers the previous session's advanced draft.
+    fireEvent.click(screen.getByTitle(question));
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-    fireEvent.click(screen.getByRole("button", { name: "研究" }));
     expect(screen.getByLabelText("研究对象编号 1")).toHaveValue("POLICY-A");
     expect(researchClient.prepare).not.toHaveBeenCalled();
     expect(researchClient.submit).not.toHaveBeenCalled();
