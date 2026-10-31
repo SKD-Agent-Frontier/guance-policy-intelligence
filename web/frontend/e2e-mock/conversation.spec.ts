@@ -651,9 +651,12 @@ test("Landing page: template and advanced panels float without shifting the hero
     };
   });
   const original = await measure();
-  // The restored architecture scene must remain substantially taller than the old 29vh crop.
-  const sceneHeight = await page.locator(".architecture-scene").evaluate((element) => element.getBoundingClientRect().height);
-  expect(sceneHeight).toBeGreaterThan(0.45 * 900);
+  // Keep the original landing-page background crop (29vh, at most 330px).
+  const scene = page.locator(".architecture-scene");
+  const sceneHeight = await scene.evaluate((element) => element.getBoundingClientRect().height);
+  expect(sceneHeight).toBeGreaterThanOrEqual(259);
+  expect(sceneHeight).toBeLessThanOrEqual(263);
+  await expect(scene.locator("img")).toHaveCSS("object-position", "50% 47%");
 
   await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
   const advanced = page.locator(".advanced-fields");
