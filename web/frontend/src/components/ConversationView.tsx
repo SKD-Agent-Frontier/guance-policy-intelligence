@@ -63,6 +63,50 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
     else history.scrollTop = history.scrollHeight;
   }, [conversation.messages.length, conversation.busy]);
 
+  const cancelHoverTimer = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  };
+  const closeHover = () => {
+    cancelHoverTimer();
+    hoverTimer.current = setTimeout(() => setHovered(null), 180);
+  };
+  const previewFromButton = (button: HTMLButtonElement, delay = 180) => {
+    cancelHoverTimer();
+    const messageId = button.closest<HTMLElement>("[data-result-message-id]")?.dataset.resultMessageId;
+    const message = conversation.messages.find(item => item.id === messageId);
+    if (message?.kind !== "result") return;
+    const reference = message.result.evidence_refs?.find(ref => ref.chunk_id === button.dataset.chunkId);
+    if (!reference) return;
+    const rect = button.getBoundingClientRect();
+    const width = Math.min(390, window.innerWidth - 24);
+    const left = Math.min(Math.max(12, rect.left - 100), Math.max(12, window.innerWidth - width - 12));
+    const top = rect.bottom + 350 < window.innerHeight ? rect.bottom + 9 : Math.max(12, rect.top - 360);
+    hoverTimer.current = setTimeout(() => setHovered({ result: message.result, reference, left, top }), delay);
+  };
+  const openEvidence = (result: RunResult, chunkId: string) => {
+    cancelHoverTimer();
+    setHovered(null);
+    const reference = result.evidence_refs?.find(ref => ref.chunk_id === chunkId);
+    if (!reference) {
+      setSourceError("该引文没有关联可定位的政策原文，无法打开原文页面。");
+      return;
+    }
+    setSourceError(null);
+    scrollBeforeReader.current = historyRef.current?.scrollTop ?? null;
+    setReader({ result, reference });
+  };
+  const backFromReader = () => {
+    setReader(null);
+    requestAnimationFrame(() => {
+      if (historyRef.current && scrollBeforeReader.current !== null) {
+        historyRef.current.scrollTop = scrollBeforeReader.current;
+      }
+      scrollBeforeReader.current = null;
+    });
+  };
+  if (reader) return <EvidenceOriginalReader source={reader} onBack={backFromReader} />;
+
   return (
     <main className="conversation-workspace" aria-label="研究工作区">
       <header className="conversation-heading">
@@ -72,7 +116,23 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
           <h1>{conversation.title || "新建研究"}</h1>
         </div>
       </header>
-      <div ref={historyRef} className="conversation-history" aria-live="polite" onScroll={(event) => {
+      <div ref={historyRef} className="conversation-history" aria-live="polite"
+        onMouseOver={(event) => {
+          const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".result-citation[data-chunk-id]");
+          if (button && !(event.relatedTarget instanceof Node && button.contains(event.relatedTarget))) previewFromButton(button);
+        }}
+        onMouseOut={(event) => {
+          const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".result-citation[data-chunk-id]");
+          if (button && !(event.relatedTarget instanceof Node && button.contains(event.relatedTarget))) closeHover();
+        }}
+        onFocusCapture={(event) => {
+          const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".result-citation[data-chunk-id]");
+          if (button) previewFromButton(button, 0);
+        }}
+        onBlurCapture={(event) => {
+          if ((event.target as HTMLElement).closest(".result-citation[data-chunk-id]")) closeHover();
+        }}
+        onScroll={(event) => {
         const element = event.currentTarget;
         stickToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
       }}>
@@ -100,6 +160,10 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
           </div>
         )}
       </div>
+      {sourceError && <p className="source-reader-warning" role="alert">{sourceError}</p>}
+      {hovered && <SourceHoverCard source={hovered} style={{ top: hovered.top, left: hovered.left }}
+        onMouseEnter={cancelHoverTimer} onMouseLeave={closeHover}
+        onOpen={() => openEvidence(hovered.result, hovered.reference.chunk_id)} />}
       <div className="conversation-composer-wrap">
         <ResearchForm
           mode={conversation.mode}
