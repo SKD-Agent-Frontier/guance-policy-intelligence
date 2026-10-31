@@ -105,7 +105,7 @@ def is_canonical_outline(answer: str) -> bool:
 def _short_heading(text: str) -> str:
     """Use a substring of the verified claim, never manufacture a new fact."""
     cleaned = re.sub(
-        r"^(?:发展)?(?:机遇|挑战)(?:之[一二三四五六七八九十]|包括|是|为)?\s*",
+        r"^(?:发展)?(?:机遇|挑战)(?:之[一二三四五六七八九十])?(?:是|为|包括|在于)?\s*",
         "", text.strip(),
     ).lstrip("一二三四五六七八九十、：:， ")
     head = re.split(r"[，。；;：:\n]", cleaned, maxsplit=1)[0].strip()
