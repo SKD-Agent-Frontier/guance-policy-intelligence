@@ -1,5 +1,5 @@
 """Comparison relevance checks, independent of the school LLM and private corpus."""
-from types import SimpleNamespace
+from types import SimpleNamespace  # noqa: I001 — regression-fixture imports are intentionally grouped by test dependency
 
 from guance_agent.business.compare.evidence import Collection, EvidenceUnit
 from guance_agent.business.compare.models import ComparisonPlan, GeneratedComparison
