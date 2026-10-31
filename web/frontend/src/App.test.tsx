@@ -80,7 +80,7 @@ describe("App navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
     expect(sidebar).not.toHaveClass("is-collapsed");
     expect(screen.getByText("最近研究")).toBeInTheDocument();
-    expect(screen.getByTitle("新对话")).toBeInTheDocument();
+    expect(screen.getByText("本次会话中的研究会显示在这里")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "历史记录" })).toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe("App navigation", () => {
     expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     expect(screen.getByText("最近研究")).toBeInTheDocument();
-    expect(screen.getByTitle("新对话")).toBeInTheDocument();
+    expect(screen.getByText("本次会话中的研究会显示在这里")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开侧栏" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "展开最近研究" })).not.toBeInTheDocument();
   });
@@ -103,7 +103,7 @@ describe("App navigation", () => {
     expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
     expect(sidebar).toHaveClass("is-mobile-open");
     expect(screen.getByText("最近研究")).toBeInTheDocument();
-    expect(mockState.newConversation).toHaveBeenCalledTimes(1);
+    expect(mockState.newConversation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "关闭侧栏" }));
     expect(sidebar).toHaveClass("is-collapsed");
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
