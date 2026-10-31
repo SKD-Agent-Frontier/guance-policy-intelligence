@@ -193,7 +193,6 @@ export function ResearchForm({
             <div className="prompt-template-heading-title"><FileText size={17} aria-hidden="true" /><strong>{modes.find((item) => item.id === mode)?.label} · 指令模板</strong></div>
             <button type="button" className="prompt-template-close" aria-label="关闭指令模板" onClick={() => setTemplatesOpen(false)}><X size={17} aria-hidden="true" /></button>
           </header>
-          <p className="prompt-template-hint">选择模板后将自动填入输入框，你可以继续修改后发送。</p>
           <div className="prompt-template-grid">
             {promptTemplates[mode].map((template) => (
               <button
