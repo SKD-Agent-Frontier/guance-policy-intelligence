@@ -68,6 +68,16 @@ def test_missing_or_unverified_source_discards_analyses():
         assert result.meta["analysis_contract"]["accepted"] == 0
 
 
+def test_bad_dependency_draft_never_leaks_into_raw_answer():
+    result = _result()
+    result._qa_analysis_candidates = []
+    result.meta["analysis_drafts_received"] = 1
+    finalize_qa_analysis(result)
+    assert result.structured is None
+    assert "完全因果关系" not in result.answer
+    assert result.meta["analysis_contract"]["reason"] == "invalid_dependencies"
+
+
 def test_bad_model_dependencies_never_become_analysis():
     claims = _claims()
     for value in [
