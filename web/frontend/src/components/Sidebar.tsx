@@ -35,6 +35,8 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpa
     media.addEventListener("change", updateViewport);
     return () => media.removeEventListener("change", updateViewport);
   }, []);
+  // Empty drafts (including the initial placeholder) are not conversation history.
+  const history = conversations.filter((conversation) => conversation.messages.length > 0);
   const isCollapsed = (collapsed || isMobileViewport) && !mobileOpen;
   const closeAnd = (action: () => void) => {
     const shouldCloseMobile = mobileOpen;
@@ -59,9 +61,9 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpa
         <button type="button" className="side-link sidebar-history-shortcut" title="历史记录" aria-label="历史记录" onClick={showHistory}><History size={24} /></button>
       </nav>
       {!isCollapsed && <>
-        <div className="sidebar-section-title" ref={historyHeadingRef} tabIndex={-1}><span>最近研究</span><span className="sidebar-session-count">{conversations.length}</span></div>
+        <div className="sidebar-section-title" ref={historyHeadingRef} tabIndex={-1}><span>最近研究</span><span className="sidebar-session-count">{history.length}</span></div>
         <div className="sidebar-history">
-          {conversations.length === 0 ? <div className="sidebar-empty">本次会话中的研究会显示在这里</div> : conversations.map((conversation) => <button key={conversation.id} type="button" className={`history-link ${conversation.id === activeId ? "is-current" : ""}`} title={conversation.title} onClick={() => closeAnd(() => onSelect(conversation.id))}>
+          {history.length === 0 ? <div className="sidebar-empty">本次会话中的研究会显示在这里</div> : history.map((conversation) => <button key={conversation.id} type="button" className={`history-link ${conversation.id === activeId ? "is-current" : ""}`} title={conversation.title} onClick={() => closeAnd(() => onSelect(conversation.id))}>
             <span className="history-type">{names[conversation.mode]}{conversation.busy !== "idle" ? " · 处理中" : ""}</span>
             <span className="history-question">{conversation.title || "新建研究"}</span>
           </button>)}
