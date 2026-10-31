@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Search, X } from "lucide-react";
 import { catalogClient } from "../api/catalogClient";
 import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
@@ -108,6 +108,8 @@ export function PolicyCatalog() {
   const appliedFiltersRef = useRef<Filters>({});
   const { facets, regions, status: facetsStatus, errorMessage: facetsError, refresh: refreshFacets, reload: reloadFacets } = usePolicyCatalogFacets();
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const typePickerRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<PolicyListResponse | null>(null);
   const [dataset, setDataset] = useState<PolicyListResponse["dataset"] | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -246,6 +248,22 @@ export function PolicyCatalog() {
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };
   }, [loadList, refreshFacets]);
+
+  useEffect(() => {
+    if (!typeDropdownOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!typePickerRef.current?.contains(event.target as Node)) setTypeDropdownOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setTypeDropdownOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [typeDropdownOpen]);
 
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -445,6 +463,11 @@ export function PolicyCatalog() {
     return String(value);
   };
   const appliedEntries = Object.entries(appliedFilters).filter(([, value]) => value !== undefined && value !== "");
+  const policyTypeOptions = facets?.facets.plantype.options ?? [];
+  const selectPolicyType = (value: string) => {
+    setFilters((current) => ({ ...current, plantype: value, plantype_status: undefined }));
+    setTypeDropdownOpen(false);
+  };
   const facetFilterChange = (patch: Partial<PolicyFacetFilters>) => {
     void applyFilters({ ...filters, ...patch });
   };
@@ -499,10 +522,50 @@ export function PolicyCatalog() {
           <span>规划期精确筛选</span>
           <input value={filters.fyp ?? ""} onChange={(event) => setFilters((current) => ({ ...current, fyp: event.target.value, fyp_status: undefined }))} placeholder="例如：十四五" />
         </label>
-        <label>
-          <span>政策类型精确筛选</span>
-          <input value={filters.plantype ?? ""} onChange={(event) => setFilters((current) => ({ ...current, plantype: event.target.value, plantype_status: undefined }))} placeholder="输入完整类型名称" />
-        </label>
+        <div className="catalog-type-field">
+          <label htmlFor="catalog-type-input">政策类型精确筛选</label>
+          <div className="catalog-type-picker" ref={typePickerRef}>
+            <input
+              id="catalog-type-input"
+              value={filters.plantype ?? ""}
+              onChange={(event) => setFilters((current) => ({
+                ...current, plantype: event.target.value, plantype_status: undefined,
+              }))}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && policyTypeOptions.length > 0) {
+                  event.preventDefault();
+                  setTypeDropdownOpen(true);
+                }
+              }}
+              placeholder="输入或选择政策类型"
+            />
+            <button
+              type="button"
+              className="catalog-type-toggle"
+              aria-label={typeDropdownOpen ? "收起政策类型选项" : "展开政策类型选项"}
+              aria-expanded={typeDropdownOpen}
+              aria-controls="catalog-type-options"
+              aria-haspopup="listbox"
+              disabled={policyTypeOptions.length === 0}
+              onClick={() => setTypeDropdownOpen((open) => !open)}
+            >
+              <ChevronDown size={17} aria-hidden="true" />
+            </button>
+            {typeDropdownOpen && policyTypeOptions.length > 0 && (
+              <div id="catalog-type-options" className="catalog-type-options" role="listbox" aria-label="政策类型选项">
+                <button type="button" role="option" aria-selected={!filters.plantype}
+                  onClick={() => selectPolicyType("")}>全部类型</button>
+                {policyTypeOptions.map((option) => (
+                  <button type="button" role="option" key={option.value}
+                    aria-selected={filters.plantype === option.value}
+                    onClick={() => selectPolicyType(option.value)}>
+                    <span>{option.label}</span><small>{option.count}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         <label className="catalog-page-size">
           <span>每页条数</span>
           <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
