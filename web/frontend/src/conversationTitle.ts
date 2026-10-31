@@ -25,7 +25,7 @@ function identifyPlaces(question: string): string[] {
   for (const match of normalized.matchAll(/[\u4e00-\u9fff]{2,5}(?:市|县|区)(?=[在于的与和第十一二三四五，、。；：！？”“‘’"\s]|$)/g)) {
     const name = match[0];
     if (/^(?:其他地市|其它地市|各地市|发展城市)$/.test(name)) continue;
-    found.push({ index: match.index, name, city: true });
+    found.push({ index: match.index ?? 0, name, city: true });
   }
   for (const province of provinces) {
     const at = normalized.indexOf(province);
@@ -36,7 +36,8 @@ function identifyPlaces(question: string): string[] {
   }
 
   const cities = found.filter((item) => item.city).sort((a, b) => a.index - b.index);
-  const all = (cities.length > 0 && cities.length < 2
+  const genericProvinceComparison = /其他地市|其它地市|全省其他|省内其他|省内其余/.test(question);
+  const all = (cities.length === 1 && genericProvinceComparison
     ? cities
     : found.sort((a, b) => a.index - b.index));
   return [...new Set(all.map((item) => item.name))].slice(0, 2);
