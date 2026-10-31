@@ -50,8 +50,8 @@ describe("Results", () => {
 
   it("shows scoped QA analysis and linked original buttons as interpretation, not facts", () => {
     const facts: Claim[] = [
-      { text: "政策甲提到产业园区", chunk_ids: ["A"], quotes: ["产业园区"], anchors: [] },
-      { text: "政策乙提到企业改造", chunk_ids: ["B"], quotes: ["企业改造"], anchors: [] },
+      { text: "政策甲提到产业园区", chunk_ids: ["A"], quotes: ["产业园区"], dimension: null, anchors: [] },
+      { text: "政策乙提到企业改造", chunk_ids: ["B"], quotes: ["企业改造"], dimension: null, anchors: [] },
     ];
     const html = renderToStaticMarkup(<Results result={makeResult({
       task_type: "qa",
