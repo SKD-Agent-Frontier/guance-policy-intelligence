@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpenText, Settings2, X } from "lucide-react";
+import { Settings2, X } from "lucide-react";
 import { Home } from "./components/Home";
 import { Sidebar } from "./components/Sidebar";
 import { ConversationView } from "./components/ConversationView";
@@ -98,7 +98,7 @@ export default function App() {
     <div className={`app-content ${collapsed ? "sidebar-is-collapsed" : ""}`}>
       <header className="global-topbar">
         <div className="topbar-leading">
-          {page !== "home" && <button type="button" className="global-brand" onClick={() => setPage("home")} aria-label="管策智研首页"><span className="brand-mark"><BookOpenText size={19} strokeWidth={1.8} /></span><span>管策智研</span></button>}
+          {page !== "home" && <button type="button" className="global-brand" onClick={() => setPage("home")} aria-label="管策智研首页"><span className="brand-mark"><img src="/guance-mark.svg" alt="" /></span><span>管策智研</span></button>}
         </div>
         <nav className="global-nav" aria-label="主导航">
           <button type="button" className={page !== "catalog" ? "is-current" : ""} onClick={goResearch}>研究</button>
