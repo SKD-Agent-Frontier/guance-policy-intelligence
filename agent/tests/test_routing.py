@@ -86,3 +86,19 @@ def test_strip_annotations_keeps_content():
     out = strip_annotations("\u56f4\u7ed5\u300a\u67d0\u89c4\u5212\u300b\uff08planid 4462\uff09\u7684\u4f53\u5236\u673a\u5236\u6539\u9769")
     assert "planid" not in out and "4462" not in out
     assert "\u67d0\u89c4\u5212" in out and "\u4f53\u5236\u673a\u5236\u6539\u9769" in out
+
+
+def test_cangzhou_historic_fifteenth_wording_is_tenth_five_year_plan():
+    question = "我想了解沧州市‘十五’规划在产业结构调整方面的主要部署，有哪些重点方向？"
+    route = decide(question)
+    assert route.kind == "open"
+    assert route.areas == ("沧州市",)
+    assert route.fyps == ("第十个五年计划",)
+
+
+def test_historic_tenth_not_confused_with_2026_fifteenth_or_party_congress():
+    assert parse_fyps("沧州市“十五”计划") == ("第十个五年计划",)
+    assert parse_fyps("十五计划期间") == ("第十个五年计划",)
+    assert parse_fyps("第十五个五年规划") == ("第十五个五年规划",)
+    assert parse_fyps("十五五产业规划") == ("第十五个五年规划",)
+    assert parse_fyps("十五届五中全会") == ()
