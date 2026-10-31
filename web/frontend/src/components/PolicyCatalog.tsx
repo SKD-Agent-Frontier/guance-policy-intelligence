@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpenText, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
 import { catalogClient } from "../api/catalogClient";
 import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
@@ -463,7 +463,6 @@ export function PolicyCatalog() {
       {!reading && <>
       <header className="catalog-header">
         <div>
-          <div className="catalog-eyebrow"><BookOpenText size={15} /> 当前发布库</div>
           <h1>政策文献目录</h1>
         </div>
         {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}

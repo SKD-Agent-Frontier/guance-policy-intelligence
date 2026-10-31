@@ -175,6 +175,7 @@ async function readyCatalog() {
   render(<PolicyCatalog />);
   await screen.findByText("当前库共有 3 篇政策文献");
   const panel = await screen.findByRole("region", { name: "政策维度筛选" });
+  await userEvent.setup().click(within(panel).getByRole("button", { name: "按维度查找" }));
   await within(panel).findByRole("button", { name: /年份未知/ });
   return panel;
 }
@@ -247,7 +248,7 @@ describe("PolicyCatalog facet integration", () => {
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期：unclassified");
     expect(screen.getByLabelText("已应用筛选条件")).not.toHaveTextContent("fyp_status");
 
-    await user.click(within(fypRow()).getByRole("button", { name: "未分类 1" }));
+    await user.click(within(fypRow()).getByRole("button", { name: "其它 1" }));
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ fyp_status: "unclassified", year: "unknown", ...pin }), expect.any(AbortSignal)));
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期状态：未提供");
 
@@ -255,9 +256,7 @@ describe("PolicyCatalog facet integration", () => {
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ plantype: "unclassified", fyp_status: "unclassified", ...pin }), expect.any(AbortSignal)));
     expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("plantype_status");
 
-    await user.click(within(plantypeRow()).getByRole("button", { name: "未分类 0" }));
-    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ plantype_status: "unclassified", fyp_status: "unclassified", ...pin }), expect.any(AbortSignal)));
-    expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("plantype");
+    expect(within(plantypeRow()).queryByRole("button", { name: "其它 0" })).not.toBeInTheDocument();
   });
 
   it("pins repeated facet requests and does not restart the one-row bootstrap list after applying filters", async () => {
@@ -275,51 +274,17 @@ describe("PolicyCatalog facet integration", () => {
     expect(bootstrapCalls()).toHaveLength(1);
   });
 
-  it("uses region-tree ancestry, clears descendants when the province changes, and combines exact area with codes", async () => {
+  it("removes the region dimension UI but keeps the existing exact-area search", async () => {
     const user = userEvent.setup();
     const panel = await readyCatalog();
+    expect(within(panel).queryByRole("heading", { name: "地区" })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /北京市|东城区|石家庄市/ })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("地区精确筛选"), "北京市");
-    await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.click(within(panel).getByRole("button", { name: /区县级/ }));
-    await user.click(within(panel).getByRole("button", { name: /河北省 2/ }));
-    await user.click(within(panel).getByRole("button", { name: /石家庄市 1/ }));
-    await user.click(within(panel).getByRole("button", { name: /长安区 1/ }));
-
-    await user.click(within(panel).getByRole("button", { name: /省级/ }));
-    await user.click(within(panel).getByRole("button", { name: /北京市 0/ }));
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({
-      q: "数字经济", area: "北京市", admin_level: "province", province_code: "110000000000",
-      ...pin,
+      area: "北京市", admin_level: "county", ...pin,
     }), expect.any(AbortSignal)));
-    expect(catalog.facets.mock.calls.at(-1)?.[0]).toMatchObject({
-      area: "北京市", province_code: "110000000000",
-    });
-  });
-
-  it("does not show region-tree choices for national documents", async () => {
-    const user = userEvent.setup();
-    const panel = await readyCatalog();
-    await user.click(within(panel).getByRole("button", { name: /区县级/ }));
-    await user.click(within(panel).getByRole("button", { name: "地区未分类 0" }));
-    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({
-      admin_level: "county", region_status: "unclassified", ...pin,
-    }), expect.any(AbortSignal)));
-
-    await user.click(within(panel).getByRole("button", { name: /国家级 0/ }));
-
-    await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ admin_level: "national", ...pin }), expect.any(AbortSignal)));
-    expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("region_status");
-    expect(within(panel).queryByRole("button", { name: /北京市|河北省|东城区|西城区|石家庄市/ })).not.toBeInTheDocument();
-  });
-
-  it("shows missing region counts as pending while an explicit zero remains visible", async () => {
-    const user = userEvent.setup();
-    const panel = await readyCatalog();
-    await user.click(within(panel).getByRole("button", { name: /区县级/ }));
-    await user.click(within(panel).getByRole("button", { name: /北京市 0/ }));
-
-    expect(within(panel).getByRole("button", { name: /东城区 0/ })).toBeEnabled();
-    expect(within(panel).getByRole("button", { name: /西城区 待统计/ })).toBeEnabled();
+    expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("province_code");
   });
 
   it.each([400, 404, 503])("keeps legacy search and reading available when facets returns %i", async status => {
@@ -329,6 +294,7 @@ describe("PolicyCatalog facet integration", () => {
     render(<PolicyCatalog />);
 
     expect(await screen.findByText("当前库共有 3 篇政策文献")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "按维度查找" }));
     expect(await screen.findByText(/维度筛选暂不可用/)).toBeVisible();
     await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.type(screen.getByLabelText("地区精确筛选"), "北京市");

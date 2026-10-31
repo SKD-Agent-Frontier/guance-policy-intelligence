@@ -91,8 +91,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
         ))}
         {conversation.busy !== "idle" && (
           <div className="conversation-progress" role="status" aria-live="polite">
-            <span className="loading-spinner" />
-            <div><strong>{conversation.busy === "preparing" ? "正在确认研究范围" : "正在执行研究"}</strong><p>{conversation.busy === "preparing" ? "系统正在分析当前需求。" : "研究结果会显示在本次对话中。"}</p></div>
+            <strong className="research-running-text">{conversation.busy === "preparing" ? "正在确认研究范围" : "正在研究中"}<span className="research-running-dots" aria-hidden="true">...</span></strong>
           </div>
         )}
       </div>
@@ -140,7 +139,7 @@ function Message({
 }) {
   if (message.kind === "user") return <article className="conversation-message message-user"><div className="message-role">你</div><p>{message.text}</p></article>;
   if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><div className="message-role">研究助手</div><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
-  if (message.kind === "execution") return <article className="conversation-message message-system"><div className="message-role">研究执行</div><p>{message.text}</p></article>;
+  if (message.kind === "execution") return null;
   if (message.kind === "error") {
     const preparationConflict = message.code === "PREPARATION_CONFLICT" || /409|PREPARATION_STATE|STATE_EXPIRED|REVISION_CONFLICT/i.test(message.code);
     const preparationBlocked = message.code === "UNSUPPORTED_MODE" || message.code === "PREPARATION_BLOCKED";
