@@ -1,4 +1,5 @@
-import { BookOpenText, ChevronLeft, FilePlus2, History, Home, Settings2 } from "lucide-react";
+import { BookOpenText, ChevronLeft, FilePlus2, Home, Settings2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Conversation } from "../conversationTypes";
 import type { TaskType } from "../types";
 
@@ -7,11 +8,11 @@ type Props = {
   activeId: string | null;
   collapsed: boolean;
   mobileOpen: boolean;
+  onExpand: () => void;
   onToggle: () => void;
   onCloseMobile: () => void;
   onHome: () => void;
   onNew: () => void;
-  onShowHistory: () => void;
   onSelect: (id: string) => void;
   onSettings: () => void;
 };
@@ -24,23 +25,32 @@ const names: Record<TaskType, string> = {
   compare_plans: "多方案分析",
 };
 
-export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onToggle, onCloseMobile, onHome, onNew, onShowHistory, onSelect, onSettings }: Props) {
-  const isCollapsed = collapsed && !mobileOpen;
+export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpand, onToggle, onCloseMobile, onHome, onNew, onSelect, onSettings }: Props) {
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+  const isCollapsed = (collapsed || isMobileViewport) && !mobileOpen;
   const closeAnd = (action: () => void) => {
+    const shouldCloseMobile = mobileOpen;
+    if (isCollapsed) onExpand();
     action();
-    onCloseMobile();
+    if (shouldCloseMobile) onCloseMobile();
   };
   return <>
     {mobileOpen && <button className="sidebar-scrim" aria-label="关闭侧栏" type="button" onClick={onCloseMobile} />}
-    <aside className={`app-sidebar ${isCollapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`} aria-label="全局侧栏" aria-hidden={!mobileOpen && typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches}>
+    <aside className={`app-sidebar ${isCollapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`} aria-label="全局侧栏">
       <div className="sidebar-brand-row" title="研究工作台">
-        <BookOpenText size={22} aria-hidden="true" />
+        {isCollapsed ? <button type="button" className="sidebar-brand-toggle" title="展开侧栏" aria-label="展开侧栏" onClick={onExpand}><BookOpenText size={20} aria-hidden="true" /></button> : <BookOpenText size={20} aria-hidden="true" />}
         {!isCollapsed && <><strong>研究工作台</strong><button type="button" className="sidebar-collapse" title="收起侧栏" aria-label="收起侧栏" onClick={onToggle}><ChevronLeft size={16} /></button></>}
       </div>
       <nav className="sidebar-primary" aria-label="工作台导航">
         <button type="button" className="side-link sidebar-home-link" title="返回首页" aria-label="返回首页" onClick={() => closeAnd(onHome)}><Home size={20} /></button>
         <button type="button" className="side-link new-link" title="新建研究" aria-label="新建研究" onClick={() => closeAnd(onNew)}><FilePlus2 size={20} /></button>
-        <button type="button" className="side-link sidebar-history-toggle" title="展开最近研究" aria-label="展开最近研究" onClick={onShowHistory}><History size={19} /></button>
       </nav>
       {!isCollapsed && <>
         <div className="sidebar-section-title"><span>最近研究</span><span className="sidebar-session-count">{conversations.length}</span></div>

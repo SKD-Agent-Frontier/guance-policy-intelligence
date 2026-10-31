@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpenText, Menu, Settings2, X } from "lucide-react";
+import { BookOpenText, Settings2, X } from "lucide-react";
 import { Home } from "./components/Home";
 import { Sidebar } from "./components/Sidebar";
 import { ConversationView } from "./components/ConversationView";
@@ -81,6 +81,10 @@ export default function App() {
       activeId={activeId}
       collapsed={collapsed}
       mobileOpen={mobileOpen}
+      onExpand={() => {
+        if (window.matchMedia?.("(max-width: 768px)").matches) setMobileOpen(true);
+        else setCollapsed(false);
+      }}
       onToggle={() => {
         if (mobileOpen) setMobileOpen(false);
         else setCollapsed((value) => !value);
@@ -88,17 +92,12 @@ export default function App() {
       onCloseMobile={() => setMobileOpen(false)}
       onHome={() => setPage("home")}
       onNew={startNew}
-      onShowHistory={() => setCollapsed(false)}
       onSelect={openConversation}
       onSettings={() => openDialog("settings")}
     />
     <div className={`app-content ${collapsed ? "sidebar-is-collapsed" : ""}`}>
       <header className="global-topbar">
         <div className="topbar-leading">
-          <button type="button" className="menu-toggle" aria-label="打开侧栏" title="打开侧栏" onClick={() => {
-            if (window.matchMedia?.("(max-width: 768px)").matches) setMobileOpen(true);
-            else setCollapsed((value) => !value);
-          }}><Menu size={19} /></button>
           {page !== "home" && <button type="button" className="global-brand" onClick={() => setPage("home")} aria-label="管策智研首页"><span className="brand-mark"><BookOpenText size={19} strokeWidth={1.8} /></span><span>管策智研</span></button>}
         </div>
         <nav className="global-nav" aria-label="主导航">
