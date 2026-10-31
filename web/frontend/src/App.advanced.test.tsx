@@ -25,7 +25,9 @@ function ready(request: ResearchRequest) {
 }
 
 async function ask(mode: string, question: string) {
-  fireEvent.click(screen.getByRole("tab", { name: mode }));
+  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
+  fireEvent.click(screen.getByRole("button", { name: /研究模式/ }));
+  fireEvent.click(screen.getByRole("button", { name: mode }));
   fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
     target: { value: question },
   });
