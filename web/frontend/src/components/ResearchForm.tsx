@@ -18,6 +18,7 @@ type Props = {
   advancedDraft: AdvancedDraft;
   onAdvancedDraftChange: (patch: Partial<AdvancedDraft>) => void;
   onOpenCatalog?: () => void;
+  hideModeTabs?: boolean;
 };
 
 const modes: { id: TaskType; label: string }[] = [
@@ -41,6 +42,7 @@ export function ResearchForm({
   advancedDraft,
   onAdvancedDraftChange,
   onOpenCatalog,
+  hideModeTabs = false,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const targetRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -102,7 +104,7 @@ export function ResearchForm({
 
   return (
     <section className="research-composer" aria-label="研究需求">
-      <div className="mode-tabs" role="tablist" aria-label="研究模式">
+      {!hideModeTabs && <div className="mode-tabs" role="tablist" aria-label="研究模式">
         {modes.map(({ id, label }) => (
           <button
             key={id}
@@ -115,7 +117,7 @@ export function ResearchForm({
             <span>{label}</span>
           </button>
         ))}
-      </div>
+      </div>}
       <div className="composer-fields">
         <textarea
           ref={textareaRef}

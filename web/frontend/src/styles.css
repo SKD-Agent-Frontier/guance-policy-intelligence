@@ -1851,3 +1851,20 @@ textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Result integrity information stays available without preceding the conclusion. */
+.result-followup-notes {
+  margin-top: 24px;
+  padding: 12px 0;
+  border-top: 1px solid #eee9e6;
+  color: #76665f;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.result-followup-notes summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #8d655f;
+}
+.result-followup-notes p { margin: 9px 0; }
+.result-followup-notes ul { margin: 8px 0; padding-left: 20px; }

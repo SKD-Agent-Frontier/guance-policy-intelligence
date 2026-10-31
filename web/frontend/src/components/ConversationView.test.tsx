@@ -1,8 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "./ConversationView";
 import { createAdvancedDraft, type Conversation } from "../conversationTypes";
-import type { PreparationResponse } from "../types";
+import type { EvidenceRef, PreparationResponse, RunResult } from "../types";
+import { catalogClient } from "../api/catalogClient";
+
+vi.mock("../api/catalogClient", () => ({ catalogClient: { detail: vi.fn(), content: vi.fn() } }));
 
 const state: PreparationResponse["state"] = {
   state_id: "state-current",
@@ -92,4 +95,92 @@ it("shows only a lightweight animated running status without a separate executio
   expect(screen.getByRole("status")).toHaveTextContent("正在研究中");
   expect(screen.queryByText("研究任务正在执行。")).not.toBeInTheDocument();
   expect(screen.queryByText("研究执行")).not.toBeInTheDocument();
+});
+
+const source: EvidenceRef = {
+  planid: "P-1", chunk_id: "chunk-1", parent_id: null,
+  title: "海西州数字经济发展规划", area: "海西州", fyp: "十四五",
+  admin_level: "prefecture", plantype_label: "专项规划", section_idx: 0,
+  section_path: "第一章", char_start: 0, char_end: 12,
+  chunk_char_start: 0, chunk_char_end: 12, truncated: false,
+  source: "kb_read", observed_ranges: [[0, 12]], complete: true, out_of_section: false,
+  document_id: null, document_version_id: null, generation_id: "gen-1",
+  source_hash: null, section_id: null, section_char_start: null,
+  section_char_end: null, offset_basis: null, offset_unit: null,
+  body_origin: null, contract_version: null, quality_warnings: [],
+};
+const completed: RunResult = {
+  run_id: "run-1", session_id: "session-1", task_type: "qa",
+  status: "completed", evidence_status: "insufficient",
+  answer: "当前结论。", claims: [{ text: "相关结论", chunk_ids: ["chunk-1"],
+    quotes: ["可追溯原文"], dimension: null, anchors: [] }],
+  evidence_refs: [source], dropped_chunk_ids: [], error: null, meta: {},
+  warnings: ["存在未核验引用"], structured: null, route: null,
+};
+function completedConversation(): Conversation {
+  return {
+    ...conversationFixture(), busy: "idle", preparation: null,
+    messages: [
+      { id: "u1", kind: "user", text: "研究问题" },
+      { id: "ready", kind: "preparation", response: {
+        ...preparation("准备完成", [], 2), status: "ready",
+        message: "研究请求已准备完成。", options: [], request: null,
+      } },
+      { id: "result1", kind: "result", result: completed },
+    ],
+  };
+}
+function renderCompleted() {
+  return render(<ConversationView conversation={completedConversation()} onModeChange={vi.fn()} onSend={vi.fn()}
+    onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()}
+    onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+}
+
+describe("conversation simplification and original source reader", () => {
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
+
+  it("hides completed preparation, mode selector, local note, and status prelude", () => {
+    renderCompleted();
+    expect(screen.getByRole("heading", { name: "研究结论" })).toBeVisible();
+    expect(screen.queryByText("研究请求已准备完成。")).not.toBeInTheDocument();
+    expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
+    expect(screen.queryByText("正式研究结果")).not.toBeInTheDocument();
+    expect(screen.queryByText("研究完成")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "研究模式" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/对话记录和准备状态仅保存在当前前端会话/)).not.toBeInTheDocument();
+    expect(screen.getByText("研究提示与核验信息")).toBeInTheDocument();
+  });
+
+  it("previews source on hover and opens real published original in standalone view", async () => {
+    const dataset = {
+      generation_id: "gen-1", revision: 1, total_documents: 1,
+      partial: true, source: "current_published_frozen_release",
+      region_version: null, region_mapping_version: null,
+    };
+    vi.mocked(catalogClient.detail).mockResolvedValue({
+      dataset, policy: { planid: "P-1", title: source.title, area: source.area,
+        fyp: source.fyp, plantype_label: source.plantype_label,
+        body_chars: 10, sections: [{ index: 0, level: 1, path: "第一章", start: 0, end: 10 }] },
+    } as never);
+    vi.mocked(catalogClient.content).mockResolvedValue({
+      dataset, planid: "P-1", title: source.title,
+      offset: 0, limit: 4000, total_chars: 10, has_more: false, text: "真实政策正文",
+    } as never);
+    renderCompleted();
+    const original = screen.getByRole("button", { name: "原文 1" });
+    vi.useFakeTimers();
+    fireEvent.mouseOver(original);
+    await act(async () => { vi.advanceTimersByTime(200); });
+    expect(screen.getByLabelText("原文预览")).toHaveTextContent("可追溯原文");
+    expect(catalogClient.content).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    fireEvent.click(original);
+    expect(screen.getByRole("main", { name: "政策原文阅读" })).toBeInTheDocument();
+    expect(screen.queryByRole("main", { name: "研究工作区" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("真实政策正文")).toBeInTheDocument());
+    expect(catalogClient.detail).toHaveBeenCalledWith("P-1", expect.any(AbortSignal));
+    expect(catalogClient.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
+    fireEvent.click(screen.getByRole("button", { name: "返回研究对话" }));
+    expect(screen.getByRole("heading", { name: "研究结论" })).toBeInTheDocument();
+  });
 });
