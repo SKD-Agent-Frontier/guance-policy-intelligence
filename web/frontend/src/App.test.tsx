@@ -14,6 +14,7 @@ const mockState = vi.hoisted(() => ({
   },
   setMode: vi.fn(),
   send: vi.fn(),
+  newConversation: vi.fn(),
 }));
 
 vi.mock("./hooks/useConversations", () => ({
@@ -22,7 +23,7 @@ vi.mock("./hooks/useConversations", () => ({
     activeId: mockState.conversation.id,
     active: mockState.conversation,
     selectConversation: vi.fn(),
-    newConversation: vi.fn(),
+    newConversation: mockState.newConversation,
     setMode: mockState.setMode,
     send: mockState.send,
     runAdvanced: vi.fn(),
@@ -39,21 +40,28 @@ vi.mock("./components/PolicyCatalog", () => ({
 
 describe("App navigation", () => {
   beforeEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     mockState.setMode.mockClear();
     mockState.send.mockClear();
+    mockState.newConversation.mockClear();
   });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
   });
 
-  it("keeps the home icon and global sidebar available from home, workspace, and catalog", () => {
+  it("expands the desktop sidebar from the home icon", () => {
     render(<App />);
     expect(screen.queryByRole("button", { name: "数据" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toHaveAttribute("title", "返回首页");
+    expect(screen.getByText("最近研究")).toBeInTheDocument();
+  });
 
+  it("keeps the home icon available from workspace and catalog", () => {
+    render(<App />);
     fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: "数字经济" } });
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
     expect(screen.getByRole("main", { name: "研究工作区" })).toBeInTheDocument();
@@ -64,28 +72,38 @@ describe("App navigation", () => {
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
   });
 
-  it("opens recent conversations from the sidebar history icon", () => {
+  it("expands recent conversations from the sidebar book icon without changing page", () => {
     render(<App />);
     expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "展开最近研究" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     expect(screen.getByText("最近研究")).toBeInTheDocument();
     expect(screen.getByTitle("新对话")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "打开侧栏" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "展开最近研究" })).not.toBeInTheDocument();
   });
 
-  it("keeps the mobile sidebar open when opening recent research", () => {
-    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+  it("opens the mobile drawer from a collapsed nav icon and keeps its action", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "打开侧栏" }));
+    const sidebar = screen.getByRole("complementary", { name: "全局侧栏" });
+    expect(sidebar).toHaveClass("is-collapsed");
+    fireEvent.click(screen.getByRole("button", { name: "新建研究" }));
     expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "展开最近研究" }));
+    expect(sidebar).toHaveClass("is-mobile-open");
+    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(mockState.newConversation).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "关闭侧栏" }));
+    expect(sidebar).toHaveClass("is-collapsed");
+    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
     expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
     expect(screen.getByText("最近研究")).toBeInTheDocument();
   });
 
-  it("hides the brand on home while keeping the hamburger and accessible settings icon", () => {
+  it("hides the top brand and menu on home while retaining accessible settings", () => {
     render(<App />);
     expect(screen.queryByRole("button", { name: "管策智研首页" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开侧栏" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "打开侧栏" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     const settings = screen.getByRole("button", { name: "身份与环境设置" });
     expect(settings).toBeInTheDocument();
     expect(settings).toHaveAccessibleName("身份与环境设置");
