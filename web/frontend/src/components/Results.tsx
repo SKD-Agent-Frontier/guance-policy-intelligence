@@ -32,7 +32,7 @@ function CitationButtons({
   return (
     <span className={`result-citations${compact ? " result-citations--compact" : ""}`}>
       {claim.chunk_ids.map((chunkId, index) => (
-        <button className="result-citation" key={`${chunkId}-${index}`} onClick={() => onEvidence(chunkId)} type="button">
+        <button className="result-citation" data-chunk-id={chunkId} key={`${chunkId}-${index}`} onClick={() => onEvidence(chunkId)} type="button">
           <BookOpen aria-hidden="true" size={13} />
           <span>原文 {index + 1}</span>
           <ArrowUpRight aria-hidden="true" size={12} />
