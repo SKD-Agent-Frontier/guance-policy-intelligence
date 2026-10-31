@@ -1,6 +1,4 @@
 """QA analysis acceptance is about evidence dependencies, not proving semantic reasoning."""
-from copy import deepcopy
-
 from guance_agent.context import RunContext
 from guance_agent.kb import get_kb
 from guance_agent.output import build_result
