@@ -1261,8 +1261,10 @@ textarea:focus-visible {
   margin-bottom: 5px;
 }
 .message-user {
-  max-width: 680px;
-  margin-right: max(0px, calc((100% - 780px) / 2));
+  width: fit-content;
+  max-width: min(680px, 88%);
+  min-width: 0;
+  margin-right: 0;
   margin-left: auto;
   border-color: #f1e7e4;
   background: #fcf8f7;
@@ -1275,8 +1277,17 @@ textarea:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Assistant messages flow as page content, without an enclosing chat card. */
+.conversation-message:is(.message-system, .message-preparation, .result-message) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-right: 0;
+  padding-left: 0;
+}
 .message-system {
-  background: #faf9f8;
+  background: transparent;
 }
 .message-error {
   border-color: #ead6d2;
