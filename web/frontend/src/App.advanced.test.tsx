@@ -1,11 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { researchClient } from "./api/client";
 
 vi.mock("./api/client", async (importOriginal) => ({
   ...await importOriginal<typeof import("./api/client")>(),
-  researchClient: { prepare: vi.fn(), submit: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn() },
 }));
 
 vi.mock("./components/PolicyCatalog", () => ({
@@ -13,18 +13,24 @@ vi.mock("./components/PolicyCatalog", () => ({
 }));
 
 describe("advanced conversation handoff", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(researchClient.resolveCompare).mockResolvedValue({
+      status: "needs_clarification", message: "需要补充具体文献标题",
+      targets: [], policies: [], dimensions: [],
+    });
+  });
   afterEach(cleanup);
 
   it.each([
     ["政策比较", "比较下北京市2015和2016年的政府工作报告"],
     ["要素提取", "提取北京市十四五规划中关于人工智能产业发展的支持措施"],
     ["多方案分析", "分析这几份产业扶持政策的优势和局限"],
-  ])("opens %s from home with one normal guide and no network task", (mode, question) => {
+  ])("opens %s from home with one normal guide and no network task", async (mode, question) => {
     render(<App />);
     fireEvent.click(screen.getByRole("tab", { name: mode }));
     fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
 
     expect(screen.getByRole("main", { name: "研究工作区" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
@@ -36,12 +42,12 @@ describe("advanced conversation handoff", () => {
     expect(researchClient.submit).not.toHaveBeenCalled();
   });
 
-  it("preserves question, IDs and dimensions through catalog and home navigation", () => {
+  it("preserves question, IDs and dimensions through catalog and home navigation", async () => {
     const question = "比较两份政策的企业支持措施";
     render(<App />);
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
     fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
     fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
     fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
     fireEvent.change(screen.getByRole("textbox", { name: "自定义维度（选填）" }), { target: { value: "企业规模" } });
@@ -61,12 +67,12 @@ describe("advanced conversation handoff", () => {
     expect(researchClient.submit).not.toHaveBeenCalled();
   });
 
-  it("isolates drafts across conversations and focuses the missing target on return", () => {
+  it("isolates drafts across conversations and focuses the missing target on return", async () => {
     const question = "比较两份政策的企业支持措施";
     render(<App />);
     fireEvent.click(screen.getByRole("tab", { name: "政策比较" }));
     fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), { target: { value: question } });
-    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
     fireEvent.change(screen.getByLabelText("研究对象编号 1"), { target: { value: "POLICY-A" } });
     fireEvent.click(screen.getByRole("button", { name: "资金标准" }));
     fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
