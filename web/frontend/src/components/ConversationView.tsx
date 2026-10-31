@@ -223,7 +223,7 @@ function Message({
           onEditAndResend(message.id, editedText);
           setEditing(false);
         }}>
-          <textarea aria-label="编辑消息内容" autoFocus value={editedText} rows={Math.min(8, Math.max(3, editedText.split("\\n").length))}
+          <textarea aria-label="编辑消息内容" autoFocus value={editedText} rows={Math.min(8, Math.max(3, editedText.split("\n").length))}
             onChange={(event) => setEditedText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Escape") { event.preventDefault(); setEditing(false); }
@@ -252,7 +252,7 @@ function Message({
     return <article className="conversation-message message-error" role="alert">
       <div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>
       {isLatest && (preparationConflict || preparationBlocked) ? <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button> : canRetry && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试</button>}
-      <MessageActions text={message.text + "\\n" + errorExplanation(message.code)}
+      <MessageActions text={message.text + "\n" + errorExplanation(message.code)}
         onRegenerate={message.code === "PREPARATION_RESTART" ? undefined : () => onRegenerate(message.id)}
         disabled={!canChangeHistory} />
     </article>;
