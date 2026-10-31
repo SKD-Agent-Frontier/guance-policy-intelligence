@@ -385,4 +385,100 @@ describe("useConversations", () => {
     await act(async () => { await result.current.retry(); });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
   });
+  it("regenerates a completed answer with the original prepared request, replacing its old result", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset()
+      .mockResolvedValueOnce({ ...RESULT, answer: "第一次回答" })
+      .mockResolvedValueOnce({ ...RESULT, answer: "第二次回答" });
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("最初问题"); });
+    const original = result.current.active?.messages.find((item) => item.kind === "result");
+    expect(original).toBeDefined();
+
+    await act(async () => { await result.current.regenerate(original!.id); });
+
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(1);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(2);
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+    expect(result.current.active?.messages.at(-1)).toMatchObject({
+      kind: "result", result: { answer: "第二次回答" },
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+  });
+
+  it("editing an earlier user turn removes dependent messages and restarts preparation", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("第一轮问题"); });
+    await act(async () => { await result.current.send("依赖第一轮的追问"); });
+    const first = result.current.active?.messages.find((item) => item.kind === "user");
+    expect(first).toBeDefined();
+
+    await act(async () => { await result.current.editAndResend(first!.id, "修订后的第一轮问题"); });
+
+    expect(result.current.active?.title).toBe("修订后的第一轮问题");
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(result.current.active?.messages.find((item) => item.kind === "user")).toMatchObject({
+      text: "修订后的第一轮问题",
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+    expect(mockedClient.prepare).toHaveBeenLastCalledWith({
+      mode: "qa", message: "修订后的第一轮问题",
+    });
+  });
+
+  it("regenerating an earlier answer discards subsequent turns, without preparing twice", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("问题一"); });
+    const answer = result.current.active?.messages.find((item) => item.kind === "result");
+    await act(async () => { await result.current.send("问题二"); });
+
+    await act(async () => { await result.current.regenerate(answer!.id); });
+
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(2);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(3);
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+  });
+
+  it("editing an advanced research message preserves its manually selected targets", async () => {
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+    await act(async () => {
+      await result.current.runAdvanced({
+        task_type: "compare", question: "原问题", targets: ["P-1", "P-2"], dimensions: ["目标"],
+      });
+    });
+    const turn = result.current.active?.messages.find((item) => item.kind === "user");
+    await act(async () => { await result.current.editAndResend(turn!.id, "编辑后的比较问题"); });
+
+    expect(mockedClient.submit).toHaveBeenLastCalledWith({
+      task_type: "compare", question: "编辑后的比较问题",
+      targets: ["P-1", "P-2"], dimensions: ["目标"],
+    }, undefined);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(2);
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+  });
+
+  it("does not edit or regenerate conversation history during an in-flight operation", async () => {
+    const pending = deferred<RunResult>();
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useConversations());
+    act(() => { void result.current.send("正在执行的问题"); });
+    await waitFor(() => expect(result.current.active?.busy).toBe("running"));
+    const original = result.current.active?.messages.find((item) => item.kind === "user");
+    await act(async () => {
+      await result.current.editAndResend(original!.id, "不应执行");
+      await result.current.regenerate("nonexistent");
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(1);
+    await act(async () => { pending.resolve(RESULT); await pending.promise; });
+  });
+
 });
