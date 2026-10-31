@@ -18,6 +18,7 @@ from .policy_catalog import (
     PolicyCatalogService,
     load_published_catalog,
 )
+from .compare_resolution import CompareResolveRequest, resolve_compare
 from .policy_regions import RegionResourceUnavailable, load_region_mapping, load_region_tree
 from .policy_schemas import (
     PolicyContentResponse,
@@ -268,3 +269,10 @@ async def get_policy_content(
         _raise_parameter(exc)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="未找到该政策") from exc
+
+
+@router.post("/research/resolve-compare")
+async def resolve_compare_request(request: Request, payload: CompareResolveRequest):
+    """用真实发布目录发现跨省比较对象；不调用 Agent，也不生成虚构编号。"""
+    service = await _catalog(request)
+    return await asyncio.to_thread(resolve_compare, payload.question, service)
