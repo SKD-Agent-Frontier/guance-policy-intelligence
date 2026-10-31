@@ -2,6 +2,7 @@
 from .context import RunContext, sanitize_error_detail
 from .format_recovery import parse_agent_output
 from .qa_analysis import prepare_candidates
+from .qa_report import needs_outline, verified_qa_outline
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
@@ -44,8 +45,16 @@ def rebuild_trusted_answer(result, ctx, reason: str) -> None:
     result.evidence_status = "insufficient"
     result.meta["answer_rebuilt"] = reason
     if result.claims:
-        result.answer = "以下仅保留可追溯到已读原文的结论：\n" + "\n".join(
-            f"- {claim.text}" for claim in result.claims)
+        question = getattr(ctx, "question", "") if ctx else ""
+        if getattr(result, "task_type", "qa") == "qa" and needs_outline(question):
+            result.answer, missing = verified_qa_outline(result.claims, question)
+            result.meta["report_outline"] = {
+                "source": "verified_claims", "coverage_missing": missing,
+                "rebuild_reason": reason,
+            }
+        else:
+            result.answer = "以下仅保留可追溯到已读原文的结论：\n" + "\n".join(
+                f"- {claim.text}" for claim in result.claims)
     else:
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
 
