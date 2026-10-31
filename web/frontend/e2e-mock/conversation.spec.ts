@@ -660,6 +660,8 @@ test("Landing page: template and advanced panels float without shifting the hero
   await expect(advanced).toHaveCSS("position", "absolute");
   await expect(advanced).toHaveCSS("overflow-y", "auto");
   expect(await measure()).toEqual(original);
+  expect(await advanced.evaluate((element) => element.getBoundingClientRect().bottom))
+    .toBeLessThanOrEqual(900);
 
   await page.getByRole("button", { name: "指令模板" }).click();
   await expect(advanced).toHaveCount(0);
