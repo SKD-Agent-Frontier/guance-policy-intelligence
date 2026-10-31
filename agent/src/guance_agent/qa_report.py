@@ -52,6 +52,56 @@ def _category(claim: Claim, question: str) -> str:
     return "其他已核验事实"
 
 
+def is_canonical_outline(answer: str) -> bool:
+    """Reject skipped / out-of-order numbering in generated reports.
+
+    Validate heading lines only; factual numbers in ordinary sentences are not
+    chapter numbering. Depth must follow 一、 > （一） > 1、 > （1）.
+    """
+    level_patterns = (
+        re.compile(r"^([一二三四五六七八九十]+)、\s*\S"),
+        re.compile(r"^（([一二三四五六七八九十]+)）\s*\S"),
+        re.compile(r"^(\d{1,3})、\s*\S"),
+        re.compile(r"^（(\d{1,3})）\s*\S"),
+    )
+
+    def numeral(value: str) -> int:
+        if value.isdigit():
+            return int(value)
+        if value == "十":
+            return 10
+        if value.startswith("十") and len(value) == 2:
+            return 10 + _CHINESE.index(value[1]) + 1
+        if value.startswith("二十"):
+            return 20 if value == "二十" else 20 + _CHINESE.index(value[-1]) + 1
+        return _CHINESE.index(value) + 1 if value in _CHINESE else -1
+
+    counters = [0, 0, 0, 0]
+    headings = 0
+    for original in (answer or "").splitlines():
+        line = original.strip()
+        if not line:
+            continue
+        if re.match(r"^(?:[-*•]\s+|#{1,6}\s+|\d{1,3}[.．)）]\s+|[（(]\d{1,3}[)）]\s+)", line):
+            return False
+        match = next(((level, m) for level, pattern in enumerate(level_patterns, start=1)
+                      if (m := pattern.match(line)) is not None), None)
+        if match is None:
+            continue
+        level, parsed = match
+        if level > 1 and counters[level - 2] < 1:
+            return False
+        number = numeral(parsed.group(1))
+        if number != counters[level - 1] + 1:
+            return False
+        counters[level - 1] = number
+        for deeper in range(level, 4):
+            counters[deeper] = 0
+        if level == 1:
+            headings += 1
+    return headings >= 2
+
+
 def _short_heading(text: str) -> str:
     """Use a substring of the verified claim, never manufacture a new fact."""
     cleaned = re.sub(
