@@ -186,7 +186,7 @@ function ComparisonResults({ result, onEvidence, plans = false }: ResultsProps &
             </tr>)}</tbody>
           </table>
         </div>
-      )
+      )}
       {plans && structured.scheme_analysis?.map((scheme) => { const object = objects.find((item) => item.planid === scheme.planid); return <section className="scheme-analysis" key={scheme.planid}><div className="scheme-analysis-heading"><GitCompareArrows aria-hidden="true" size={17} /><div><span>方案分析</span><h2>{object?.title || scheme.planid}</h2></div></div><div className="scheme-analysis-grid"><AnalysisGroup title="优势特征" entries={scheme.advantages} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /><AnalysisGroup title="限制" entries={scheme.limitations} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /><AnalysisGroup title="适用条件" entries={scheme.applicability} cells={rows.flatMap((row) => row.cells.filter((cell) => cell.planid === scheme.planid))} claims={result.claims} onEvidence={onEvidence} /></div></section>; })}
       {structured.coverage_notes?.length > 0 && <div className="comparison-notes"><span>取证范围</span>{structured.coverage_notes.map((note, index) => <p key={`${index}-${note}`}>{note}</p>)}</div>}
       {rows.length === 0 && <AnswerFallback result={result} onEvidence={onEvidence} />}
