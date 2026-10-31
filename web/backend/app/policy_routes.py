@@ -8,6 +8,7 @@ import threading
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+from .compare_resolution import CompareResolveRequest, resolve_compare
 from .policy_catalog import (
     DEFAULT_CONTENT_LIMIT,
     DEFAULT_PAGE_SIZE,
@@ -18,7 +19,6 @@ from .policy_catalog import (
     PolicyCatalogService,
     load_published_catalog,
 )
-from .compare_resolution import CompareResolveRequest, resolve_compare
 from .policy_regions import RegionResourceUnavailable, load_region_mapping, load_region_tree
 from .policy_schemas import (
     PolicyContentResponse,
