@@ -61,21 +61,18 @@ function conversationFixture(): Conversation {
 describe("ConversationView", () => {
   afterEach(cleanup);
 
-  it("renders dynamic questions/options, disables stale options, and keeps warnings visible", () => {
+  it("keeps clarification choices usable but hides explanatory metadata beneath them", () => {
     const onSend = vi.fn();
     render(<ConversationView conversation={conversationFixture()} onModeChange={vi.fn()} onSend={onSend} onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "后端动态问题二" })).toBeInTheDocument();
-    expect(screen.getAllByText("研究范围不保证发布日期精确过滤。")).toHaveLength(2);
-    expect(screen.getAllByText("当前已确认")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "旧选项" })).toBeDisabled();
+    expect(screen.queryByText(/这是历史准备消息/)).not.toBeInTheDocument();
+    expect(screen.queryByText("当前已确认")).not.toBeInTheDocument();
+    expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
+    expect(screen.queryByText("研究范围不保证发布日期精确过滤。")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "后端动态选项二" }));
     expect(onSend).toHaveBeenCalledWith("后端动态选项二");
-
-    fireEvent.click(screen.getAllByText("查看已确认研究条件与执行边界")[1]);
-    expect(screen.getAllByText("可执行筛选")).toHaveLength(2);
-    expect(screen.getAllByText(/具备后续执行能力，不代表已完成筛选/)).toHaveLength(2);
-    expect(screen.getAllByText("仅作为请求条件")).toHaveLength(2);
   });
 });
 
@@ -142,6 +139,10 @@ describe("conversation simplification and original source reader", () => {
   it("hides completed preparation, mode selector, local note, and status prelude", () => {
     renderCompleted();
     expect(screen.getByRole("heading", { name: "研究结论" })).toBeVisible();
+    expect(screen.queryByText("政策问答")).not.toBeInTheDocument();
+    expect(screen.queryByText("结论与本次检索到的原文逐条关联。")).not.toBeInTheDocument();
+    expect(screen.getByText("依据与引句")).toBeInTheDocument();
+    expect(screen.getByText("1 条结论")).toBeInTheDocument();
     expect(screen.queryByText("研究请求已准备完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
     expect(screen.queryByText("正式研究结果")).not.toBeInTheDocument();
