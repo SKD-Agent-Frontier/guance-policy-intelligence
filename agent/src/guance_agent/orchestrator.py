@@ -23,7 +23,6 @@ from .format_recovery import (
 )
 from .kb import get_kb
 from .literal_keywords import enforce_literal_result, literal_keyword
-from .qa_analysis import finalize_qa_analysis
 from .output import (
     ERRORS,
     LIMIT_CODES,
@@ -32,6 +31,7 @@ from .output import (
     insufficient_message,
     rebuild_trusted_answer,
 )
+from .qa_analysis import finalize_qa_analysis
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
