@@ -1157,11 +1157,11 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.advanced-entry {
+.page-body-home .advanced-entry {
   position: relative;
   z-index: 10;
 }
-.advanced-entry .advanced-fields {
+.page-body-home .advanced-entry .advanced-fields {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -1183,7 +1183,7 @@
   .research-composer .prompt-template-panel {
     max-height: min(48vh, 390px);
   }
-  .advanced-entry .advanced-fields {
+  .page-body-home .advanced-entry .advanced-fields {
     max-height: min(48vh, 390px);
     padding: 12px;
   }
