@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpenText, RotateCcw } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
-import { EvidencePanel } from "./EvidencePanel";
+import { EvidenceOriginalReader, SourceHoverCard } from "./EvidenceOriginalReader";
 import type { AdvancedDraft, Conversation, ConversationMessage } from "../conversationTypes";
-import type { ResearchRequest, RunResult, TaskType } from "../types";
+import type { EvidenceRef, ResearchRequest, RunResult, TaskType } from "../types";
 
 type Props = {
   conversation: Conversation;
@@ -28,7 +28,11 @@ const labels: Record<TaskType, string> = {
 
 export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRestartPreparation, onAdvancedDraftChange, onSpecifyPolicies, onOpenCatalog }: Props) {
   const [draft, setDraft] = useState("");
-  const [evidence, setEvidence] = useState<{ messageId: string; result: RunResult; chunkId: string | null } | null>(null);
+  const [reader, setReader] = useState<{ result: RunResult; reference: EvidenceRef } | null>(null);
+  const [hovered, setHovered] = useState<{ result: RunResult; reference: EvidenceRef; top: number; left: number } | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollBeforeReader = useRef<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const submittedDraft = useRef<string | null>(null);
@@ -37,7 +41,10 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
 
   useEffect(() => {
     setDraft("");
-    setEvidence(null);
+    setReader(null);
+    setHovered(null);
+    setSourceError(null);
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
   }, [conversation.id]);
 
   useEffect(() => {
@@ -84,9 +91,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
             onRetry={onRetry}
             onRestartPreparation={onRestartPreparation}
             onSpecifyPolicies={onSpecifyPolicies}
-            onEvidence={(result, chunkId) => setEvidence({ messageId: message.id, result, chunkId })}
-            evidence={evidence?.messageId === message.id ? evidence : null}
-            onCloseEvidence={() => setEvidence(null)}
+            onEvidence={openEvidence}
           />
         ))}
         {conversation.busy !== "idle" && (
@@ -123,8 +128,6 @@ function Message({
   onRestartPreparation,
   onSpecifyPolicies,
   onEvidence,
-  evidence,
-  onCloseEvidence,
 }: {
   message: ConversationMessage;
   isLatest: boolean;
@@ -134,8 +137,6 @@ function Message({
   onRestartPreparation: () => void;
   onSpecifyPolicies: () => void;
   onEvidence: (result: RunResult, chunkId: string) => void;
-  evidence: { messageId: string; result: RunResult; chunkId: string | null } | null;
-  onCloseEvidence: () => void;
 }) {
   if (message.kind === "user") return <article className="conversation-message message-user"><div className="message-role">你</div><p>{message.text}</p></article>;
   if (message.kind === "advanced_guidance") return <article className="conversation-message message-system"><div className="message-role">研究助手</div><p>{message.text}</p>{isLatest && ["extract", "compare", "compare_plans"].includes(conversation.mode) && <button type="button" className="retry-inline" disabled={conversation.busy !== "idle"} onClick={onSpecifyPolicies}>指定政策对象</button>}</article>;
@@ -146,7 +147,7 @@ function Message({
     const canRetry = isLatest && !["UNSUPPORTED_MODE", "PREPARATION_BLOCKED", "PREPARATION_RESTART", "RAG_EMPTY", "NO_EVIDENCE", "INSUFFICIENT_EVIDENCE"].includes(message.code);
     return <article className="conversation-message message-error" role="alert"><div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>{isLatest && (preparationConflict || preparationBlocked) ? <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button> : canRetry && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试</button>}</article>;
   }
-  if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onEvidence={onEvidence} evidence={evidence} onCloseEvidence={onCloseEvidence} />;
+  if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onEvidence={onEvidence} />;
 
   if (message.response.status === "ready") return null;
   const response = message.response;
@@ -228,15 +229,11 @@ function ResultMessage({
   isLatest,
   onRetry,
   onEvidence,
-  evidence,
-  onCloseEvidence,
 }: {
   message: Extract<ConversationMessage, { kind: "result" }>;
   isLatest: boolean;
   onRetry: () => void;
   onEvidence: (result: RunResult, chunkId: string) => void;
-  evidence: { messageId: string; result: RunResult; chunkId: string | null } | null;
-  onCloseEvidence: () => void;
 }) {
   const result = message.result;
   return <article className="conversation-message result-message" data-result-message-id={message.id}>
