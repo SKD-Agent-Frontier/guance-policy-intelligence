@@ -1182,3 +1182,149 @@
     padding: 12px;
   }
 }
+
+
+/* One compact plus entry for optional research modes and reusable prompts.
+   The chooser is floating: expanding it never moves the composer or the landing scene. */
+.research-composer .composer-fields--with-templates {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+}
+.prompt-template-trigger,
+.prompt-template-trigger:hover,
+.prompt-template-trigger.is-open {
+  background: transparent;
+  color: #68615d;
+}
+.prompt-template-trigger:hover,
+.prompt-template-trigger.is-open {
+  background: #f4f1ef;
+}
+.prompt-template-trigger::before,
+.prompt-template-trigger::after { display: none; }
+.research-composer .research-extra-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  width: min(280px, calc(100vw - 32px));
+  max-height: min(55vh, 500px);
+  padding: 7px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e9e5e1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(38, 28, 23, .13);
+}
+.research-composer .research-extra-panel--templates {
+  width: min(800px, calc(100vw - 48px));
+  padding: 14px;
+}
+.conversation-composer-wrap .research-composer .research-extra-panel {
+  top: auto;
+  bottom: calc(100% + 9px);
+}
+.extra-menu-items { display: grid; gap: 2px; }
+.extra-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #4b423e;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+.extra-menu-item > span:first-child { flex: 1 1 auto; }
+.extra-menu-item:hover,
+.extra-menu-item:focus-visible { background: #f8f4f2; }
+.extra-menu-item[aria-pressed="true"] { color: #aa302b; font-weight: 600; }
+.extra-menu-current { margin-left: auto; color: #968e89; font-size: 11px; }
+.extra-menu-chevron { margin-left: auto; }
+.extra-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0 2px 8px;
+  border-bottom: 1px solid #f1eeeb;
+}
+.extra-panel-header strong { font-size: 13px; color: #4b423e; }
+.extra-panel-header > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #726965;
+  cursor: pointer;
+}
+.extra-panel-header > button:hover { background: #f7f2ef; }
+.extra-template-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 9px 0 14px;
+}
+.extra-template-modes > button {
+  padding: 6px 10px;
+  border: 1px solid #e7e2df;
+  border-radius: 20px;
+  background: #fff;
+  color: #6e6560;
+  font-size: 12px;
+  cursor: pointer;
+}
+.extra-template-modes > button.is-active {
+  border-color: #d8a7a3;
+  background: #fcf2f0;
+  color: #a62d29;
+}
+.research-extra-panel .prompt-template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.composer-current-mode {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 4px;
+  margin: 5px 0 0 6px;
+  padding: 3px 5px 3px 9px;
+  border: 1px solid #e9d3d0;
+  border-radius: 14px;
+  background: #fdf7f6;
+  color: #9f302b;
+  font-size: 11px;
+}
+.composer-current-mode button {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.composer-current-mode button:hover { background: #f3e4e1; }
+@media (max-width: 700px) {
+  .research-composer .research-extra-panel--templates { width: min(360px, calc(100vw - 32px)); }
+  .research-extra-panel .prompt-template-grid { grid-template-columns: minmax(0, 1fr); }
+  .research-extra-panel .prompt-template-card { min-height: 74px; padding: 10px; }
+  .research-composer .composer-fields--with-templates { grid-template-columns: 32px minmax(0, 1fr) auto; }
+}
