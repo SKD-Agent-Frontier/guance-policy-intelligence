@@ -52,12 +52,23 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
     if not candidates or result.status != "completed" or result.error:
         return result
 
+    # Discard any untrusted narrative in the original answer whenever the model
+    # proposed synthesis. Only retained facts and accepted analyses may be shown.
+    if result.meta.get("answer_rebuilt") is None:
+        result.answer = (
+            "本轮基于已读原文取得的政策事实如下：\n"
+            + "\n".join(f"- {claim.text}" for claim in result.claims)
+            if result.claims else "本轮未取得足以形成研究分析的政策事实证据。"
+        )
+
     # No downstream renderer may receive pending/unverified draft analysis.
     counts = result.meta.get("quote_verification") or {}
     verified_quotes = bool(counts and counts.get("unverified", 0) == 0)
     if not verified_quotes or result.meta.get("finish_failed"):
         result.meta["analysis_contract"] = {"accepted": 0, "rejected": len(candidates),
                                              "reason": "quote_verification_unavailable"}
+        if result.meta.get("answer_rebuilt") is None:
+            result.answer = "本轮尚未完成原文逐字核验，不能交付研究分析。"
         return result
 
     current = {_signature(claim): i for i, claim in enumerate(result.claims)
@@ -78,6 +89,8 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
         if any(not set(claim.chunk_ids) <= live_refs for claim in linked):
             continue
         chunk_ids = list(dict.fromkeys(cid for claim in linked for cid in claim.chunk_ids))
+        if len(analyses) >= MAX_ANALYSES:
+            break
         analyses.append({
             "kind": candidate["kind"], "text": candidate["text"],
             "scope_note": candidate["scope_note"],
@@ -98,12 +111,4 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
         "accepted": len(analyses), "rejected": len(candidates) - len(analyses),
         "reason": "dependency_validation",
     }
-    # A model-written answer can still contain discarded analyses. Rebuild a
-    # fact-only lead-in whenever an analysis draft was proposed.
-    if result.meta.get("answer_rebuilt") is None:
-        result.answer = (
-            "以下为本轮取得可追溯来源的政策事实，分析判断另列于下方：\n"
-            + "\n".join(f"- {claim.text}" for claim in result.claims)
-            if result.claims else "本轮未取得足以形成研究分析的政策事实证据。"
-        )
     return result
