@@ -5,6 +5,9 @@ Accept only when every dependency survives the existing quote/number/keyword che
 Deterministic checks establish provenance, not semantic entailment or causal validity.
 """
 
+import re
+
+from .qa_report import needs_outline, verified_qa_outline
 from .schemas import Claim, RunResult
 
 MAX_ANALYSES = 3
@@ -43,7 +46,35 @@ def prepare_candidates(analyses: list[dict], original: list[Claim], retained: li
     return candidates
 
 
-def finalize_qa_analysis(result: RunResult) -> RunResult:
+def _apply_report_outline(result: RunResult, question: str) -> None:
+    """Enforce a readable total/detail/summary layout only for multi-aspect QA.
+
+    Preserve a properly formatted model narrative when no supporting facts
+    were removed. Never restore the original narrative after verification
+    has invalidated its dependencies.
+    """
+    if not needs_outline(question) or not result.claims:
+        return
+    draft, missing = verified_qa_outline(result.claims, question)
+    if missing:
+        result.evidence_status = "insufficient"
+        warning = "以下研究维度仍缺少可核验事实：" + "、".join(missing)
+        if warning not in result.warnings:
+            result.warnings.append(warning)
+    properly_structured = (
+        re.search(r"(?m)^\s*一、", result.answer)
+        and re.search(r"(?m)^\s*二、", result.answer)
+    )
+    already_rebuilt = bool(result.meta.get("answer_rebuilt"))
+    # Never restore discarded original prose after a verifier has rebuilt it.
+    if not properly_structured or (already_rebuilt and not result.meta.get("report_outline")):
+        result.answer = draft
+        result.meta["report_outline"] = {
+            "source": "verified_claims", "coverage_missing": missing,
+        }
+
+
+def finalize_qa_analysis(result: RunResult, question: str = "") -> RunResult:
     """Publish only dependency-complete synthesis after verification and final QA filtering."""
     if result.task_type != "qa":
         return result
@@ -65,6 +96,7 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
                     + "\n".join(f"- {claim.text}" for claim in result.claims)
                     if result.claims else "本轮未取得可核验的政策事实，不能形成研究分析。"
                 )
+        _apply_report_outline(result, question)
         return result
 
     # Discard any untrusted narrative in the original answer whenever the model
@@ -126,4 +158,5 @@ def finalize_qa_analysis(result: RunResult) -> RunResult:
         "accepted": len(analyses), "rejected": len(candidates) - len(analyses),
         "reason": "dependency_validation",
     }
+    _apply_report_outline(result, question)
     return result
