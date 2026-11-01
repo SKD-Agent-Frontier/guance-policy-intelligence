@@ -243,3 +243,65 @@ async def test_real_rag_supplement_uses_fresh_bounded_reads_not_legacy_agent(mon
     assert result.meta["research_supplement"]["status"] == "verified_facts_added"
     assert [c.text for c in result.claims][-1] == "新检索的可引用措施"
     assert ctx.scope is None
+
+
+@pytest.mark.asyncio
+async def test_invalid_report_draft_becomes_only_pending_verified_fact_blocks():
+    result = _result()
+    result.meta["quote_verification"]["approved"] = 2
+    calls = []
+
+    async def invalid_draft(*args, **kwargs):
+        calls.append(1)
+        return "{not a valid report"
+
+    runtime = SimpleNamespace(
+        hooks=SimpleNamespace(turns=0),
+        settings=SimpleNamespace(max_turns=8, llm_request_timeout=40),
+        complete_text=invalid_draft,
+    )
+    assert await draft_verified_report(
+        result, "分析政策优势与挑战", runtime, time.monotonic() + 130)
+    assert len(calls) == 1
+    assert result.meta["research_report_draft_reason"] == "invalid_json"
+    assert result.meta["research_report_draft"] == "fact_fallback_pending_semantic_review"
+    assert result._qa_report_supplied
+    assert len(result._qa_report_candidates) == 2
+    assert all(b["kind"] == "fact" for b in result._qa_report_candidates)
+    assert all(b["dimension"] == "已核验政策事实"
+               for b in result._qa_report_candidates)
+    assert result.structured is None  # no analysis or fact block published yet
+    assert "模型未经审核" in result.answer
+
+
+@pytest.mark.asyncio
+async def test_invalid_draft_with_unverified_quotes_never_gets_fact_fallback():
+    result = _result()
+    result.meta["quote_verification"]["approved"] = 0
+
+    async def invalid(*args, **kwargs):
+        return "not JSON"
+
+    rt = SimpleNamespace(hooks=SimpleNamespace(turns=0),
+                         settings=SimpleNamespace(max_turns=8, llm_request_timeout=40),
+                         complete_text=invalid)
+    assert not await draft_verified_report(
+        result, "分析政策优势与挑战", rt, time.monotonic() + 130)
+    assert result.meta["research_report_draft"] == "unavailable_or_invalid"
+    assert not result._qa_report_supplied
+
+
+@pytest.mark.asyncio
+async def test_draft_failure_reason_distinguishes_schema_and_json():
+    result = _result()
+    result.meta["quote_verification"]["approved"] = 2
+
+    async def malformed_schema(*args, **kwargs):
+        return json.dumps({"dimensions": ["政策措施"], "blocks": [{"id": "x"}]})
+
+    rt = SimpleNamespace(hooks=SimpleNamespace(turns=0),
+                         settings=SimpleNamespace(max_turns=8, llm_request_timeout=40),
+                         complete_text=malformed_schema)
+    assert await draft_verified_report(
+        result, "分析政策优势与挑战", rt, time.monotonic() + 130)
+    assert result.meta["research_report_draft_reason"] == "schema_invalid"
