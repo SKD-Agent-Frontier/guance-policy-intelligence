@@ -272,6 +272,19 @@ async def get_policy_content(
         raise HTTPException(status_code=404, detail="未找到该政策") from exc
 
 
+@router.get("/policies/{planid}/heading-hints")
+async def get_policy_heading_hints(request: Request, planid: str):
+    """Optional heading hints from an original HTML; evidence text stays frozen."""
+    _reject_unknown_query(request, set())
+    service = await _catalog(request)
+    try:
+        return await asyncio.to_thread(service.heading_hints, planid)
+    except InvalidParameter as exc:
+        _raise_parameter(exc)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="未找到该政策") from exc
+
+
 @router.get("/policies/{planid}/media/{filename}")
 async def get_policy_media(request: Request, planid: str, filename: str):
     """Serve referenced original images only; never allow arbitrary file reads."""
