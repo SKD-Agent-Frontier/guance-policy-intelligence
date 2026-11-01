@@ -305,3 +305,9 @@ async def test_draft_failure_reason_distinguishes_schema_and_json():
     assert await draft_verified_report(
         result, "分析政策优势与挑战", rt, time.monotonic() + 130)
     assert result.meta["research_report_draft_reason"] == "schema_invalid"
+
+
+def test_gap_followup_chooses_retrievable_policy_topic_before_abstract_difference():
+    result = _result()
+    question = "分析不同数字经济政策在产业扶持、基础设施建设和人才培养方面的异同"
+    assert followup_gap(result, question) == "产业扶持"
