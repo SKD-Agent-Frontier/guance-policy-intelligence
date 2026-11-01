@@ -208,7 +208,7 @@ async def test_real_rag_supplement_uses_fresh_bounded_reads_not_legacy_agent(mon
 
     async def controlled(task, settings, ctx, rt, deadline, *, focus, exclude_chunks):
         seen.append((focus, exclude_chunks, task.question))
-        rt.meta["qa_controlled_retrieval"] = {"read_chunks": ["fresh"]}
+        rt.meta["qa_supplement_retrieval"] = {"read_chunks": ["fresh"]}
         return ExecOutcome("{}", None)
 
     async def should_not_run(*args):
