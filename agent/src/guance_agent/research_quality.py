@@ -5,7 +5,6 @@ self-declared dimensions are never considered the user's requirements.
 """
 from __future__ import annotations
 
-import re
 
 # Restrict inference to dimensions *explicitly named* in the user's request.
 INTENT_TERMS = {
