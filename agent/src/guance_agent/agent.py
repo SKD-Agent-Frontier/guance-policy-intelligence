@@ -21,6 +21,12 @@ def effective_prompt(structured: bool, task_type: str = "qa") -> str:
         prompt += '\n只输出一个 JSON 对象，不加其他文字。结构示例：' + AgentOutput(
             answer="回答正文", claims=[], insufficient=False).model_dump_json()
         prompt += '\n政策结论 claims 的每项格式：{"text":"结论","chunk_ids":["本轮证据ID"],"quotes":["逐字引文"]}'
+        if task_type == "qa":
+            prompt += ('\n研究型问答必须提供 report：{"dimensions":["维度"],"blocks":'
+                       '[{"id":"唯一编号","title_path":["标题"],"dimension":"维度",'
+                       '"kind":"fact","text":"段落正文",'
+                       '"supporting_claim_indexes":[0]}]}；索引从 0 开始，分析块至少引用两条事实 Claim。'
+                       'kind 只能是 fact 或 analysis。普通寒暄不附 report。')
     return prompt
 
 

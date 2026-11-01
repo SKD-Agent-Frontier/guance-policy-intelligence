@@ -540,6 +540,35 @@ def _present(token: str, text: str) -> bool:
         start = index + 1
 
 
+def block_numbers_valid(text: str, claims, ctx, result) -> bool:
+    """确保报告块没有在其依赖 Claim 之外新增数字或身份。无副作用。
+
+    Claim 的事实数字仍由既有 ``verify_numbers`` 按来源原文逐条核验；本函数只
+    检查报告段落是否把未绑定数字写进展示正文，避免单个孤立数字触发整份报告重建。
+    调用方传入报告块自身及标题拼接后的文本和已解析依赖 Claim。
+    """
+    if not isinstance(text, str) or not text.strip() or not claims:
+        return False
+    refs = _all_refs(ctx, result)
+    metadata_identities = _identity_values(refs)
+    user_identities = _user_identity_values(ctx)
+    known_identities = metadata_identities | user_identities
+    unknown_ids = _unknown_identities(text, known_identities)
+    if unknown_ids or _unknown_titles(text, metadata_identities | _question_titles(
+            getattr(ctx, "question", "") or "")):
+        return False
+    block_tokens = _tokens(_mask_identities(
+        text, strict=metadata_identities, loose=user_identities))
+    if not block_tokens:
+        return True
+    claim_tokens = {
+        token
+        for claim in claims
+        for token in _tokens(claim.text)
+    }
+    return all(token in claim_tokens for token in block_tokens)
+
+
 async def _seen_text(ctx, getter, claims, cache, failed) -> str | None:
     """只看这些结论自己同版本的已见证据；取不到时不能当作通过。"""
     refs = []
