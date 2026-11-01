@@ -132,17 +132,47 @@ function flattenedTable(line: string): { caption: string; headers: string[]; row
   return { caption: line.slice(0, separator.index).replace(/^\s*\|/, "").trim(), headers, rows };
 }
 
-function TableBlock({ headers, rows, caption }: {
-  headers: string[]; rows: string[][]; caption?: string;
+/** Display Markdown emphasis as React text nodes: HTML from source is never executed. */
+function inlineContent(source: string): React.ReactNode {
+  const marker = /(\*\*([^*\n]+)\*\*|__([^_\n]+)__|(?<!\*)\*([^*\n]+)\*(?!\*)|`([^`\n]+)`)/g;
+  const nodes: React.ReactNode[] = [];
+  let start = 0;
+  for (const match of source.matchAll(marker)) {
+    const position = match.index ?? 0;
+    if (position > start) nodes.push(source.slice(start, position));
+    if (match[2] || match[3]) nodes.push(<strong key={position}>{match[2] || match[3]}</strong>);
+    else if (match[4]) nodes.push(<em key={position}>{match[4]}</em>);
+    else nodes.push(<code key={position}>{match[5]}</code>);
+    start = position + match[0].length;
+  }
+  if (start < source.length) nodes.push(source.slice(start));
+  return nodes.length ? nodes : source;
+}
+
+function tableLike(line: string): boolean {
+  return line.trim().startsWith("|") && (line.match(/(?<!\\)\|/g)?.length ?? 0) >= 3;
+}
+
+/** An unlabelled but internally consistent pipe block still has real columns.
+ * Do not invent column headers if the Markdown separator is absent. */
+function plainTableRows(lines: string[]): string[][] | null {
+  const rows = lines.map(tableCells);
+  const count = rows[0]?.length ?? 0;
+  return rows.length >= 2 && count >= 2 && count <= 24
+    && rows.every(row => row.length === count) ? rows : null;
+}
+
+function TableBlock({ headers, rows, caption, headerless = false }: {
+  headers: string[]; rows: string[][]; caption?: string; headerless?: boolean;
 }) {
   return <div className="catalog-table-scroll" role="region" aria-label="政策原文表格" tabIndex={0}>
     <table className="catalog-markdown-table">
       {caption && <caption>{caption}</caption>}
-      <thead><tr>{headers.map((cell, i) => <th key={i} scope="col">{cell}</th>)}</tr></thead>
+      {!headerless && <thead><tr>{headers.map((cell, i) => <th key={i} scope="col">{inlineContent(cell)}</th>)}</tr></thead>}
       <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>
         {row.length === 1
-          ? <th scope="row" colSpan={headers.length}>{row[0]}</th>
-          : row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}
+          ? <th scope="row" colSpan={headers.length}>{inlineContent(row[0])}</th>
+          : row.map((cell, cellIndex) => <td key={cellIndex}>{inlineContent(cell)}</td>)}
       </tr>)}</tbody>
     </table>
   </div>;
@@ -207,7 +237,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   const flushProse = () => {
     if (!prose.length) return;
     for (const paragraph of paragraphLines(prose, softWrap)) {
-      blocks.push(<p className="catalog-prose" key={key++}>{paragraph}</p>);
+      blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
     }
     prose = [];
   };
@@ -305,6 +335,25 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
         index++;
       }
       blocks.push(<TableBlock key={key++} headers={headers} rows={rows} />);
+      continue;
+    }
+
+    if (tableLike(line)) {
+      flushProse();
+      const rows: string[] = [];
+      while (index < lines.length && tableLike(lines[index])) {
+        rows.push(lines[index]);
+        index++;
+      }
+      const parsed = plainTableRows(rows);
+      if (parsed) {
+        blocks.push(<TableBlock key={key++} headers={[]} rows={parsed} headerless />);
+      } else {
+        blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
+          role="region" aria-label="原文表格（列结构待核验）" tabIndex={0}>
+          <pre>{rows.join("\n")}</pre>
+        </div>);
+      }
       continue;
     }
 
