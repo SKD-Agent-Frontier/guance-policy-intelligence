@@ -119,8 +119,23 @@ function tocRange(lines: readonly string[]): [number, number] | null {
 }
 function cleanTocLine(line: string): string {
   const source = line.trim().replace(/^#{1,6}\s*/, "");
-  if (!tocPageEntry(source)) return source;
-  return source.replace(/(?:[.．·•…⋯。﹒:：\s]*[0-9０-９]{1,3})\s*$/, "").replace(/[.．·•…⋯。﹒\s]+$/, "");
+  const leaders = /[.．·•…⋯。﹒:：]{2,}\s*[0-9０-９]{1,4}\s*$/;
+  if (leaders.test(source)) return source.replace(leaders, "").trimEnd();
+  // In a validated printed TOC, a chapter/section may attach its PDF page
+  // number directly to the title. Do not apply this outside TOC context.
+  if (tocPageEntry(source)) {
+    return source.replace(/(?:[.．·•…⋯。﹒:：\s]*[0-9０-９]{1,3})\s*$/, "").trimEnd();
+  }
+  return source;
+}
+function tocDepth(line: string): number {
+  const text = cleanTocLine(line).trim();
+  if (/^第[一二三四五六七八九十百千0-9]+[编篇部]/.test(text)) return 0;
+  if (/^第[一二三四五六七八九十百千0-9]+章/.test(text)) return 0;
+  if (/^第[一二三四五六七八九十百千0-9]+节/.test(text)) return 1;
+  if (/^[（(][一二三四五六七八九十0-9]+[）)]/.test(text)) return 2;
+  if (/^[一二三四五六七八九十]+[、．.]/.test(text)) return 2;
+  return 0;
 }
 
 const PDF_PAGE_MARK = /^\s*[—－-]\s*\d{1,4}\s*[—－-]\s*$/;
@@ -258,10 +273,11 @@ function PolicyImage({ planid, name, alt }: { planid: string; name: string; alt:
  * Never alters the underlying source, code-point offsets, or pagination.
  */
 export function PolicyRichText({ text, planid, softWrap = false, originalHints = [], documentTitle, firstPage = false,
-  sections = [], textOffset = 0 }: {
+  sections = [], textOffset = 0, printedToc = null, omitPrintedToc = false }: {
   text: string; planid: string; softWrap?: boolean; originalHints?: readonly OriginalHeadingHint[];
   documentTitle?: string | null; firstPage?: boolean;
   sections?: readonly PolicySection[]; textOffset?: number;
+  printedToc?: readonly [number, number] | null; omitPrintedToc?: boolean;
 }) {
   // Split lines without discarding CRLF/CR boundaries: published offsets are
   // Unicode code points of the *original* source, not normalized text.
@@ -299,11 +315,20 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       continue;
     }
 
-    // In a printed TOC, every entry uses ordinary body typography; chapter
-    // heading hierarchy applies only when the *actual body* begins.
-    if (toc && index >= toc[0] && index <= toc[1]) {
+    // The full-document range is authoritative across all 4,000-char pages.
+    // Without it, a verified local TOC is still handled for older API servers.
+    const inPrintedToc = printedToc
+      ? linePositions[index] >= printedToc[0] && linePositions[index] < printedToc[1]
+      : toc != null && index >= toc[0] && index <= toc[1];
+    if (inPrintedToc) {
       flushProse();
-      blocks.push(<p className="catalog-prose catalog-toc-line" key={key++}>{inlineContent(cleanTocLine(line))}</p>);
+      if (!omitPrintedToc) {
+        const cleaned = cleanTocLine(line);
+        if (cleaned && !PDF_PAGE_MARK.test(cleaned)) {
+          blocks.push(<p className={`catalog-prose catalog-toc-line catalog-toc-depth-${tocDepth(cleaned)}`}
+            key={key++}>{inlineContent(cleaned)}</p>);
+        }
+      }
       index++;
       continue;
     }
