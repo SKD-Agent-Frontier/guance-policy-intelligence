@@ -17,13 +17,14 @@ export function policyHeading(
   line: string, originalHints: readonly OriginalHeadingHint[] = [],
 ): { level: HeadingLevel; text: string } | null {
   const source = line.trim();
+  // 序言 is a top-level section even when source HTML style hints differ.
+  if (/^序\s*言$/.test(source.replace(/^#{1,6}\s*/, ""))) {
+    return { level: 2, text: "序言" };
+  }
   const normalized = normalizeHeadingText(source.replace(/^#{1,6}\s*/, ""));
   const original = originalHints.find(hint => normalizeHeadingText(hint.text) === normalized
     && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6);
   if (original) return { level: original.level as HeadingLevel, text: source.replace(/^#{1,6}\s*/, "") };
-  if (/^序\s*言$/.test(source.replace(/^#{1,6}\s*/, ""))) {
-    return { level: 2, text: "序言" };
-  }
   const markdown = MARKDOWN_HEADING.exec(source);
   if (markdown) return { level: Math.min(6, markdown[1].length + 1) as HeadingLevel, text: markdown[2] };
   // OCR/PDF hard-wrapped sentences can begin with numbering: don't turn entire
