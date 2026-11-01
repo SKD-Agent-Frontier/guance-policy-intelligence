@@ -70,24 +70,6 @@ function apiError(error: unknown, operation: "prepare" | "execution"): { code: s
   return { code: "UNKNOWN", text: "发生未知错误。", conflict: false };
 }
 
-function runResultError(result: RunResult): { code: string; text: string } | null {
-  const error = result.error;
-  if (!error && result.status === "completed") return null;
-  if (error) {
-    if (["MAX_TURNS", "RUN_TIMEOUT", "TOOL_BUDGET"].includes(error.code)) return { code: error.code, text: error.message };
-    if (error.code === "OUTPUT_PARSE") return { code: "OUTPUT_PARSE", text: error.message };
-    if (/NUMERIC|CITATION|VERIFY|IDENTITY/i.test(error.code)) {
-      return { code: "NUMERIC_CITATION_VERIFICATION", text: error.message };
-    }
-    if (error.code === "RAG_EMPTY" || error.code === "NO_EVIDENCE") return { code: "RAG_EMPTY", text: error.message };
-    return { code: error.code, text: error.message };
-  }
-  if (result.status === "limit_reached") {
-    return { code: "LIMIT_REACHED", text: result.answer || "任务达到运行限制，返回内容可能不完整。" };
-  }
-  return { code: "EXECUTION_FAILED", text: result.answer || "研究任务未能完成。" };
-}
-
 function isAdvancedMode(mode: TaskType): mode is Extract<TaskType, "extract" | "compare" | "compare_plans"> {
   return mode === "extract" || mode === "compare" || mode === "compare_plans";
 }
@@ -170,8 +152,9 @@ export function useConversations() {
       const answer = message("result", { result });
       resultRequests.current.set(answer.id, { request, scenario });
       appendMessage(conversationId, answer);
-      const resultError = runResultError(result);
-      if (resultError) appendMessage(conversationId, message("error", resultError));
+      // A failed RunResult already carries its error and status. Rendering
+      // another "error" message would show the same failure twice.
+      // Transport/prepare failures (without a RunResult) still emit one error.
       lastOperations.current.set(conversationId, {
         kind: "execution",
         request,
