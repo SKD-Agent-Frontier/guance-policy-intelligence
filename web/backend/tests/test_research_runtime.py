@@ -210,3 +210,59 @@ def test_beijing_tianjin_hebei_ai_research_requires_title_linked_documents():
     assert missing_topic["status"] == "insufficient"
     assert "fire-bj" not in [item["planid"] for item in missing_topic["policies"]]
     assert "policy" in missing_topic["reason"] or "catalog" in missing_topic["reason"]
+
+
+@pytest.mark.asyncio
+async def test_hengshui_collective_comparison_validates_full_catalog_lineage():
+    """The user's province bound covers verified prefecture peers, not arbitrary places."""
+    from guance_agent.research_runtime import ResearchRuntime
+
+    question = "与河北省其他地市相比，衡水市在十三五规划中提出的产业结构优化目标有什么特点？"
+    selected = catalog(record("h1", "衡水市"), record("b1", "保定市"))
+    request = task("compare", None, question, dimensions=["产业结构"])
+    contract = TaskContract.from_task(request)
+    initial = ResearchPlanner.initial(contract)
+
+    # Crucially the scope retains the user's 河北省/衡水市 boundary, rather
+    # than substituting 保定市 into it and failing as an artificial expansion.
+    assert "河北省" in contract.scope.areas
+    discovery = await discover_run_plan(
+        request, contract, initial, time.monotonic() + 10, selected,
+    )
+    assert discovery.status == "ready"
+    assert [d.planid for d in discovery.plan.documents] == ["h1", "b1"]
+    assert "河北省" in discovery.plan.scope.areas
+    assert "保定市" not in discovery.plan.scope.areas
+    assert len(discovery.plan.subjects) == 2
+    runtime = ResearchRuntime(contract, initial, time.monotonic() + 10)
+    runtime.transition("planning")
+    runtime.transition("discovering")
+    assert runtime.accept_discovery(discovery.plan).documents[1].area == "保定市"
+
+
+@pytest.mark.asyncio
+async def test_catalog_region_scope_fails_closed_for_unknown_or_mismapped_peer():
+    """An out-of-province record is never justified by substring or a fake parent."""
+    selected = catalog(record("h1", "衡水市"), record("b1", "保定市"),
+                       record("bj", "北京市"))
+    request = task("compare", ["h1", "bj"], "比较河北省的地区产业政策")
+    contract = TaskContract.from_task(request)
+    discovery = await discover_run_plan(
+        request, contract, ResearchPlanner.initial(contract),
+        time.monotonic() + 10, selected,
+    )
+    assert discovery.status == "insufficient"
+    assert discovery.reason_code == "catalog_evidence_missing"
+    assert not discovery.plan.documents
+
+    selected.region_mapping["b1"] = {
+        "region_status": "mapped", "region_code": "131100000000",
+    }
+    mismatched = task("compare", ["h1", "b1"], "比较河北省各市十三五产业结构目标")
+    wrong_contract = TaskContract.from_task(mismatched)
+    rejected = await discover_run_plan(
+        mismatched, wrong_contract, ResearchPlanner.initial(wrong_contract),
+        time.monotonic() + 10, selected,
+    )
+    assert rejected.status == "insufficient"
+    assert rejected.reason_code == "catalog_evidence_missing"
