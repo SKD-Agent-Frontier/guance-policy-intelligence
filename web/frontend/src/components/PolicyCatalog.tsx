@@ -5,6 +5,7 @@ import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
 import { extractPolicyVersionPin } from "../api/policyFacets";
 import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
+import { PolicyRichText } from "./PolicyRichText";
 import { TopicPicker } from "./TopicPicker";
 import { builtInThemes, tagsForPolicy } from "../policyTopics";
 import type { TopicCollection, TopicPolicy } from "../topicStore";
@@ -763,12 +764,12 @@ export function PolicyCatalog({
                 </section>
                 </>}
                 <section className="catalog-original" aria-label="政策原文">
-                  <div className="catalog-original-heading"><h3>政策原文</h3><span>{content ? `${content.offset} / ${content.total_chars} 字` : "按页读取"}</span></div>
+                  <div className="catalog-original-heading"><h3>政策原文</h3><span>{content ? `${content.total_chars} 字` : "按页读取"}</span></div>
                   {contentLoading && <p className="catalog-status" role="status">正在读取原文…</p>}
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <pre className="catalog-original-text">{reading ? reflowPolicyReaderText(content.text) : content.text}</pre>}
+                  {content && <PolicyRichText text={content.text} planid={selectedPlanId} softWrap={reading} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
