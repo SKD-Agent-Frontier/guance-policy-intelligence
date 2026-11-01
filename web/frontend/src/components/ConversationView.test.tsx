@@ -256,6 +256,64 @@ describe("conversation simplification and original source reader", () => {
     expect(onRegenerate).not.toHaveBeenCalled();
   });
 
+  it("shows a single approved error card for a failed result and legacy duplicate error", () => {
+    const onRetry = vi.fn();
+    const onRegenerate = vi.fn();
+    const base = completedConversation();
+    const failed: RunResult = {
+      ...completed, status: "failed", evidence_status: "none",
+      error: { code: "OUTPUT_PARSE", message: "模型输出无法解析为约定结构" },
+      answer: "",
+    };
+    const conversation: Conversation = {
+      ...base, messages: [
+        { id: "u1", kind: "user", text: "低空经济" },
+        { id: "result-failed", kind: "result", result: failed },
+        { id: "duplicate-error", kind: "error", code: "OUTPUT_PARSE", text: "模型输出无法解析为约定结构" },
+      ],
+    };
+    const { container } = render(<ConversationView conversation={conversation}
+      onModeChange={vi.fn()} onSend={vi.fn()} onAdvancedSubmit={vi.fn()}
+      onRetry={onRetry} onRegenerate={onRegenerate} onRestartPreparation={vi.fn()}
+      onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+    expect(container.querySelectorAll(".research-failure-card")).toHaveLength(1);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    const card = container.querySelector(".research-failure-card")!;
+    expect(card).toHaveTextContent("暂时无法继续 · OUTPUT_PARSE");
+    expect(card).toHaveTextContent("模型输出无法解析为约定结构");
+    expect(card).toHaveTextContent("模型输出未通过结构校验");
+    expect(screen.queryByText("本轮研究未完成")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".message-error")).toHaveLength(0);
+    expect(screen.getByText("研究提示与核验信息")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制消息" }).closest(".result-message")).not.toBeNull();
+    const retry = screen.getByRole("button", { name: "重试本次研究" });
+    expect(retry.closest(".result-message")).not.toBeNull();
+    fireEvent.click(retry);
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onRegenerate).not.toHaveBeenCalled();
+  });
+
+  it("shows the same single diagnostic for a failed result without an error code", () => {
+    const base = completedConversation();
+    const conversation: Conversation = {
+      ...base, messages: [
+        { id: "u1", kind: "user", text: "低空经济" },
+        { id: "result-failed", kind: "result", result: {
+          ...completed, status: "limit_reached", evidence_status: "none",
+          error: null, answer: "研究工具调用达到上限",
+        } },
+      ],
+    };
+    const { container } = render(<ConversationView conversation={conversation}
+      onModeChange={vi.fn()} onSend={vi.fn()} onAdvancedSubmit={vi.fn()}
+      onRetry={vi.fn()} onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()}
+      onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+    expect(container.querySelectorAll(".research-failure-card")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("LIMIT_REACHED");
+    expect(screen.getByRole("alert")).toHaveTextContent("研究工具调用达到上限");
+    expect(screen.queryByText("本轮研究未完成")).not.toBeInTheDocument();
+  });
+
   it("copies assistant rendered content, not the message-action labels", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
