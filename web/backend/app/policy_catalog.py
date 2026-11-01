@@ -184,8 +184,12 @@ def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
         if hashlib.sha256(raw.encode("utf-8")).hexdigest() != row["data_hash"]:
             raise CatalogUnavailable("章节结构校验失败")
         data = json.loads(raw)
-        if data.get("kind") == "root":
-            continue        # 全文根节点不是章节，目录接口不返回
+        # Only genuine heading structures form the navigation outline.
+        # RAG structure objects also contain the root and numbered articles;
+        # article items are kept only as a fallback for documents with no
+        # chapter headings (e.g. regulations made entirely of numbered clauses).
+        if data.get("kind") not in ("section", "article"):
+            continue
         origin = origins[did]
         start = max(int(data["start"]), origin) - origin
         end = min(int(data["end"]), lengths[did]) - origin
@@ -198,11 +202,26 @@ def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
             start=start, end=end))
     sections: dict[str, tuple[SectionMeta, ...]] = {}
     for did, items in grouped.items():
-        ordered = sorted(items, key=lambda item: (item.start, item.level, item.end))
+        # Give users a usable chapter index instead of thousands of individual
+        # article clauses. An article-only policy remains navigable.
+        chapters = [item for item in items if 1 <= item.level <= 6]
+        candidates = chapters if chapters else [item for item in items if item.level == 7]
+        ordered = sorted(candidates, key=lambda item: (item.start, item.level, item.end))
+        seen: set[tuple[int, str]] = set()
+        unique: list[SectionMeta] = []
+        for item in ordered:
+            label = item.path.split(" / ")[-1].strip().lstrip("#").strip()
+            if not label or len(label) > 100 or "|" in label or "![" in label:
+                continue
+            identity = (item.start, label)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            unique.append(item)
         sections[did] = tuple(
             SectionMeta(index=index, level=item.level, path=item.path,
                         start=item.start, end=item.end)
-            for index, item in enumerate(ordered))
+            for index, item in enumerate(unique))
     return sections
 
 
