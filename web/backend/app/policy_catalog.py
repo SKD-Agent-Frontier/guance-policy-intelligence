@@ -18,6 +18,8 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+from .policy_format import read_original_html_headings
+
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 IMAGE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,160}\Z")
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -629,6 +631,17 @@ class PolicyCatalogService:
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
                 "text": record.body[offset:end]}
+
+    def heading_hints(self, planid: str) -> dict:
+        """Read matching original HTML for presentation hints only (never writes)."""
+        planid = self._check_planid(planid)
+        if planid not in self._by_planid:
+            raise LookupError("未找到该政策")
+        root_override = (os.environ.get("GUANCE_POLICY_ORIGINAL_ROOT")
+                         or os.environ.get("GUANCE_POLICY_CLEAN_ROOT"))
+        root = (Path(root_override) if root_override
+                else Path(__file__).resolve().parents[3] / "语料库" / "Agent标准引用库")
+        return read_original_html_headings(root, planid)
 
     def resolve_media(self, planid: str, filename: str) -> tuple[Path, str]:
         """Resolve only an image the selected policy's frozen text actually cites."""
