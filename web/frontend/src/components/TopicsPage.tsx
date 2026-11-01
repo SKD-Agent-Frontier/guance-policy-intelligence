@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, BookOpenText, FolderPlus, Plus, Trash2 } from "lucide-react";
-import { builtInThemes, policyTopics, themedPolicies } from "../policyTopics";
+import { builtInThemes, themedPolicies } from "../policyTopics";
 import type { TopicCollection, TopicPolicy } from "../topicStore";
 import { TopicPicker } from "./TopicPicker";
 import "../topics.css";
@@ -46,10 +46,9 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
 
   return <main className="topics-page" aria-label="研究专题">
     <header className="topics-page-header">
-      <div>
-        <p className="topics-eyebrow">RESEARCH LIBRARY</p>
-        <h1>研究专题</h1>
-        <p>按政策主题浏览 506 篇样本文献，也可以建立自己的资料集合。</p>
+      <div className="library-heading">
+        <p className="library-heading-kicker">RESEARCH LIBRARY</p>
+        <h1 className="library-heading-title">研究专题</h1>
       </div>
       <button className="topics-primary-action" type="button" onClick={() => { setShowNew(true); showSelection(null); }}>
         <Plus size={17} /> 新建专题
@@ -102,7 +101,6 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
     </div> : <>
       <section className="topics-section" aria-label="系统主题分类">
         <div className="topics-section-heading"><h2>主题分类</h2><span>{builtInThemes.length} 个主题</span></div>
-        <p>从 506 篇真实样本文献的标题归类；少于 3 篇的主题不会单独展示，无法确定的文献不强行分类。</p>
         <div className="topics-grid">
           {builtInThemes.map((item) => <button type="button" className="topics-card" key={item.id}
             onClick={() => showSelection({ kind: "public", id: item.id })}>
@@ -110,7 +108,6 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
             <span>{item.description}</span><small>{item.count} 篇文献 <span aria-hidden="true">↗</span></small>
           </button>)}
         </div>
-        <p className="topics-note">目前 {policyTopics.unclassified_count} 篇标题无法可靠归入上述主题，暂未归类；同一政策可出现在多个主题中，主题篇数不应相加。</p>
       </section>
       <section className="topics-section" aria-label="我的专题">
         <div className="topics-section-heading"><h2>我的专题</h2><span>{collections.length} 个专题</span></div>
