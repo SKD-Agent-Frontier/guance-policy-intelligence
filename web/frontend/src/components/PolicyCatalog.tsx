@@ -238,7 +238,7 @@ export function PolicyCatalog({
     }
   }, [reloadFacets]);
 
-  const loadContent = useCallback(async (planid: string, offset: number) => {
+  const loadContent = useCallback(async (planid: string, offset: number, raw = false) => {
     contentController.current?.abort();
     const controller = new AbortController();
     contentController.current = controller;
@@ -247,7 +247,12 @@ export function PolicyCatalog({
     setContentError(null);
     setContent(null);
     try {
-      const response = await catalogClient.content(planid, offset, CONTENT_PAGE_SIZE, controller.signal);
+      const paged = !raw && offset % CONTENT_PAGE_SIZE === 0
+        && typeof catalogClient.readingPage === "function";
+      const response = paged
+        ? await catalogClient.readingPage(planid, Math.floor(offset / CONTENT_PAGE_SIZE) + 1,
+            CONTENT_PAGE_SIZE, controller.signal)
+        : await catalogClient.content(planid, offset, CONTENT_PAGE_SIZE, controller.signal);
       if (sequence !== contentSequence.current || selectedPlanRef.current !== planid) return;
       setContent(response);
     } catch (error) {
@@ -476,6 +481,14 @@ export function PolicyCatalog({
 
   const changeContentPage = (direction: -1 | 1) => {
     if (!content || contentLoading || !selectedPlanId) return;
+    if (content.page != null && content.page_count != null) {
+      const target = content.page + direction;
+      if (target < 1 || target > content.page_count) return;
+      setPageOffsets(Array.from({ length: target }, (_, index) => index * CONTENT_PAGE_SIZE));
+      setPageCursor(target - 1);
+      void loadContent(selectedPlanId, (target - 1) * CONTENT_PAGE_SIZE);
+      return;
+    }
     if (direction < 0) {
       const previousCursor = pageCursor - 1;
       const offset = pageOffsets[previousCursor];
@@ -498,7 +511,7 @@ export function PolicyCatalog({
     const count = Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE));
     if (page < 1 || page > count) return;
     const offset = (page - 1) * CONTENT_PAGE_SIZE;
-    if (offset === content.offset) return;
+    if ((content.page ?? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1) === page) return;
     // Reset the cursor to exact code-point page boundaries. The frozen text
     // and citations are still read from the same server-side offsets.
     setPageOffsets(Array.from({ length: page }, (_, index) => index * CONTENT_PAGE_SIZE));
@@ -510,7 +523,7 @@ export function PolicyCatalog({
     if (!selectedPlanId) return;
     setPageOffsets([offset]);
     setPageCursor(0);
-    void loadContent(selectedPlanId, offset);
+    void loadContent(selectedPlanId, offset, true);
   };
 
   const policy = detail?.policy;
@@ -528,8 +541,8 @@ export function PolicyCatalog({
   const outline = policyOutline(policy?.sections ?? []);
   const policyTags = policy ? tagsForPolicy(policy.planid) : [];
   const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
-  const contentPage = content ? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1 : 1;
-  const contentPageCount = content ? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE)) : 1;
+  const contentPage = content ? (content.page ?? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1) : 1;
+  const contentPageCount = content ? (content.page_count ?? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE))) : 1;
   const DetailContainer = reading ? "article" : "aside";
   const matchedLabel = list?.query.q
     ? "字面匹配"
