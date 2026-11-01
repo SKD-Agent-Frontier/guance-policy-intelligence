@@ -128,8 +128,8 @@ def test_user_requirements_cover_missing_acceptance_dimensions():
 
 
 def test_verbatim_excerpt_never_cuts_mid_sentence():
-    original = ("推动工业结构调整。" + "支持" * 130 + "。" + "重点发展高新技术。")
+    original = ("推动工业结构调整并培育特色优势产业。" + "支持" * 130 + "。" + "重点发展高新技术。")
     text = complete_excerpt(original)
     assert text is not None and text.endswith("。")
-    assert text == "推动工业结构调整。"
+    assert text == "推动工业结构调整并培育特色优势产业。"
     assert complete_excerpt("连续文本" * 80) is None
