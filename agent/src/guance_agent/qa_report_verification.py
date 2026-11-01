@@ -6,6 +6,7 @@ interpretation is true, and all source text is treated as untrusted input.
 
 import asyncio
 import json
+import re
 import time
 
 from .schemas import QAReportDraft, RunResult
@@ -148,8 +149,19 @@ def _review_payload(result: RunResult, ctx, candidates: list[dict], current: dic
 
 
 def _parse_review(raw: str, expected_facts: set[int], expected_blocks: set[str]):
+    # Unwrap only a single complete JSON code fence or a single double-encoded
+    # string. Never guess which of several objects is the reviewer's verdict.
+    if not isinstance(raw, str):
+        return None
+    cleaned = raw.strip()
+    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", cleaned,
+                         flags=re.IGNORECASE | re.DOTALL)
+    if match:
+        cleaned = match.group(1).strip()
     try:
-        value = json.loads(raw)
+        value = json.loads(cleaned)
+        if isinstance(value, str):
+            value = json.loads(value)
     except (TypeError, ValueError):
         return None
     if not isinstance(value, dict) or set(value) != {"facts", "blocks"}:
@@ -342,16 +354,36 @@ async def finalize_report(result: RunResult, ctx, rt, deadline: float) -> RunRes
     expected_facts = {item["index"] for item in payload["facts"]}
     expected_blocks = {block["id"] for block in candidates}
     verdicts = _parse_review(raw, expected_facts, expected_blocks)
-    if verdicts is None:
+    invalid = verdicts is None or verdicts[4]
+    if invalid:
+        # One bounded *new semantic review*, never a speculative JSON fix that
+        # manufactures a positive verdict from an invalid initial response.
+        result.meta["qa_report"]["first_review_invalid"] = True
+        retry_remaining = min(float(rt.settings.llm_request_timeout), 16.0,
+                              deadline - time.monotonic() - 12.0)
+        if retry_remaining > 8.0 and rt.hooks.turns < rt.settings.max_turns - 1:
+            result.meta["qa_report"]["review_model_calls"] = 2
+            retry_messages = [
+                {"role": "system", "content": REVIEW_SYSTEM},
+                {"role": "user", "content": (
+                    "上一轮审核输出格式无效。请重新逐条独立审核以下输入；"
+                    "只能回答一个完整 JSON 对象，必须覆盖全部 facts 与 blocks。"
+                    "禁止省略、推测或默认通过。\\n" + data)},
+            ]
+            try:
+                retry = await asyncio.wait_for(
+                    rt.complete_text(retry_messages, max_tokens=MAX_REVIEW_TOKENS,
+                                     timeout=retry_remaining), timeout=retry_remaining,
+                )
+                verdicts = _parse_review(retry, expected_facts, expected_blocks)
+            except Exception:  # noqa: BLE001 - invalid retry stays fail-closed
+                verdicts = None
+    if verdicts is None or verdicts[4]:
         _to_structured(result, [], current, "invalid_response")
         result.meta["qa_report"]["reason"] = "semantic_review_invalid_response"
         return result
     (fact_verdicts, block_verdicts, invalid_facts,
      invalid_blocks, globally_invalid) = verdicts
-    if globally_invalid:
-        _to_structured(result, [], current, "invalid_response")
-        result.meta["qa_report"]["reason"] = "semantic_review_invalid_response"
-        return result
 
     kept = []
     for block in candidates:

@@ -334,7 +334,27 @@ class ResearchRuntime:
         structured = structured if isinstance(structured, dict) else {}
         task_type: ResearchTaskType = self._contract.task_type
         if task_type == "qa":
-            pass
+            # Model-declared dimensions cannot replace original user requirements.
+            quality = (getattr(result, "meta", {}) or {}).get("research_quality")
+            if isinstance(quality, dict):
+                covered = set(quality.get("covered_dimensions") or [])
+                for dimension in quality.get("required_dimensions") or []:
+                    unit = f"dimension:{dimension}"
+                    required.append(unit)
+                    if dimension in covered:
+                        satisfied.append(unit)
+                    else:
+                        gaps.append(f"research_dimension_uncovered:{dimension}")
+                for field, unit in (("needs_report", "audited_report"),
+                                    ("needs_analysis", "audited_analysis")):
+                    if quality.get(field):
+                        required.append(unit)
+                        count_field = ("audited_report_blocks" if field == "needs_report"
+                                       else "audited_analysis_blocks")
+                        if quality.get(count_field, 0) > 0:
+                            satisfied.append(unit)
+                        else:
+                            gaps.append(f"{unit}_missing")
         elif task_type == "extract":
             requested = list(self._contract.completion.required_dimensions)
             supported = {claim.dimension for claim in trusted_claims if claim.dimension}

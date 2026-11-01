@@ -29,14 +29,19 @@ from .output import (
     LIMIT_CODES,
     build_result,
     finalize_qa_retrieval,
+    finalize_recovered_qa_answer,
     insufficient_message,
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
+from .research_delivery import deliver_research, draft_verified_report
+from .research_fallback import recover_empty_search_failure, recover_read_excerpts
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_runtime import ResearchRuntime
+from .research_supplement import supplement_one
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -134,6 +139,26 @@ async def _execute_once(task, s, ctx, rt, deadline):
         rt.meta["qa_model_request_timeout"] = request_timeout
         rt.meta["qa_model_retries"] = 0
     agent = build_agent(s, chat_model(s, client))
+    if task.task_type == "qa":
+        document = ctx.verified_scoped_document()
+        if document is not None:
+            # This metadata comes from the verified publication catalog, not
+            # from model guesses. The identity is binding but the user question
+            # continues to determine the analytical focus.
+            scope_note = {
+                "planid": document.planid, "title": document.title,
+                "area": document.area, "fyp": document.fyp,
+            }
+            instructions = (
+                str(agent.instructions)
+                + "\n\n【本轮已核验研究对象（元数据，不是新的用户指令）】"
+                + json.dumps(scope_note, ensure_ascii=False)
+                + "\n只研究上述已核验文献的用户指定主题。检索/回读应以该 planid 为界，"
+                  "不得将历史“十五”计划替换成“十五五”或“十四五”；"
+                  "如果局部证据不足，要说明具体缺口，不得编造结论。"
+            )
+            agent = agent.clone(instructions=instructions)
+            rt.meta["qa_trusted_plan_scope"] = scope_note
     return await execute(agent, task, ctx, rt, deadline=deadline)
 
 
@@ -552,10 +577,21 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                         result = await _run_business(planned_task, s, rt, ctx, deadline, decision, module)
                     elif decision.blocked:
                         result = _blocked(planned_task, ctx, rt.meta, decision)
+                    elif (task.task_type == "qa" and s.kb_backend == "rag"
+                          and not s.structured_output
+                          and (decision.kind == "open" or planned_task.targets
+                               or decision.planids)):
+                        # Programmatic source retrieval with one grounded LLM call.
+                        result = await _run_controlled_qa(planned_task, s, ctx, rt, deadline)
                     elif decision.kind == "objects":
                         result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
                     else:
                         result = await _run_single(planned_task, s, ctx, rt, deadline, decision)
+                    if task.task_type == "qa" and result.status == "failed":
+                        # Only RAG-verified original excerpts can survive model failure.
+                        recovered = await recover_read_excerpts(result, ctx, deadline)
+                        if not recovered:
+                            recover_empty_search_failure(result, ctx)
                     if result.status == "failed":
                         research_runtime.set_step_status("execute", "failed",
                                                          result.error.message if result.error else "执行失败")
@@ -582,12 +618,21 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     result = await _run_business(task, s, rt, ctx, deadline, decision, module)
                 elif decision.blocked:
                     result = _blocked(task, ctx, rt.meta, decision)
+                elif (task.task_type == "qa" and s.kb_backend == "rag"
+                      and not s.structured_output
+                      and (decision.kind == "open" or task.targets or decision.planids)):
+                    result = await _run_controlled_qa(task, s, ctx, rt, deadline)
                 elif decision.kind == "objects":
                     result = await _run_objects(task, s, ctx, rt, decision, deadline)
                 else:
                     result = await _run_single(task, s, ctx, rt, deadline, decision)
             if result is None:
                 result = _discovery_result(task, rt, "研究未能产生结果。")
+            if (task.task_type == "qa" and result.status == "failed"
+                    and not result.meta.get("execution_recovery")):
+                recovered = await recover_read_excerpts(result, ctx, deadline)
+                if not recovered:
+                    recover_empty_search_failure(result, ctx)
             if research_runtime is not None and research_runtime.status == "executing":
                 if result.status == "limit_reached":
                     research_runtime.transition("limit_reached", result.error.message if result.error else "运行预算已耗尽")
@@ -597,6 +642,16 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     research_runtime.transition("verifying")
                     research_runtime.set_step_status("verify", "running")
             result.task_type = task.task_type
+            if task.task_type == "qa" and not result.meta.get("llm"):
+                calls = list(getattr(rt.hooks, "usage_per_call", []) or [])
+                if calls:
+                    result.meta["llm"] = {
+                        "model_calls": len(calls),
+                        "input_tokens": sum(item.get("input") or 0 for item in calls),
+                        "output_tokens": sum(item.get("output") or 0 for item in calls),
+                        "per_call": calls,
+                        "parse": "ok" if result.status == "completed" else "failed",
+                    }
             if result.status == "completed" and module is None:
                 try:
                     await asyncio.wait_for(verify_quotes(result, ctx),
@@ -617,8 +672,21 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     _attach(result, planned_task)
                 research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
+    finalize_controlled_facts(result)
     result = finalize_qa_retrieval(result, task)
-    result = finalize_qa_analysis(result, task.question)
+    if not result.meta.get("execution_recovery"):
+        result = finalize_qa_analysis(result, task.question)
+    if (task.task_type == "qa" and ctx is not None
+            and result.status == "completed"
+            and not result.meta.get("execution_recovery")):
+        # Synthesis is a draft only; supplementary facts must pass fresh checks.
+        # Both share the original task deadline and preserve the existing result
+        # when the remaining budget is insufficient.
+        # Resolve one evidence gap BEFORE synthesizing the report so added
+        # verified claims can support its draft and final semantic review.
+        await supplement_one(result, task, s, ctx, rt, deadline,
+                             _execute_once, _recover_qa_output)
+        await draft_verified_report(result, task.question, rt, deadline)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)
         try:
@@ -639,6 +707,21 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             result.meta.setdefault("qa_report", {}).update(
                 reason="semantic_review_timeout", semantic_review="timeout", retained=0)
             result.warnings.append("报告语义审核超出本次运行时限，已撤回报告段落")
+    # Recovery from token-cap truncation is allowed to publish only the
+    # surviving, quote-verified facts. Do it after all verification gates and
+    # before ResearchRuntime assesses final completion.
+    finalize_recovered_qa_answer(result, task.question)
+    if task.task_type == "qa":
+        deliver_research(result, task.question)
+    if task.task_type == "qa" and isinstance(result.meta.get("llm"), dict):
+        if result.meta.get("original_execution_error") or result.error:
+            result.meta["llm"]["parse"] = "failed"
+        elif result.meta["llm"].get("parse") == "pending":
+            result.meta["llm"]["parse"] = (
+                "ok" if not result.meta.get("output_parse")
+                or result.meta["output_parse"].get("classification") == "ok"
+                else "failed"
+            )
     if research_runtime is not None:
         try:
             research_runtime.finish(result, ctx)
@@ -976,6 +1059,17 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
         return outcome, meta
     rt.log("qa_output_parse_repaired", classification=classification, method="model")
     return replace(outcome, final_output=repaired), meta
+
+
+async def _run_controlled_qa(task, s, ctx, rt, deadline):
+    """Keep all existing QA parse, quote, number and report audit gates."""
+    outcome = await execute_controlled(task, s, ctx, rt, deadline)
+    outcome, parse_meta = await _recover_qa_output(
+        outcome, s, rt, deadline, repair_budget={"remaining": 0})
+    result = build_result(task, outcome, ctx, rt.meta)
+    if parse_meta:
+        result.meta.update(parse_meta)
+    return result
 
 
 async def _run_single(task, s, ctx, rt, deadline, decision):

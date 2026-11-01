@@ -298,3 +298,67 @@ async def test_unbound_block_number_is_withdrawn_without_losing_same_dimension_p
 
     assert [block["id"] for block in result.structured["blocks"]] == ["plain"]
     assert result.structured["coverage"]["status"] == "partial"
+
+
+def test_single_fenced_review_is_decoded_without_choosing_partial_objects():
+    from guance_agent.qa_report_verification import _parse_review
+
+    safe = json.dumps({
+        "facts": [{"index": 0, "supported": True}],
+        "blocks": [{"id": "f", "supported": True}],
+    })
+    assert _parse_review("```json\n" + safe + "\n```", {0}, {"f"}) == (
+        {0: True}, {"f": True}, set(), set(), False,
+    )
+    assert _parse_review(safe + "\n" + safe, {0}, {"f"}) is None
+
+
+@pytest.mark.asyncio
+async def test_invalid_semantic_review_retries_once_and_only_publishes_valid_verdicts(env):
+    ctx = context(env)
+    ref = ctx.evidence.get(ctx.evidence.ids()[0])
+    facts = [Claim(text="甲市支持农业。", chunk_ids=[ref.chunk_id],
+                   quotes=["甲市支持农业"])]
+    draft = QAReportDraft(dimensions=["政策工具"], blocks=[
+        QABlock(id="f", title_path=["政策工具"], dimension="政策工具",
+                kind="fact", text="甲市支持农业。", supporting_claim_indexes=[0]),
+    ])
+    result = build_result(env[1], ExecOutcome(AgentOutput(
+        answer="不能直接交付", claims=facts, report=draft), None), ctx, {})
+    result.meta["quote_verification"] = {"checked": 1, "approved": 1, "unverified": 0}
+    valid = json.dumps({"facts": [{"index": 0, "supported": True}],
+                        "blocks": [{"id": "f", "supported": True}]})
+
+    class SequentialRuntime(FakeRuntime):
+        async def complete_text(self, messages, *, max_tokens, timeout):
+            self.calls.append((messages, max_tokens, timeout))
+            return "not JSON" if len(self.calls) == 1 else valid
+
+    runtime = SequentialRuntime(env[0], None)
+    await finalize_report(result, ctx, runtime, deadline=10**12)
+    assert len(runtime.calls) == 2
+    assert result.meta["qa_report"]["first_review_invalid"] is True
+    assert result.meta["qa_report"]["review_model_calls"] == 2
+    assert [block["id"] for block in result.structured["blocks"]] == ["f"]
+    assert result.structured["verification"]["facts"] == "semantic_reviewed_against_quotes"
+
+
+@pytest.mark.asyncio
+async def test_two_invalid_review_outputs_never_publish_report_analysis(env):
+    ctx = context(env)
+    ref = ctx.evidence.get(ctx.evidence.ids()[0])
+    facts = [Claim(text="甲市支持农业。", chunk_ids=[ref.chunk_id],
+                   quotes=["甲市支持农业"])]
+    draft = QAReportDraft(dimensions=["政策工具"], blocks=[
+        QABlock(id="f", title_path=["政策工具"], dimension="政策工具",
+                kind="fact", text="甲市支持农业。", supporting_claim_indexes=[0]),
+    ])
+    result = build_result(env[1], ExecOutcome(AgentOutput(
+        answer="未经审核", claims=facts, report=draft), None), ctx, {})
+    result.meta["quote_verification"] = {"checked": 1, "approved": 1, "unverified": 0}
+    runtime = FakeRuntime(env[0], "not JSON")
+    await finalize_report(result, ctx, runtime, deadline=10**12)
+    assert len(runtime.calls) == 2
+    assert result.structured["blocks"] == []
+    assert result.meta["qa_report"]["reason"] == "semantic_review_invalid_response"
+    assert result.structured["verification"]["facts"] == "not_reviewed"
