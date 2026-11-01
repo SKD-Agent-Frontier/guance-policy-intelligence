@@ -169,18 +169,40 @@ describe("PolicyCatalog", () => {
     );
     const snippets = container.querySelectorAll<HTMLElement>(".catalog-snippet");
     expect(titleElement.textContent).toBe(title);
-    expect(snippets).toHaveLength(2);
-    expect(snippets[1].textContent).toBe(snippet);
+    expect(snippets).toHaveLength(1);
+    expect(snippets[0].textContent).toBe(snippet.trim());
     expect(titleElement.querySelectorAll("mark")).toHaveLength(2);
     expect(snippets[0].querySelectorAll("mark")).toHaveLength(2);
-    expect(snippets[1].querySelectorAll("mark")).toHaveLength(2);
     expect(container.querySelector("img, script")).toBeNull();
 
     await user.clear(screen.getByLabelText("关键词字面检索"));
     await user.type(screen.getByLabelText("关键词字面检索"), "NEW");
     expect(titleElement.querySelectorAll("mark")).toHaveLength(2);
-    expect(snippets[1].querySelectorAll("mark")).toHaveLength(2);
+    expect(snippets[0].querySelectorAll("mark")).toHaveLength(2);
     expect(catalog.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses a single prepared preview instead of duplicate title hits and raw table fragments", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PolicyCatalog />);
+    await screen.findByText("当前库共有 506 篇政策文献");
+    await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
+    catalog.list.mockResolvedValueOnce(listResponse([{
+      planid: "P-1",
+      title: "海西州“十四五”数字经济发展规划",
+      area: "海西州", fyp: null, plantype_label: null,
+      preview: "推动数字经济与实体经济深度融合。",
+      matches: [
+        { field: "title", offset: 8, snippet: "海西州“十四五”数字经济发展规划" },
+        { field: "body", offset: 0, snippet: "| 数字经济 | 2020年 | 4.8% |\n| --- | --- |" },
+      ],
+    }], 1, "数字经济") as never);
+    await user.click(screen.getByRole("button", { name: "检索目录" }));
+    const snippets = container.querySelectorAll<HTMLElement>(".catalog-snippet");
+    expect(snippets).toHaveLength(1);
+    expect(snippets[0]).toHaveTextContent("推动数字经济与实体经济深度融合。");
+    expect(snippets[0]).not.toHaveTextContent("|");
+    expect(snippets[0].querySelectorAll("mark")).toHaveLength(1);
   });
 
   it("opens a standalone original view and restores the search on return", async () => {
