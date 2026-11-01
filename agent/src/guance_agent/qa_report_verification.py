@@ -154,7 +154,7 @@ def _parse_review(raw: str, expected_facts: set[int], expected_blocks: set[str])
     if not isinstance(raw, str):
         return None
     cleaned = raw.strip()
-    match = re.fullmatch(r"```(?:json)?\\s*(.*?)\\s*```", cleaned,
+    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", cleaned,
                          flags=re.IGNORECASE | re.DOTALL)
     if match:
         cleaned = match.group(1).strip()
