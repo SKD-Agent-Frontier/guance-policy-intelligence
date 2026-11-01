@@ -193,7 +193,7 @@ async def test_followup_can_exclude_previously_read_chunks(env):
         focus="农业", exclude_chunks=current,
     )
     assert second.error_code is None
-    assert not set(rt.meta["qa_controlled_retrieval"]["read_chunks"]) & current
+    assert not set(rt.meta["qa_supplement_retrieval"]["read_chunks"]) & current
 
 
 @pytest.mark.asyncio
@@ -236,6 +236,8 @@ async def test_open_digital_economy_rejects_unrelated_tourism_fund(monkeypatch):
         scope=None,
         tool_calls=[],
         evidence=SimpleNamespace(get=refs.get),
+        kb=SimpleNamespace(search=lambda *args, **kwargs: None,
+                           read=lambda *args, **kwargs: None),
     )
     monkeypatch.setattr("guance_agent.qa_controlled._call", fake_call)
     evidence = await acquire(task, ctx, time.monotonic() + 180)
