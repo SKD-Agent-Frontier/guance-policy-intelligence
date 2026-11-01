@@ -21,7 +21,7 @@ export function policyHeading(
   const original = originalHints.find(hint => normalizeHeadingText(hint.text) === normalized
     && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6);
   if (original) return { level: original.level as HeadingLevel, text: source.replace(/^#{1,6}\s*/, "") };
-  if (/^序\\s*言$/.test(source.replace(/^#{1,6}\\s*/, ""))) {
+  if (/^序\s*言$/.test(source.replace(/^#{1,6}\s*/, ""))) {
     return { level: 2, text: "序言" };
   }
   const markdown = MARKDOWN_HEADING.exec(source);
@@ -164,7 +164,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       continue;
     }
 
-    if (line.includes("||") && /\\|\\s*:?-{3,}:?\\s*\\|/.test(line)) {
+    if (line.includes("||") && /\|\s*:?-{3,}:?\s*\|/.test(line)) {
       const recovered = flattenedTable(line);
       flushProse();
       if (recovered) {
