@@ -4,6 +4,7 @@ Only an audited QA report can satisfy analytical coverage. A model's
 self-declared dimensions are never considered the user's requirements.
 """
 from __future__ import annotations
+
 # Restrict inference to dimensions *explicitly named* in the user's request.
 INTENT_TERMS = {
     "政策目标": ("政策目标", "发展目标", "主要目标"),
