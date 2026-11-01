@@ -54,8 +54,10 @@ function originalDateLine(line: string): boolean {
 
 function isDocumentTitle(line: string, title?: string): boolean {
   const source = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
-  if (!source || source.length > 130 || /^第[一二三四五六七八九十百千\d]+[编篇章章节]/.test(source)) return false;
+  if (!source || /^第[一二三四五六七八九十百千\\d]+[编篇章章节]/.test(source)) return false;
+  // Exact metadata title takes precedence even when it is unusually long.
   if (title && normalizeDocumentTitle(source) === normalizeDocumentTitle(title)) return true;
+  if (source.length > 130) return false;
   // Source title can differ from metadata (e.g. abbreviated document name).
   return source.length >= 12 && /(?:纲要|规划|报告|通知|方案|意见|办法|条例|决定)$/.test(source)
     && !/[。？！；;]$/.test(source);
@@ -189,6 +191,28 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     // Repeated source titles are left in the frozen text, but not drawn twice.
     if (documentLead && leadLineCount < 12) {
       const plain = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
+      // A formal title can be hard-wrapped across two or three lines.
+      // Join only an exact match to metadata; never guess a missing title.
+      if (!leadTitleFound && documentTitle && leadLineCount <= 2) {
+        let joined = plain;
+        let end = index;
+        const expected = normalizeDocumentTitle(documentTitle);
+        for (let next = index + 1; next < Math.min(lines.length, index + 5); next++) {
+          const nextLine = lines[next].trim();
+          if (!nextLine) continue;
+          joined += nextLine.replace(/^#{1,6}\s*/, "");
+          end = next;
+          if (normalizeDocumentTitle(joined) === expected) {
+            flushProse();
+            leadTitleFound = true;
+            leadLineCount += end - index + 1;
+            index = end + 1;
+            break;
+          }
+          if (normalizeDocumentTitle(joined).length >= expected.length) break;
+        }
+        if (leadTitleFound) continue;
+      }
       if (!leadTitleFound && isDocumentTitle(plain, documentTitle ?? undefined)) {
         flushProse();
         leadTitleFound = true;
