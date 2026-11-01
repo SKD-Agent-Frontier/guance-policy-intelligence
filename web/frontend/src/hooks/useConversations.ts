@@ -8,7 +8,6 @@ import type {
   PreparedRequest,
   ResearchPreparationRequest,
   ResearchRequest,
-  RunResult,
   TaskType,
 } from "../types";
 
