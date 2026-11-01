@@ -238,3 +238,29 @@ def test_compare_requires_two_distinct_subjects_not_just_two_documents():
         assert required.min_documents == 2
         assert required.min_subjects == 2
     assert contract("extract").completion.min_subjects == 1
+
+
+def test_same_region_policy_comparisons_keep_distinct_research_subjects():
+    """Policy identities, not city count, define same-city/scheme comparisons."""
+    from guance_agent.research_planner import ResearchPlanner
+
+    policies = [
+        {"planid": "h1", "title": "衡水市产业规划", "area": "衡水市",
+         "document_id": "d-h1", "generation_id": "g"},
+        {"planid": "h2", "title": "衡水市科技政策", "area": "衡水市",
+         "document_id": "d-h2", "generation_id": "g"},
+    ]
+    for mode in ("compare", "compare_plans"):
+        task_contract = contract(mode)
+        initial = ResearchPlanner.initial(task_contract)
+        found = ResearchPlanner.with_catalog_documents(
+            task_contract, initial, policies,
+        )
+        assert len(found.plan.documents) == 2
+        assert len(found.plan.subjects) == 2
+        assert len({subject.label for subject in found.plan.subjects}) == 2
+        assert all(subject.kind == "policy_topic" for subject in found.plan.subjects)
+        runtime = ResearchRuntime(task_contract, initial, time.monotonic() + 60)
+        runtime.transition("planning")
+        runtime.transition("discovering")
+        runtime.accept_discovery(found.plan)
