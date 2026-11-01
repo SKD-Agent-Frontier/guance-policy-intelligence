@@ -16,7 +16,6 @@ from guance_agent.qa_controlled import (
     search_queries,
 )
 from guance_agent.runtime import Runtime
-from guance_agent.schemas import TaskRequest
 
 
 class ChatAPI:
