@@ -9,6 +9,7 @@ import json
 import re
 import time
 
+from .research_quality import INTENT_TERMS
 from .schemas import QAReportDraft, RunResult
 
 MAX_REVIEW_TOKENS = 1500
@@ -222,20 +223,41 @@ def _issue_section_title(result: RunResult, block: dict) -> str | None:
     return None
 
 
+def _required_dimension_for(candidate: dict, declared: list[str]) -> str | None:
+    content = " ".join([
+        str(candidate.get("dimension") or ""),
+        *[str(part) for part in candidate.get("title_path") or []],
+        str(candidate.get("text") or ""),
+    ])
+    for label in declared:
+        terms = INTENT_TERMS.get(label, ())
+        if terms and any(term in content for term in terms):
+            return label
+    return None
+
+
 def _to_structured(result: RunResult, candidates: list[dict], current: dict,
                    semantic_review: str) -> None:
     required = result.meta.get("qa_report_required_dimensions")
     declared = (list(required) if isinstance(required, list)
                 else list(result._qa_report_dimensions))
-    if "问题挑战" in declared:
+    if "问题挑战" in declared or "发展机遇" in declared:
         # The user asked for opportunities/challenges; use the verified
-        # section metadata to label the two groups instead of exposing the
+        # section metadata to label the groups instead of exposing the
         # drafting model's arbitrary study headings.
         for candidate in candidates:
             label = _issue_section_title(result, candidate)
             if label:
                 candidate["title_path"] = [label]
-                candidate["dimension"] = "问题挑战"
+                candidate["dimension"] = (
+                    "发展机遇" if label == "主要发展机遇" else "问题挑战")
+    if declared:
+        # Bind surviving blocks to the user's requested dimensions by their
+        # actual audited content, not by the drafting model's arbitrary label.
+        for candidate in candidates:
+            mapped = _required_dimension_for(candidate, declared)
+            if mapped:
+                candidate["dimension"] = mapped
     covered = list(dict.fromkeys(block["dimension"] for block in candidates))
     refs = {ref.chunk_id for ref in result.evidence_refs}
     blocks = []
@@ -258,8 +280,11 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
     declared_insufficient = bool(meta.get("declared_insufficient"))
     required_missing = bool(missing)
     allow_withdrawn = bool(result.meta.get("qa_report_allow_withdrawn"))
+    has_analysis = any(block.get("kind") == "analysis" for block in blocks)
+    # Surviving coverage plus a reviewed analysis is the user-facing result;
+    # a withdrawn optional block must not erase a complete audited synthesis.
     complete = (bool(covered) and not required_missing and not declared_insufficient
-                and (allow_withdrawn or not meta.get("withdrawn")))
+                and (allow_withdrawn or not meta.get("withdrawn") or has_analysis))
     result.structured = {
         "schema_version": "qa-report/1",
         "dimensions": list(result._qa_report_dimensions),
@@ -276,6 +301,8 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
     result.answer = _render(candidates, missing)
     if required_missing or not blocks or declared_insufficient:
         result.evidence_status = "insufficient"
+    elif complete:
+        result.evidence_status = "verified"
     notice = ("报告段落经模型逐项审核；该审核只作筛选，不证明推理必然成立。"
               if semantic_review == "model_reviewed"
               else "研究报告语义审核未完成；未审核段落已撤回，已核验事实仍按原有引句展示。")

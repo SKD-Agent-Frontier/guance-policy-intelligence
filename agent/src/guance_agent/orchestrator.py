@@ -716,6 +716,19 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
     if task.task_type == "qa" and not result.meta.get("historical_reuse"):
         deliver_research(result, task.question)
+    if task.task_type == "qa" and result.status == "completed":
+        _append_unrepresented_source_facts(result)
+        if (result.meta.get("research_intent") or {}).get("primary") in {
+                "compare", "synthesize"}:
+            planids = {ref.planid for ref in result.evidence_refs}
+            blocks = ((result.structured or {}).get("blocks")
+                      if isinstance(result.structured, dict) else [])
+            has_analysis = any(block.get("kind") == "analysis"
+                               for block in blocks or [])
+            if (len(planids) >= 2 and not has_analysis
+                    and result.claims):
+                await _summarize_historical(
+                    result, task, rt, deadline, compare=True, prepend=True)
     resolution = result.meta.get("qa_context_resolution")
     if (task.task_type == "qa" and isinstance(resolution, dict)
             and resolution.get("status") == "ambiguous"):
@@ -1116,6 +1129,8 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
            if analyze else
            "压缩成一段连贯、简洁的中文总结。")
         + "只能使用给定内容，不得增加新的政策事实、数字、政策名称、因果或效果判断；"
+        "材料中的事实来自不同政策时，必须分别说明每个来源的共同点或差异，"
+        "不得只提其中一个来源；某项确实缺少材料时用一句话说明，不得否定其他已给事实。"
         "不要输出 Markdown 标题，不要罗列原子事实，不要写内部状态或免责声明。"
         "用 3–6 句话说明研究结论和少量关键依据。\n"
     )
@@ -1141,6 +1156,55 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
     result.meta["_research_summary_text"] = summary
     result.meta["historical_summary_generated"] = True
     return True
+
+
+def _append_unrepresented_source_facts(result) -> None:
+    """Keep surviving verified facts visible when a report review dropped a source.
+
+    The report reviewer may withdraw an unsupported block, but a separate
+    quote-verified claim from another policy must not disappear from the user's
+    answer merely because its block was withdrawn.  This is a display-level
+    repair using the same surviving Claim/EvidenceRef coupling.
+    """
+    blocks = ((result.structured or {}).get("blocks")
+              if isinstance(result.structured, dict) else None)
+    if not blocks or not result.answer or not result.claims:
+        return
+    refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+    represented = set()
+    for block in blocks:
+        for index in block.get("supporting_claim_indexes") or []:
+            if not isinstance(index, int) or not 0 <= index < len(result.claims):
+                continue
+            for chunk_id in result.claims[index].chunk_ids:
+                ref = refs.get(chunk_id)
+                if ref is not None:
+                    represented.add(ref.planid)
+    missing_by_planid: dict[str, list] = {}
+    for claim in result.claims:
+        if not claim.chunk_ids:
+            continue
+        ref = refs.get(claim.chunk_ids[0])
+        if ref is None or ref.planid in represented:
+            continue
+        if claim.text in result.answer:
+            continue
+        missing_by_planid.setdefault(ref.planid, []).append((ref, claim))
+    if not missing_by_planid:
+        return
+    additions = []
+    for planid, items in list(missing_by_planid.items())[:3]:
+        ref, _ = items[0]
+        title = str(getattr(ref, "title", "") or "").strip()
+        heading = f"## {title}" if title else "## 补充政策事实"
+        if heading not in result.answer:
+            additions.append(heading)
+        for _, claim in items[:3]:
+            additions.append("- " + claim.text)
+    if additions:
+        result.answer = (result.answer or "").rstrip() + "\n\n" + "\n".join(additions)
+        result.meta["unrepresented_source_facts"] = sum(
+            len(items) for items in missing_by_planid.values())
 
 
 async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent):
