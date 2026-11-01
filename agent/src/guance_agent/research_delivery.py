@@ -151,7 +151,7 @@ async def draft_verified_report(result, question, rt, deadline: float,
     )
     result.meta["qa_report_allow_withdrawn"] = bool(
         not result.meta["qa_report_required_dimensions"]
-        and intent in {"organize", "summarize", "analyze"})
+        and intent in {"organize", "summarize", "analyze", "compare"})
     remaining = deadline - time.monotonic()
     # Keep the existing semantic review's 30s and finalization headroom.
     if remaining < 75 or rt.hooks.turns >= rt.settings.max_turns:

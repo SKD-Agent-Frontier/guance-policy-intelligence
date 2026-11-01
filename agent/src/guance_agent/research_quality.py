@@ -10,7 +10,7 @@ INTENT_TERMS = {
     "政策目标": ("政策目标", "发展目标", "主要目标"),
     "政策措施": ("政策措施", "支持措施", "扶持措施", "政策工具"),
     "地区差异": ("地区差异", "区域差异", "政策差异", "异同", "对比", "比较",
-                  "差异", "共同点", "共同", "区别"),
+                  "差异", "共同点", "区别"),
     "政策优势": ("政策优势", "优势"),
     "发展机遇": ("发展机遇", "战略机遇", "机遇"),
     "问题挑战": ("问题挑战", "挑战", "不足", "难点", "瓶颈", "制约", "困难"),
@@ -103,8 +103,9 @@ def evaluate(result, question: str) -> dict:
     # derived from program-verified facts/coverage, never model declarations.
     if result.evidence_status in {"insufficient", "none"}:
         gaps.append("evidence_insufficient")
-    if (result.meta.get("answer_rebuilt") and not report_complete
-            or (isinstance(quote_check, dict) and quote_check.get("removed_claims"))):
+    if ((result.meta.get("answer_rebuilt") and not report_complete)
+            or (isinstance(quote_check, dict) and quote_check.get("removed_claims")
+                and not report_complete)):
         gaps.append("claims_removed_or_answer_rebuilt")
     scope_filter = result.meta.get("object_scope_filter") or {}
     if isinstance(scope_filter, dict) and scope_filter.get("dropped_claims"):
