@@ -95,7 +95,17 @@ describe("policy source rich-text rendering", () => {
     expect(screen.queryByRole("img", { name: "远程图片" })).not.toBeInTheDocument();
     expect(document.querySelector("script")).toBeNull();
     fireEvent.error(image);
-    expect(screen.getByRole("note")).toHaveTextContent("图片暂不可用");
+    expect(screen.getByRole("note")).toHaveTextContent("原文引用的图3未收录对应图片文件");
+  });
+
+  it("resets a previous missing-image state when switching policy documents", () => {
+    const { rerender } = render(<PolicyRichText planid="10001" text="![图1](media/image1.png)" />);
+    fireEvent.error(screen.getByRole("img", { name: "图1" }));
+    expect(screen.getByRole("note")).toHaveTextContent("图1");
+    rerender(<PolicyRichText planid="10002" text="![图1](media/image1.png)" />);
+    const img = screen.getByRole("img", { name: "图1" });
+    expect(img.getAttribute("src")).toContain("/api/policies/10002/media/image1.png");
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
   it("preserves unknown source text literally instead of rendering arbitrary HTML", () => {
