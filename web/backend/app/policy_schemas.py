@@ -173,6 +173,7 @@ class PolicyDetail(BaseModel):
     plantype_label: str | None
     year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     body_chars: int
+    body_status: Literal["available", "missing", "suspected_garbled"] = "available"
     sections: list[SectionInfo]
 
 
@@ -190,5 +191,6 @@ class PolicyContentResponse(BaseModel):
     total_chars: int
     has_more: bool
     text: str = Field(description="冻结正文的连续片段；offset 以正文字符为起点")
+    body_status: Literal["available", "missing", "suspected_garbled"] = "available"
     page: int | None = None
     page_count: int | None = None

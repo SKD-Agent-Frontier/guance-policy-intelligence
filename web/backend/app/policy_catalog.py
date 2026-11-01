@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .policy_format import read_original_html_headings
+from .policy_quality import body_status
 from .policy_preview import search_preview
 
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
@@ -93,6 +94,10 @@ class PolicyRecord:
     @property
     def year(self) -> int | None:
         return reference_year(self.title, self.fyp)
+
+    @property
+    def body_status(self) -> str:
+        return body_status(self.body)
 
 
 @dataclass(frozen=True)
@@ -635,6 +640,7 @@ class PolicyCatalogService:
                            "plantype_label": record.plantype_label,
                            "year": record.year,
                            "body_chars": len(record.body),
+                           "body_status": record.body_status,
                            "sections": [section.as_dict() for section in record.sections]}}
 
     def read_content(self, planid: str, *, offset: int, limit: int) -> dict:
@@ -653,6 +659,7 @@ class PolicyCatalogService:
         return {"dataset": self._legacy_dataset(), "planid": record.planid,
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
+                "body_status": record.body_status,
                 "text": record.body[offset:end]}
 
     @staticmethod
@@ -707,6 +714,7 @@ class PolicyCatalogService:
             "dataset": self._legacy_dataset(), "planid": record.planid,
             "title": record.title, "offset": start, "limit": end - start,
             "total_chars": total, "has_more": end < total,
+            "body_status": record.body_status,
             "text": record.body[start:end], "page": page, "page_count": page_count,
         }
 

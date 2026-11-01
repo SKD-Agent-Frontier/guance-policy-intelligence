@@ -94,6 +94,39 @@ describe("policy heading hierarchy", () => {
   });
 });
 
+describe("printed table of contents", () => {
+  it("removes leaders and printed page numbers without applying heading styles", () => {
+    render(<PolicyRichText planid="P-TOC" softWrap text={[
+      "目 录",
+      "（五）推动福彩公益事业有序发展······31",
+      "（六）促进慈善事业健康发展31",
+      "（七）加强区划地名和行政区域界线管理··32",
+      "第四章深入推进特色鲜明的基本社会服务体系",
+      "（一）持续优化儿童福利政策体系..34",
+      "（二）健全未成年人关爱保护体系： 35",
+      "",
+      "第一章 发展基础",
+      "正文内容。",
+    ].join("\n")} />);
+    expect(screen.getByText("（五）推动福彩公益事业有序发展")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("（六）促进慈善事业健康发展")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("（七）加强区划地名和行政区域界线管理")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("第四章深入推进特色鲜明的基本社会服务体系")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("（一）持续优化儿童福利政策体系")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("（二）健全未成年人关爱保护体系")).toHaveClass("catalog-toc-line");
+    expect(screen.queryByText(/·{2,}31/)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "第一章 发展基础" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /第四章深入/ })).not.toBeInTheDocument();
+  });
+
+  it("does not strip dates, numbers or chapter formatting in ordinary policy paragraphs", () => {
+    render(<PolicyRichText planid="P-BODY" text={"第一章 政策措施\n（五）2025年投资项目31个。\n建设目标2025"} />);
+    expect(screen.getByRole("heading", { name: "第一章 政策措施" })).toBeInTheDocument();
+    expect(screen.getByText("（五）2025年投资项目31个。")).not.toHaveClass("catalog-toc-line");
+    expect(screen.getByText("建设目标2025")).toBeInTheDocument();
+  });
+});
+
 describe("policy source rich-text rendering", () => {
   it("renders document hierarchy and a markdown table rather than pipe characters", () => {
     render(<PolicyRichText planid="P-1" softWrap text={[
@@ -132,42 +165,6 @@ describe("policy source rich-text rendering", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     const fallback = screen.getByRole("region", { name: "原文表格（无法确认列结构）" });
     expect(fallback).toHaveTextContent("人均生产总值");
-  });
-
-  it("keeps OCR-flattened indicators separate from running policy paragraphs", () => {
-    const original = "“十四五”时期经济社会发展主要指标和经济发展目标属性" +
-      Array.from({ length: 19 }, (_, index) =>
-        ` ${index + 1} 地区生产总值 ${(index * 1.25).toFixed(2)} 预期性`).join("");
-    render(<PolicyRichText planid="P-1" text={original + "\\n\\n到2035年实现高质量发展。"} />);
-    const block = screen.getByRole("region", { name: "原文指标表格（结构不完整）" });
-    expect(block).toHaveTextContent("未重排指标数值");
-    expect(block).toHaveTextContent(original);
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.getByText("到2035年实现高质量发展。")).toBeInTheDocument();
-  });
-
-  it("hides raw PDF page markers and removes dotted TOC leader numbers for display only", () => {
-    render(<PolicyRichText planid="P-1" text={[
-      "— 10 —", "第一章 发展基础..................................6",
-      "— 11 —", "第二章 指导思想………………………………13",
-      "实际政策正文未做修改。",
-    ].join("\\n")} />);
-    const entries = document.querySelectorAll(".catalog-source-toc-entry");
-    expect(entries).toHaveLength(2);
-    expect(entries[0]).toHaveTextContent("第一章 发展基础");
-    expect(entries[0]).not.toHaveTextContent("6");
-    expect(entries[1]).toHaveTextContent("第二章 指导思想");
-    expect(screen.queryByText("— 10 —")).not.toBeInTheDocument();
-  });
-
-  it("uses immutable source section offsets to choose heading levels with CRLF and emoji", () => {
-    const text = "😀开头文字\\r\\n\\r\\n第一章 发展基础\\r\\n政策正文。";
-    // Source positions are Unicode code points (emoji counts as one).
-    const start = Array.from("😀开头文字\\r\\n\\r\\n").length;
-    render(<PolicyRichText planid="P-1" text={text} textOffset={0}
-      sections={[{ index: 0, level: 1, path: "第一章 发展基础", start, end: Array.from(text).length }]}
-      originalHints={[{ text: "第一章 发展基础", level: 6 }]} />);
-    expect(screen.getByRole("heading", { name: "第一章 发展基础", level: 2 })).toBeInTheDocument();
   });
 
   it("renders only safe policy-local images, gracefully reporting missing originals", () => {

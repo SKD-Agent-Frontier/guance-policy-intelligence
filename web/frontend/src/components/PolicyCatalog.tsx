@@ -164,6 +164,7 @@ export function PolicyCatalog({
   const [content, setContent] = useState<PolicyContentResponse | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [showRawFor, setShowRawFor] = useState<string | null>(null);
   const [pageOffsets, setPageOffsets] = useState([0]);
   const [pageCursor, setPageCursor] = useState(0);
   const listController = useRef<AbortController | null>(null);
@@ -835,9 +836,22 @@ export function PolicyCatalog({
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap originalHints={originalHints}
-                    documentTitle={policy.title} firstPage={content.offset === 0}
-                    sections={policy.sections} textOffset={content.offset} />}
+                  {content && (policy.body_status === "missing" || content.total_chars === 0) && (
+                    <p className="catalog-source-warning" role="status">正文缺失</p>
+                  )}
+                  {content && policy.body_status === "suspected_garbled" && (
+                    <div className="catalog-source-warning" role="alert">
+                      <p>正文疑似乱码：当前发布库的源文本存在字符提取异常，不能作为可读政策正文。</p>
+                      <button type="button" onClick={() => setShowRawFor(
+                        current => current === content.planid ? null : content.planid,
+                      )}>{showRawFor === content.planid ? "收起异常原始文本" : "查看异常原始文本"}</button>
+                    </div>
+                  )}
+                  {content && content.total_chars > 0
+                    && (policy.body_status !== "suspected_garbled" || showRawFor === content.planid)
+                    && <PolicyRichText text={content.text} planid={content.planid} softWrap originalHints={originalHints}
+                      documentTitle={policy.title} firstPage={content.offset === 0}
+                      sections={policy.sections} textOffset={content.offset} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}

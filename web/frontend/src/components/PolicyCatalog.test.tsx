@@ -210,6 +210,43 @@ describe("PolicyCatalog", () => {
     expect(snippets[0].querySelectorAll("mark")).toHaveLength(1);
   });
 
+  it("labels a truly empty frozen body as 正文缺失", async () => {
+    const user = userEvent.setup();
+    catalog.detail.mockResolvedValueOnce({
+      ...detailResponse("P-1", "广元市十四五现代物流发展规划"),
+      policy: { ...detailResponse("P-1", "广元市十四五现代物流发展规划").policy,
+        body_chars: 0, body_status: "missing" },
+    } as never);
+    catalog.content.mockResolvedValueOnce({
+      ...contentResponse("P-1", 0, "", 0), body_status: "missing",
+    } as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByText("正文缺失")).toBeInTheDocument();
+    expect(screen.getByText("0 字")).toBeInTheDocument();
+  });
+
+  it("warns on suspected source gibberish and makes unchanged raw text opt-in", async () => {
+    const user = userEvent.setup();
+    catalog.detail.mockResolvedValueOnce({
+      ...detailResponse("P-1", "德宏州十四五规划"),
+      policy: { ...detailResponse("P-1", "德宏州十四五规划").policy,
+        body_status: "suspected_garbled" },
+    } as never);
+    catalog.content.mockResolvedValueOnce({
+      ...contentResponse("P-1", 0, "ILLEGIBLE !#$%&()*+,-./0123456789", 1000),
+      body_status: "suspected_garbled",
+    } as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByText(/正文疑似乱码/)).toBeInTheDocument();
+    expect(screen.queryByText("ILLEGIBLE !#$%&()*+,-./0123456789")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看异常原始文本" }));
+    expect(screen.getByText("ILLEGIBLE !#$%&()*+,-./0123456789")).toBeInTheDocument();
+  });
+
   it("opens a standalone original view and restores the search on return", async () => {
     const user = userEvent.setup();
     render(<PolicyCatalog />);

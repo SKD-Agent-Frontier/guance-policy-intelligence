@@ -261,6 +261,7 @@ export interface PolicyDetailResponse {
     year?: number | null;
     plantype_label: string | null;
     body_chars: number;
+    body_status?: "available" | "missing" | "suspected_garbled";
     sections: PolicySection[];
   };
 }
@@ -274,6 +275,7 @@ export interface PolicyContentResponse {
   total_chars: number;
   has_more: boolean;
   text: string;
+  body_status?: "available" | "missing" | "suspected_garbled";
   page?: number | null;
   page_count?: number | null;
 }

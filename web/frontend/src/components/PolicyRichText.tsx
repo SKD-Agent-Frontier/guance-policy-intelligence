@@ -94,6 +94,35 @@ function PolicyHeading({ level, children }: { level: HeadingLevel; children: str
   if (level === 5) return <h5 className="catalog-heading">{children}</h5>;
   return <h6 className="catalog-heading">{children}</h6>;
 }
+/**
+ * Printed table-of-contents entries are source text, not document headings.
+ * Identify a TOC by repeated *numbered* page references, not by a lone
+ * chapter title or an ordinary sentence ending in a year.
+ */
+const TOC_ENTRY = /^(?:第[一二三四五六七八九十百千0-9]+[编篇部章节]|[（(][一二三四五六七八九十0-9]+[）)]|[一二三四五六七八九十]+[、．.])/;
+const TOC_PAGE = /(?:[.．·•…⋯。﹒:：\s]{2,})[0-9０-９]{1,3}\s*$/;
+const TOC_ATTACHED_PAGE = /(?:[\u3400-\u9fff）)]|[）)]\s+)[0-9０-９]{1,3}\s*$/;
+function tocPageEntry(line: string): boolean {
+  const source = line.trim().replace(/^#{1,6}\s*/, "");
+  return source.length >= 6 && source.length <= 150 && TOC_ENTRY.test(source)
+    && (TOC_PAGE.test(source) || TOC_ATTACHED_PAGE.test(source));
+}
+function tocRange(lines: readonly string[]): [number, number] | null {
+  const firstHeading = lines.findIndex(line => /^目\s*录\s*$/.test(line.trim()));
+  const entries = lines.flatMap((line, index) => tocPageEntry(line) ? [index] : []);
+  if (entries.length < 2 && (firstHeading < 0 || entries.length < 1)) return null;
+  // A standalone page number cannot put an entire policy chapter in TOC mode.
+  const first = firstHeading >= 0 && firstHeading <= entries[0] ? firstHeading : entries[0];
+  const last = entries.at(-1) ?? -1;
+  if (last < first || last - first > 220) return null;
+  return [first, last];
+}
+function cleanTocLine(line: string): string {
+  const source = line.trim().replace(/^#{1,6}\s*/, "");
+  if (!tocPageEntry(source)) return source;
+  return source.replace(/(?:[.．·•…⋯。﹒:：\s]*[0-9０-９]{1,3})\s*$/, "").replace(/[.．·•…⋯。﹒\s]+$/, "");
+}
+
 const RULE = /^:?-{3,}:?$/;
 
 function tableCells(line: string): string[] {
@@ -149,19 +178,6 @@ function inlineContent(source: string): React.ReactNode {
   }
   if (start < source.length) nodes.push(source.slice(start));
   return nodes.length ? nodes : source;
-}
-
-/** Source PDF page numbers and dotted TOC leaders are presentation artifacts,
- * not content-heading hierarchy. They remain untouched in the evidence source. */
-const PDF_PAGE_MARK = /^\s*[—－-]\s*\d{1,4}\s*[—－-]\s*$/;
-const DOTTED_TOC_ROW = /^(.{2,100}?)[.．·…]{4,}\s*\d{1,4}\s*$/;
-function collapsedNumericTable(line: string): boolean {
-  // OCR can flatten an entire indicators table into prose. We cannot safely
-  // reconstruct numerical columns without the original HTML/PDF table.
-  if (line.length < 220 || line.includes("|")) return false;
-  const numbers = (line.match(/(?:^|[\s（(])\d+(?:\.\d+)?(?=[\s）),，—－]|$)/g) ?? []).length;
-  const markers = (line.match(/(?:预期性|约束性|累计|地区生产总值|（%）|\(%\))/g) ?? []).length;
-  return numbers >= 12 && markers >= 4;
 }
 
 function tableLike(line: string): boolean {
@@ -249,6 +265,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     linePositions.push(cursor);
     cursor += Array.from(line).length + Array.from(fragments[index + 1] ?? "").length;
   }
+  const toc = tocRange(lines);
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
@@ -266,6 +283,15 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   while (index < lines.length) {
     const line = lines[index];
     if (!line.trim()) { flushProse(); index++; continue; }
+
+    // In a printed TOC, every entry uses ordinary body typography; chapter
+    // heading hierarchy applies only when the *actual body* begins.
+    if (toc && index >= toc[0] && index <= toc[1]) {
+      flushProse();
+      blocks.push(<p className="catalog-prose catalog-toc-line" key={key++}>{inlineContent(cleanTocLine(line))}</p>);
+      index++;
+      continue;
+    }
 
     // The metadata title is already displayed as a centered H1 in reader mode.
     // Repeated source titles are left in the frozen text, but not drawn twice.
@@ -321,29 +347,6 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     if (image) {
       flushProse();
       blocks.push(<PolicyImage key={`${planid}:${image[2]}:${key++}`} planid={planid} alt={image[1]} name={image[2]} />);
-      index++;
-      continue;
-    }
-
-    if (PDF_PAGE_MARK.test(line.trim())) {
-      flushProse();
-      index++;
-      continue;
-    }
-    const toc = DOTTED_TOC_ROW.exec(line.trim());
-    if (toc) {
-      flushProse();
-      blocks.push(<p key={key++} className="catalog-source-toc-entry">{toc[1].trim()}</p>);
-      index++;
-      continue;
-    }
-    if (collapsedNumericTable(line)) {
-      flushProse();
-      blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
-        role="region" aria-label="原文指标表格（结构不完整）" tabIndex={0}>
-        <p className="catalog-table-warning">原文中的表格列结构未完整保留，以下为原始文字，未重排指标数值。</p>
-        <pre>{line}</pre>
-      </div>);
       index++;
       continue;
     }

@@ -317,6 +317,17 @@ def test_catalog_unavailable_without_real_rag(bare_client):
     assert "items" not in response.text
 
 
+def test_quality_status_does_not_rewrite_frozen_body():
+    from app.policy_quality import body_status
+
+    garbled = ('!"#$%&()*+,-./0123456789:;<=>?' + chr(0x85) + chr(0x90)) * 100
+    assert body_status("") == "missing"
+    assert body_status("   ") == "missing"
+    assert body_status(garbled) == "suspected_garbled"
+    assert body_status("第一章 发展规划。\\n加快建设公共服务体系。" * 150) == "available"
+    assert body_status("促进就业，提升服务水平。") == "available"
+
+
 # ---- 任务四：详情与正文 ------------------------------------------------
 def test_policy_detail(client):
     response = client.get("/api/policies/10001")
@@ -327,6 +338,7 @@ def test_policy_detail(client):
     assert policy["planid"] == "10001"
     assert policy["title"] == "北京市数字经济促进条例"
     assert policy["body_chars"] == len(BODY_1)
+    assert policy["body_status"] == "available"
     assert [section["path"] for section in policy["sections"]] == ["第一章 总则", "第二章 支持措施"]
     assert policy["sections"][0]["start"] == 0
 
@@ -340,6 +352,7 @@ def test_policy_detail_errors(client, planid):
 def test_policy_content_pagination(client):
     first = client.get("/api/policies/10001/content", params={"offset": 0, "limit": 10}).json()
     assert first["text"] == BODY_1[:10]
+    assert first["body_status"] == "available"
     assert first["total_chars"] == len(BODY_1) and first["has_more"] is True
     tail = client.get("/api/policies/10001/content",
                       params={"offset": len(BODY_1) - 5, "limit": 10}).json()

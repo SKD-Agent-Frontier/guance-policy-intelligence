@@ -619,6 +619,26 @@
 }
 
 
+.catalog-source-warning {
+  margin: 14px 0 22px;
+  padding: 14px 16px;
+  color: #604d44;
+  background: #fcf6f1;
+  border: 1px solid #eadace;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.catalog-source-warning p { margin: 0 0 8px; }
+.catalog-source-warning button {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  color: #a1322c;
+  padding: 0;
+  cursor: pointer;
+}
+
 /* Policy-source formatting: headings, source tables and local media. */
 .catalog-rich-text {
   min-width: 0;
@@ -903,24 +923,3 @@
 .catalog-chapter-depth-2 button { padding-left: 36px; }
 .catalog-chapter-depth-3 button { padding-left: 50px; }
 .catalog-chapter-depth-4 button { padding-left: 64px; }
-
-
-/* Original PDF directory lines: omit dotted leader/page-number decoration. */
-.catalog-rich-text .catalog-source-toc-entry {
-  margin: 4px 0;
-  padding: 2px 8px;
-  font-size: .94em;
-  line-height: 1.6;
-  white-space: normal;
-}
-.catalog-rich-text .catalog-table-warning {
-  max-width: 100%;
-  margin: 0;
-  padding: 9px 14px;
-  color: #815f50;
-  background: #faf6f3;
-  border-bottom: 1px solid #e7e2de;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: normal;
-}
