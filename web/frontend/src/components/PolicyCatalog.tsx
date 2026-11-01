@@ -567,8 +567,9 @@ export function PolicyCatalog({
     <main ref={mainRef} tabIndex={-1} className={reading ? "catalog-page policy-reader" : "catalog-page"} aria-label={reading ? "政策原文阅读" : "政策文献目录"}>
       {!reading && <>
       <header className="catalog-header">
-        <div>
-          <h1>政策文献目录</h1>
+        <div className="library-heading">
+          <p className="library-heading-kicker">POLICY LIBRARY</p>
+          <h1 className="library-heading-title">政策文献目录</h1>
         </div>
         {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
       </header>
