@@ -3,7 +3,6 @@ import time
 from dataclasses import replace
 
 import pytest
-
 from guance_agent.research_contract import ResearchPlan, TaskContract
 from guance_agent.research_planner import ResearchPlanner
 from guance_agent.schemas import TaskRequest
