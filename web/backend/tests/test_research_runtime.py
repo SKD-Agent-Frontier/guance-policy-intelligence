@@ -1,0 +1,172 @@
+"""Offline tests for the web catalog-to-agent research plan adapter."""
+import time
+
+import pytest
+from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
+from app.research_runtime import discover_run_plan
+from guance_agent.research_contract import ResearchPlan, TaskContract
+from guance_agent.research_planner import ResearchPlanner
+from guance_agent.schemas import TaskRequest
+
+
+def record(planid, area, fyp="第十三个五年规划", title=None, body="产业结构调整"):
+    return PolicyRecord(
+        planid=planid,
+        title=title or f"{area}{fyp}国民经济和社会发展规划纲要",
+        area=area, fyp=fyp, plantype_label="总体规划纲要", document_id=f"doc-{planid}",
+        body=body, sections=(), admin_level="市",
+    )
+
+
+def catalog(*records):
+    nodes = [{"code": "130000000000", "name": "河北省", "tier": "province",
+              "children": [{"code": "131100000000", "name": "衡水市",
+                            "tier": "prefecture", "children": []},
+                           {"code": "130600000000", "name": "保定市",
+                            "tier": "prefecture", "children": []},
+                           {"code": "130200000000", "name": "唐山市",
+                            "tier": "prefecture", "children": []},
+                           {"code": "130400000000", "name": "邯郸市",
+                            "tier": "prefecture", "children": []}]}]
+    codes = {"衡水市": "131100000000", "保定市": "130600000000",
+             "唐山市": "130200000000", "邯郸市": "130400000000"}
+    return PolicyCatalogService(
+        CatalogSnapshot(generation_id="fixture-generation", revision=1,
+                        partial=False, records=tuple(records)),
+        region_payload={"data": nodes},
+        region_mapping={r.planid: {"region_status": "mapped", "region_code": codes[r.area]}
+                        for r in records if r.area in codes},
+    )
+
+
+def task(mode, targets, question="河北省产业结构研究", dimensions=None):
+    return TaskRequest(run_id="run", session_id="session", question=question,
+                       task_type=mode, targets=targets, dimensions=dimensions or [],
+                       created_at="now")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode,targets", [
+    ("qa", ["h1"]), ("extract", ["h1"]), ("organize", ["h1", "b1"]),
+    ("compare", ["h1", "b1"]), ("compare_plans", ["h1", "b1"]),
+])
+async def test_explicit_catalog_targets_become_trusted_plan_documents(mode, targets):
+    records = [record("h1", "衡水市"), record("b1", "保定市")]
+    selected_catalog = catalog(*records)
+    selected_task = task(mode, targets)
+    contract = TaskContract.from_task(selected_task)
+    plan = ResearchPlanner.initial(contract)
+
+    discovery = await discover_run_plan(
+        selected_task, contract, plan, time.monotonic() + 10, selected_catalog,
+    )
+
+    assert discovery.status == "ready"
+    assert [doc.planid for doc in discovery.plan.documents] == targets
+    assert all(doc.source_verified and doc.document_id == f"doc-{doc.planid}"
+               and doc.generation_id == "fixture-generation" for doc in discovery.plan.documents)
+    assert set(discovery.plan.coverage.discovered_planids) == set(targets)
+
+
+@pytest.mark.asyncio
+async def test_missing_or_underfilled_catalog_targets_fail_closed():
+    selected_catalog = catalog(record("h1", "衡水市"))
+    qa = task("qa", ["absent"])
+    result = await discover_run_plan(qa, TaskContract.from_task(qa),
+                                     ResearchPlan.for_contract(TaskContract.from_task(qa)),
+                                     time.monotonic() + 5, selected_catalog)
+    assert result.status == "insufficient"
+    assert result.reason_code == "requested_document_missing"
+    assert not result.plan.documents
+
+    compare = task("compare", ["h1"])
+    compare_contract = TaskContract.from_task(compare)
+    result = await discover_run_plan(compare, compare_contract,
+                                     ResearchPlanner.initial(compare_contract),
+                                     time.monotonic() + 5, selected_catalog)
+    assert result.status == "insufficient"
+    assert result.reason_code == "insufficient_document_coverage"
+
+
+@pytest.mark.asyncio
+async def test_deadline_expires_before_catalog_discovery():
+    selected_task = task("qa", ["h1"])
+    selected_contract = TaskContract.from_task(selected_task)
+    with pytest.raises(TimeoutError):
+        await discover_run_plan(selected_task, selected_contract,
+                                ResearchPlanner.initial(selected_contract),
+                                time.monotonic() - 1, catalog(record("h1", "衡水市")))
+
+
+@pytest.mark.asyncio
+async def test_actual_internal_resolver_distinguishes_historical_shorthand_and_title_topic():
+    from app.research_planning import resolve_research_internal
+
+    records = [
+        record("historic", "衡水市", "第十个五年规划", "衡水市国民经济和社会发展第十个五年计划纲要"),
+        record("newer", "衡水市", "第十五个五年规划", "衡水市国民经济和社会发展第十五个五年规划纲要"),
+        record("ai-incidental", "衡水市", "第十三个五年规划",
+               "衡水市国民经济和社会发展第十三个五年规划纲要",
+               body="正文提到人工智能产业发展。"),
+    ]
+    selected_catalog = catalog(*records)
+    historic = resolve_research_internal("qa", "衡水市十五规划产业结构", selected_catalog)
+    assert historic["status"] == "ready"
+    assert [item["planid"] for item in historic["policies"]] == ["historic"]
+    ai = resolve_research_internal("qa", "衡水市人工智能产业政策", selected_catalog)
+    assert ai["status"] != "ready"
+    assert "ai-incidental" not in [item["planid"] for item in ai["policies"]]
+
+
+@pytest.mark.asyncio
+async def test_adapter_preserves_full_requested_set_and_separates_missing_from_capped(monkeypatch):
+    from app.research_planning import resolve_research_internal
+
+    selected_catalog = catalog(record("h1", "衡水市"), record("b1", "保定市"))
+    resolved = resolve_research_internal(
+        "compare", "与河北省其他地市相比，衡水市十三五产业结构目标有什么特点？",
+        selected_catalog,
+    )
+    assert resolved["status"] == "ready"
+    assert set(resolved["requested_subjects"]) == {"衡水市", "保定市", "唐山市", "邯郸市"}
+
+    selected_task = task(
+        "compare", None,
+        "与河北省其他地市相比，衡水市十三五产业结构目标有什么特点？",
+    )
+    selected_contract = TaskContract.from_task(selected_task)
+    # The adapter must retain absent and capped labels even when only known documents
+    # can be attached to the executable plan.
+    import app.research_runtime as runtime_adapter
+
+    monkeypatch.setattr(runtime_adapter, "resolve_research_internal", lambda *_: {
+        **resolved,
+        "requested_subjects": ["衡水市", "保定市", "唐山市", "邯郸市"],
+        "subject_gaps": ["唐山市"],
+        "coverage_limited_subjects": ["邯郸市"],
+    })
+    discovery = await discover_run_plan(
+        selected_task, selected_contract, ResearchPlanner.initial(selected_contract),
+        time.monotonic() + 10, selected_catalog,
+    )
+
+    assert discovery.plan.requested_subjects == ["衡水市", "保定市", "唐山市", "邯郸市"]
+    assert discovery.plan.coverage.subject_gaps == ["唐山市"]
+    assert discovery.plan.coverage.coverage_limited_subjects == ["邯郸市"]
+
+
+@pytest.mark.asyncio
+async def test_prefecture_discovery_uses_catalog_parent_and_limits_claimed_scope():
+    from app.research_planning import resolve_research_internal
+
+    selected_catalog = catalog(record("h1", "衡水市"), record("b1", "保定市"))
+    result = resolve_research_internal(
+        "compare", "与河北省其他地市相比，衡水市十三五产业结构目标有什么特点？",
+        selected_catalog,
+    )
+    assert result["status"] == "ready"
+    selected_ids = {item["planid"] for item in result["policies"]}
+    assert selected_ids == {"h1", "b1"}
+    assert set(result["requested_subjects"]) == {"衡水市", "保定市", "唐山市", "邯郸市"}
+    assert set(result["subject_gaps"]) == {"唐山市", "邯郸市"}
+    assert result["coverage_limited_subjects"] == []

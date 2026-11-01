@@ -33,6 +33,9 @@ from .output import (
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .research_contract import TaskContract
+from .research_planner import ResearchDiscovery, ResearchPlanner
+from .research_runtime import ResearchRuntime
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -40,6 +43,7 @@ from .schemas import DIMENSIONS, AgentOutput, RunError, RunResult, TaskRequest
 from .verify import verify_numbers, verify_quotes
 
 SUPPORTED_TASKS = ("qa", "extract")   # 只有这两个 task_type 有实现，其余显式拒绝
+RESEARCH_TASKS = frozenset({"qa", "extract", "organize", "compare", "compare_plans"})
 
 _LOCKS: dict[str, asyncio.Lock] = {}
 
@@ -306,9 +310,19 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     return result
 
 
-async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
-    """先路由，再按单对象/多对象/开放主题取证；结束时统一落运行日志。"""
-    deadline = time.monotonic() + s.run_timeout
+async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
+                   research_discoverer=None, research_runtime: ResearchRuntime | None = None) -> RunResult:
+    """Execute the task selected by the locked plan within one run deadline."""
+    deadline = research_runtime.deadline if research_runtime is not None else time.monotonic() + s.run_timeout
+    if task.task_type in RESEARCH_TASKS:
+        contract = research_runtime.contract if research_runtime is not None else TaskContract.from_task(task)
+        if research_runtime is None:
+            research_runtime = ResearchRuntime(
+                contract, ResearchPlanner.initial(contract), deadline,
+                max_revisions=getattr(s, "max_plan_revisions", 1),
+            )
+        if research_runtime.status == "created":
+            research_runtime.transition("planning")
     module = None if task.task_type in SUPPORTED_TASKS else get_module(task.task_type)
     if task.task_type not in SUPPORTED_TASKS and module is None:
         result = build_result(task, None, None, rt.meta, RunError(
@@ -316,58 +330,213 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         result.task_type = task.task_type
         rt.finish(result, None)
         return result
+
+    ctx = None
     if not s.llm_base_url or not s.llm_api_key:
-        ctx = None
         result = build_result(task, None, None, rt.meta,
                               RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
+        if research_runtime is not None and research_runtime.status == "planning":
+            research_runtime.transition("failed", "model_unavailable")
     else:
         try:
             kb = get_kb(s)
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
-        ctx = RunContext(s, kb, task.run_id, task.session_id, question=task.question)
-        decision = decide(task.question)
-        if task.targets is not None:
-            decision = RouteDecision(kind="objects", planids=tuple(task.targets),
-                                     areas=decision.areas, fyps=decision.fyps,
-                                     sub_query=decision.sub_query, blocked=decision.blocked)
-        ctx.route = decision
-        if task.task_type == "qa" and decision.kind == "open":
-            ctx.literal_keyword = literal_keyword(task.question)
+        ctx = RunContext(s, kb, task.run_id, task.session_id,
+                         question=task.question, research=research_runtime)
         async with _session_lock(task.session_id):
-            if module is not None:
-                result = await _run_business(task, s, rt, ctx, deadline, decision, module)
-            elif decision.blocked:
-                result = _blocked(task, ctx, rt.meta, decision)
-            elif decision.kind == "objects":
-                result = await _run_objects(task, s, ctx, rt, decision, deadline)
+            result = None
+            planned_task = task
+            if research_runtime is not None:
+                if research_discoverer is not None:
+                    research_runtime.transition("discovering")
+                    research_runtime.set_step_status("discover", "running")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        research_runtime.set_step_status("discover", "partial", "run deadline reached")
+                        research_runtime.transition("limit_reached", "deadline exceeded during discovery")
+                        result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
+                    else:
+                        try:
+                            discovery = await asyncio.wait_for(
+                                research_discoverer(task, research_runtime.contract,
+                                                    research_runtime.plan, deadline),
+                                timeout=remaining,
+                            )
+                        except TimeoutError:
+                            research_runtime.set_step_status("discover", "partial", "run deadline reached")
+                            research_runtime.transition("limit_reached", "deadline exceeded during discovery")
+                            result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
+                        if result is None:
+                            if not isinstance(discovery, ResearchDiscovery):
+                                discovery = ResearchDiscovery.model_validate(discovery)
+                            research_runtime.accept_discovery(discovery.plan)
+                            if discovery.status in {"needs_clarification", "insufficient", "unavailable"}:
+                                reason = discovery.message or "当前证据不足以继续研究。"
+                                research_runtime.set_step_status("discover", "running")
+                                research_runtime.set_step_status("discover", "partial", reason)
+                                research_runtime.transition("insufficient", reason)
+                                result = _discovery_result(task, rt, reason)
+                            else:
+                                discovered_plan = research_runtime.plan
+                                requested_subjects = list(dict.fromkeys(
+                                    discovery.requested_subjects
+                                    or discovered_plan.requested_subjects
+                                ))
+                                missing_subjects = list(discovered_plan.coverage.subject_gaps)
+                                if (task.task_type in {"compare", "compare_plans"}
+                                        and len(discovered_plan.documents) >= 2
+                                        and requested_subjects
+                                        and missing_subjects):
+                                    if research_runtime.revision_count >= research_runtime.max_revisions:
+                                        reason = "研究计划修订预算已耗尽，缺少部分请求对象文献。"
+                                        research_runtime.transition("insufficient", reason)
+                                        result = _discovery_result(task, rt, reason)
+                                    else:
+                                        revised_data = discovered_plan.model_dump(mode="python")
+                                        steps = revised_data["steps"]
+                                        for step in steps:
+                                            if step["step_id"] == "execute":
+                                                step["input_refs"] = [
+                                                    f"document:{doc.planid}"
+                                                    for doc in discovered_plan.documents
+                                                ]
+                                        revised_data.update({
+                                            "revision": discovered_plan.revision + 1,
+                                            "scope": discovered_plan.scope.model_copy(update={
+                                                "target_planids": [doc.planid for doc in discovered_plan.documents],
+                                            }),
+                                            "steps": steps,
+                                            "coverage": discovered_plan.coverage.model_copy(update={
+                                                "subject_gaps": missing_subjects,
+                                            }),
+                                        })
+                                        revised_plan = type(discovered_plan).model_validate(revised_data)
+                                        research_runtime.revise(
+                                            revised_plan,
+                                            "missing_document_coverage: " + ", ".join(missing_subjects),
+                                        )
+                                        discovered_plan = research_runtime.plan
+                                discover_step = next(
+                                    (step for step in research_runtime.plan.steps
+                                     if step.step_id == "discover"), None)
+                                if discover_step is not None and discover_step.status == "pending":
+                                    research_runtime.set_step_status("discover", "running")
+                                execution_step = next(
+                                    (step for step in discovered_plan.steps
+                                     if step.step_id == "execute"), None)
+                                document_targets = [
+                                    ref.removeprefix("document:")
+                                    for ref in (execution_step.input_refs if execution_step else [])
+                                    if ref.startswith("document:")
+                                ]
+                                if document_targets:
+                                    planned_task = task.model_copy(update={
+                                        "targets": document_targets,
+                                        "dimensions": list(discovered_plan.dimensions) or task.dimensions,
+                                    })
+                else:
+                    research_runtime.set_step_status("discover", "running")
+
+                if result is None:
+                    plan = research_runtime.plan
+                    executor_steps = [step for step in plan.steps if step.step_id == "execute"]
+                    if len(executor_steps) != 1 or executor_steps[0].capability != plan.task_type:
+                        raise ValueError("research plan must select exactly one locked task capability")
+                    research_runtime.transition("ready")
+                    research_runtime.transition("executing")
+                    research_runtime.set_step_status("execute", "running")
+                    decision = decide(planned_task.question)
+                    if planned_task.targets is not None:
+                        decision = RouteDecision(kind="objects", planids=tuple(planned_task.targets),
+                                                 areas=decision.areas, fyps=decision.fyps,
+                                                 sub_query=decision.sub_query, blocked=decision.blocked)
+                    ctx.route = decision
+                    ctx.scope = tuple(planned_task.targets) if planned_task.targets is not None else None
+                    if plan.task_type == "qa" and decision.kind == "open":
+                        ctx.literal_keyword = literal_keyword(planned_task.question)
+                    module = get_module(executor_steps[0].capability)
+                    if module is not None:
+                        result = await _run_business(planned_task, s, rt, ctx, deadline, decision, module)
+                    elif decision.blocked:
+                        result = _blocked(planned_task, ctx, rt.meta, decision)
+                    elif decision.kind == "objects":
+                        result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
+                    else:
+                        result = await _run_single(planned_task, s, rt, ctx, deadline, decision)
+                    if result.status == "failed":
+                        research_runtime.set_step_status("execute", "failed",
+                                                         result.error.message if result.error else "执行失败")
+                    elif result.status == "limit_reached":
+                        research_runtime.set_step_status("execute", "partial",
+                                                         result.error.message if result.error else "运行预算已耗尽")
+                    elif result.status == "partial":
+                        research_runtime.set_step_status("execute", "partial", "业务能力返回部分结果")
+                    else:
+                        research_runtime.set_step_status("execute", "completed")
+                    if any(step.step_id == "discover" and step.status == "running"
+                           for step in research_runtime.plan.steps):
+                        research_runtime.set_step_status("discover", "completed")
             else:
-                result = await _run_single(task, s, ctx, rt, deadline, decision)
-        result.task_type = task.task_type
-        if result.status == "completed" and module is None:
-            # 核验也不能突破整轮运行时限：超时则降级并如实说明，不拖垮请求。
-            try:
-                await asyncio.wait_for(verify_quotes(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-                await asyncio.wait_for(verify_numbers(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-            except TimeoutError:
-                result.warnings.append("核验超出本次运行时限，未完成逐条核验")
-                result.evidence_status = "insufficient"
-        if module is None:
-            if task.task_type == "qa":
-                enforce_literal_result(result, ctx)
-            _attach(result, task)
+                decision = decide(task.question)
+                if task.targets is not None:
+                    decision = RouteDecision(kind="objects", planids=tuple(task.targets),
+                                             areas=decision.areas, fyps=decision.fyps,
+                                             sub_query=decision.sub_query, blocked=decision.blocked)
+                ctx.route = decision
+                if task.task_type == "qa" and decision.kind == "open":
+                    ctx.literal_keyword = literal_keyword(task.question)
+                if module is not None:
+                    result = await _run_business(task, s, rt, ctx, deadline, decision, module)
+                elif decision.blocked:
+                    result = _blocked(task, ctx, rt.meta, decision)
+                elif decision.kind == "objects":
+                    result = await _run_objects(task, s, ctx, rt, decision, deadline)
+                else:
+                    result = await _run_single(task, s, rt, ctx, deadline, decision)
+            if result is None:
+                result = _discovery_result(task, rt, "研究未能产生结果。")
+            if research_runtime is not None and research_runtime.status == "executing":
+                if result.status == "limit_reached":
+                    research_runtime.transition("limit_reached", result.error.message if result.error else "运行预算已耗尽")
+                elif result.status == "failed":
+                    research_runtime.transition("failed", result.error.message if result.error else "执行失败")
+                else:
+                    research_runtime.transition("verifying")
+                    research_runtime.set_step_status("verify", "running")
+            result.task_type = task.task_type
+            if result.status == "completed" and module is None:
+                try:
+                    await asyncio.wait_for(verify_quotes(result, ctx),
+                                           timeout=max(deadline - time.monotonic(), 0.05))
+                    await asyncio.wait_for(verify_numbers(result, ctx),
+                                           timeout=max(deadline - time.monotonic(), 0.05))
+                except TimeoutError:
+                    result.warnings.append("核验超出本次运行时限，未完成逐条核验")
+                    result.evidence_status = "insufficient"
+            if research_runtime is not None and research_runtime.status == "verifying":
+                if module is None and task.task_type == "qa":
+                    enforce_literal_result(result, ctx)
+                if module is None:
+                    _attach(result, planned_task)
+                research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
     result = finalize_qa_analysis(result, task.question)
+    if research_runtime is not None:
+        try:
+            research_runtime.finish(result, ctx)
+        except (ValueError, TypeError) as exc:
+            result.status = "failed"
+            result.evidence_status = "insufficient"
+            result.error = RunError(code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
+            result.warnings.append("研究运行时无法完成任务契约验收")
+            result.meta["research_runtime_error"] = type(exc).__name__
     try:
         rt.finish(result, ctx)
     except OSError as exc:
         result.meta["finish_failed"] = type(exc).__name__
     return result
-
-
 def _business_prompt(task, ctx, meta, decision, answer, targets=()) -> RunResult:
     output = AgentOutput(answer=answer, claims=[], insufficient=True)
     result = build_result(task, ExecOutcome(output, None), ctx, meta)
@@ -545,6 +714,24 @@ def _business_document_metadata(services):
         "documents": [document.model_dump(mode="json") for document in documents],
         "verification": {"policy_facts": "unverified", "reason": "no_valid_claims"},
     }
+
+
+def _discovery_result(task, rt, message: str, *, limited: bool = False) -> RunResult:
+    return RunResult(
+        run_id=task.run_id,
+        session_id=task.session_id,
+        status="limit_reached" if limited else "completed",
+        evidence_status="none" if limited else "insufficient",
+        answer=message,
+        claims=[],
+        evidence_refs=[],
+        dropped_chunk_ids=[],
+        error=RunError(code="RUN_TIMEOUT", message=message) if limited else None,
+        meta=dict(rt.meta),
+        warnings=[] if limited else [message],
+        task_type=task.task_type,
+        structured={"research_discovery": {"status": "limit_reached" if limited else "insufficient"}},
+    )
 
 
 def _business_failure(task, ctx, rt, decision, code, services=None, targets=None, message=None):

@@ -24,6 +24,7 @@ class Settings:
     max_user_id_chars: int = 64
     max_turns: int = 12
     max_tool_calls: int = 20
+    max_plan_revisions: int = 1
     max_history_items: int = 40
     run_timeout: float = 180
     tool_timeout: float = 60   # >= RAG 队列20s+执行30s，避免 Agent 先放弃而库线程仍在跑
@@ -40,7 +41,8 @@ class Settings:
     log_content: bool = False
     def __post_init__(self):
         for name in ("max_input_chars", "max_user_id_chars", "max_turns", "top_k_default", "top_k_max",
-                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls", "max_history_items", "llm_max_output_tokens"):
+                     "search_snippet_chars", "read_max_chars", "llm_max_retries", "max_tool_calls",
+                     "max_plan_revisions", "max_history_items", "llm_max_output_tokens"):
             if type(getattr(self, name)) is not int:
                 raise ValueError(f"{name} 必须为整数")
         positive = ("llm_request_timeout", "max_input_chars", "max_user_id_chars", "max_turns", "run_timeout",
@@ -52,6 +54,8 @@ class Settings:
                 raise ValueError(f"{name} 必须为正数")
         if self.top_k_default > self.top_k_max or self.llm_max_retries < 0:
             raise ValueError("top_k_default / llm_max_retries 超出范围")
+        if self.max_plan_revisions not in (0, 1):
+            raise ValueError("max_plan_revisions 只允许 0 或 1")
         if self.kb_backend not in {"mock", "sample", "rag"}:
             raise ValueError("KB_BACKEND 仅支持 mock、sample 或 rag")
         if self.rag_mode not in {"bm25", "dense", "hybrid"}:

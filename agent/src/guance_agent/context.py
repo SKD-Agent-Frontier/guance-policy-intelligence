@@ -231,3 +231,4 @@ class RunContext:
     question: str = ""      # 用户原问题；核验时据此排除用户自己给的数字
     literal_keyword: str | None = None
     literal_hit_ids: set[str] = field(default_factory=set)
+    research: object | None = None

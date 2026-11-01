@@ -14,7 +14,7 @@ from .compare_resolution import _DIMENSIONS, resolve_compare
 from .compare_resolution import _areas as provinces_in_text
 from .policy_catalog import PolicyCatalogService, PolicyRecord, normalize_fyp
 
-Mode = Literal["extract", "compare", "compare_plans"]
+Mode = Literal["qa", "extract", "organize", "compare", "compare_plans"]
 
 
 class ResearchResolveRequest(BaseModel):
@@ -27,15 +27,22 @@ PLANIDS = re.compile(r"planid\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})", re.IGNORECASE
 TITLES = re.compile(r"《([^《》]{3,120})》")
 ORDINAL = re.compile(r"(?:十一|十二|十三|十四|十五)五")
 EXPLICIT_PERIOD = re.compile(r"第(?:十[一二三四五]|十)个五年(?:规划|计划)")
+HISTORIC_SHORTHAND = re.compile(r"(?<!五)十五[’'\"“”‘’]?\s*(?:规划|计划)")
 COLLECTIVE = re.compile(r"(?:其他|其它|其余|全省|省内|各)(?:地级市|地市|城市|市)")
 GENERAL_THEME = re.compile(r"产业结构|产业布局|产业升级|三次产业|产业优化|经济结构")
 GENERAL_PLAN = re.compile(r"国民经济和社会发展|五年(?:规划|计划)纲要|总体规划纲要")
+TITLE_REQUIRED_THEMES = frozenset({
+    "数字经济", "人工智能", "养老", "能源", "科技创新", "人才", "生态环境",
+    "服务业", "工业", "农业", "教育", "医疗", "交通", "财政", "金融",
+})
 
 
 def _period(question: str) -> str | None:
     explicit = EXPLICIT_PERIOD.findall(question)
     names = ORDINAL.findall(question)
     values = [normalize_fyp(value) for value in explicit + names]
+    if HISTORIC_SHORTHAND.search(question):
+        values.append(normalize_fyp("第十个五年规划"))
     unique = list(dict.fromkeys(values))
     return unique[0] if len(unique) == 1 else None
 
@@ -81,6 +88,10 @@ def _score(record: PolicyRecord, question: str, period: str | None) -> int:
                 "医疗", "交通", "财政", "金融")
     related = [x for x in keywords if x in question]
     if related:
+        # A passing title for a broad plan must not turn an incidental body mention
+        # of a specialized topic into an identified thematic document.
+        if any(token in TITLE_REQUIRED_THEMES and token not in title for token in related):
+            return -1
         for token in related:
             if token in title:
                 score += 70
@@ -127,7 +138,7 @@ def _prefecture_names(catalog: PolicyCatalogService, province: str) -> list[str]
 
 def _mentioned_areas(question: str, catalog: PolicyCatalogService) -> list[str]:
     names = {node["name"] for node in catalog._region_nodes.values()
-             if node["tier"] in ("prefecture", "province")}
+             if node["tier"] in ("county", "prefecture", "province")}
     names.update(rec.area for rec in catalog.snapshot.records if rec.area)
     # 最长地名优先，短名出现在长名之内时不再匹配。
     matches: list[tuple[int, str]] = []
@@ -156,8 +167,13 @@ def _ready(mode: Mode, question: str, records: list[PolicyRecord], dimensions: l
 
 
 def _clarify(message: str) -> dict:
-    return {"status": "needs_clarification", "message": message, "request": None,
+    return {"status": "needs_clarification", "reason": "user_scope_missing", "message": message, "request": None,
             "policies": []}
+
+
+def _insufficient(message: str, reason: str = "catalog_evidence_missing") -> dict:
+    return {"status": "insufficient", "reason": reason, "message": message,
+            "request": None, "policies": []}
 
 
 def _explicit_records(question: str, catalog: PolicyCatalogService) -> tuple[list[PolicyRecord], str | None]:
@@ -182,15 +198,19 @@ def _explicit_records(question: str, catalog: PolicyCatalogService) -> tuple[lis
     return picked, None
 
 
-def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -> dict:
+def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogService) -> dict:
     """基于自然语言做保守对象发现；绝不把研究主题等同于文献身份。"""
     period = _period(question)
     dimensions = _dimensions(question)
+    requested_ids = list(dict.fromkeys(PLANIDS.findall(question)))
+    by_id = {record.planid: record for record in catalog.snapshot.records}
+    if requested_ids and any(planid not in by_id for planid in requested_ids):
+        return _insufficient("指定文献不在当前发布目录中，无法核验其来源身份。", "requested_document_missing")
     explicit, error = _explicit_records(question, catalog)
     if error:
         return _clarify(error)
     if explicit:
-        required = 1 if mode == "extract" else 2
+        required = 1 if mode in ("qa", "extract") else 2
         if not required <= len(explicit) <= (1 if mode == "extract" else 8):
             return _clarify("请在研究问题中说明需要处理的政策名称或方案；比较需至少两份不同文献。")
         return _ready(mode, question, explicit, dimensions)
@@ -201,9 +221,37 @@ def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -
             by_id = {r.planid: r for r in catalog.snapshot.records}
             return _ready(mode, question, [by_id[i] for i in found["targets"]],
                           dimensions or found["dimensions"], found["message"])
+        if found.get("status") == "insufficient":
+            return _insufficient(found["message"], found.get("reason", "catalog_evidence_missing"))
         return _clarify(found["message"].replace("使用高级入口", "补充文献名称"))
 
     areas = _mentioned_areas(question, catalog)
+    if mode == "qa":
+        if len(areas) == 1:
+            found, ambiguous = _rank(_area_records(catalog, areas[0]), question, period)
+            if found:
+                return _ready(mode, question, [found], dimensions)
+            if ambiguous:
+                return {"status": "fallback", "message": "目录中有多个同等匹配文献，继续使用现有 RAG 检索能力。",
+                        "request": None, "policies": []}
+        return {"status": "fallback", "message": "目录未能唯一定位单篇文献，继续使用现有 RAG 检索能力。",
+                "request": None, "policies": []}
+
+    if mode == "organize":
+        if not areas and not period:
+            return _clarify("请说明政策名称、地区或规划时期，以便整理真实发布的文献。")
+        candidates = [record for record in catalog.snapshot.records
+                      if (not areas or _record_area(catalog, record) in areas)
+                      and _score(record, question, period) >= 0]
+        candidates.sort(key=lambda record: (-_score(record, question, period), record.planid))
+        if len(candidates) < 2:
+            return _insufficient("当前发布目录中可确认的文献不足两篇，无法完成文献梳理。",
+                                 "insufficient_document_coverage")
+        if len(candidates) > 8:
+            return _clarify("当前发布目录匹配文献超过单次梳理上限，请补充地区、时期或文献标题缩小范围。")
+        return _ready(mode, question, candidates, dimensions,
+                      f"已从当前发布目录确认 {len(candidates)} 篇匹配文献。")
+
     if mode in ("compare", "compare_plans"):
         # 单省的集合式比较：以明确命名的地级市为主对象，自动选择同省同期可比规划。
         provinces = [a for a in areas if a.endswith(("省", "自治区"))]
@@ -215,22 +263,32 @@ def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -
                 return _clarify("请指出本次需要重点比较的地级市；其余同省城市将由系统自动检索。")
             anchor, ambiguous = _rank(_area_records(catalog, focus[0]), question, period)
             if anchor is None:
-                return _clarify(
+                return (_insufficient(
+                    f"当前发布库无法定位{focus[0]}对应时期的规划正文，不能完成可靠比较。",
+                    "anchor_document_missing") if not ambiguous else _clarify(
                     f"当前发布库无法唯一定位{focus[0]}对应时期的规划，"
-                    + ("发现同等匹配文献，请补充文件名称。" if ambiguous
-                       else "未取得可用的对应时期规划正文，无法开展可靠比较。"))
+                    "发现同等匹配文献，请补充文件名称。"))
             peers = []
+            subject_gaps = []
             for name in prefectures:
                 if name == focus[0]:
                     continue
                 rec, tie = _rank(_area_records(catalog, name), question, period)
                 if rec and not tie:
                     peers.append(rec)
-            peers = peers[:6]
+                else:
+                    subject_gaps.append(name)
             if not peers:
-                return _clarify(f"已定位{focus[0]}的规划，但当前发布库没有足够的同省同期可比规划，不能据此得出比较结论。")
-            return _ready(mode, question, [anchor, *peers], dimensions,
-                          f"以{focus[0]}为核心，自动选择{len(peers)}个当前发布库中有同期可比规划的{province}地级市；结论只覆盖本轮入选城市，不代表全省。")
+                return _insufficient(f"已定位{focus[0]}的规划，但当前发布库没有足够的同省同期可比规划，不能据此得出比较结论。",
+                                     "insufficient_peer_coverage")
+            selected_peers = peers[:6]
+            coverage_limited = [record.area for record in peers[6:] if record.area]
+            result = _ready(mode, question, [anchor, *selected_peers], dimensions,
+                            f"以{focus[0]}为核心，自动选择{len(selected_peers)}个当前发布库中有同期可比规划的{province}地级市；结论只覆盖本轮入选城市，不代表全省。")
+            result["requested_subjects"] = list(dict.fromkeys(prefectures))
+            result["subject_gaps"] = list(dict.fromkeys(subject_gaps))
+            result["coverage_limited_subjects"] = list(dict.fromkeys(coverage_limited))
+            return result
 
         named = [a for a in areas if a not in provinces]
         if len(named) >= 2:
@@ -238,8 +296,10 @@ def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -
             for name in named[:8]:
                 rec, tie = _rank(_area_records(catalog, name), question, period)
                 if rec is None:
-                    return _clarify(f"无法唯一定位{name}的对应政策文献；请补充政策名称或缩小研究范围。" if tie
-                                    else f"当前发布库没有{name}符合条件的可比文献。")
+                    if tie:
+                        return _clarify(f"无法唯一定位{name}的对应政策文献；请补充政策名称或缩小研究范围。")
+                    return _insufficient(f"当前发布库没有{name}符合条件的可比文献。",
+                                         "comparison_document_missing")
                 selected.append(rec)
             return _ready(mode, question, selected, dimensions)
 
@@ -254,7 +314,21 @@ def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -
         found, tie = _rank(candidates, question, period)
         if found:
             return _ready(mode, question, [found], dimensions)
-        return _clarify("有多篇同等匹配文献，请补充完整政策标题。" if tie
-                        else "当前发布库未能定位符合研究主题的政策正文；请补充政策名称、地区或规划时期。")
+        return (_clarify("有多篇同等匹配文献，请补充完整政策标题。") if tie else
+                _insufficient("当前发布库未能定位符合研究主题的政策正文。"))
 
     return _clarify("请提供至少两份可区分的方案名称或相关地区与时期，以便自动发现文献。")
+
+
+def resolve_research(mode: Mode, question: str, catalog: PolicyCatalogService) -> dict:
+    """Legacy public response shape; run discovery uses the richer internal result."""
+    result = resolve_research_internal(mode, question, catalog)
+    status = result["status"]
+    if status in {"insufficient", "fallback"}:
+        status = "needs_clarification"
+    return {
+        "status": status,
+        "message": result["message"],
+        "request": result.get("request"),
+        "policies": result.get("policies", []),
+    }
