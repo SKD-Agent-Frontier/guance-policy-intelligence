@@ -355,7 +355,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     // of the printed index. Suppress only that verified front-matter marker.
     if (firstPage && index < 3 && /^[0-9０-９]{1,3}$/.test(line.trim())
       && ((toc != null && toc[0] > index && toc[0] - index <= 2)
-        || /^\\s*目\\s*录\\s*$/.test(lines[index + 1] ?? ""))) {
+        || /^\s*目\s*录\s*$/.test(lines[index + 1] ?? ""))) {
       index++;
       continue;
     }
