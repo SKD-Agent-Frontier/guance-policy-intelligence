@@ -34,6 +34,7 @@ from .output import (
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .qa_context import build_trusted_turn, public_resolution, resolve_followup
 from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
@@ -443,7 +444,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id,
-                         question=task.question, research=research_runtime)
+                         question=task.question, research=research_runtime,
+                         trusted_turns=list(getattr(rt, "trusted_turns", []) or []))
         async with _session_lock(task.session_id):
             result = None
             planned_task = task
@@ -712,6 +714,30 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     finalize_recovered_qa_answer(result, task.question)
     if task.task_type == "qa":
         deliver_research(result, task.question)
+    resolution = result.meta.get("qa_context_resolution")
+    if (task.task_type == "qa" and isinstance(resolution, dict)
+            and resolution.get("status") == "ambiguous"):
+        # Ambiguous pronoun references must never silently reuse the first
+        # previous document as if it were uniquely identified.
+        clarification = resolution.get("clarification")
+        if clarification:
+            result.answer = clarification
+            result.evidence_status = "insufficient"
+            result.warnings.append(
+                "多轮指代无法唯一确定，已停止检索并要求用户明确研究对象；未混合上一轮证据。")
+    if (task.task_type == "qa" and not result.claims
+            and isinstance(resolution, dict)
+            and resolution.get("status") == "scope_changed"):
+        constraints = resolution.get("requested_constraints") or {}
+        areas = "、".join(constraints.get("areas") or []) or "未指定地区"
+        periods = "、".join(constraints.get("periods") or []) or "未指定时期"
+        result.answer = (
+            f"本轮已按新的研究范围（{areas}，{periods}）重新检索，但知识库中没有"
+            "找到与该地区、时期同时匹配的可引用政策原文；未取得证据不代表相关政策不存在。"
+            "上一轮的沧州对象未被混入本轮证据。"
+        )
+        result.evidence_status = "insufficient"
+        result.warnings.append("多轮范围变更后未找到匹配的新研究对象，已按新范围安全拒答。")
     if task.task_type == "qa" and isinstance(result.meta.get("llm"), dict):
         if result.meta.get("original_execution_error") or result.error:
             result.meta["llm"]["parse"] = "failed"
@@ -1062,12 +1088,36 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
 
 async def _run_controlled_qa(task, s, ctx, rt, deadline):
     """Keep all existing QA parse, quote, number and report audit gates."""
+    resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
+                                  getattr(ctx, "route", None))
+    ctx.qa_context_resolution = public_resolution(resolution)
+    rt.meta["qa_context_resolution"] = ctx.qa_context_resolution
+    if resolution["status"] == "ambiguous":
+        outcome = ExecOutcome(json.dumps({
+            "answer": resolution.get("clarification")
+            or "无法唯一确定上一轮的研究对象，请明确具体文献或地区后再提问。",
+            "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        return result
+    if resolution.get("inherited_planids"):
+        # The prior source identity is trusted only after the current session
+        # was claimed; current evidence is still re-read and re-verified below.
+        ctx.scope = tuple(resolution["inherited_planids"])
+    if resolution.get("inherited_planids") or resolution.get("context_note"):
+        # Context notes and explicit region/period constraints both need to
+        # reach controlled retrieval, but only inherited identities change scope.
+        ctx.qa_followup = resolution
     outcome = await execute_controlled(task, s, ctx, rt, deadline)
     outcome, parse_meta = await _recover_qa_output(
         outcome, s, rt, deadline, repair_budget={"remaining": 0})
     result = build_result(task, outcome, ctx, rt.meta)
     if parse_meta:
         result.meta.update(parse_meta)
+    turn = build_trusted_turn(task.question, ctx, result)
+    if turn and result.status == "completed":
+        rt.save_trusted_turn(turn)
     return result
 
 

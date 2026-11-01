@@ -14,6 +14,7 @@ import time
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from .client import thinking_off
+from .qa_context import normalize_period
 from .research_quality import requirements
 from .runner import ExecOutcome
 from .tools import _call
@@ -105,7 +106,8 @@ def requested_area(decision, question: str) -> str | None:
 
 
 async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
-                  exclude_chunks: frozenset[str] = frozenset()) -> list[dict]:
+                  exclude_chunks: frozenset[str] = frozenset(),
+                  query_question: str | None = None) -> list[dict]:
     """Search and then read in the same trusted scope, with a fixed evidence cap."""
     decision = ctx.route
     scope = ctx.scope
@@ -122,10 +124,11 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     research = requirements(task.question)["needs_report"]
     read_limit = MAX_READS if research else SIMPLE_READS
     groups = []
-    queries = search_queries(task.question, getattr(decision, "sub_query", None))
+    retrieval_question = query_question or task.question
+    queries = search_queries(retrieval_question, getattr(decision, "sub_query", None))
     if focus:
         queries = list(dict.fromkeys([focus[:70]] + queries))[:MAX_QUERIES]
-    elif scope is None and "数字经济" in task.question:
+    elif scope is None and "数字经济" in retrieval_question:
         # Keep the broad subject retrieval but tie each requested facet to it.
         queries = ["数字经济"] + [
             "数字经济 " + q for q in queries if q != "数字经济"
@@ -170,6 +173,10 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         found = primary + secondary
     evidence = []
     rejected_topic = 0
+    rejected_scope = 0
+    requested = (getattr(ctx, "qa_followup", None) or {}).get("requested_constraints") or {}
+    requested_areas = {str(item) for item in requested.get("areas", []) if item}
+    requested_periods = {normalize_period(item) for item in requested.get("periods", []) if item}
     used = set()
     read_attempts = 0
     for hit in found:
@@ -192,6 +199,17 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         if reply["status"] != "ok":
             continue
         passage = reply["data"]
+        # A turn that explicitly changed region/period must not fall back to a
+        # read from a different scope merely because it was the best lexical hit.
+        passage_area = str(passage.get("area") or hit.get("area") or "")
+        passage_period = normalize_period(passage.get("fyp") or hit.get("fyp"))
+        if requested_areas and not any(
+                area in passage_area or passage_area in area for area in requested_areas):
+            rejected_scope += 1
+            continue
+        if requested_periods and passage_period not in requested_periods:
+            rejected_scope += 1
+            continue
         if subject_terms and not _subject_score(
                 " ".join((str(hit.get("title") or ""),
                           str(hit.get("section_path") or ""),
@@ -216,16 +234,19 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         "queries": queries, "candidate_count": len(found),
         "topic_filter": "digital_economy" if subject_terms else None,
         "unrelated_read_rejected": rejected_topic,
+        "scope_read_rejected": rejected_scope,
         "accepted_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
         "read_attempts": read_attempts,
     }
     return evidence
 
 
-def messages_for(task, evidence: list[dict]) -> list[dict]:
+def messages_for(task, evidence: list[dict], context_note: str | None = None) -> list[dict]:
     budget = TOTAL_EVIDENCE_CHARS
-    parts = [f"原始问题：{task.question[:1000]}", "",
-             "以下为工具回读的真实政策原文，仅允许引用这些片段。"]
+    parts = [f"原始问题：{task.question[:1000]}", ""]
+    if context_note:
+        parts.extend([context_note, ""])
+    parts.append("以下为工具回读的真实政策原文，仅允许引用这些片段。")
     for item in evidence:
         length = min(len(item["text"]), READ_CHARS, budget)
         if length <= 0:
@@ -255,9 +276,13 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
                              exclude_chunks: frozenset[str] = frozenset()) -> ExecOutcome:
     """Retrieve deterministically then perform at most one answer-model request."""
     rt.meta["qa_execution_mode"] = "bounded_retrieval"
+    followup = None if focus else getattr(ctx, "qa_followup", None)
+    context_note = followup.get("context_note") if isinstance(followup, dict) else None
+    query_question = followup.get("retrieval_query") if isinstance(followup, dict) else None
     try:
         evidence = await acquire(task, ctx, deadline, focus=focus,
-                                 exclude_chunks=exclude_chunks)
+                                 exclude_chunks=exclude_chunks,
+                                 query_question=query_question)
     except (ValueError, TypeError, KeyError) as exc:
         rt.log("qa_controlled_retrieval_error", kind=type(exc).__name__)
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
@@ -294,7 +319,7 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
     try:
         response = await asyncio.wait_for(
             rt.client.chat.completions.create(
-                model=s.llm_model, messages=messages_for(task, evidence),
+                model=s.llm_model, messages=messages_for(task, evidence, context_note),
                 max_tokens=min(2200, s.llm_max_output_tokens),
                 extra_body=thinking_off(s), timeout=timeout,
                 **({} if s.llm_temperature is None
