@@ -820,7 +820,8 @@ export function PolicyCatalog({
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap={reading} originalHints={originalHints} />}
+                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap={reading} originalHints={originalHints}
+                    documentTitle={policy.title} firstPage={content.offset === 0} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
