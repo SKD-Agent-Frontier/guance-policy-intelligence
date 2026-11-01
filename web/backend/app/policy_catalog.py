@@ -295,10 +295,19 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
             conn.rollback()
         finally:
             conn.close()
-    # Read-only media allowlist. Originals may be copied alongside the prepared
-    # snapshots, or mounted separately via GUANCE_POLICY_MEDIA_ROOT.
+    # Only read from existing clean corpus / frozen media, never mutate sources.
+    # The clean corpus may be mounted separately from the restored RAG runtime.
+    clean_root = os.environ.get("GUANCE_POLICY_CLEAN_ROOT", "").strip()
     configured_media = os.environ.get("GUANCE_POLICY_MEDIA_ROOT", "").strip()
-    media_roots = (Path(configured_media).resolve(), prepared) if configured_media else (prepared,)
+    repo_root = Path(__file__).resolve().parents[3]
+    media_roots = tuple(dict.fromkeys(
+        p.resolve() for p in (
+            *((Path(clean_root),) if clean_root else ()),
+            *((Path(configured_media),) if configured_media else ()),
+            repo_root / "语料库" / "Agent标准引用库",
+            prepared,
+        )
+    ))
     return CatalogSnapshot(generation_id=generation, revision=revision,
                            partial=manifest.get("partial"), records=tuple(records),
                            media_roots=media_roots)
@@ -639,9 +648,9 @@ class PolicyCatalogService:
         for root in self.snapshot.media_roots:
             root = root.resolve()
             candidates = (
+                root / "corpus" / planid / "media" / filename,
+                root / "edge_cases" / planid / "media" / filename,
                 root / planid / "media" / filename,
-                root / "media" / filename,
-                root / "snapshots" / "media" / filename,
                 root / "snapshots" / planid / "media" / filename,
             )
             for candidate in candidates:
