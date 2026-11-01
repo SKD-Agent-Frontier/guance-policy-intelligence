@@ -27,3 +27,5 @@ jobs:
       - run: python -m pip install -r requirements.txt -e "../../agent[dev]"
       - run: python -m pytest -q tests
       - run: python -m ruff check --config ../../agent/pyproject.toml app tests
+      - name: Audit 506 clean policy bodies (read-only, advisory)
+        run: python scripts/audit_policy_body_quality.py "../../语料库/Agent标准引用库"
