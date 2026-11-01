@@ -413,7 +413,7 @@ def test_clean_corpus_media_and_html_hints_are_read_only(client, tmp_path, monke
     folder = clean / "corpus" / "10001"
     media = folder / "media"
     media.mkdir(parents=True)
-    original_image = b"\\x89PNG\\r\\n\\x1a\\n" + b"policy-image"
+    original_image = b"\x89PNG\r\n\x1a\n" + b"policy-image"
     image_file = media / "image1.png"
     image_file.write_bytes(original_image)
     original_html = b"<h2>Original heading</h2><p>Body text</p>"
@@ -423,7 +423,7 @@ def test_clean_corpus_media_and_html_hints_are_read_only(client, tmp_path, monke
     record_snapshot = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n![图1](media/image1.png)"})
+                        "body": record.body + "\n![图1](media/image1.png)"})
         if record.planid == "10001" else record
         for record in record_snapshot.records
     )
