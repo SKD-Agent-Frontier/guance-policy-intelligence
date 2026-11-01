@@ -159,6 +159,47 @@ def finalize_qa_retrieval(result: RunResult, task: TaskRequest) -> RunResult:
     result.answer = message
     return result
 
+def enforce_qa_scope(result, ctx) -> int:
+    """Remove claims whose sources are outside an explicitly verified QA scope.
+
+    Correct quotes from the wrong policy are still wrong evidence. Only a
+    program-established scope (explicit target or trusted inherited context) is
+    enforced; open questions are not narrowed mechanically.
+    """
+    if (ctx is None or getattr(result, "task_type", "qa") != "qa"
+            or not getattr(ctx, "scope", None)):
+        return 0
+    allowed = {str(planid) for planid in ctx.scope if planid}
+    if not allowed:
+        return 0
+    kept, dropped = [], []
+    for claim in result.claims:
+        valid = []
+        for chunk_id in claim.chunk_ids:
+            ref = ctx.evidence.get(chunk_id) if ctx.evidence is not None else None
+            if ref is not None and str(ref.planid) in allowed:
+                valid.append(chunk_id)
+        if valid and len(valid) == len(claim.chunk_ids):
+            kept.append(claim)
+        else:
+            dropped.append(claim)
+    if not dropped:
+        return 0
+    result.claims = kept
+    active = {chunk_id for claim in kept for chunk_id in claim.chunk_ids}
+    result.evidence_refs = [ref for ref in result.evidence_refs
+                            if ref.chunk_id in active]
+    result.meta["object_scope_filter"] = {
+        "allowed_planids": sorted(allowed),
+        "dropped_claims": len(dropped),
+        "dropped_chunk_ids": [cid for claim in dropped for cid in claim.chunk_ids],
+    }
+    result.warnings.append(
+        f"有 {len(dropped)} 条结论的来源不在当前研究对象范围内，已删除。")
+    rebuild_trusted_answer(result, ctx, "object_scope_filter")
+    return len(dropped)
+
+
 def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext | None,
                  meta: dict, error: RunError | None = None) -> RunResult:
     meta = {"elapsed_ms": 0, "tool_calls": ctx.tool_calls if ctx else [], **meta}
