@@ -13,6 +13,7 @@ from guance_agent.qa_controlled import (
     TOTAL_EVIDENCE_CHARS,
     execute_controlled,
     messages_for,
+    requested_area,
     search_queries,
 )
 from guance_agent.runtime import Runtime
@@ -125,3 +126,13 @@ async def test_real_rag_path_uses_controlled_qa_without_sdk_tool_loop(env, monke
     assert [c["name"] for c in result.meta["tool_calls"]].count("kb_read") >= 1
     assert result.meta["llm"]["model_calls"] == 1
     assert result.meta["llm"]["parse"] == "ok"
+
+
+def test_area_parser_normalizes_verb_prefix_but_keeps_city_scope():
+    for value, expected in [
+        ("给出天津市", "天津市"),
+        ("苏州市", "苏州市"),
+        ("请查询成都市", "成都市"),
+    ]:
+        decision = SimpleNamespace(areas=(value,))
+        assert requested_area(decision, "请给出天津市和苏州市或成都市的政策") == expected
