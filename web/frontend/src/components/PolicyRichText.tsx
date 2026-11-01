@@ -2,7 +2,7 @@ import { useState } from "react";
 import { apiBaseUrl } from "../api/config";
 
 /** Whitelisted local media basename; never render remote or arbitrary file paths. */
-const IMAGE_LINK = /^\s*!\[([^\]]*)\]\(\s*media\/([A-Za-z0-9_.-]+)(?:\s+"[^"]*")?\s*\)\s*$/i;
+const IMAGE_LINK = /^\s*!\[([^\]]*)\]\s*\(\s*media\/([A-Za-z0-9_.-]+)(?:\s+"[^"]*")?\s*\)\s*$/i;
 const MARKDOWN_HEADING = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/;
 const SECTION = /^(?:第[一二三四五六七八九十百千0-9]+[章节篇部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十0-9]+[）)]|\d+[、．.]\s*|[-*•]\s+)/;
 type HeadingLevel = 2 | 3 | 4 | 5 | 6;
