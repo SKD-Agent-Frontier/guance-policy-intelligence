@@ -36,6 +36,39 @@ describe("policy heading hierarchy", () => {
     expect(screen.getByRole("heading", { name: "第一篇 经济发展", level: 2 })).toBeInTheDocument();
   });
 
+  it("does not repeat the main document title and centres its approval line", () => {
+    const title = "西安市国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要";
+    render(<PolicyRichText planid="10001" documentTitle={title} firstPage text={[
+      title,
+      "",
+      "（2021年2月4日西安市第十六届人民代表大会第六次会议批准）",
+      "",
+      "第一篇 发展基础",
+      "",
+      "全面深化改革，推进经济社会发展。",
+    ].join("\n")} />);
+    expect(screen.queryByRole("heading", { level: 1, name: title })).not.toBeInTheDocument();
+    expect(screen.getByText(/2021年2月4日/)).toHaveClass("catalog-document-date");
+    expect(screen.getByRole("heading", { level: 2, name: "第一篇 发展基础" })).toBeInTheDocument();
+    expect(screen.getByText("全面深化改革，推进经济社会发展。")).toBeInTheDocument();
+  });
+
+  it("renders a distinct source policy title as a centred H1, without modifying its text", () => {
+    const sourceTitle = "西安市国民经济和社会发展第十四个五年规划纲要";
+    render(<PolicyRichText planid="10001" documentTitle="西安市十四五规划" firstPage
+      text={`${sourceTitle}\n\n2021年3月\n\n第一章 总则`} />);
+    const heading = screen.getByRole("heading", { level: 1, name: sourceTitle });
+    expect(heading).toHaveClass("catalog-source-title");
+    expect(screen.getByText("2021年3月")).toHaveClass("catalog-document-date");
+    expect(screen.getByRole("heading", { level: 2, name: "第一章 总则" })).toBeInTheDocument();
+  });
+
+  it("does not centre incidental dates inside later pages or ordinary prose", () => {
+    const text = "2021年3月\n本季度重点推进项目建设。";
+    render(<PolicyRichText planid="10001" documentTitle="政策标题" firstPage={false} text={text} />);
+    expect(screen.queryByText("2021年3月")?.classList.contains("catalog-document-date")).toBe(false);
+  });
+
   it("never mistakes long prose or ordinary sentences for headings", () => {
     expect(policyHeading("（四）聚焦就业导向，加强重点群体就业技能培训。实施农民工职业技能提升行动，完善城乡就业体系。")).toBeNull();
     expect(policyHeading("发展目标是扩大就业、提高收入。")).toBeNull();
