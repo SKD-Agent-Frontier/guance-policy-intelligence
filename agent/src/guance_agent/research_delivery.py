@@ -78,6 +78,13 @@ def deliver_research(result, question: str) -> None:
     req = requirements(question)
     quality = evaluate(result, question)
     result.meta["research_quality"] = quality
+    if result.meta.get("execution_recovery"):
+        result.meta["research_delivery"] = {
+            "format": "verbatim_excerpts_or_no_results",
+            "status": "partial" if result.claims else "insufficient",
+            "audited_analysis": False,
+        }
+        return
     if not req["needs_report"] or result.status != "completed" or result.error:
         return
     refs = {ref.chunk_id: ref for ref in result.evidence_refs}
