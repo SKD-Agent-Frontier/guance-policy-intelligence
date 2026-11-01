@@ -25,6 +25,42 @@ export interface PolicyFacetsPanelProps {
 const ADMIN_LEVELS: PolicyAdminLevel[] = ["national", "province", "prefecture", "county", "unclassified"];
 const INITIAL_OPTION_LIMIT = 8;
 
+// Keep chronological facets in descending planning-period order, regardless of
+// whether the API returns the abbreviated or full historical period name.
+const PERIOD_ORDINALS: Record<string, number> = {
+  "十": 10, "十一": 11, "十二": 12, "十三": 13, "十四": 14, "十五": 15,
+};
+function planningPeriodRank(value: string): number | null {
+  const normalized = value.replace(/[\\s“”‘’"']/g, "");
+  // 「十五」单独使用时属于第十个五年规划的旧称，不是「十五五」。
+  if (normalized === "十五") return 10;
+  const compact = /^([十][一二三四五]?)五$/.exec(normalized);
+  const formal = /^第?(十[一二三四五]?)个五年(?:规划|计划)$/.exec(normalized);
+  const ordinal = compact?.[1] ?? formal?.[1];
+  return ordinal ? PERIOD_ORDINALS[ordinal] ?? null : null;
+}
+function sortPlanningPeriods(options: PolicyFacetOption<string>[]): PolicyFacetOption<string>[] {
+  return [...options].sort((a, b) => {
+    const first = planningPeriodRank(a.value);
+    const second = planningPeriodRank(b.value);
+    if (first !== null && second !== null) return second - first;
+    if (first !== null) return -1;
+    if (second !== null) return 1;
+    // Non-period metadata (e.g. 政府工作报告) stays visible until source fields
+    // are corrected. It is never silently recategorized by UI-only sorting.
+    return a.label.localeCompare(b.label, "zh-CN");
+  });
+}
+function sortPolicyTypes(options: PolicyFacetOption<string>[]): PolicyFacetOption<string>[] {
+  // The catch-all type category comes after every explicitly named type,
+  // including 总体规划纲要, while retaining the order of named types.
+  return [...options].sort((a, b) => {
+    const aOther = a.value === "其他" || a.value === "其它";
+    const bOther = b.value === "其他" || b.value === "其它";
+    return Number(aOther) - Number(bOther);
+  });
+}
+
 function ChoiceRow<TValue extends string | number>({
   label, options, selected, missingOption, missingSelected = false,
   onSelect, onSelectMissing,
@@ -121,7 +157,7 @@ export function PolicyFacetsPanel({
               <ChoiceRow label="时间（参考年份）" options={facets.facets.year.options}
                 selected={filters.year}
                 onSelect={(value: PolicyYear | undefined) => onChange({ year: value })} />
-              <ChoiceRow label="规划时期" options={facets.facets.fyp.options}
+              <ChoiceRow label="规划时期" options={sortPlanningPeriods(facets.facets.fyp.options)}
                 selected={filters.fyp} missingOption={facets.facets.fyp.unclassified}
                 missingSelected={filters.fyp_status === "unclassified"}
                 onSelect={value => onChange({ fyp: value, fyp_status: undefined })}
@@ -129,7 +165,7 @@ export function PolicyFacetsPanel({
                   fyp: undefined,
                   fyp_status: filters.fyp_status === "unclassified" ? undefined : "unclassified",
                 })} />
-              <ChoiceRow label="政策类型" options={facets.facets.plantype.options}
+              <ChoiceRow label="政策类型" options={sortPolicyTypes(facets.facets.plantype.options)}
                 selected={filters.plantype} missingOption={facets.facets.plantype.unclassified}
                 missingSelected={filters.plantype_status === "unclassified"}
                 onSelect={value => onChange({ plantype: value, plantype_status: undefined })}
