@@ -103,9 +103,20 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
             if cid not in seen:
                 seen.add(cid)
                 found.append(hit)
-        if len(found) >= MAX_READS:
+        if scope is not None and len(scope) == 1 and len(found) >= MAX_READS:
             break
 
+    # Open research should sample multiple documents before repeated chunks
+    # from one document; preserve lexical rank inside each group.
+    if scope is None:
+        primary, secondary, seen_documents = [], [], set()
+        for hit in found:
+            if hit["planid"] not in seen_documents:
+                primary.append(hit)
+                seen_documents.add(hit["planid"])
+            else:
+                secondary.append(hit)
+        found = primary + secondary
     evidence = []
     used = set()
     for hit in found:
@@ -183,8 +194,8 @@ async def execute_controlled(task, s, ctx, rt, deadline: float) -> ExecOutcome:
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
 
     rt.meta["qa_controlled_retrieval"] = {
-        "queries": [call.get("name") for call in ctx.tool_calls
-                    if call.get("name") == "kb_search"],
+        "search_count": sum(call.get("name") == "kb_search"
+                            for call in ctx.tool_calls),
         "read_chunks": [item["chunk_id"] for item in evidence],
         "read_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
         "evidence_chars": sum(len(item["text"]) for item in evidence),
@@ -227,3 +238,34 @@ async def execute_controlled(task, s, ctx, rt, deadline: float) -> ExecOutcome:
         rt.meta["llm"] = {"model_calls": 1, "parse": "failed",
                           "failure": "MODEL_UNAVAILABLE"}
         return ExecOutcome(None, "MODEL_UNAVAILABLE")
+
+def finalize_controlled_facts(result) -> None:
+    """Exclude unverified model prose; publish only retained quote-linked facts."""
+    if (result.task_type != "qa"
+            or result.meta.get("qa_execution_mode") != "bounded_retrieval"
+            or result.status != "completed" or result.error
+            or result._qa_report_supplied):
+        return
+    verification = result.meta.get("quote_verification") or {}
+    refs = {ref.chunk_id for ref in result.evidence_refs}
+    approved = verification.get("unverified") == 0 and verification.get("approved", 0) > 0
+    facts = [
+        claim for claim in result.claims
+        if approved and claim.quotes and claim.chunk_ids
+        and set(claim.chunk_ids) <= refs
+    ]
+    result.claims = facts
+    active = {cid for claim in facts for cid in claim.chunk_ids}
+    result.evidence_refs = [ref for ref in result.evidence_refs if ref.chunk_id in active]
+    if facts:
+        result.answer = (
+            "根据本轮已读政策原文，可提取以下具有逐字引文的事实。"
+            "是否足以回应全部研究要求仍需单独评估：\n"
+            + "\n".join("- " + claim.text for claim in facts)
+        )
+    else:
+        result.answer = (
+            "本轮未取得完成逐字核验的政策事实，无法据此回答。"
+            "未取得证据不代表相关政策不存在。"
+        )
+        result.evidence_status = "insufficient"
