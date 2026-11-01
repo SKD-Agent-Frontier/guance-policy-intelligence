@@ -31,7 +31,7 @@ const PERIOD_ORDINALS: Record<string, number> = {
   "十": 10, "十一": 11, "十二": 12, "十三": 13, "十四": 14, "十五": 15,
 };
 function planningPeriodRank(value: string): number | null {
-  const normalized = value.replace(/[\\s“”‘’"']/g, "");
+  const normalized = value.replace(/[\s“”‘’"']/g, "");
   // 「十五」单独使用时属于第十个五年规划的旧称，不是「十五五」。
   if (normalized === "十五") return 10;
   const compact = /^([十][一二三四五]?)五$/.exec(normalized);
