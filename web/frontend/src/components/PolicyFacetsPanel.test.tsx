@@ -79,18 +79,18 @@ describe("PolicyFacetsPanel compact behavior", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("shows missing values as 其它 at the end and hides zero-count 其它", async () => {
+  it("shows missing values as 其他 at the end and hides zero-count 其他", async () => {
     renderPanel();
     await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
     const rows = (heading: string) => within(screen.getByRole("heading", { name: heading }).parentElement!);
     const fyp = rows("规划时期");
-    expect(fyp.getAllByRole("button").at(-1)).toHaveTextContent("其它");
-    expect(fyp.getByRole("button", { name: "其它 1" })).toBeEnabled();
-    expect(rows("政策类型").queryByRole("button", { name: /其它/ })).not.toBeInTheDocument();
-    expect(rows("行政级别").queryByRole("button", { name: /其它/ })).not.toBeInTheDocument();
+    expect(fyp.getAllByRole("button").at(-1)).toHaveTextContent("其他");
+    expect(fyp.getByRole("button", { name: "其他 1" })).toBeEnabled();
+    expect(rows("政策类型").queryByRole("button", { name: /其他/ })).not.toBeInTheDocument();
+    expect(rows("行政级别").queryByRole("button", { name: /其他/ })).not.toBeInTheDocument();
   });
 
-  it("places a positive count administrative 其它 at the end", async () => {
+  it("places a positive count administrative 其他 at the end", async () => {
     const custom: PolicyFacetsResponse = {
       ...facets, facets: { ...facets.facets,
         admin_level: { ...facets.facets.admin_level, options: facets.facets.admin_level.options.map(o =>
@@ -100,7 +100,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
     renderPanel({}, custom);
     await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
     const row = within(screen.getByRole("heading", { name: "行政级别" }).parentElement!);
-    expect(row.getAllByRole("button").at(-1)).toHaveTextContent("其它");
+    expect(row.getAllByRole("button").at(-1)).toHaveTextContent("其他");
   });
 
   it("keeps distinct year, fyp and type filters", async () => {
