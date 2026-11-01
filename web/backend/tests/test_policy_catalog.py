@@ -411,12 +411,12 @@ def test_policy_media_allows_bracketed_local_markdown_target(client, tmp_path):
     """A frozen source with <media/file.png> must resolve to the same local asset."""
     media = tmp_path / "25743" / "media"
     media.mkdir(parents=True)
-    image = b"\\x89PNG\\r\\n\\x1a\\n" + b"bracketed-image"
+    image = b"\x89PNG\r\n\x1a\n" + b"bracketed-image"
     (media / "figure_page_069.png").write_bytes(image)
     original = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n![原文配图](<media/figure_page_069.png>)"})
+                        "body": record.body + "\n![原文配图](<media/figure_page_069.png>)"})
         if record.planid == "10001" else record
         for record in original.records
     )
@@ -428,7 +428,7 @@ def test_policy_media_allows_bracketed_local_markdown_target(client, tmp_path):
     )
     assert client.get("/api/policies/10001/media/figure_page_069.png").status_code == 404
     correct_media = tmp_path / "10001" / "media"
-    correct_media.mkdir()
+    correct_media.mkdir(parents=True)
     (correct_media / "figure_page_069.png").write_bytes(image)
     response = client.get("/api/policies/10001/media/figure_page_069.png")
     assert response.status_code == 200
