@@ -951,6 +951,7 @@
 .catalog-rich-text .catalog-toc-depth-0 { padding-left: 0; }
 .catalog-rich-text .catalog-toc-depth-1 { padding-left: 2em; }
 .catalog-rich-text .catalog-toc-depth-2 { padding-left: 4em; }
+.catalog-rich-text .catalog-toc-depth-3 { padding-left: 6em; }
 .catalog-chapter-outline button {
   font-family: var(--font-body, sans-serif);
   font-size: 13px;
