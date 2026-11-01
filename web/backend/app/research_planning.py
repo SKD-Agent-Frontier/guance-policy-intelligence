@@ -340,8 +340,17 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
                 else:
                     subject_gaps.append(name)
             if not peers:
-                return _insufficient(f"已定位{focus[0]}的规划，但当前发布库没有足够的同省同期可比规划，不能据此得出比较结论。",
-                                     "insufficient_peer_coverage")
+                result = _insufficient(
+                    f"已定位《{anchor.title}》（planid={anchor.planid}），但当前发布库缺少"
+                    f"{province}其他地市的同期可比规划，不能据此得出跨地市比较结论。",
+                    "insufficient_peer_coverage",
+                )
+                result["policies"] = [
+                    {"planid": anchor.planid, "area": anchor.area, "title": anchor.title, "fyp": anchor.fyp}
+                ]
+                result["requested_subjects"] = list(dict.fromkeys(prefectures))
+                result["subject_gaps"] = list(dict.fromkeys(subject_gaps))
+                return result
             selected_peers = peers[:6]
             coverage_limited = [record.area for record in peers[6:] if record.area]
             result = _ready(mode, question, [anchor, *selected_peers], dimensions,
