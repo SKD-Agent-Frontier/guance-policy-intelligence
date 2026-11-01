@@ -11,7 +11,14 @@ export function policyOutline(sections: readonly PolicySection[]): OutlineEntry[
       && Number.isInteger(section.end) && section.end > section.start)
     .map(section => ({
       ...section,
-      label: section.path.split(/\s+\/\s+/).at(-1)?.replace(/^\s*#{1,6}\s*/, "").trim() ?? "",
+      label: (section.path.split(/\s+\/\s+/).at(-1) ?? "")
+        .replace(/^\s*#{1,6}\s*/, "")
+        // Some RAG headings contain OCR/formatting artifacts such as "(%2)".
+        // Delete only the invalid prefix, never fabricate a chapter number.
+        .replace(/^\s*[（(]\s*[%％]\s*2\s*[）)]\s*/, "")
+        .replace(/^\s*[%％]\s*2[）)]?\s*/, "")
+        .replace(/[.．·…⋯﹒]{3,}\s*[0-9０-９]{1,4}\s*$/, "")
+        .trim(),
     }))
     .filter(section => section.label.length >= 2 && section.label.length <= 100
       && !/[|\n\r]/.test(section.label) && !section.label.includes("![")
