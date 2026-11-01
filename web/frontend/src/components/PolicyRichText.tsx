@@ -351,6 +351,14 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   let leadLineCount = 0;
   while (index < lines.length) {
     const line = lines[index];
+    // PDF extraction sometimes leaves a bare page number immediately ahead
+    // of the printed index. Suppress only that verified front-matter marker.
+    if (firstPage && index < 3 && /^[0-9０-９]{1,3}$/.test(line.trim())
+      && ((toc != null && toc[0] > index && toc[0] - index <= 2)
+        || /^\\s*目\\s*录\\s*$/.test(lines[index + 1] ?? ""))) {
+      index++;
+      continue;
+    }
     if (!line.trim()) { flushProse(); index++; continue; }
     if (PDF_PAGE_MARK.test(line.trim())) {
       flushProse();
