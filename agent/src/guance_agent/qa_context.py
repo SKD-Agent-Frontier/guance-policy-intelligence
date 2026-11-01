@@ -81,35 +81,52 @@ class TrustedContextStore:
         temp.replace(self.path)
 
 
-def build_trusted_turn(question: str, ctx, result) -> dict | None:
-    """Extract only verified source identities from this turn's read registry."""
+def build_trusted_turn(question: str, ctx, result) -> dict:
+    """Persist final quote-verified source identities, never merely-read hits.
+
+    Empty turns deliberately act as a boundary: after an unanswered scope change,
+    a later pronoun cannot resurrect an older document from the same session.
+    """
     documents: dict[str, dict] = {}
     chunks: list[str] = []
     registry = getattr(ctx, "evidence", None)
-    ids = registry.ids() if registry is not None else []
-    for chunk_id in ids:
-        ref = registry.get(chunk_id)
-        if ref is None or getattr(ref, "source", None) != "kb_read":
-            continue
-        planid = getattr(ref, "planid", None)
-        if not planid:
-            continue
-        chunks.append(chunk_id)
-        documents.setdefault(planid, {
-            "planid": planid,
-            "title": getattr(ref, "title", "") or "",
-            "area": getattr(ref, "area", None),
-            "fyp": getattr(ref, "fyp", None),
-        })
-    if not documents:
-        return None
+    final_refs = {ref.chunk_id: ref for ref in getattr(result, "evidence_refs", ())}
+    quote_check = getattr(result, "meta", {}).get("quote_verification") or {}
+    trusted = (getattr(result, "status", None) == "completed"
+               and not getattr(result, "error", None)
+               and isinstance(quote_check, dict)
+               and quote_check.get("approved", 0) > 0
+               and quote_check.get("unverified") == 0
+               and not result.meta.get("verification_incomplete"))
+    if trusted and registry is not None:
+        for claim in result.claims:
+            if (not claim.quotes or not claim.chunk_ids
+                    or not set(claim.chunk_ids) <= set(final_refs)):
+                continue
+            for chunk_id in claim.chunk_ids:
+                ref = registry.get(chunk_id)
+                final_ref = final_refs.get(chunk_id)
+                if (ref is None or final_ref is None
+                        or getattr(ref, "source", None) != "kb_read"
+                        or ref.planid != final_ref.planid):
+                    continue
+                chunks.append(chunk_id)
+                documents.setdefault(ref.planid, {
+                    "planid": ref.planid,
+                    "title": getattr(ref, "title", "") or "",
+                    "area": getattr(ref, "area", None),
+                    "fyp": getattr(ref, "fyp", None),
+                })
+    resolution = getattr(ctx, "qa_context_resolution", None) or {}
     return {
         "version": 1,
         "question": (question or "")[:MAX_QUESTION_CHARS],
         "documents": list(documents.values()),
-        "verified_chunk_ids": chunks[:24],
-        "verified_claim_count": len(getattr(result, "claims", ()) or ()),
+        "verified_chunk_ids": list(dict.fromkeys(chunks))[:24],
+        "verified_claim_count": len(getattr(result, "claims", ()) or ()) if trusted else 0,
         "evidence_status": getattr(result, "evidence_status", "none"),
+        "resolution_status": resolution.get("status"),
+        "requested_constraints": resolution.get("requested_constraints"),
     }
 
 
@@ -181,8 +198,10 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
     The resolver is deliberately deterministic: no model call and no free-form
     history summary.  It only uses source identities persisted from prior reads.
     """
+    # The latest turn is authoritative even if it has no accepted sources.
+    # Never skip an unsuccessful scope change to resurrect an older document.
     prior = next((turn for turn in reversed(turns or [])
-                  if isinstance(turn, dict) and turn.get("documents")), None)
+                  if isinstance(turn, dict)), None)
     base = {
         "status": "no_prior",
         "previous_question": None,
@@ -199,7 +218,19 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
     documents = [doc for doc in prior.get("documents", [])
                  if isinstance(doc, dict) and doc.get("planid")]
     if not documents:
-        return base
+        previous_question = str(prior.get("question") or "")
+        if any(marker in question for marker in FOLLOWUP_MARKERS):
+            return {
+                **base,
+                "status": "ambiguous",
+                "previous_question": previous_question,
+                "reason": "上一轮未形成可以继承的已核验研究对象",
+                "clarification": (
+                    "上一轮未确认可引用的目标政策文献，无法确定“其中”所指对象。"
+                    "请明确文献、地区或 planid 后再检索；不会退回更早轮次的旧文献。"
+                ),
+            }
+        return {**base, "status": "new_topic", "previous_question": previous_question}
     previous_question = str(prior.get("question") or "")
     prior_areas = {str(doc.get("area") or "") for doc in documents}
     prior_periods = {_normalize_prior_fyp(doc.get("fyp")) for doc in documents
