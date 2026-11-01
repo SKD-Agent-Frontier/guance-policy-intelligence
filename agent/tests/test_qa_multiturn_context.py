@@ -11,6 +11,7 @@ from guance_agent.kb import MockKB
 from guance_agent.orchestrator import run_task
 from guance_agent.qa_context import (
     TrustedContextStore,
+    build_trusted_turn,
     resolve_followup,
 )
 from guance_agent.qa_controlled import execute_controlled
@@ -140,7 +141,15 @@ async def test_controlled_qa_inherits_previous_single_document(env, monkeypatch)
     first_api = ChatAPI()
     await _run_turn(settings, kb, first_api, monkeypatch, first_task)
     store = TrustedContextStore(settings.session_path, first_task.session_id)
-    assert store.load(), "first turn must persist trusted source identity"
+    # The first model returned no claims: read-only hits must not be promoted
+    # to trusted follow-up identities. Seed a separately validated prior turn
+    # to test the inherited-scope wiring below.
+    assert store.load()[-1]["documents"] == []
+    store.append(_turn(
+        "沧州市十五计划中产业结构调整的主要措施有哪些？",
+        {"planid": "TEST-001", "title": "测试规划", "area": "甲市",
+         "fyp": "第十个五年计划"},
+    ))
 
     second_task = origin.model_copy(update={
         "run_id": "run_followup",
@@ -167,13 +176,12 @@ async def test_ambiguous_followup_stops_before_model_call(env, monkeypatch):
         llm_base_url="https://example.invalid/v1", llm_api_key="fake",
     )
     kb = MockKB(settings.mock_kb_path)
-    first_task = origin.model_copy(update={"run_id": "run_first", "question": "农业"})
-    first_api = ChatAPI()
-    await _run_turn(settings, kb, first_api, monkeypatch, first_task)
-    store = TrustedContextStore(settings.session_path, first_task.session_id)
-    turns = store.load()
-    if not turns or len(turns[-1].get("documents", [])) < 2:
-        pytest.skip("mock corpus returned only one source; ambiguity needs >=2")
+    store = TrustedContextStore(settings.session_path, origin.session_id)
+    store.append(_turn(
+        "归纳两篇政策",
+        {"planid": "TEST-001", "title": "测试规划 A", "area": "甲市"},
+        {"planid": "TEST-002", "title": "测试规划 B", "area": "乙市"},
+    ))
 
     second_task = origin.model_copy(update={
         "run_id": "run_ambiguous",
@@ -206,3 +214,50 @@ async def test_explicit_period_change_rejects_mismatched_source(env):
     assert api.calls == 0
     parsed = json.loads(outcome.final_output)
     assert parsed["insufficient"] is True and parsed["claims"] == []
+
+
+def test_trusted_turn_uses_only_final_retained_claims_and_refs():
+    original = SimpleNamespace(chunk_id="c1", planid="2561", source="kb_read",
+                               title="沧州政策", area="沧州市", fyp="第十个五年计划")
+    discarded = SimpleNamespace(chunk_id="c2", planid="15576", source="kb_read",
+                                title="山东禹城", area="山东省", fyp="第十个五年计划")
+    registry = SimpleNamespace(get=lambda cid: {"c1": original, "c2": discarded}.get(cid))
+    ctx = SimpleNamespace(evidence=registry, qa_context_resolution={"status": "continued"})
+    result = SimpleNamespace(
+        status="completed", error=None, evidence_status="insufficient",
+        claims=[SimpleNamespace(chunk_ids=["c1"], quotes=["已核验原文"])],
+        evidence_refs=[original],
+        meta={"quote_verification": {"approved": 2, "rejected": 1, "unverified": 0}},
+    )
+    turn = build_trusted_turn("其中有哪些措施？", ctx, result)
+    assert [doc["planid"] for doc in turn["documents"]] == ["2561"]
+    assert turn["verified_chunk_ids"] == ["c1"]
+    assert turn["verified_claim_count"] == 1
+
+    result.claims = []
+    result.evidence_refs = []
+    empty = build_trusted_turn("那河北省的政策呢？", ctx, result)
+    assert empty["documents"] == []
+    assert empty["verified_chunk_ids"] == []
+
+
+def test_unanswered_scope_change_blocks_resurrection_of_old_policy(tmp_path):
+    store = TrustedContextStore(tmp_path / "sessions.sqlite", "s_four_turns")
+    old = {"planid": "2561", "title": "沧州市十五计划", "area": "沧州市",
+           "fyp": "第十个五年计划"}
+    store.append(_turn("沧州市十五计划有哪些措施？", old))
+    assert resolve_followup(
+        "其中高新技术产业怎么说？", store.load(),
+    )["inherited_planids"] == ["2561"]
+    # A new region was requested, but its target document could not be found.
+    ctx = SimpleNamespace(evidence=None, qa_context_resolution={
+        "status": "scope_changed", "requested_constraints": {
+            "areas": ["河北省"], "periods": ["第十个五年计划"]}})
+    result = SimpleNamespace(status="completed", error=None, claims=[],
+                             evidence_refs=[], evidence_status="insufficient",
+                             meta={"quote_verification": {"approved": 0, "unverified": 0}})
+    store.append(build_trusted_turn("那河北省的十五计划呢？", ctx, result))
+    resolution = resolve_followup("其中关于高新技术产业怎么说？", store.load())
+    assert resolution["status"] == "ambiguous"
+    assert resolution["inherited_planids"] == []
+    assert "上一轮未确认" in resolution["clarification"]
