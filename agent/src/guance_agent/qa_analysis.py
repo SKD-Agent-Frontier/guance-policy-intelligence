@@ -53,7 +53,8 @@ def _apply_report_outline(result: RunResult, question: str) -> None:
     """
     if not needs_outline(question) or not result.claims:
         return
-    draft, missing = verified_qa_outline(result.claims, question)
+    draft, missing = verified_qa_outline(result.claims, question,
+                                         result.evidence_refs)
     if missing:
         result.evidence_status = "insufficient"
         warning = "以下研究维度仍缺少可核验事实：" + "、".join(missing)
