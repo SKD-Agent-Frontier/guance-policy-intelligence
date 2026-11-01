@@ -11,6 +11,7 @@ vi.mock("../api/catalogClient", () => ({
     list: vi.fn(),
     detail: vi.fn(),
     content: vi.fn(),
+    readingPage: undefined,
     facets: vi.fn(),
     regions: vi.fn(),
   },
@@ -115,6 +116,9 @@ async function searchCatalog(user = userEvent.setup()) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // Legacy tests exercise the raw code-point content endpoint. Opt in to
+  // the newer presentation route explicitly in its own regression case.
+  catalog.readingPage = undefined as never;
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   runtime.isRealMode = true;
   catalog.list.mockResolvedValue(listResponse([
@@ -330,6 +334,35 @@ describe("PolicyCatalog", () => {
     await user.click(screen.getByRole("button", { name: /上一页/ }));
     await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 0, 4000, expect.any(AbortSignal)));
 
+  });
+
+  it("uses paragraph-aligned presentation pages for regular reading and raw offsets for section navigation", async () => {
+    const user = userEvent.setup();
+    const response = (page: number) => ({
+      ...contentResponse("P-1", page === 1 ? 0 : 3975,
+        page === 1 ? "第一章 总则\\n\\n" + "政策目标".repeat(50) : "第二页开头完整段落。", 6000),
+      page, page_count: 2,
+    });
+    const readingPage = vi.fn(async (_planid: string, page: number) => response(page));
+    catalog.readingPage = readingPage as never;
+    catalog.detail.mockResolvedValue(detailResponse("P-1", "数字经济政策", [
+      { index: 0, level: 1, path: "第一章 总则", start: 0, end: 3800 },
+      { index: 1, level: 1, path: "第二章 发展目标", start: 4100, end: 6000 },
+    ]) as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    const reader = await screen.findByRole("article", { name: "政策原文正文" });
+    await waitFor(() => expect(readingPage).toHaveBeenCalledWith("P-1", 1, 4000, expect.any(AbortSignal)));
+    await user.click(within(reader).getByRole("button", { name: /下一页/ }));
+    await waitFor(() => expect(readingPage).toHaveBeenLastCalledWith("P-1", 2, 4000, expect.any(AbortSignal)));
+    expect(within(reader).getByLabelText("原文页码")).toHaveTextContent("第 2 / 2 页");
+
+    await user.click(within(reader).getByRole("button", { name: /返回检索结果/ }));
+    await user.hover(screen.getByRole("button", { name: /数字经济政策/ }));
+    const preview = await screen.findByRole("complementary", { name: "政策详情预览" });
+    await user.click(within(preview).getByRole("button", { name: "第二章 发展目标" }));
+    await waitFor(() => expect(catalog.content).toHaveBeenCalledWith("P-1", 4100, 4000, expect.any(AbortSignal)));
   });
 
   it("supports direct policy page selection and shows reader metadata", async () => {
