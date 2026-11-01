@@ -3,7 +3,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +12,9 @@ from guance_agent.client import aclose_client
 from guance_agent.config import load_settings
 from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
+from guance_agent.research_planner import ResearchPlanner
 
+from .policy_routes import _catalog as get_policy_catalog
 from .policy_routes import router as policy_catalog_router
 from .preparation import (
     CONFLICT_DETAIL,
@@ -20,6 +22,7 @@ from .preparation import (
     ResearchPreparationService,
 )
 from .preparation_models import ResearchPrepareRequest
+from .research_runtime import discover_run_plan
 from .schemas import RunRequest
 
 logger = logging.getLogger(__name__)
@@ -116,10 +119,23 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
             return JSONResponse(status_code=500, content={"detail": "服务内部错误"})
 
     @application.post("/api/runs")
-    async def create_run(payload: RunRequest):
+    async def create_run(payload: RunRequest, request: Request):
         if not application.state.ready:
             return JSONResponse(status_code=503, content={"detail": "服务尚未就绪"})
         try:
+            async def discoverer(task, contract, plan, deadline):
+                try:
+                    catalog = await get_policy_catalog(request)
+                except HTTPException:
+                    if task.task_type in ("qa", "organize") and task.targets is None:
+                        return ResearchPlanner.fallback(
+                            plan, "发布目录不可用；继续使用现有知识库发现能力。")
+                    return ResearchPlanner.with_catalog_documents(
+                        contract, plan, [], status="unavailable",
+                        message="发布目录不可用，无法核验研究对象来源。",
+                    )
+                return await discover_run_plan(task, contract, plan, deadline, catalog)
+
             result = await submit(
                 question=payload.question,
                 task_type=payload.task_type,
@@ -127,6 +143,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
                 dimensions=payload.dimensions,
                 session_id=payload.session_id,
                 settings=application.state.settings,
+                research_discoverer=discoverer,
             )
             return JSONResponse(content=jsonable_encoder(result))
         except Exception:  # noqa: BLE001

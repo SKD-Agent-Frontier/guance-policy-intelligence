@@ -34,6 +34,9 @@ from .output import (
 )
 from .qa_analysis import finalize_qa_analysis
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
+from .research_contract import TaskContract
+from .research_planner import ResearchDiscovery, ResearchPlanner
+from .research_runtime import ResearchRuntime
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -41,6 +44,7 @@ from .schemas import DIMENSIONS, AgentOutput, RunError, RunResult, TaskRequest
 from .verify import verify_numbers, verify_quotes
 
 SUPPORTED_TASKS = ("qa", "extract")   # 只有这两个 task_type 有实现，其余显式拒绝
+RESEARCH_TASKS = frozenset({"qa", "extract", "organize", "compare", "compare_plans"})
 
 _LOCKS: dict[str, asyncio.Lock] = {}
 
@@ -235,13 +239,13 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
             part.meta.update(parse_meta)
         # 证据隔离：只保留确实引自本对象的结论，防止跨对象借证据
         own = {cid for cid in (c for claim in part.claims for c in claim.chunk_ids)
-               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
-        part.claims = [claim for claim in part.claims
-                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]
-        if part._qa_report_supplied:
-            prune_report(part, ctx, "object_scope_filter")
-        if not part.claims and part.status == "completed":
-            part.status = "completed"
+               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
+        part.claims = [claim for claim in part.claims
+                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]
+        if part._qa_report_supplied:
+            prune_report(part, ctx, "object_scope_filter")
+        if not part.claims and part.status == "completed":
+            part.status = "completed"
         obj["status"] = part.status if part.status != "completed" else "ok"
         obj["error_code"] = part.error.code if part.error else None
         if part.status == "completed" and part.claims:
@@ -290,76 +294,76 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     result = runs[0][1].model_copy(deep=True)
     if aggregate_meta:
         result.meta.update(aggregate_meta)
-    result.claims, result.evidence_refs = claims, list(refs.values())
-    result.dropped_chunk_ids = []
-    result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)
-    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)
-                    if part._qa_report_supplied and task.task_type == "qa"]
-    if report_parts:
-        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。
-        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。
-        result._qa_report_supplied = True
-        result._qa_report_dimensions = []
-        result._qa_report_candidates = []
-        seen_dimensions, seen_ids = set(), set()
-        for index, (obj, part) in enumerate(runs):
-            if not part._qa_report_supplied:
-                dimension = f"{obj['label']}（未提供结构化报告）"
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-                continue
-            dimension_map = {
-                dimension: f"{obj['label']} / {dimension}"
-                for dimension in part._qa_report_dimensions
-            }
-            for dimension in dimension_map.values():
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-            for candidate in part._qa_report_candidates:
-                block = dict(candidate)
-                block_id = f"{index}:{obj['planid']}:{block['id']}"
-                while block_id in seen_ids:
-                    block_id = "_" + block_id
-                seen_ids.add(block_id)
-                block["id"] = block_id
-                block["dimension"] = dimension_map[block["dimension"]]
-                path = list(block["title_path"])
-                path[0] = f"{obj['label']} / {path[0]}"
-                block["title_path"] = path[:2]
-                result._qa_report_candidates.append(block)
-        covered_objects = {obj["label"] for obj, _ in runs}
-        for obj in objects:
-            if obj["label"] not in covered_objects:
-                dimension = f"{obj['label']}（未取得证据）"
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。
-        declared_insufficient = any(
-            "本次证据不足，以上结论可能不完整" in part.warnings
-            for _, _, part in report_parts)
-        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。
-        result.answer = SAFE_EMPTY_ANSWER
-        result.meta["qa_report"] = {
-            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)
-                            for _, _, part in report_parts),
-            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",
-            "semantic_review": "pending", "objects_without_report": [
-                obj["label"] for obj, part in runs if not part._qa_report_supplied],
-            "declared_insufficient": declared_insufficient,
-        }
-        if (len(result._qa_report_dimensions) > 8
-                or len(result._qa_report_candidates) > 12):
-            result._qa_report_candidates = []
-            result.meta["qa_report"]["aggregation_limit_exceeded"] = True
-            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")
-        if result.meta["qa_report"]["objects_without_report"]:
-            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")
-        prune_report(result, ctx, "multi_object_aggregation")
-    missing = [o for o in objects if o.get("status") != "ok"]
-    if missing:
+    result.claims, result.evidence_refs = claims, list(refs.values())
+    result.dropped_chunk_ids = []
+    result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)
+    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)
+                    if part._qa_report_supplied and task.task_type == "qa"]
+    if report_parts:
+        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。
+        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。
+        result._qa_report_supplied = True
+        result._qa_report_dimensions = []
+        result._qa_report_candidates = []
+        seen_dimensions, seen_ids = set(), set()
+        for index, (obj, part) in enumerate(runs):
+            if not part._qa_report_supplied:
+                dimension = f"{obj['label']}（未提供结构化报告）"
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+                continue
+            dimension_map = {
+                dimension: f"{obj['label']} / {dimension}"
+                for dimension in part._qa_report_dimensions
+            }
+            for dimension in dimension_map.values():
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+            for candidate in part._qa_report_candidates:
+                block = dict(candidate)
+                block_id = f"{index}:{obj['planid']}:{block['id']}"
+                while block_id in seen_ids:
+                    block_id = "_" + block_id
+                seen_ids.add(block_id)
+                block["id"] = block_id
+                block["dimension"] = dimension_map[block["dimension"]]
+                path = list(block["title_path"])
+                path[0] = f"{obj['label']} / {path[0]}"
+                block["title_path"] = path[:2]
+                result._qa_report_candidates.append(block)
+        covered_objects = {obj["label"] for obj, _ in runs}
+        for obj in objects:
+            if obj["label"] not in covered_objects:
+                dimension = f"{obj['label']}（未取得证据）"
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。
+        declared_insufficient = any(
+            "本次证据不足，以上结论可能不完整" in part.warnings
+            for _, _, part in report_parts)
+        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。
+        result.answer = SAFE_EMPTY_ANSWER
+        result.meta["qa_report"] = {
+            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)
+                            for _, _, part in report_parts),
+            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",
+            "semantic_review": "pending", "objects_without_report": [
+                obj["label"] for obj, part in runs if not part._qa_report_supplied],
+            "declared_insufficient": declared_insufficient,
+        }
+        if (len(result._qa_report_dimensions) > 8
+                or len(result._qa_report_candidates) > 12):
+            result._qa_report_candidates = []
+            result.meta["qa_report"]["aggregation_limit_exceeded"] = True
+            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")
+        if result.meta["qa_report"]["objects_without_report"]:
+            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")
+        prune_report(result, ctx, "multi_object_aggregation")
+    missing = [o for o in objects if o.get("status") != "ok"]
+    if missing:
         result.warnings.append("以下对象未取得证据：" + "；".join(
             f"{o['label']}({o.get('status')})" for o in missing))
     llms = [o["llm"] for o in objects if o.get("llm")]
@@ -374,9 +378,19 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     return result
 
 
-async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
-    """先路由，再按单对象/多对象/开放主题取证；结束时统一落运行日志。"""
-    deadline = time.monotonic() + s.run_timeout
+async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
+                   research_discoverer=None, research_runtime: ResearchRuntime | None = None) -> RunResult:
+    """Execute the task selected by the locked plan within one run deadline."""
+    deadline = research_runtime.deadline if research_runtime is not None else time.monotonic() + s.run_timeout
+    if task.task_type in RESEARCH_TASKS:
+        contract = research_runtime.contract if research_runtime is not None else TaskContract.from_task(task)
+        if research_runtime is None:
+            research_runtime = ResearchRuntime(
+                contract, ResearchPlanner.initial(contract), deadline,
+                max_revisions=getattr(s, "max_plan_revisions", 1),
+            )
+        if research_runtime.status == "created":
+            research_runtime.transition("planning")
     module = None if task.task_type in SUPPORTED_TASKS else get_module(task.task_type)
     if task.task_type not in SUPPORTED_TASKS and module is None:
         result = build_result(task, None, None, rt.meta, RunError(
@@ -384,52 +398,200 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
         result.task_type = task.task_type
         rt.finish(result, None)
         return result
+
+    ctx = None
     if not s.llm_base_url or not s.llm_api_key:
-        ctx = None
         result = build_result(task, None, None, rt.meta,
                               RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
+        if research_runtime is not None and research_runtime.status == "planning":
+            research_runtime.transition("failed", "model_unavailable")
     else:
         try:
             kb = get_kb(s)
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
-        ctx = RunContext(s, kb, task.run_id, task.session_id, question=task.question)
-        decision = decide(task.question)
-        if task.targets is not None:
-            decision = RouteDecision(kind="objects", planids=tuple(task.targets),
-                                     areas=decision.areas, fyps=decision.fyps,
-                                     sub_query=decision.sub_query, blocked=decision.blocked)
-        ctx.route = decision
-        if task.task_type == "qa" and decision.kind == "open":
-            ctx.literal_keyword = literal_keyword(task.question)
+        ctx = RunContext(s, kb, task.run_id, task.session_id,
+                         question=task.question, research=research_runtime)
         async with _session_lock(task.session_id):
-            if module is not None:
-                result = await _run_business(task, s, rt, ctx, deadline, decision, module)
-            elif decision.blocked:
-                result = _blocked(task, ctx, rt.meta, decision)
-            elif decision.kind == "objects":
-                result = await _run_objects(task, s, ctx, rt, decision, deadline)
+            result = None
+            planned_task = task
+            if research_runtime is not None:
+                if research_discoverer is not None:
+                    research_runtime.transition("discovering")
+                    research_runtime.set_step_status("discover", "running")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        research_runtime.set_step_status("discover", "partial", "run deadline reached")
+                        research_runtime.transition("limit_reached", "deadline exceeded during discovery")
+                        result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
+                    else:
+                        try:
+                            discovery = await asyncio.wait_for(
+                                research_discoverer(task, research_runtime.contract,
+                                                    research_runtime.plan, deadline),
+                                timeout=remaining,
+                            )
+                        except TimeoutError:
+                            research_runtime.set_step_status("discover", "partial", "run deadline reached")
+                            research_runtime.transition("limit_reached", "deadline exceeded during discovery")
+                            result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
+                        if result is None:
+                            if not isinstance(discovery, ResearchDiscovery):
+                                discovery = ResearchDiscovery.model_validate(discovery)
+                            research_runtime.accept_discovery(discovery.plan)
+                            if discovery.status in {"needs_clarification", "insufficient", "unavailable"}:
+                                reason = discovery.message or "当前证据不足以继续研究。"
+                                research_runtime.set_step_status("discover", "running")
+                                research_runtime.set_step_status("discover", "partial", reason)
+                                research_runtime.transition("insufficient", reason)
+                                result = _discovery_result(task, rt, reason)
+                            else:
+                                discovered_plan = research_runtime.plan
+                                requested_subjects = list(dict.fromkeys(
+                                    discovery.requested_subjects
+                                    or discovered_plan.requested_subjects
+                                ))
+                                missing_subjects = list(discovered_plan.coverage.subject_gaps)
+                                if (task.task_type in {"compare", "compare_plans"}
+                                        and len(discovered_plan.documents) >= 2
+                                        and requested_subjects
+                                        and missing_subjects):
+                                    if research_runtime.revision_count >= research_runtime.max_revisions:
+                                        reason = "研究计划修订预算已耗尽，缺少部分请求对象文献。"
+                                        research_runtime.transition("insufficient", reason)
+                                        result = _discovery_result(task, rt, reason)
+                                    else:
+                                        revised_data = discovered_plan.model_dump(mode="python")
+                                        steps = revised_data["steps"]
+                                        for step in steps:
+                                            if step["step_id"] == "execute":
+                                                step["input_refs"] = [
+                                                    f"document:{doc.planid}"
+                                                    for doc in discovered_plan.documents
+                                                ]
+                                        revised_data.update({
+                                            "revision": discovered_plan.revision + 1,
+                                            "scope": discovered_plan.scope.model_copy(update={
+                                                "target_planids": [doc.planid for doc in discovered_plan.documents],
+                                            }),
+                                            "steps": steps,
+                                            "coverage": discovered_plan.coverage.model_copy(update={
+                                                "subject_gaps": missing_subjects,
+                                            }),
+                                        })
+                                        revised_plan = type(discovered_plan).model_validate(revised_data)
+                                        research_runtime.revise(
+                                            revised_plan,
+                                            "missing_document_coverage: " + ", ".join(missing_subjects),
+                                        )
+                                        discovered_plan = research_runtime.plan
+                                discover_step = next(
+                                    (step for step in research_runtime.plan.steps
+                                     if step.step_id == "discover"), None)
+                                if discover_step is not None and discover_step.status == "pending":
+                                    research_runtime.set_step_status("discover", "running")
+                                execution_step = next(
+                                    (step for step in discovered_plan.steps
+                                     if step.step_id == "execute"), None)
+                                document_targets = [
+                                    ref.removeprefix("document:")
+                                    for ref in (execution_step.input_refs if execution_step else [])
+                                    if ref.startswith("document:")
+                                ]
+                                if document_targets:
+                                    planned_task = task.model_copy(update={
+                                        "targets": document_targets,
+                                        "dimensions": list(discovered_plan.dimensions) or task.dimensions,
+                                    })
+                else:
+                    research_runtime.set_step_status("discover", "running")
+
+                if result is None:
+                    plan = research_runtime.plan
+                    executor_steps = [step for step in plan.steps if step.step_id == "execute"]
+                    if len(executor_steps) != 1 or executor_steps[0].capability != plan.task_type:
+                        raise ValueError("research plan must select exactly one locked task capability")
+                    research_runtime.transition("ready")
+                    research_runtime.transition("executing")
+                    research_runtime.set_step_status("execute", "running")
+                    decision = decide(planned_task.question)
+                    if planned_task.targets is not None:
+                        decision = RouteDecision(kind="objects", planids=tuple(planned_task.targets),
+                                                 areas=decision.areas, fyps=decision.fyps,
+                                                 sub_query=decision.sub_query, blocked=decision.blocked)
+                    ctx.route = decision
+                    ctx.scope = tuple(planned_task.targets) if planned_task.targets is not None else None
+                    if plan.task_type == "qa" and decision.kind == "open":
+                        ctx.literal_keyword = literal_keyword(planned_task.question)
+                    module = get_module(executor_steps[0].capability)
+                    if module is not None:
+                        result = await _run_business(planned_task, s, rt, ctx, deadline, decision, module)
+                    elif decision.blocked:
+                        result = _blocked(planned_task, ctx, rt.meta, decision)
+                    elif decision.kind == "objects":
+                        result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
+                    else:
+                        result = await _run_single(planned_task, s, ctx, rt, deadline, decision)
+                    if result.status == "failed":
+                        research_runtime.set_step_status("execute", "failed",
+                                                         result.error.message if result.error else "执行失败")
+                    elif result.status == "limit_reached":
+                        research_runtime.set_step_status("execute", "partial",
+                                                         result.error.message if result.error else "运行预算已耗尽")
+                    elif result.status == "partial":
+                        research_runtime.set_step_status("execute", "partial", "业务能力返回部分结果")
+                    else:
+                        research_runtime.set_step_status("execute", "completed")
+                    if any(step.step_id == "discover" and step.status == "running"
+                           for step in research_runtime.plan.steps):
+                        research_runtime.set_step_status("discover", "completed")
             else:
-                result = await _run_single(task, s, ctx, rt, deadline, decision)
-        result.task_type = task.task_type
-        if result.status == "completed" and module is None:
-            # 核验也不能突破整轮运行时限：超时则降级并如实说明，不拖垮请求。
-            try:
-                await asyncio.wait_for(verify_quotes(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-                await asyncio.wait_for(verify_numbers(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-            except TimeoutError:
-                result.warnings.append("核验超出本次运行时限，未完成逐条核验")
-                result.evidence_status = "insufficient"
-                if task.task_type == "qa" and result._qa_report_supplied:
-                    result.meta["verification_incomplete"] = True
-                    result.claims = []
-                    result.evidence_refs = []
-        if module is None:
-            if task.task_type == "qa":
-                enforce_literal_result(result, ctx)
-            _attach(result, task)
+                decision = decide(task.question)
+                if task.targets is not None:
+                    decision = RouteDecision(kind="objects", planids=tuple(task.targets),
+                                             areas=decision.areas, fyps=decision.fyps,
+                                             sub_query=decision.sub_query, blocked=decision.blocked)
+                ctx.route = decision
+                if task.task_type == "qa" and decision.kind == "open":
+                    ctx.literal_keyword = literal_keyword(task.question)
+                if module is not None:
+                    result = await _run_business(task, s, rt, ctx, deadline, decision, module)
+                elif decision.blocked:
+                    result = _blocked(task, ctx, rt.meta, decision)
+                elif decision.kind == "objects":
+                    result = await _run_objects(task, s, ctx, rt, decision, deadline)
+                else:
+                    result = await _run_single(task, s, ctx, rt, deadline, decision)
+            if result is None:
+                result = _discovery_result(task, rt, "研究未能产生结果。")
+            if research_runtime is not None and research_runtime.status == "executing":
+                if result.status == "limit_reached":
+                    research_runtime.transition("limit_reached", result.error.message if result.error else "运行预算已耗尽")
+                elif result.status == "failed":
+                    research_runtime.transition("failed", result.error.message if result.error else "执行失败")
+                else:
+                    research_runtime.transition("verifying")
+                    research_runtime.set_step_status("verify", "running")
+            result.task_type = task.task_type
+            if result.status == "completed" and module is None:
+                try:
+                    await asyncio.wait_for(verify_quotes(result, ctx),
+                                           timeout=max(deadline - time.monotonic(), 0.05))
+                    await asyncio.wait_for(verify_numbers(result, ctx),
+                                           timeout=max(deadline - time.monotonic(), 0.05))
+                except TimeoutError:
+                    result.warnings.append("核验超出本次运行时限，未完成逐条核验")
+                    result.evidence_status = "insufficient"
+                    if task.task_type == "qa" and result._qa_report_supplied:
+                        result.meta["verification_incomplete"] = True
+                        result.claims = []
+                        result.evidence_refs = []
+            if research_runtime is not None and research_runtime.status == "verifying":
+                if module is None and task.task_type == "qa":
+                    enforce_literal_result(result, ctx)
+                if module is None:
+                    _attach(result, planned_task)
+                research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
     result = finalize_qa_analysis(result, task.question)
@@ -453,13 +615,20 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             result.meta.setdefault("qa_report", {}).update(
                 reason="semantic_review_timeout", semantic_review="timeout", retained=0)
             result.warnings.append("报告语义审核超出本次运行时限，已撤回报告段落")
+    if research_runtime is not None:
+        try:
+            research_runtime.finish(result, ctx)
+        except (ValueError, TypeError) as exc:
+            result.status = "failed"
+            result.evidence_status = "insufficient"
+            result.error = RunError(code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
+            result.warnings.append("研究运行时无法完成任务契约验收")
+            result.meta["research_runtime_error"] = type(exc).__name__
     try:
         rt.finish(result, ctx)
     except OSError as exc:
         result.meta["finish_failed"] = type(exc).__name__
     return result
-
-
 def _business_prompt(task, ctx, meta, decision, answer, targets=()) -> RunResult:
     output = AgentOutput(answer=answer, claims=[], insufficient=True)
     result = build_result(task, ExecOutcome(output, None), ctx, meta)
@@ -639,6 +808,24 @@ def _business_document_metadata(services):
     }
 
 
+def _discovery_result(task, rt, message: str, *, limited: bool = False) -> RunResult:
+    return RunResult(
+        run_id=task.run_id,
+        session_id=task.session_id,
+        status="limit_reached" if limited else "completed",
+        evidence_status="none" if limited else "insufficient",
+        answer=message,
+        claims=[],
+        evidence_refs=[],
+        dropped_chunk_ids=[],
+        error=RunError(code="RUN_TIMEOUT", message=message) if limited else None,
+        meta=dict(rt.meta),
+        warnings=[] if limited else [message],
+        task_type=task.task_type,
+        structured={"research_discovery": {"status": "limit_reached" if limited else "insufficient"}},
+    )
+
+
 def _business_failure(task, ctx, rt, decision, code, services=None, targets=None, message=None):
     if code not in ERRORS:
         code = "INTERNAL"
@@ -704,17 +891,17 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
             payload = None
         if isinstance(payload, dict) and isinstance(payload.get("analyses"), list):
             dropped = len(payload["analyses"]) - len(parsed.analyses)
-            if dropped > 0:
-                meta["output_parse"]["analyses_dropped"] = dropped
-        if deterministic:
-            if (getattr(parsed, "report", None) is not None
-                    and not repair_preserves_content(outcome.final_output, parsed)):
-                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")
-                rt.log("qa_output_repair_failed", classification=classification,
-                       result="content_changed")
-                return outcome, meta
-            meta["output_parse"]["deterministic_repair"] = deterministic
-            rt.log("qa_output_parse_repaired", classification=classification,
+            if dropped > 0:
+                meta["output_parse"]["analyses_dropped"] = dropped
+        if deterministic:
+            if (getattr(parsed, "report", None) is not None
+                    and not repair_preserves_content(outcome.final_output, parsed)):
+                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")
+                rt.log("qa_output_repair_failed", classification=classification,
+                       result="content_changed")
+                return outcome, meta
+            meta["output_parse"]["deterministic_repair"] = deterministic
+            rt.log("qa_output_parse_repaired", classification=classification,
                    method=deterministic)
             return replace(outcome, final_output=parsed), meta
         return outcome, meta

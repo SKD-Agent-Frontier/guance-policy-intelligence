@@ -67,6 +67,9 @@ class PolicyComparisonModule:
         # 并把评价标准限制在用户原问题中，防止模型自行定义“最佳方案”的标准。
         parsed = await ask(planning_messages(task, scheme=self.scheme), ComparisonPlan)
         plan = resolve_plan(parsed, task, scheme=self.scheme)
+        if ctx.research is not None:
+            ctx.research.capture_execution_plan(
+                plan.dimensions, plan.queries, plan.evaluation_criteria)
         collection = await collect(task, ctx, services, plan)
         # A quoted passage can be true but unrelated to the comparison subject.
         # Reject the entire run before selecting facts or drafting differences.

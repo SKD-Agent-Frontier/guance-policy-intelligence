@@ -1,5 +1,6 @@
 """CLI 与未来 Web 共用的唯一任务入口：只做校验、装配与转交。"""
 import re
+import time
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -9,6 +10,9 @@ from .business.organize import OrganizeModule
 from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_task
 from .output import ERRORS, build_result
+from .research_contract import TaskContract
+from .research_planner import ResearchPlanner
+from .research_runtime import ResearchRuntime
 from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
@@ -68,9 +72,11 @@ async def submit(question: str, session_id: str | None = None,
                  user_id: str | None = None, settings: Settings | None = None,
                  task_type: str = "qa",
                  dimensions: list[str] | None = None,
-                 targets: list[str] | None = None) -> RunResult:
+                 targets: list[str] | None = None,
+                 research_discoverer=None) -> RunResult:
     task = _build_task(question, session_id, user_id, task_type, dimensions, targets)
     rt = None
+    research_runtime = None
     try:
         try:
             s = settings or load_settings()
@@ -87,8 +93,16 @@ async def submit(question: str, session_id: str | None = None,
             result.task_type = task.task_type
             rt.finish(result, None)
             return result
+        contract = TaskContract.from_task(task)
+        research_runtime = ResearchRuntime(
+            contract,
+            ResearchPlanner.initial(contract),
+            deadline=time.monotonic() + s.run_timeout,
+            max_revisions=getattr(s, "max_plan_revisions", 1),
+        )
         rt.prepare()
-        return await run_task(task, s, rt)
+        return await run_task(task, s, rt, research_discoverer=research_discoverer,
+                              research_runtime=research_runtime)
     except Exception as exc:
         if isinstance(exc, ConfigurationError):
             code = "CONFIG_ERROR"
@@ -100,6 +114,11 @@ async def submit(question: str, session_id: str | None = None,
                               RunError(code=code, message=ERRORS[code]))
         result.task_type = task.task_type
         if rt:
+            if research_runtime is not None and "research" not in result.meta:
+                try:
+                    research_runtime.finish(result, None)
+                except (ValueError, TypeError):
+                    pass
             try:
                 rt.log("rejected", error_code=code,
                        error_detail=f"{type(exc).__name__}: {exc}")
