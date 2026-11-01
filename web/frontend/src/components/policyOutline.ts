@@ -6,6 +6,15 @@ export type OutlineEntry = PolicySection & { label: string; depth: number };
  * the full path at every level. Preserve original start/end offsets. */
 export function policyOutline(sections: readonly PolicySection[]): OutlineEntry[] {
   const valid = sections
+    // Unnumbered printed index entries are not structural section headings.
+    // Genuine chapters with page leaders remain available for safe cleanup.
+    .filter(section => {
+      const source = (section.path.split(/\s+\/\s+/).at(-1) ?? "")
+        .replace(/^\s*#{1,6}\s*/, "").trim();
+      const printedPage = /[.．·…⋯﹒]{3,}\s*[0-9０-９]{1,4}\s*$/.test(source);
+      const numberedHeading = /^第[一二三四五六七八九十百千0-9]+[编篇部章节]/.test(source);
+      return !printedPage || numberedHeading;
+    })
     .filter(section => Number.isInteger(section.level) && section.level >= 1 && section.level <= 7
       && Number.isInteger(section.start) && section.start >= 0
       && Number.isInteger(section.end) && section.end > section.start)
