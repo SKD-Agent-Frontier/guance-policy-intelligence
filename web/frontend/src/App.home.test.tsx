@@ -74,7 +74,7 @@ describe("independent home composer and history conversations", () => {
     await submitHome("第一项数字经济研究");
     expect(screen.getByRole("main", { name: "研究工作区" })).toBeInTheDocument();
     expect(client.prepare).toHaveBeenNthCalledWith(1, {
-      mode: "qa", message: "第一项数字经济研究",
+      mode: "qa", message: "第一项数字经济研究", autonomous: true,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
@@ -84,7 +84,7 @@ describe("independent home composer and history conversations", () => {
 
     await submitHome("第二项产业扶持研究");
     expect(client.prepare).toHaveBeenNthCalledWith(2, {
-      mode: "qa", message: "第二项产业扶持研究",
+      mode: "qa", message: "第二项产业扶持研究", autonomous: true,
     });
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("第二项产业扶持研究");
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
@@ -104,6 +104,7 @@ describe("independent home composer and history conversations", () => {
     expect(client.prepare).toHaveBeenNthCalledWith(3, {
       mode: "qa",
       message: "继续追问实施路径",
+      autonomous: true,
       state: { state_id: "state-第一项数字经济研究", revision: 0 },
     });
     expect(screen.getByTitle("第二项产业扶持研究")).toBeInTheDocument();
@@ -130,7 +131,7 @@ describe("independent home composer and history conversations", () => {
 
     await submitHome("有哪些产业支持政策");
     expect(client.prepare).toHaveBeenCalledWith({
-      mode: "qa", message: "有哪些产业支持政策",
+      mode: "qa", message: "有哪些产业支持政策", autonomous: true,
     });
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
       fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
