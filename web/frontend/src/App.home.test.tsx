@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { createDemoResult } from "./data/demo";
 import { researchClient } from "./api/client";
 import type { PreparationResponse, ResearchPreparationRequest } from "./types";
 
@@ -65,6 +66,7 @@ describe("independent home composer and history conversations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client.prepare.mockImplementation(async (request) => needsClarification(request));
+    client.submit.mockImplementation(async (request) => createDemoResult(request, "success"));
   });
   afterEach(cleanup);
 
@@ -74,7 +76,7 @@ describe("independent home composer and history conversations", () => {
     await submitHome("第一项数字经济研究");
     expect(screen.getByRole("main", { name: "研究工作区" })).toBeInTheDocument();
     expect(client.prepare).toHaveBeenNthCalledWith(1, {
-      mode: "qa", message: "第一项数字经济研究",
+      mode: "qa", message: "第一项数字经济研究", autonomous: true,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
@@ -84,7 +86,7 @@ describe("independent home composer and history conversations", () => {
 
     await submitHome("第二项产业扶持研究");
     expect(client.prepare).toHaveBeenNthCalledWith(2, {
-      mode: "qa", message: "第二项产业扶持研究",
+      mode: "qa", message: "第二项产业扶持研究", autonomous: true,
     });
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("第二项产业扶持研究");
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
@@ -104,22 +106,18 @@ describe("independent home composer and history conversations", () => {
     expect(client.prepare).toHaveBeenNthCalledWith(3, {
       mode: "qa",
       message: "继续追问实施路径",
+      autonomous: true,
       state: { state_id: "state-第一项数字经济研究", revision: 0 },
     });
     expect(screen.getByTitle("第二项产业扶持研究")).toBeInTheDocument();
   });
 
   it("restores default QA home mode independently of an earlier comparison session", async () => {
-    client.resolveResearch.mockResolvedValue({
-      status: "needs_clarification",
-      message: "当前发布库需要更明确的政策对象",
-      request: null,
-      policies: [],
-    });
     render(<App />);
     chooseMode("政策比较");
     await submitHome("比较浙江和江苏十四五的数字经济政策");
-    expect(client.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五的数字经济政策");
+    expect(client.submit).toHaveBeenCalledWith(
+      { task_type: "compare", question: "比较浙江和江苏十四五的数字经济政策" }, expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
 
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
@@ -130,7 +128,7 @@ describe("independent home composer and history conversations", () => {
 
     await submitHome("有哪些产业支持政策");
     expect(client.prepare).toHaveBeenCalledWith({
-      mode: "qa", message: "有哪些产业支持政策",
+      mode: "qa", message: "有哪些产业支持政策", autonomous: true,
     });
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
       fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
@@ -158,7 +156,8 @@ describe("independent home composer and history conversations", () => {
     expect(client.resolveResearch).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
 
-    expect(client.resolveResearch).toHaveBeenCalledWith("compare", question);
+    expect(client.submit).toHaveBeenCalledWith(
+      { task_type: "compare", question }, expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent(question);
     expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
 
@@ -186,7 +185,7 @@ describe("independent home composer and history conversations", () => {
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
       fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     }
-    expect(screen.getByTitle("还在准备的研究")).toHaveTextContent("处理中");
+    expect(screen.getByTitle("还在准备的研究")).toHaveTextContent("研究中");
     expect(screen.getByTitle("新的独立研究")).toBeInTheDocument();
   });
 });

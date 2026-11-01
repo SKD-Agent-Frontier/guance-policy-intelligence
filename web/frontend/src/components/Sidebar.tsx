@@ -1,7 +1,6 @@
 import { ChevronLeft, FilePlus2, History, Home, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Conversation } from "../conversationTypes";
-import type { TaskType } from "../types";
 
 type Props = {
   conversations: Conversation[];
@@ -15,14 +14,6 @@ type Props = {
   onNew: () => void;
   onSelect: (id: string) => void;
   onSettings: () => void;
-};
-
-const names: Record<TaskType, string> = {
-  qa: "政策问答",
-  extract: "要素提取",
-  organize: "文献梳理",
-  compare: "政策比较",
-  compare_plans: "多方案分析",
 };
 
 export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpand, onToggle, onCloseMobile, onHome, onNew, onSelect, onSettings }: Props) {
@@ -64,7 +55,7 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpa
         <div className="sidebar-section-title" ref={historyHeadingRef} tabIndex={-1}><span>最近研究</span><span className="sidebar-session-count">{history.length}</span></div>
         <div className="sidebar-history">
           {history.map((conversation) => <button key={conversation.id} type="button" className={`history-link ${conversation.id === activeId ? "is-current" : ""}`} title={conversation.title} onClick={() => closeAnd(() => onSelect(conversation.id))}>
-            <span className="history-type">{names[conversation.mode]}{conversation.busy !== "idle" ? " · 处理中" : ""}</span>
+            {conversation.busy !== "idle" && <span className="history-type">研究中</span>}
             <span className="history-question">{conversation.title || "新建研究"}</span>
           </button>)}
         </div>

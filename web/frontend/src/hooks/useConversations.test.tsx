@@ -99,7 +99,7 @@ describe("useConversations", () => {
 
     await act(async () => { await result.current.send("数字经济"); });
     expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(mockedClient.prepare).toHaveBeenNthCalledWith(1, { mode: "qa", message: "数字经济" });
+    expect(mockedClient.prepare).toHaveBeenNthCalledWith(1, { mode: "qa", message: "数字经济", autonomous: true });
     act(() => result.current.setMode("qa"));
     expect(result.current.active?.preparation?.state.state_id).toBe("opaque-state");
 
@@ -107,6 +107,7 @@ describe("useConversations", () => {
     expect(mockedClient.prepare).toHaveBeenNthCalledWith(2, {
       mode: "qa",
       message: "产业政策",
+      autonomous: true,
       state: { state_id: "opaque-state", revision: 0 },
     });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
@@ -160,73 +161,35 @@ describe("useConversations", () => {
     expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
   });
 
-  it.each(["extract", "compare_plans"] as const)(
-    "asks for a named policy in %s only when automatic discovery is ambiguous",
+  it.each(["extract", "compare", "compare_plans"] as const)(
+    "%s sends natural-language goals directly to the backend planner",
     async (mode) => {
-      mockedClient.resolveResearch.mockResolvedValue({
-        status: "needs_clarification", request: null,
-        policies: [], message: "请补充需要研究的政策名称。",
-      });
+      mockedClient.submit.mockResolvedValue(RESULT);
       const { result } = renderHook(() => useConversations());
       act(() => result.current.setMode(mode));
-      await act(async () => { await result.current.send("比较这些政策"); });
-      expect(mockedClient.resolveResearch).toHaveBeenCalledWith(mode, "比较这些政策");
-      expect(mockedClient.submit).not.toHaveBeenCalled();
-      expect(result.current.active?.messages.at(-1)).toMatchObject({
-        kind: "advanced_guidance", text: "请补充需要研究的政策名称。",
-      });
+      await act(async () => { await result.current.send("分析这项研究目标"); });
+      expect(mockedClient.resolveResearch).not.toHaveBeenCalled();
+      expect(mockedClient.prepare).not.toHaveBeenCalled();
+      expect(mockedClient.submit).toHaveBeenCalledWith({
+        task_type: mode, question: "分析这项研究目标",
+      }, undefined);
+      expect(result.current.active?.messages.at(-1)?.kind).toBe("result");
       expect(result.current.active?.advancedDraft.open).toBe(false);
     },
   );
 
-  it("automatically resolves a clear compare question and executes without a planid form", async () => {
-    mockedClient.resolveResearch.mockResolvedValue({
-      status: "ready",
-      message: "已定位",
-      request: {
-        task_type: "compare",
-        question: "比较浙江和江苏十四五数字经济发展目标的异同",
-        targets: ["P-ZJ", "P-JS"], dimensions: ["发展目标"],
-      },
-      policies: [
-        { area: "浙江", planid: "P-ZJ", title: "浙江省数字经济发展十四五规划", fyp: "十四五" },
-        { area: "江苏", planid: "P-JS", title: "江苏省数字经济发展十四五规划", fyp: "十四五" },
-      ],
-    });
-    mockedClient.submit.mockResolvedValue(RESULT);
-    const { result } = renderHook(() => useConversations());
-    act(() => result.current.setMode("compare"));
-
-    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
-
-    expect(mockedClient.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五数字经济发展目标的异同");
-    expect(mockedClient.prepare).not.toHaveBeenCalled();
-    expect(mockedClient.submit).toHaveBeenCalledWith({
-      task_type: "compare",
-      question: "比较浙江和江苏十四五数字经济发展目标的异同",
-      targets: ["P-ZJ", "P-JS"],
-      dimensions: ["发展目标"],
-    }, undefined);
-    expect(result.current.active?.advancedDraft.open).toBe(false);
-    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(true);
-  });
-
-  it("does not fabricate compare targets when the published catalog cannot resolve them", async () => {
-    mockedClient.resolveResearch.mockResolvedValue({
-      status: "needs_clarification",
-      message: "没有找到匹配文献",
-      request: null, policies: [],
+  it("lets the backend return insufficient evidence instead of frontend blocking execution", async () => {
+    mockedClient.submit.mockResolvedValue({
+      ...RESULT, status: "completed", evidence_status: "insufficient",
+      answer: "发布库缺少有效的跨地市对照文献，不能形成可靠结论。",
     });
     const { result } = renderHook(() => useConversations());
     act(() => result.current.setMode("compare"));
-
-    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
-
-    expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(result.current.active?.messages.at(-1)).toEqual({
-      id: expect.any(String), kind: "advanced_guidance", text: "没有找到匹配文献",
+    await act(async () => { await result.current.send("比较衡水市与河北省其他地市十三五产业政策"); });
+    expect(mockedClient.submit).toHaveBeenCalledTimes(1);
+    expect(result.current.active?.messages.at(-1)).toMatchObject({
+      kind: "result", result: { evidence_status: "insufficient" },
     });
-    expect(result.current.active?.advancedDraft.open).toBe(false);
   });
 
   it("keeps each conversation's advanced draft and resets it when mode changes", () => {
@@ -458,7 +421,7 @@ describe("useConversations", () => {
     });
     expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
     expect(mockedClient.prepare).toHaveBeenLastCalledWith({
-      mode: "qa", message: "修订后的第一轮问题",
+      mode: "qa", message: "修订后的第一轮问题", autonomous: true,
     });
   });
 

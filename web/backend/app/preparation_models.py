@@ -32,6 +32,7 @@ class PreparationToken(StrictModel):
 class ResearchPrepareRequest(StrictModel):
     mode: ResearchMode
     message: MessageString
+    autonomous: bool = False
     state: PreparationToken | None = None
 
     @model_validator(mode="before")

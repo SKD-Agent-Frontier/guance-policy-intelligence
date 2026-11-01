@@ -78,7 +78,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
     cm = asyncio.timeout_at(deadline)
     try:
         async with cm:
-            max_turns = rt.settings.max_turns
+            max_turns = min(rt.settings.max_turns, 5) if task.task_type == "qa" else rt.settings.max_turns
             run_agent = agent
             hooks = rt.hooks
             run_config = RunConfig(
@@ -87,7 +87,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
             )
             if task.task_type == "qa" and max_turns >= 2:
                 model_calls = 0
-                state = {"dispatch_pending": False}
+                state = {"dispatch_pending": False, "finalizing": False}
                 tools = []
                 for tool in agent.tools:
                     if not isinstance(tool, FunctionTool):
@@ -96,8 +96,12 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
                     original_is_enabled = tool.is_enabled
 
                     async def can_use_tool(run_context, tool_agent, *, original=original_is_enabled):
-                        if (model_calls >= max_turns - 1
-                                and not state["dispatch_pending"]):
+                        # The SDK selects visible tools BEFORE invoking the
+                        # model-input filter. Disable them at tool-eligibility
+                        # time, not only after a finalization flag is set.
+                        final_turn = (model_calls >= max_turns - 1
+                                      or deadline - time.monotonic() <= 70.0)
+                        if final_turn and not state["dispatch_pending"]:
                             return False
                         if isinstance(original, bool):
                             return original
@@ -113,8 +117,12 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
                     nonlocal model_calls
                     model_calls += 1
                     model_data = filter_data.model_data
-                    if model_calls < max_turns:
+                    # Reserve wall time for generating and verifying a grounded answer.
+                    should_finalize = (model_calls >= max_turns
+                                       or deadline - time.monotonic() <= 70.0)
+                    if not should_finalize:
                         return model_data
+                    state["finalizing"] = True
                     rt.meta["qa_final_turn_reserved"] = True
                     notice = (
                         "最终回答轮次：只能依据本轮已获得的证据回答；若证据不足，明确说明不足，"
@@ -166,4 +174,16 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
             raw_detail = f"{type(exc).__name__}: {exc}"
         detail = sanitize_error_detail(raw_detail, rt.settings)
         rt.log("execution_error", error_code=code, error_detail=detail)
-        return ExecOutcome(None, code, detail)
+        partial = list(getattr(rt.hooks, "usage_per_call", []))
+        if partial:
+            rt.meta["llm_partial"] = {
+                "model_calls": len(partial),
+                "input_tokens": sum(item.get("input") or 0 for item in partial),
+                "output_tokens": sum(item.get("output") or 0 for item in partial),
+                "per_call": partial,
+            }
+        evidence_ids = ctx.evidence.ids() if ctx is not None else []
+        if evidence_ids:
+            rt.meta["retrieved_evidence_ids"] = evidence_ids[:30]
+            rt.meta["retrieved_evidence_count"] = len(evidence_ids)
+        return ExecOutcome(None, code, detail, telemetry=rt.meta.get("llm_partial"))

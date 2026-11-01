@@ -124,6 +124,7 @@ class LogHooks(RunHooks):
     def __init__(self, runtime):
         self.rt, self.starts, self.turns, self.calls = runtime, {}, 0, 0
         self.llm_started = perf_counter()
+        self.usage_per_call: list[dict] = []
 
     async def on_tool_start(self, context, agent, tool):
         self.calls += 1
@@ -150,5 +151,10 @@ class LogHooks(RunHooks):
 
     async def on_llm_end(self, context, agent, response):
         self.turns += 1
+        usage = getattr(response, "usage", None)
+        call = {"input": getattr(usage, "input_tokens", None),
+                "output": getattr(usage, "output_tokens", None)}
+        self.usage_per_call.append(call)
         self.rt.log("llm_end", turn=self.turns,
-                    elapsed_ms=round((perf_counter() - self.llm_started) * 1000))
+                    elapsed_ms=round((perf_counter() - self.llm_started) * 1000),
+                    input_tokens=call["input"], output_tokens=call["output"])

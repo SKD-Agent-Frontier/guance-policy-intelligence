@@ -50,6 +50,7 @@ class PreparationStateError(Exception):
 class _Entry:
     state_id: str
     mode: ResearchMode
+    autonomous: bool
     original_request: str
     messages: list[str]
     topic: str | None
@@ -112,7 +113,7 @@ class ResearchPreparationService:
             entry = self._states.get(request.state.state_id)
             if entry is None or entry.expires_at <= now:
                 raise PreparationStateError()
-            if entry.mode != request.mode:
+            if entry.mode != request.mode or entry.autonomous != request.autonomous:
                 raise PreparationStateError()
             previous = entry.previous
             if previous and previous[:3] == (request.state.revision, request.mode, request.message):
@@ -143,6 +144,7 @@ class ResearchPreparationService:
         entry = _Entry(
             state_id=state_id,
             mode=request.mode,
+            autonomous=request.autonomous,
             original_request=request.message,
             messages=[request.message],
             topic=self._topic(request.message),
@@ -646,6 +648,7 @@ class ResearchPreparationService:
         pending: list[Condition] = []
         if (
             entry.mode == "qa"
+            and not entry.autonomous
             and entry.topic
             and not self._is_question(entry.original_request)
             and "aspect" not in {item.question_id for item in entry.completed_questions}
@@ -701,6 +704,17 @@ class ResearchPreparationService:
                     choices=["近十年", "近五年", "十四五", "自定义时间", "不限时间"],
                 ))
                 pending.append(Condition(id="time_scope", text="待明确时间范围"))
+        # In the autonomous research entry, unspecified time/area/aspect are
+        # open constraints, not missing required form fields. The legacy guided
+        # preparation API remains available when autonomous=False.
+        if entry.autonomous and entry.mode == "organize":
+            options = [option for option in options
+                       if option.id not in {"scope_axis", "time_scope", "area_scope"}
+                       or option.id == "time_scope" and entry.unparsed_time_change]
+            pending = [condition for condition in pending
+                       if condition.id not in {"scope_axis", "time_scope", "area"}
+                       or condition.id == "time_scope" and entry.unparsed_time_change]
+
         if entry.area_conflict:
             if entry.area_choice_stage == "choose_specific":
                 options.append(PreparationOption(
@@ -800,7 +814,10 @@ class ResearchPreparationService:
         )
         request = None
         if status == "ready":
-            question = self._compose_question(entry, latest_message, initial=False)
+            # Open-ended research keeps the actual user wording: do not invent
+            # 'unrestricted' bounds or a narrower topic than the user supplied.
+            question = (entry.question_text if entry.autonomous
+                        else self._compose_question(entry, latest_message, initial=False))
             request = PreparedRequest(task_type=entry.mode, question=question, dimensions=entry.dimensions or None)
         return ResearchPrepareResponse(
             status=status, mode=entry.mode, message=message, options=options, state=state,

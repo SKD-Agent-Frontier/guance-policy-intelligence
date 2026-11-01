@@ -108,7 +108,6 @@ export function useConversations() {
   // These maps are session-local, like the conversation history itself.
   const resultRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
   const advancedRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
-  const pendingNaturalLanguage = useRef(new Map<string, { mode: TaskType; question: string }>());
   const userModes = useRef(new Map<string, TaskType>());
 
   const updateSessions = useCallback((updater: (current: Conversation[]) => Conversation[]) => {
@@ -237,46 +236,16 @@ export function useConversations() {
     if (!conversation || !text.trim()) return;
     if (operations.current.has(conversationId)) return;
     if (isAdvancedMode(conversation.mode)) {
+      // The web client must not demand planids before the Research Agent can
+      // investigate the request. Discovery and any evidence limits belong to
+      // the trusted backend Planner / Runtime, not a frontend form gate.
       const token = beginOperation(conversationId);
       if (!token) return;
       appendMessage(conversationId, message("user", { text }));
-      const pending = pendingNaturalLanguage.current.get(conversationId);
-      // 回答澄清问题时仍保留原研究任务；用户无需重新填写对象或编号。
-      const question = pending?.mode === conversation.mode
-        ? `${pending.question}；补充条件：${text}` : text;
-      setBusy(conversationId, "preparing");
       try {
-        const resolution = await researchClient.resolveResearch(conversation.mode, question);
-        if (!isCurrent(conversationId, token)) return;
-        const request = resolution.request;
-        const count = request?.targets?.length ?? 0;
-        const valid = resolution.status === "ready" && request?.task_type === conversation.mode
-          && count >= (conversation.mode === "extract" ? 1 : 2)
-          && count <= (conversation.mode === "extract" ? 1 : 8)
-          && new Set(request?.targets ?? []).size === count;
-        if (valid && request) {
-          pendingNaturalLanguage.current.delete(conversationId);
-          // 研究范围由已发布政策目录给出；绝不从未核验的模型文本生成编号。
-          if (resolution.message && resolution.policies.length > 1) {
-            appendMessage(conversationId, message("advanced_guidance", { text: resolution.message }));
-          }
-          await execute(conversationId, request, scenario, token);
-        } else {
-          pendingNaturalLanguage.current.set(conversationId, { mode: conversation.mode, question });
-          appendMessage(conversationId, message("advanced_guidance", {
-            text: resolution.message || "当前无法可靠确定研究对象，请用自然语言补充政策名称或研究范围。",
-          }));
-          setBusy(conversationId, "idle");
-        }
-      } catch (error) {
-        if (isCurrent(conversationId, token)) {
-          const mapped = apiError(error, "prepare");
-          appendMessage(conversationId, message("error", {
-            code: mapped.code,
-            text: `研究对象自动定位失败：${mapped.text}。可以重试本次研究。`,
-          }));
-          setBusy(conversationId, "idle");
-        }
+        await execute(conversationId, {
+          task_type: conversation.mode, question: text,
+        }, scenario, token);
       } finally {
         finishOperation(conversationId, token);
       }
@@ -291,6 +260,7 @@ export function useConversations() {
     const request: ResearchPreparationRequest = {
       mode: conversation.mode,
       message: text,
+      autonomous: true,
       ...(priorPreparation?.mode === conversation.mode
         ? { state: { state_id: priorPreparation.state.state_id, revision: priorPreparation.state.revision } }
         : {}),

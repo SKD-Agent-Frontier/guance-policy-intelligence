@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .compare_resolution import _DIMENSIONS, resolve_compare
+from .compare_resolution import _DIMENSIONS, _PROVINCES, resolve_compare
 from .compare_resolution import _areas as provinces_in_text
 from .policy_catalog import PolicyCatalogService, PolicyRecord, normalize_fyp
 
@@ -176,6 +176,52 @@ def _insufficient(message: str, reason: str = "catalog_evidence_missing") -> dic
             "request": None, "policies": []}
 
 
+def _unperioded_comparison_coverage(question: str, catalog: PolicyCatalogService,
+                                    areas: list[str]) -> dict:
+    """Check title-linked policy coverage before requiring a period from the user.
+
+    Ambiguous or absent region evidence is reported instead of silently
+    selecting another policy or manufacturing a cross-region comparison.
+    """
+    topics = [item for item in TITLE_REQUIRED_THEMES if item in question]
+    if not topics:
+        return _clarify("请说明需要比较的政策主题；目前无法判断可比研究对象。")
+    topic = sorted(topics, key=lambda value: (-len(value), value))[0]
+    selected: list[PolicyRecord] = []
+    gaps: list[str] = []
+    ambiguous: list[str] = []
+    counts: dict[str, int] = {}
+    for area in areas:
+        canonical = _PROVINCES.get(area, (area,))[0]
+        matches = [record for record in _area_records(catalog, canonical)
+                   if topic in (record.title or "") and (record.body or "").strip()]
+        counts[area] = len(matches)
+        if not matches:
+            gaps.append(canonical)
+        elif len(matches) > 1:
+            ambiguous.append(canonical)
+        else:
+            selected.append(matches[0])
+    subjects = list(dict.fromkeys(_PROVINCES.get(area, (area,))[0] for area in areas))
+    if gaps or ambiguous:
+        coverage = "、".join(f"{_PROVINCES.get(area, (area,))[0]}：{counts[area]}篇" for area in areas)
+        result = _insufficient(
+            f"已在当前发布库按题名核查「{topic}」政策覆盖（{coverage}）。"
+            "缺失地区无法支撑完整比较；多候选地区不能任意选一篇。"
+            "本次不生成跨地区比较结论。",
+            "insufficient_document_coverage",
+        )
+        result["requested_subjects"] = subjects
+        result["subject_gaps"] = gaps
+        result["coverage_limited_subjects"] = ambiguous
+        return result
+    result = _ready("compare", question, selected, _dimensions(question),
+                    "各地区均找到唯一的题名匹配政策；未限定时期，"
+                    "研究须保留实际政策时期，不将不同时期当作同期比较。")
+    result["requested_subjects"] = subjects
+    return result
+
+
 def _explicit_records(question: str, catalog: PolicyCatalogService) -> tuple[list[PolicyRecord], str | None]:
     by_id = {r.planid: r for r in catalog.snapshot.records}
     ids = list(dict.fromkeys(PLANIDS.findall(question)))
@@ -222,6 +268,9 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
             by_id = {r.planid: r for r in catalog.snapshot.records}
             return _ready(mode, question, [by_id[i] for i in found["targets"]],
                           dimensions or found["dimensions"], found["message"])
+        if found.get("reason_code") == "user_period_missing":
+            return _unperioded_comparison_coverage(
+                question, catalog, provinces_in_text(comparison_question))
         if (found.get("status") == "insufficient"
                 or found.get("reason_code") == "catalog_evidence_missing"):
             return _insufficient(found["message"], "catalog_evidence_missing")
@@ -248,8 +297,10 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
                 "request": None, "policies": []}
 
     if mode == "organize":
-        if not areas and not period:
-            return _clarify("请说明政策名称、地区或规划时期，以便整理真实发布的文献。")
+        if not areas and not period and not any(
+            token in question for token in TITLE_REQUIRED_THEMES | {"产业结构", "产业升级"}
+        ):
+            return _clarify("请说明需要整理的政策主题，以便查找真实发布文献。")
         candidates = [record for record in catalog.snapshot.records
                       if (not areas or _record_area(catalog, record) in areas)
                       and _score(record, question, period) >= 0]
@@ -257,10 +308,10 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
         if len(candidates) < 2:
             return _insufficient("当前发布目录中可确认的文献不足两篇，无法完成文献梳理。",
                                  "insufficient_document_coverage")
-        if len(candidates) > 8:
-            return _clarify("当前发布目录匹配文献超过单次梳理上限，请补充地区、时期或文献标题缩小范围。")
-        return _ready(mode, question, candidates, dimensions,
-                      f"已从当前发布目录确认 {len(candidates)} 篇匹配文献。")
+        total = len(candidates)
+        return _ready(mode, question, candidates[:8], dimensions,
+                      f"当前发布库确认 {total} 篇候选，本轮仅选取其中 {min(total, 8)} 篇供初步梳理；"
+                      "并非完整清单，不得据此宣称覆盖全部政策。")
 
     if mode in ("compare", "compare_plans"):
         # 单省的集合式比较：以明确命名的地级市为主对象，自动选择同省同期可比规划。
@@ -289,8 +340,17 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
                 else:
                     subject_gaps.append(name)
             if not peers:
-                return _insufficient(f"已定位{focus[0]}的规划，但当前发布库没有足够的同省同期可比规划，不能据此得出比较结论。",
-                                     "insufficient_peer_coverage")
+                result = _insufficient(
+                    f"已定位《{anchor.title}》（planid={anchor.planid}），但当前发布库缺少"
+                    f"{province}其他地市的同期可比规划，不能据此得出跨地市比较结论。",
+                    "insufficient_peer_coverage",
+                )
+                result["policies"] = [
+                    {"planid": anchor.planid, "area": anchor.area, "title": anchor.title, "fyp": anchor.fyp}
+                ]
+                result["requested_subjects"] = list(dict.fromkeys(prefectures))
+                result["subject_gaps"] = list(dict.fromkeys(subject_gaps))
+                return result
             selected_peers = peers[:6]
             coverage_limited = [record.area for record in peers[6:] if record.area]
             result = _ready(mode, question, [anchor, *selected_peers], dimensions,
