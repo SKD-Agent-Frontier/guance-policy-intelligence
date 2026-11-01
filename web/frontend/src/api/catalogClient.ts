@@ -88,6 +88,24 @@ export const catalogClient = {
     );
   },
 
+  readingPage(
+    planid: string,
+    page = 1,
+    pageChars = 4000,
+    signal?: AbortSignal,
+  ): Promise<PolicyContentResponse> {
+    if (!isRealMode) {
+      return demoCatalogClient.content(planid, (page - 1) * pageChars, pageChars, signal)
+        .then(result => ({ ...result, page, page_count: Math.max(1, Math.ceil(result.total_chars / pageChars)) }));
+    }
+    const query = new URLSearchParams({ page: String(page), page_chars: String(pageChars) });
+    return requestJson<PolicyContentResponse>(
+      `/api/policies/${encodeURIComponent(planid)}/reading-page?${query.toString()}`,
+      { method: "GET" },
+      { signal, timeoutMs: API_REQUEST_TIMEOUT_MS },
+    );
+  },
+
   content(
     planid: string,
     offset = 0,
