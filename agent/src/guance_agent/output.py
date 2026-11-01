@@ -112,6 +112,8 @@ def finalize_recovered_qa_answer(result: RunResult, question: str) -> None:
         "source": "verified_claims", "coverage_missing": missing,
         "rebuild_reason": "truncated_output",
     }
+    if result.structured is None:
+        result.structured = {}
     result.structured["qa_recovery"] = {
         "source": "verified_claims", "status": "partial",
         "claim_count": len(result.claims),
