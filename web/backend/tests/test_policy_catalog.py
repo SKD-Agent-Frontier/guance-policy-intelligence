@@ -357,6 +357,57 @@ def test_policy_content_limits(client, params):
     assert response.status_code in (400, 422)
 
 
+def test_policy_media_serves_only_cited_images(client, tmp_path):
+    """Images must be policy-specific and never read arbitrary local paths."""
+    media = tmp_path / "10001" / "media"
+    media.mkdir(parents=True)
+    valid = b"\\x89PNG\\r\\n\\x1a\\n" + b"PNG-fixture"
+    (media / "Chart.PNG").write_bytes(valid)
+    (media / "NotCited.PNG").write_bytes(valid)
+    original = _snapshot()
+    records = tuple(
+        PolicyRecord(**{**record.__dict__,
+                        "body": record.body + "\\n\\n![图表](media/Chart.PNG)"})
+        if record.planid == "10001" else record
+        for record in original.records
+    )
+    client.app.state.policy_catalog = PolicyCatalogService(
+        CatalogSnapshot(generation_id="generation-test", revision=3, partial=True,
+                        records=records, media_roots=(tmp_path,))
+    )
+    response = client.get("/api/policies/10001/media/Chart.PNG")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.content == valid
+
+    assert client.get("/api/policies/10001/media/NotCited.PNG").status_code == 404
+    assert client.get("/api/policies/10002/media/Chart.PNG").status_code == 404
+    assert client.get("/api/policies/10001/media/../../secret.png").status_code in (400, 404)
+    assert client.get("/api/policies/10001/media/evil.svg").status_code == 400
+
+    (media / "Chart.PNG").unlink()
+    assert client.get("/api/policies/10001/media/Chart.PNG").status_code == 404
+
+
+def test_policy_media_rejects_renamed_nonimages(client, tmp_path):
+    media = tmp_path / "10001" / "media"
+    media.mkdir(parents=True)
+    (media / "Chart.PNG").write_bytes(b"<html>not a PNG</html>")
+    original = _snapshot()
+    records = tuple(
+        PolicyRecord(**{**record.__dict__,
+                        "body": record.body + "\\n![图](media/Chart.PNG)"})
+        if record.planid == "10001" else record
+        for record in original.records
+    )
+    client.app.state.policy_catalog = PolicyCatalogService(
+        CatalogSnapshot(generation_id="generation-test", revision=3, partial=True,
+                        records=records, media_roots=(tmp_path,))
+    )
+    assert client.get("/api/policies/10001/media/Chart.PNG").status_code == 400
+
+
 def test_policy_content_unknown_planid(client):
     assert client.get("/api/policies/99999/content").status_code == 404
 
