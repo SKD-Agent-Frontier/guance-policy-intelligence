@@ -91,6 +91,17 @@ function AnswerFallback({ result, onEvidence }: ResultsProps) {
 
 function QAResults({ result, onEvidence }: ResultsProps) {
   const claims = result.claims ?? [];
+  const delivery = result.meta?.research_delivery;
+  const deliveryStatus = delivery && typeof delivery === "object" && "status" in delivery
+    ? (delivery as { status?: string }).status : undefined;
+  const isPartialResearch = deliveryStatus === "partial" || deliveryStatus === "insufficient";
+  const isSourceExcerpts = result.meta?.execution_recovery != null;
+  const researchTitle = isPartialResearch ? "研究结果（部分）" : "研究结论";
+  const researchNote = isPartialResearch
+    ? (isSourceExcerpts
+      ? "本轮仅取得可核验的政策原文节选，尚未形成完整研究结论。"
+      : "仅展示已经核验的政策事实与通过审核的段落；尚未完成的研究分析不得视为结论。")
+    : undefined;
   if (result.status !== "completed") {
     // 失败不是“没有政策结论”。不展示空的研究结论卡片，避免误导。
     return <div className="results-content results-content--qa">
@@ -102,7 +113,7 @@ function QAResults({ result, onEvidence }: ResultsProps) {
   }
   return (
     <div className="results-content results-content--qa">
-      <Header title="研究结论" />
+      <Header title={researchTitle} note={researchNote} />
       {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><AnswerOutline text={result.answer} /></div>}
       {result.structured && "schema_version" in result.structured
         && result.structured.schema_version === "qa-analysis/1"
