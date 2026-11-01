@@ -190,3 +190,5 @@ class PolicyContentResponse(BaseModel):
     total_chars: int
     has_more: bool
     text: str = Field(description="冻结正文的连续片段；offset 以正文字符为起点")
+    page: int | None = None
+    page_count: int | None = None
