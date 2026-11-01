@@ -6,6 +6,7 @@ import { ApiError } from "../api/http";
 import { extractPolicyVersionPin } from "../api/policyFacets";
 import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
 import { PolicyRichText, type OriginalHeadingHint } from "./PolicyRichText";
+import { policyOutline } from "./policyOutline";
 import { TopicPicker } from "./TopicPicker";
 import { builtInThemes, tagsForPolicy } from "../policyTopics";
 import type { TopicCollection, TopicPolicy } from "../topicStore";
@@ -524,6 +525,7 @@ export function PolicyCatalog({
       generation_id: detail?.dataset.generation_id ?? null,
     });
   };
+  const outline = policyOutline(policy?.sections ?? []);
   const policyTags = policy ? tagsForPolicy(policy.planid) : [];
   const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
   const contentPage = content ? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1 : 1;
@@ -801,12 +803,12 @@ export function PolicyCatalog({
                 </dl>
                 <section className="catalog-sections" aria-label="章节目录">
                   <h3>章节目录</h3>
-                  {policy.sections.length > 0 ? (
-                    <ol>
-                      {policy.sections.map((section) => (
-                        <li key={section.index}>
+                  {outline.length > 0 ? (
+                    <ol className="catalog-chapter-outline">
+                      {outline.map((section) => (
+                        <li key={section.index} className={`catalog-chapter-depth-${section.depth}`}>
                           <button type="button" onClick={() => jumpToSection(section.start)} title={`跳转到${section.path}`}>
-                            {section.path}
+                            {section.label}
                           </button>
                         </li>
                       ))}
