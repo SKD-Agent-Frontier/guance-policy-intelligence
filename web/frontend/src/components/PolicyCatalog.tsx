@@ -715,7 +715,7 @@ export function PolicyCatalog({
                     // A single human-readable body preview, never the duplicated title
                     // hit. Keep the original matches/offsets intact in the API result.
                     const snippet = item.preview ?? item.matches.find((match) => match.field === "body")?.snippet;
-                    const visible = snippet?.replace(/\\s+/g, " ").trim();
+                    const visible = snippet?.replace(/\s+/g, " ").trim();
                     return visible && visible !== "..." && visible !== "…" ? (
                       <span className="catalog-snippet">
                         {highlightLiteral(visible, list.query.q)}
