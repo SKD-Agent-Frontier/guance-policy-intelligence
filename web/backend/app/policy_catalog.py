@@ -307,6 +307,7 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
         p.resolve() for p in (
             *((Path(clean_root),) if clean_root else ()),
             *((Path(configured_media),) if configured_media else ()),
+            repo_root / "语料库" / "样例数据（干净版）",
             repo_root / "语料库" / "Agent标准引用库",
             prepared,
         )
@@ -663,12 +664,18 @@ class PolicyCatalogService:
             raise LookupError("原文没有引用此图片")
         for root in self.snapshot.media_roots:
             root = root.resolve()
-            candidates = (
-                root / "corpus" / planid / "media" / filename,
-                root / "edge_cases" / planid / "media" / filename,
-                root / planid / "media" / filename,
-                root / "snapshots" / planid / "media" / filename,
-            )
+            # The cleaned sample uses Chinese-named corpus partitions. The
+            # freeze-compatible reference corpus and separately mounted media
+            # roots may instead use their normalized English counterparts.
+            # Search only bounded, policy-specific locations; never glob
+            # arbitrary directories or search another document's images.
+            candidates = tuple(
+                root / section / planid / "media" / filename
+                for section in (
+                    "corpus（代表性样本）", "edge_cases（边界压力样本）",
+                    "corpus", "edge_cases", "snapshots",
+                )
+            ) + (root / planid / "media" / filename,)
             for candidate in candidates:
                 path = candidate.resolve()
                 if not path.is_relative_to(root) or not path.is_file():
