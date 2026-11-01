@@ -108,13 +108,21 @@ function tocPageEntry(line: string): boolean {
     && (TOC_PAGE.test(source) || TOC_ATTACHED_PAGE.test(source));
 }
 function tocRange(lines: readonly string[]): [number, number] | null {
+  // Fallback for older backends without the full-document TOC interval.
+  // Conservative: never classify ordinary numbered policy paragraphs as TOC.
   const firstHeading = lines.findIndex(line => /^目\s*录\s*$/.test(line.trim()));
   const entries = lines.flatMap((line, index) => tocPageEntry(line) ? [index] : []);
-  if (entries.length < 2 && (firstHeading < 0 || entries.length < 1)) return null;
-  // A standalone page number cannot put an entire policy chapter in TOC mode.
+  if (entries.length < (firstHeading >= 0 ? 2 : 4)) return null;
   const first = firstHeading >= 0 && firstHeading <= entries[0] ? firstHeading : entries[0];
-  const last = entries.at(-1) ?? -1;
-  if (last < first || last - first > 220) return null;
+  if (first > 160) return null;
+  let last = entries[0];
+  let count = 1;
+  for (const entry of entries.slice(1)) {
+    if (entry - last > (firstHeading >= 0 ? 10 : 5)) break;
+    last = entry;
+    count++;
+  }
+  if (count < (firstHeading >= 0 ? 2 : 4) || last - first > 220) return null;
   return [first, last];
 }
 function cleanTocLine(line: string): string {
@@ -291,7 +299,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     linePositions.push(cursor);
     cursor += Array.from(line).length + Array.from(fragments[index + 1] ?? "").length;
   }
-  const toc = tocRange(lines);
+  const toc = textOffset === 0 ? tocRange(lines) : null;
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
