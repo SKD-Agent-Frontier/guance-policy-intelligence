@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Results } from "./Results";
-import type { Claim, ComparisonResult, DocumentIdentityFallback, RunResult } from "../types";
+import type { Claim, ComparisonResult, DocumentIdentityFallback, EvidenceRef, RunResult } from "../types";
 
 const makeResult = (overrides: Partial<RunResult> = {}): RunResult => ({
   run_id: "run-current",
@@ -48,6 +48,62 @@ describe("Results", () => {
     expect(html).not.toContain("支持金额");
   });
 
+  it("shows scoped QA analysis and linked original buttons as interpretation, not facts", () => {
+    const facts: Claim[] = [
+      { text: "政策甲提到产业园区", chunk_ids: ["A"], quotes: ["产业园区"], dimension: null, anchors: [] },
+      { text: "政策乙提到企业改造", chunk_ids: ["B"], quotes: ["企业改造"], dimension: null, anchors: [] },
+    ];
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      answer: "事实列举",
+      claims: facts,
+      structured: {
+        schema_version: "qa-analysis/1",
+        analyses: [{
+          kind: "comparison",
+          text: "两项政策使用了不同的政策工具。",
+          scope_note: "仅限本轮已读条款",
+          supporting_claim_indexes: [0, 1],
+          supporting_chunk_ids: ["A", "B"],
+          verification: "evidence_linked_only",
+        }],
+        verification: {
+          policy_facts: "existing_quote_and_number_checks",
+          analysis: "dependency_links_checked_semantics_not_verified",
+        },
+      },
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("研究分析");
+    expect(html).toContain("两项政策使用了不同的政策工具");
+    expect(html).toContain("不代表推理已获语义验证");
+    expect(html).toContain("事实 1：政策甲提到产业园区");
+    expect(html).toContain("事实 2：政策乙提到企业改造");
+    expect(html).toContain("data-chunk-id=\"A\"");
+    expect(html).toContain("data-chunk-id=\"B\"");
+  });
+
+  it("renders failed QA status without an empty conclusion", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      status: "failed",
+      error: { code: "OUTPUT_PARSE", message: "解析失败" },
+      evidence_status: "none",
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("本轮研究未完成");
+    expect(html).not.toContain("研究结论");
+  });
+
+  it("keeps plain QA layout unchanged without analysis", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      answer: "原有政策事实",
+      claims: [],
+      structured: null,
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("研究结论");
+    expect(html).not.toContain("研究分析");
+  });
+
   it("withholds insufficient comparison analysis while retaining linked facts", () => {
     const claim: Claim = { text: "已核验条款内容", chunk_ids: ["chunk-a"], quotes: ["原文依据句。"], dimension: "支持方式", anchors: [] };
     const structured: ComparisonResult = {
@@ -69,12 +125,100 @@ describe("Results", () => {
       coverage_notes: [],
       analysis_gaps: [],
     };
-    const html = renderToStaticMarkup(<Results result={makeResult({ structured, claims: [claim] })} onEvidence={noEvidence} />);
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      structured,
+      claims: [claim],
+      evidence_refs: [{ planid: "A", chunk_id: "chunk-a" } as EvidenceRef],
+    })} onEvidence={noEvidence} />);
 
     expect(html).toContain("已核验条款内容");
     expect(html).toContain("原文 1");
-    expect(html).toContain("整体时期口径不同");
+    expect(html.match(/data-chunk-id="chunk-a"/g)).toHaveLength(1);
+    expect(html.indexOf('data-chunk-id="chunk-a"')).toBeLessThan(html.indexOf("<tbody>"));
     expect(html).toContain("依据不足，无法判断");
+    expect(html).not.toContain("整体时期口径不同");
+    expect(html).not.toContain("口径需留意");
+    expect(html).not.toContain("横向对照各政策在相同维度下的已见内容");
+    expect(html).not.toContain("results-kicker");
     expect(html).not.toContain("不应渲染的不足分析文本");
   });
+  it("places policy-specific source links beside titles and removes repeated links from analysis", () => {
+    const ca: Claim = { text: "浙江目标", chunk_ids: ["a"], quotes: ["浙江原文"], dimension: "发展目标", anchors: [] };
+    const cb: Claim = { text: "江苏目标", chunk_ids: ["b"], quotes: ["江苏原文"], dimension: "发展目标", anchors: [] };
+    const structured: ComparisonResult = {
+      objects: [
+        { planid: "ZA", title: "浙江数字经济规划", area: "浙江省", fyp: "十四五", plantype_label: null },
+        { planid: "JB", title: "江苏数字经济规划", area: "江苏省", fyp: "十四五", plantype_label: null },
+      ],
+      dimensions: ["发展目标"],
+      matrix: [{
+        dimension: "发展目标",
+        cells: [
+          { cell_id: "a", planid: "ZA", status: "found", text: ca.text, chunk_ids: ["a"], quotes: ca.quotes },
+          { cell_id: "b", planid: "JB", status: "found", text: cb.text, chunk_ids: ["b"], quotes: cb.quotes },
+        ],
+        difference: { text: "两省目标不同", supporting_cells: ["a", "b"], kind: "analysis", status: "supported" },
+        comparability: { comparable: false, reason: "不展示的口径提示" },
+      }],
+      comparability: { comparable: false, reason: "不展示的整体提示" },
+      coverage_notes: [],
+      analysis_gaps: [],
+    };
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      structured, claims: [ca, cb],
+      evidence_refs: [
+        { planid: "ZA", chunk_id: "a" } as EvidenceRef,
+        { planid: "JB", chunk_id: "b" } as EvidenceRef,
+      ],
+    })} onEvidence={noEvidence} />);
+
+    expect(html.match(/class="result-citation"/g)).toHaveLength(2);
+    expect(html.indexOf('data-chunk-id="a"')).toBeLessThan(html.indexOf("planid ZA"));
+    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("planid JB"));
+    expect(html.indexOf('data-chunk-id="b"')).toBeLessThan(html.indexOf("<tbody>"));
+    expect(html).toContain("两省目标不同");
+    expect(html).not.toContain("不展示的口径提示");
+    expect(html).not.toContain("不展示的整体提示");
+    expect(html).not.toContain('class="analysis-label">分析');
+  });
+
+  it("renders report outline as four distinct semantic heading levels", () => {
+    const answer = [
+      "密云县的发展环境总体呈现机遇与挑战并存的特征。",
+      "",
+      "一、主要发展机遇",
+      "（一）奥运契机",
+      "1、旅游市场",
+      "（1）重点项目",
+      "围绕规划开展旅游产业建设。",
+      "",
+      "二、面临挑战",
+      "（一）基础设施条件",
+      "需要加强基础设施建设。",
+      "",
+      "综上，上述判断仅限现有原文。",
+    ].join("\n");
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa", answer, claims: [], structured: null,
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain('<h2 class="qa-outline-heading qa-outline-level-1"');
+    expect(html).toContain('<h3 class="qa-outline-heading qa-outline-level-2"');
+    expect(html).toContain('<h4 class="qa-outline-heading qa-outline-level-3"');
+    expect(html).toContain('<h5 class="qa-outline-heading qa-outline-level-4"');
+    expect(html).toContain("一、</span><span>主要发展机遇");
+    expect(html).toContain("（一）</span><span>奥运契机");
+    expect(html).toContain("1、</span><span>旅游市场");
+    expect(html).toContain("（1）</span><span>重点项目");
+    expect(html).toContain("综上，上述判断仅限现有原文");
+    expect(html).not.toContain("<ul");
+  });
+
+  it("leaves a single numeric fact as a paragraph instead of an outline heading", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa", answer: "提高就业率 1.5%，新增 200 个岗位。",
+    })} onEvidence={noEvidence} />);
+    expect(html).not.toContain("qa-outline-heading");
+    expect(html).toContain("提高就业率 1.5%");
+  });
+
 });

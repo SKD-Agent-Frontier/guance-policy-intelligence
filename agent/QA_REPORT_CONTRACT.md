@@ -80,3 +80,18 @@ QA 输出可包含 `report`：
 ## 五、结果解释
 
 `structured` 只包含通过核验与审核的报告块。逐字引文核验说明引句在本轮已读原文中存在；语义筛查只能降低明显不受支持内容被展示的风险，不能替代人工判断或保证完整性。`meta.qa_report` 记录接收、保留、撤回、覆盖与审核状态，供调用方诊断；它不是报告正文。
+
+## 六、实现兼容边界
+
+- `agent/src/guance_agent/qa_analysis.py` 中 `QAAnalysisDraft` 的公共字段由最新 `main` 定义；适配报告核验时须保留这些字段及其含义。
+- 新增报告核验逻辑放在 `agent/src/guance_agent/qa_report_verification.py`，对应测试放在 `agent/tests/test_qa_report_verification.py`。
+- 既有 `agent/src/guance_agent/qa_report.py` 与 `agent/tests/test_qa_report.py` 属于旧实现及其兼容守卫，应保留，不应把新核验模块覆盖到旧路径。
+- 不包含 `report` 的旧式 QA 仍走现有答案路径与安全回退；报告核验改动不得改变该兼容行为。
+
+## 七、验证结果
+
+本次最终代码基于 `cd4ee0a` 合入分支后验证：
+
+- Agent 全量测试：825 项通过；Ruff 检查通过。
+- Backend 全量测试：250 项通过，6 项真实知识库开关测试跳过；按仓库 Backend CI 配置执行的 Ruff 检查通过。
+- 未进行真实模型或知识库请求。真实 QA 诊断因缺少 RAG 运行依赖 `filelock` 在调用前终止；未安装依赖。

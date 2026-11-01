@@ -18,10 +18,12 @@ from .extract import build_messages, retrieve
 from .format_recovery import (
     REPAIRABLE,
     classify_output,
+    recover_complete_claims,
     repair_messages,
     repair_preserves_content,
 )
 from .kb import get_kb
+from .literal_keywords import enforce_literal_result, literal_keyword
 from .output import (
     ERRORS,
     LIMIT_CODES,
@@ -30,7 +32,8 @@ from .output import (
     insufficient_message,
     rebuild_trusted_answer,
 )
-from .qa_report import SAFE_EMPTY_ANSWER, finalize_report, prune_report
+from .qa_analysis import finalize_qa_analysis
+from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -397,6 +400,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                                      areas=decision.areas, fyps=decision.fyps,
                                      sub_query=decision.sub_query, blocked=decision.blocked)
         ctx.route = decision
+        if task.task_type == "qa" and decision.kind == "open":
+            ctx.literal_keyword = literal_keyword(task.question)
         async with _session_lock(task.session_id):
             if module is not None:
                 result = await _run_business(task, s, rt, ctx, deadline, decision, module)
@@ -422,9 +427,12 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
                     result.claims = []
                     result.evidence_refs = []
         if module is None:
+            if task.task_type == "qa":
+                enforce_literal_result(result, ctx)
             _attach(result, task)
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
+    result = finalize_qa_analysis(result, task.question)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)
         try:
@@ -565,6 +573,7 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
 
     # 保存业务事实及来源的快照。structured 可能包含依赖它们的矩阵/分析，
     # 不能在核验删改事实后继续原样展示这些派生内容。
+    research_gate = outcome.structured.get("research_gate")
     original_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in outcome.claims]
     output = AgentOutput(answer=outcome.answer, claims=outcome.claims,
                          insufficient=outcome.insufficient)
@@ -605,6 +614,14 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
         elif not original_claims and not result.meta.get("answer_rebuilt"):
             result.structured = _business_document_metadata(services)
         rebuild_trusted_answer(result, ctx, "no_valid_claims")
+        # A deterministic eligibility rejection can be explained without claiming
+        # the policy document was searched exhaustively.
+        if (isinstance(research_gate, dict)
+                and research_gate.get("status") == "blocked"
+                and research_gate.get("reason") == "topic_mismatch"):
+            result.answer = outcome.answer
+            result.meta["research_gate"] = research_gate
+            result.evidence_status = "insufficient"
         result.warnings.append("未形成可核验的有效结论；原始回答和业务事实已移除，正文事实未经核验")
     return result
 
@@ -674,7 +691,21 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
         return outcome, None
     classification, parsed, deterministic = classify_output(outcome.final_output)
     meta = {"output_parse": {"classification": classification}}
+    last_output_tokens = ((outcome.telemetry or {}).get("per_call") or [{}])[-1].get("output")
+    cap_reached = isinstance(last_output_tokens, int) and last_output_tokens >= s.llm_max_output_tokens
+    meta["output_parse"]["token_cap_reached"] = cap_reached
+    meta["output_parse"]["output_chars"] = len(outcome.final_output)
     if parsed is not None:
+        # 可选 analyses 的格式坏了也不能抹掉完整事实；记录弃用数，防止原始
+        # answer 里夹带没有可验证依赖的分析语句。
+        try:
+            payload = json.loads(outcome.final_output)
+        except (json.JSONDecodeError, TypeError):
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("analyses"), list):
+            dropped = len(payload["analyses"]) - len(parsed.analyses)
+            if dropped > 0:
+                meta["output_parse"]["analyses_dropped"] = dropped
         if deterministic:
             if (getattr(parsed, "report", None) is not None
                     and not repair_preserves_content(outcome.final_output, parsed)):
@@ -687,6 +718,14 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
                    method=deterministic)
             return replace(outcome, final_output=parsed), meta
         return outcome, meta
+    if classification == "incomplete_json" and cap_reached:
+        recovered = recover_complete_claims(outcome.final_output)
+        if recovered is not None:
+            meta["output_parse"].update(
+                recovery="complete_claims_only", recovered_claims=len(recovered.claims))
+            rt.log("qa_output_parse_repaired", classification=classification,
+                   method="complete_claims_only", recovered_claims=len(recovered.claims))
+            return replace(outcome, final_output=recovered), meta
     if classification not in REPAIRABLE or len(outcome.final_output) > s.max_input_chars:
         meta["output_parse"]["repair"] = "not_attempted"
         rt.log("qa_output_parse_failed", classification=classification, repair="not_attempted")

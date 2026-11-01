@@ -20,13 +20,16 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
     <section className="home-main" aria-label="政策研究">
       <div className="home-content">
         <div className="intro-block">
+          <div className="home-brand-lockup" aria-label="管策智研 · 政策智能研究助手">
+            <img src="/guance-mark.svg" alt="" />
+            <div className="home-brand-copy"><strong>管策智研</strong><span>政策智能研究助手</span></div>
+          </div>
           <h1>让政策更可理解<br />让决策更有依据</h1>
-          <p className="home-subtitle">基于权威政策文献的智能研究助手</p>
         </div>
-        <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} />
+        <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} enableTemplates />
       </div>
       <div className="architecture-scene" aria-hidden="true">
-        <img src="/research-architecture.png" alt="" />
+        <img src="/research-mountain-architecture.webp" alt="" />
       </div>
     </section>
   </main>;

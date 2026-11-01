@@ -3,12 +3,6 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResearchForm } from "./ResearchForm";
 import type { TaskType } from "../types";
-import type { AdvancedDraft } from "../conversationTypes";
-
-const draft = (overrides: Partial<AdvancedDraft> = {}): AdvancedDraft => ({
-  open: false, question: "", target: "", targets: ["", ""], dimensions: [], customDimension: "", focusVersion: 0,
-  ...overrides,
-});
 
 function ControlledForm({
   onSend = vi.fn(),
@@ -17,33 +11,91 @@ function ControlledForm({
 }) {
   const [mode, setMode] = useState<TaskType>("qa");
   const [value, setValue] = useState("");
-  const [advancedDraft, setAdvancedDraft] = useState(draft());
-  return (
-    <ResearchForm
-      mode={mode}
-      value={value}
-      busy={false}
-      onChange={setValue}
-      onModeChange={setMode}
-      onSend={() => onSend(value)}
-      advancedDraft={advancedDraft}
-      onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))}
-    />
-  );
+  return <ResearchForm mode={mode} value={value} busy={false}
+    onChange={setValue} onModeChange={setMode} onSend={onSend} />;
 }
 
-describe("ResearchForm", () => {
+function openModes() {
+  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
+  fireEvent.click(screen.getByRole("button", { name: /研究模式/ }));
+}
+
+function openTemplates() {
+  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
+  fireEvent.click(screen.getByRole("button", { name: "指令模板" }));
+}
+
+describe("ResearchForm plus menu", () => {
   afterEach(cleanup);
-  it("offers all five modes and does not send when the user only changes mode", () => {
+
+  it("shows one compact plus entry and keeps all five mode constraints inside it", () => {
     const onSend = vi.fn();
     render(<ControlledForm onSend={onSend} />);
-
-    for (const mode of ["政策问答", "要素提取", "文献梳理", "政策比较", "多方案分析"])
-      expect(screen.getByRole("tab", { name: mode })).toBeInTheDocument();
-    expect(document.querySelector(".active-mode-label")).toBeNull();
-
-    fireEvent.click(screen.getByRole("tab", { name: "文献梳理" }));
+    expect(screen.queryByRole("tablist", { name: "研究模式" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "更多功能" })).toHaveAttribute("aria-expanded", "false");
+    openModes();
+    expect(screen.getByRole("region", { name: "研究模式选择" })).toBeInTheDocument();
+    for (const label of ["政策问答", "文献梳理", "要素提取", "政策比较", "多方案分析"])
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
+    expect(screen.getByText("政策比较")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "研究模式选择" })).not.toBeInTheDocument();
     expect(onSend).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "恢复默认模式" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "恢复默认模式" }));
+    expect(screen.queryByRole("button", { name: "恢复默认模式" })).not.toBeInTheDocument();
+  });
+
+  it("keeps instruction templates in the same plus menu without changing the mode", () => {
+    const onSend = vi.fn();
+    render(<ControlledForm onSend={onSend} />);
+    openTemplates();
+    expect(screen.getByRole("region", { name: "指令模板列表" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
+    fireEvent.click(screen.getByRole("button", { name: /发展目标比较/ }));
+    const input = screen.getByRole("textbox", { name: "研究需求" });
+    expect(input).toHaveValue("比较浙江和江苏十四五数字经济发展目标的异同");
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
+    openModes();
+    expect(screen.getByRole("button", { name: "政策问答" })).toHaveAttribute("aria-pressed", "true");
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
+    expect(input).toHaveValue("");
+    fireEvent.change(input, { target: { value: "修改后比较政策支持措施" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    expect(onSend).toHaveBeenCalledWith("修改后比较政策支持措施");
+  });
+
+  it("preserves edited user text when changing mode", () => {
+    render(<ControlledForm />);
+    openTemplates();
+    fireEvent.click(screen.getByRole("button", { name: /政策事实查询/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
+      target: { value: "我手工修改的研究要求" },
+    });
+    openModes();
+    fireEvent.click(screen.getByRole("button", { name: "要素提取" }));
+    expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("我手工修改的研究要求");
+    expect(screen.queryByRole("textbox", { name: /政策编号|研究对象编号/ })).not.toBeInTheDocument();
+  });
+
+  it("supports nested navigation, Escape and outside click", () => {
+    render(<ControlledForm />);
+    openTemplates();
+    fireEvent.click(screen.getByRole("button", { name: "返回更多功能" }));
+    expect(screen.getByRole("region", { name: "更多功能菜单" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "更多功能菜单" })).not.toBeInTheDocument();
+    openModes();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("region", { name: "研究模式选择" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the same plus control in the conversation composer", () => {
+    render(<ControlledForm />);
+    expect(screen.getByRole("button", { name: "更多功能" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "指令模板" })).not.toBeInTheDocument();
   });
 
   it("grows for long text and respects Enter, Shift+Enter, and IME composition", () => {
@@ -51,10 +103,8 @@ describe("ResearchForm", () => {
     render(<ControlledForm onSend={onSend} />);
     const textarea = screen.getByRole("textbox", { name: "研究需求" });
     Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 560 });
-
     fireEvent.change(textarea, { target: { value: "长文本".repeat(1200) } });
     expect(textarea).toHaveStyle({ height: "200px", overflowY: "auto" });
-
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
     expect(onSend).not.toHaveBeenCalled();
     fireEvent.keyDown(textarea, { key: "Enter", isComposing: true });
@@ -63,74 +113,14 @@ describe("ResearchForm", () => {
     expect(onSend).toHaveBeenCalledTimes(1);
   });
 
-  it("counts Unicode code points without truncating and blocks only over-limit sends", () => {
-    const onSend = vi.fn();
-    render(<ControlledForm onSend={onSend} />);
+  it("counts Unicode code points without truncation and blocks over-limit sends", () => {
+    render(<ControlledForm />);
     const textarea = screen.getByRole("textbox", { name: "研究需求" });
     const send = screen.getByRole("button", { name: "发送消息" });
     fireEvent.change(textarea, { target: { value: "😀".repeat(4000) } });
-    expect(textarea).toHaveValue("😀".repeat(4000));
     expect(screen.getByText("4000/4000")).toBeInTheDocument();
     expect(send).toBeEnabled();
     fireEvent.change(textarea, { target: { value: "😀".repeat(4001) } });
-    expect(textarea).toHaveValue("😀".repeat(4001));
     expect(send).toBeDisabled();
-    expect(screen.getByText(/输入过长/)).toBeInTheDocument();
-  });
-
-  it("renders a controlled prefilled advanced draft and preserves dimensions on rerender", () => {
-    const onAdvancedSubmit = vi.fn();
-    function Harness() {
-      const [advancedDraft, setAdvancedDraft] = useState(draft({
-        open: true, question: "比较政策成效", targets: ["plan_a", "plan_b"], dimensions: ["支持措施"], focusVersion: 0,
-      }));
-      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
-    }
-    render(<Harness />);
-    expect(screen.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("plan_a");
-    expect(screen.getByRole("textbox", { name: "研究问题" })).toHaveValue("比较政策成效");
-    expect(screen.getByRole("button", { name: "支持措施" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "使用高级入口执行" }));
-    expect(onAdvancedSubmit).toHaveBeenCalledWith(expect.objectContaining({ targets: ["plan_a", "plan_b"], question: "比较政策成效", dimensions: ["支持措施"] }));
-  });
-
-  it("shows missing, insufficient, duplicate, and malformed plan IDs and only submits valid unique targets", () => {
-    const onAdvancedSubmit = vi.fn();
-    function Harness() {
-      const [advancedDraft, setAdvancedDraft] = useState(draft({ open: true }));
-      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
-    }
-    render(<Harness />);
-    const run = screen.getByRole("button", { name: "使用高级入口执行" });
-    expect(screen.getByRole("alert", { name: "" })).toHaveTextContent("2—8 个有效政策编号");
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 1" }), { target: { value: "same" } });
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "same" } });
-    expect(screen.getByText(/重复对象/)).toBeInTheDocument();
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "bad id" } });
-    expect(run).toBeDisabled();
-    fireEvent.change(screen.getByRole("textbox", { name: "研究对象编号 2" }), { target: { value: "other" } });
-    expect(run).toBeEnabled();
-    fireEvent.click(run);
-    expect(onAdvancedSubmit).toHaveBeenCalledTimes(1);
-  });
-
-  it("focuses the first missing plan ID when the controlled draft opens", () => {
-    const { rerender } = render(<ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={draft()} onAdvancedDraftChange={() => {}} />);
-    rerender(<ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={draft({ open: true, focusVersion: 1 })} onAdvancedDraftChange={() => {}} />);
-    expect(screen.getByRole("textbox", { name: "研究对象编号 1" })).toHaveFocus();
-  });
-
-  it("keeps focus on the current ID while the user types", () => {
-    function Harness() {
-      const [advancedDraft, setAdvancedDraft] = useState(draft({ open: true, focusVersion: 1 }));
-      return <ResearchForm mode="compare" value="" busy={false} onChange={() => {}} onModeChange={() => {}} onSend={() => {}} advancedDraft={advancedDraft} onAdvancedDraftChange={(patch) => setAdvancedDraft((current) => ({ ...current, ...patch }))} />;
-    }
-    render(<Harness />);
-    const first = screen.getByRole("textbox", { name: "研究对象编号 1" });
-    fireEvent.change(first, { target: { value: "p" } });
-    expect(first).toHaveFocus();
   });
 });

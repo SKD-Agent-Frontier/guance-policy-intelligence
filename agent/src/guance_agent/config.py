@@ -18,7 +18,7 @@ class Settings:
     llm_temperature: float | None = None
     llm_request_timeout: float = 120   # 校内端点高峰单次可达 50s+，60 会诱发重试
     llm_max_retries: int = 1
-    llm_max_output_tokens: int = 2000
+    llm_max_output_tokens: int = 3000
     llm_disable_thinking: bool = True   # qwen3 默认思考会让单次调用变 20 秒以上且吃光输出额度   # 不设上限时模型会生成几千 token，直接把 180 秒烧光   # 每次重试都很贵，整体仍受 run_timeout=180 约束
     max_input_chars: int = 4000
     max_user_id_chars: int = 64

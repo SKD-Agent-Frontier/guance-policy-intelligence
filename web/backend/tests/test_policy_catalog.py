@@ -80,9 +80,14 @@ def test_catalog_listing_without_query(client):
     body = response.json()
     assert body["dataset"] == {"generation_id": "generation-test", "revision": 3,
                                "total_documents": 4, "partial": True,
-                               "source": "current_published_frozen_release"}
-    assert body["query"] == {"q": None, "area": None, "fyp": None,
-                             "plantype": None, "match_mode": None}
+                               "source": "current_published_frozen_release",
+                               "region_version": None, "region_mapping_version": None}
+    assert body["query"] == {
+        "q": None, "area": None, "fyp": None, "plantype": None,
+        "admin_level": None, "province_code": None, "prefecture_code": None,
+        "county_code": None, "region_status": None, "year": None,
+        "fyp_status": None, "plantype_status": None, "match_mode": None,
+    }
     assert body["matched_documents"] == 4
     assert [item["planid"] for item in body["items"]] == ["10001", "10002", "10003", "10004"]
     assert body["items"][0]["matches"] == []
@@ -295,7 +300,7 @@ def test_invalid_parameters_are_rejected(client, params):
 
 
 @pytest.mark.parametrize("path,params", [
-    ("/api/policies", {"year": "2020"}),
+    ("/api/policies", {"unsupported": "2020"}),
     ("/api/policies", {"q": "数字经济", "date": "2024"}),
     ("/api/policies/10001", {"path": "/tmp/secret"}),
     ("/api/policies/10001/content", {"file": "../outside.md"}),

@@ -863,7 +863,8 @@ textarea:focus-visible {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding: 18px 12px 14px;
+  /* 10px top padding + 44px row centers the mark at y=32, matching the 64px topbar. */
+  padding: 10px 12px 14px;
   overflow: hidden;
   border-right: 1px solid #e7e5e3;
   background: #faf9f8;
@@ -1072,20 +1073,20 @@ textarea:focus-visible {
 .global-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: 0;
   padding: 4px 0;
   background: transparent;
   color: #302824;
   font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
 }
 .global-brand .brand-mark {
-  width: 29px;
-  height: 29px;
+  width: 36px;
+  height: 36px;
 }
 .global-nav {
   position: absolute;
@@ -1152,14 +1153,20 @@ textarea:focus-visible {
   line-height: 1.3;
   white-space: nowrap;
 }
-.page-body-home .intro-block .home-subtitle {
-  color: #625b57;
-  font-size: clamp(14px, 1.35vw, 18px);
-  line-height: 1.65;
-}
 .page-body-home .architecture-scene {
   bottom: 0;
-  height: clamp(170px, 29vh, 330px);
+  /* Match the approved composition: cloud-covered hills on the left, architecture on the right. */
+  height: clamp(290px, 41vh, 425px);
+  background: #fff;
+}
+.page-body-home .architecture-scene img {
+  object-fit: fill;
+  object-position: center center;
+  filter: none;
+  opacity: 1;
+}
+.page-body-home .architecture-scene::after {
+  background: linear-gradient(180deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 85%, rgba(255,255,255,.08) 100%);
 }
 .page-body-home .architecture-title {
   top: 23%;
@@ -1182,7 +1189,8 @@ textarea:focus-visible {
   min-height: calc(100vh - 64px);
 }
 .conversation-workspace {
-  width: min(1060px, 100%);
+  /* The reading column is 30% wider; the composer stays capped at 820px. */
+  width: min(1320px, 100%);
   height: calc(100vh - 64px);
   min-height: 520px;
   display: flex;
@@ -1226,7 +1234,7 @@ textarea:focus-visible {
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 14px max(0px, calc((100% - 780px) / 2)) 18px;
+  padding: 14px max(0px, calc((100% - 1014px) / 2)) 18px;
   scroll-behavior: smooth;
 }
 .conversation-empty {
@@ -1245,7 +1253,7 @@ textarea:focus-visible {
   line-height: 1.7;
 }
 .conversation-message {
-  max-width: 780px;
+  max-width: 1014px;
   margin: 0 auto 14px;
   padding: 15px 17px;
   border: 1px solid #eeecea;
@@ -1266,12 +1274,99 @@ textarea:focus-visible {
   margin-bottom: 5px;
 }
 .message-user {
-  max-width: 680px;
-  margin-right: max(0px, calc((100% - 780px) / 2));
+  width: fit-content;
+  max-width: min(884px, 88%);
+  min-width: 0;
+  margin-right: 0;
   margin-left: auto;
   border-color: #f1e7e4;
   background: #fcf8f7;
 }
+
+/* Copy / regenerate / edit controls sit below the visible message, like chat history tools. */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 5px;
+  min-height: 28px;
+}
+.message-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #8e8580;
+  cursor: pointer;
+  transition: color 130ms ease, background-color 130ms ease;
+}
+.message-actions button:hover:not(:disabled),
+.message-actions button:focus-visible {
+  color: #51443d;
+  background: #f3efec;
+}
+.message-actions button:focus-visible {
+  outline: 2px solid #b99089;
+  outline-offset: 1px;
+}
+.message-actions button:disabled { opacity: .38; cursor: not-allowed; }
+.message-user-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 1014px;
+  margin: 0 auto 14px;
+}
+.message-user-wrap > .message-user { margin: 0; }
+.message-user-wrap .message-actions { justify-content: flex-end; }
+.conversation-edit-form {
+  width: min(720px, 100%);
+  padding: 12px;
+  border: 1px solid #e8dcda;
+  border-radius: 13px;
+  background: #fcf8f7;
+}
+.conversation-edit-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 94px;
+  max-height: 50vh;
+  padding: 9px 10px;
+  resize: vertical;
+  border: 1px solid #e1d7d3;
+  border-radius: 8px;
+  background: #fff;
+  color: #403833;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.conversation-edit-form textarea:focus { outline: 2px solid #c8aaa3; }
+.conversation-edit-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.conversation-edit-buttons button {
+  border: 1px solid #ded5d1;
+  border-radius: 8px;
+  padding: 7px 13px;
+  background: #fff;
+  color: #52463f;
+  cursor: pointer;
+}
+.conversation-edit-buttons button[type="submit"] {
+  border-color: #955b56;
+  background: #955b56;
+  color: #fff;
+}
+.conversation-edit-buttons button:disabled { opacity: .5; cursor: not-allowed; }
 .message-user .message-role {
   color: #9e625c;
 }
@@ -1280,8 +1375,17 @@ textarea:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Assistant messages flow as page content, without an enclosing chat card. */
+.conversation-message:is(.message-system, .message-preparation, .result-message) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-right: 0;
+  padding-left: 0;
+}
 .message-system {
-  background: #faf9f8;
+  background: transparent;
 }
 .message-error {
   border-color: #ead6d2;
@@ -1431,20 +1535,27 @@ textarea:focus-visible {
   font-size: 11px;
 }
 .conversation-progress {
-  max-width: 780px;
+  max-width: 1014px;
   display: flex;
   align-items: center;
-  gap: 13px;
   margin: 0 auto 14px;
-  padding: 14px 17px;
-  border: 1px solid #eeeae7;
-  border-radius: 6px;
-  color: #5d514b;
+  padding: 10px 0;
+  color: #76635e;
 }
-.conversation-progress p {
-  margin: 3px 0 0;
-  color: #8d817b;
-  font-size: 12px;
+.research-running-text {
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(95deg, #6f625d 15%, #bd534b 46%, #6f625d 78%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: research-shimmer 2.1s ease-in-out infinite;
+}
+.research-running-dots { display: inline-block; width: 1.4em; overflow: hidden; vertical-align: baseline; }
+@keyframes research-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .research-running-text { animation: none; background: none; -webkit-text-fill-color: currentColor; }
 }
 .conversation-composer-wrap {
   flex: 0 0 auto;
@@ -1577,16 +1688,16 @@ textarea:focus-visible {
     left: 0;
     z-index: 31;
     width: 64px;
-    padding: 18px 8px 14px;
+    padding: 6px 8px 14px;
     transform: none;
   }
   .app-sidebar.is-collapsed {
     width: 64px;
-    padding: 18px 8px 14px;
+    padding: 6px 8px 14px;
   }
   .app-sidebar.is-mobile-open {
     width: min(290px, 83vw);
-    padding: 18px 12px 14px;
+    padding: 6px 12px 14px;
     box-shadow: 12px 0 35px rgba(42, 33, 28, 0.12);
     transform: translateX(0);
   }
@@ -1657,7 +1768,7 @@ textarea:focus-visible {
     font-size: clamp(30px, 8.4vw, 36px);
   }
   .page-body-home .architecture-scene {
-    height: 180px;
+    height: clamp(190px, 35svh, 300px);
   }
   .conversation-workspace {
     height: calc(100svh - 56px);
@@ -1713,3 +1824,168 @@ textarea:focus-visible {
     font-size: 12px;
   }
 }
+
+/* Official product identity: the red book-seal mark is shared by nav, sidebar, and home. */
+.sidebar-brand-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: contain;
+}
+.global-brand .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.global-brand .brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.home-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+}
+.home-brand-lockup > img {
+  display: block;
+  width: 58px;
+  height: 52px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+.home-brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: nowrap;
+}
+.home-brand-copy strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+}
+.home-brand-copy span {
+  color: #6c625d;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+}
+@media (max-width: 768px) {
+  .home-brand-lockup { gap: 10px; }
+  .home-brand-lockup > img { width: 43px; height: 40px; }
+  .home-brand-copy strong { font-size: 21px; }
+  .home-brand-copy span { font-size: 10px; letter-spacing: 0.06em; }
+}
+
+/* Sidebar navigation and history are readable at both expanded and collapsed sizes. */
+/* Match the official 36px / 19px topbar logo and wordmark in PR #21. */
+.app-sidebar .sidebar-brand-row {
+  height: 44px;
+  gap: 10px;
+}
+.app-sidebar .sidebar-brand-row strong {
+  color: #302824;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: normal;
+}
+.app-sidebar .sidebar-brand-toggle {
+  width: 36px;
+  height: 36px;
+}
+.app-sidebar .sidebar-brand-mark {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+.app-sidebar .sidebar-primary {
+  gap: 7px;
+}
+.app-sidebar .side-link {
+  min-height: 46px;
+  gap: 13px;
+  font-size: 14px;
+}
+.app-sidebar .side-link > svg {
+  width: 24px;
+  height: 24px;
+}
+.app-sidebar .sidebar-home-link,
+.app-sidebar .new-link,
+.app-sidebar .sidebar-history-shortcut {
+  width: 46px;
+  justify-content: center;
+  padding: 0;
+}
+.app-sidebar .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.app-sidebar .sidebar-session-count {
+  margin-left: auto;
+  font-size: 12px;
+}
+.app-sidebar .history-link {
+  padding: 11px 9px;
+}
+.app-sidebar .history-type {
+  font-size: 12px;
+}
+.app-sidebar .history-question {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.app-sidebar .sidebar-empty {
+  font-size: 13px;
+}
+.app-sidebar .local-demo-note {
+  font-size: 12px;
+}
+.app-sidebar .sidebar-history-shortcut:focus-visible,
+.app-sidebar .sidebar-section-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Mobile topbar is 56px high: 6px + 22px places the sidebar mark at y=28. */
+@media (max-width: 768px) {
+  .app-sidebar .sidebar-brand-mark,
+  .app-sidebar .sidebar-brand-toggle {
+    width: 25px;
+    height: 25px;
+  }
+  .app-sidebar .sidebar-brand-mark { flex-basis: 25px; }
+  .app-sidebar .sidebar-brand-row strong { font-size: 14px; }
+}
+
+/* Result integrity information stays available without preceding the conclusion. */
+.result-followup-notes {
+  margin-top: 24px;
+  padding: 12px 0;
+  border-top: 1px solid #eee9e6;
+  color: #76665f;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.result-followup-notes summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #8d655f;
+}
+.result-followup-notes p { margin: 9px 0; }
+.result-followup-notes ul { margin: 8px 0; padding-left: 20px; }

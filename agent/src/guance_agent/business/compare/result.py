@@ -9,6 +9,7 @@ import re
 from ...routing import parse_fyps
 from ...schemas import Claim
 from ..contract import BusinessOutcome
+from .relevance import evidence_on_topic, explicit_comparison_topic
 
 # 这些表达式是有限的字面拦截规则。它们不能覆盖所有换算、反事实、语义否定或
 # 隐含条件；命中规则时保守撤回分析，未命中也不等于已经证明分析得到原文支持。
@@ -265,6 +266,8 @@ def _fact_cells(task, plan, collection, generated):
     这保证矩阵显示文字、Claim 正文、quotes 和 chunk_ids 来自同一次组装过程。
     """
     units = {unit.id: unit for unit in collection.units}
+    topic = explicit_comparison_topic(task.question)
+    titles = {obj.get("planid"): obj.get("title") or "" for obj in collection.objects}
     facts, claims, cells = {}, [], {}
     for fact in generated.facts:
         if fact.planid not in task.targets or fact.dimension not in plan.dimensions:
@@ -288,6 +291,13 @@ def _fact_cells(task, plan, collection, generated):
         # 默认“适用对象”指条款的受益或受规制对象，部门工作分解并不能回答
         # 谁可获得支持。仅取得纯行政分工时保留缺证；“执行主体”维度不受此限制。
         selected = "\n".join(units[ref].text for ref in refs)
+        if topic and not all(evidence_on_topic(
+            units[ref], fact.dimension, topic, titles.get(fact.planid, "")
+        ) for ref in refs):
+            collection.notes.append(
+                f"对象{fact.planid}的「{fact.dimension}」候选句未通过研究主题与维度检查，已排除。"
+            )
+            continue
         if (fact.dimension == "适用对象"
                 and re.search(r"任务清单|工作台账|牵头抓总|人才工作考核", selected)
                 and not re.search(r"支持|给予|补贴|资助|引进|遴选|评选|培养|企业|群众|居民", selected)):
@@ -465,7 +475,17 @@ def build_outcome(task, plan, collection, generated, *, scheme):
     if scheme:
         incomplete |= any(not analysis[field] for analysis in schemes
                           for field in ("advantages", "limitations", "applicability"))
+    supported_dimensions = [row["dimension"] for row in matrix
+                            if row["difference"]["status"] == "supported"]
+    task_completion = {
+        "status": "complete" if not incomplete else "partial",
+        "requested_dimensions": plan.dimensions,
+        "supported_dimensions": supported_dimensions,
+        "unsupported_dimensions": [row["dimension"] for row in matrix
+                                   if row["dimension"] not in supported_dimensions],
+    }
     structured = {"objects": collection.objects, "dimensions": plan.dimensions,
+                  "task_completion": task_completion,
                   "matrix": matrix, "comparability": {
                       "comparable": all(row["comparability"]["comparable"] for row in matrix),
                       "reason": "；".join(dict.fromkeys(row["comparability"]["reason"]

@@ -16,7 +16,7 @@ vi.mock("../api/client", () => ({
     }
   },
   validatePreparationResponse: (response: unknown) => response,
-  researchClient: { prepare: vi.fn(), submit: vi.fn() },
+  researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
 
 const STATE = {
@@ -123,27 +123,110 @@ describe("useConversations", () => {
     });
   });
 
-  it.each([
-    ["extract", "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-    ["compare", "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-    ["compare_plans", "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。"],
-  ] as const)("hands %s messages to the advanced draft without API calls", async (mode, guidance) => {
+  it("summarizes the first question and keeps that title across follow-ups and history", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("blocked"));
     const { result } = renderHook(() => useConversations());
-    act(() => result.current.setMode(mode));
+    const firstId = result.current.activeId;
+    const question = "密云区在‘十一五’规划期间所处的发展环境总体如何？其中的机遇和挑战有哪些？";
 
-    await act(async () => { await result.current.send("比较这些政策"); });
+    await act(async () => { await result.current.send(question); });
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    expect(result.current.active?.messages.find((entry) => entry.kind === "user")).toMatchObject({ text: question });
 
-    expect(mockedClient.prepare).not.toHaveBeenCalled();
-    expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(result.current.active?.messages).toEqual([
-      { id: expect.any(String), kind: "user", text: "比较这些政策" },
-      { id: expect.any(String), kind: "advanced_guidance", text: guidance },
-    ]);
-    expect(result.current.active?.advancedDraft).toMatchObject({
-      open: true,
-      question: "比较这些政策",
-      focusVersion: 1,
+    await act(async () => { await result.current.send("请进一步分析面临的挑战"); });
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+
+    act(() => result.current.newConversation());
+    const secondId = result.current.activeId;
+    await act(async () => {
+      await result.current.send("我想了解沧州市在十三五期间经济社会发展取得了哪些重大成就");
     });
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+    act(() => result.current.selectConversation(firstId));
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    act(() => result.current.selectConversation(secondId));
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+  });
+
+  it("updates the title only when editing the first user turn", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("blocked"));
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("密云区十一五发展环境分析有哪些重点？"); });
+    const first = result.current.active?.messages.find((entry) => entry.kind === "user");
+    expect(result.current.active?.title).toBe("密云区“十一五”发展环境分析");
+    await act(async () => {
+      await result.current.editAndResend(first!.id, "沧州市十三五经济社会发展取得了哪些重要成就？");
+    });
+    expect(result.current.active?.title).toBe("沧州市“十三五”经济社会发展成就");
+  });
+
+  it.each(["extract", "compare_plans"] as const)(
+    "asks for a named policy in %s only when automatic discovery is ambiguous",
+    async (mode) => {
+      mockedClient.resolveResearch.mockResolvedValue({
+        status: "needs_clarification", request: null,
+        policies: [], message: "请补充需要研究的政策名称。",
+      });
+      const { result } = renderHook(() => useConversations());
+      act(() => result.current.setMode(mode));
+      await act(async () => { await result.current.send("比较这些政策"); });
+      expect(mockedClient.resolveResearch).toHaveBeenCalledWith(mode, "比较这些政策");
+      expect(mockedClient.submit).not.toHaveBeenCalled();
+      expect(result.current.active?.messages.at(-1)).toMatchObject({
+        kind: "advanced_guidance", text: "请补充需要研究的政策名称。",
+      });
+      expect(result.current.active?.advancedDraft.open).toBe(false);
+    },
+  );
+
+  it("automatically resolves a clear compare question and executes without a planid form", async () => {
+    mockedClient.resolveResearch.mockResolvedValue({
+      status: "ready",
+      message: "已定位",
+      request: {
+        task_type: "compare",
+        question: "比较浙江和江苏十四五数字经济发展目标的异同",
+        targets: ["P-ZJ", "P-JS"], dimensions: ["发展目标"],
+      },
+      policies: [
+        { area: "浙江", planid: "P-ZJ", title: "浙江省数字经济发展十四五规划", fyp: "十四五" },
+        { area: "江苏", planid: "P-JS", title: "江苏省数字经济发展十四五规划", fyp: "十四五" },
+      ],
+    });
+    mockedClient.submit.mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+
+    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
+
+    expect(mockedClient.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五数字经济发展目标的异同");
+    expect(mockedClient.prepare).not.toHaveBeenCalled();
+    expect(mockedClient.submit).toHaveBeenCalledWith({
+      task_type: "compare",
+      question: "比较浙江和江苏十四五数字经济发展目标的异同",
+      targets: ["P-ZJ", "P-JS"],
+      dimensions: ["发展目标"],
+    }, undefined);
+    expect(result.current.active?.advancedDraft.open).toBe(false);
+    expect(result.current.active?.messages.some((item) => item.kind === "advanced_guidance")).toBe(true);
+  });
+
+  it("does not fabricate compare targets when the published catalog cannot resolve them", async () => {
+    mockedClient.resolveResearch.mockResolvedValue({
+      status: "needs_clarification",
+      message: "没有找到匹配文献",
+      request: null, policies: [],
+    });
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+
+    await act(async () => { await result.current.send("比较浙江和江苏十四五数字经济发展目标的异同"); });
+
+    expect(mockedClient.submit).not.toHaveBeenCalled();
+    expect(result.current.active?.messages.at(-1)).toEqual({
+      id: expect.any(String), kind: "advanced_guidance", text: "没有找到匹配文献",
+    });
+    expect(result.current.active?.advancedDraft.open).toBe(false);
   });
 
   it("keeps each conversation's advanced draft and resets it when mode changes", () => {
@@ -336,4 +419,100 @@ describe("useConversations", () => {
     await act(async () => { await result.current.retry(); });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
   });
+  it("regenerates a completed answer with the original prepared request, replacing its old result", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset()
+      .mockResolvedValueOnce({ ...RESULT, answer: "第一次回答" })
+      .mockResolvedValueOnce({ ...RESULT, answer: "第二次回答" });
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("最初问题"); });
+    const original = result.current.active?.messages.find((item) => item.kind === "result");
+    expect(original).toBeDefined();
+
+    await act(async () => { await result.current.regenerate(original!.id); });
+
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(1);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(2);
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+    expect(result.current.active?.messages.at(-1)).toMatchObject({
+      kind: "result", result: { answer: "第二次回答" },
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+  });
+
+  it("editing an earlier user turn removes dependent messages and restarts preparation", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("第一轮问题"); });
+    await act(async () => { await result.current.send("依赖第一轮的追问"); });
+    const first = result.current.active?.messages.find((item) => item.kind === "user");
+    expect(first).toBeDefined();
+
+    await act(async () => { await result.current.editAndResend(first!.id, "修订后的第一轮问题"); });
+
+    expect(result.current.active?.title).toBe("修订后的第一轮问题");
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(result.current.active?.messages.find((item) => item.kind === "user")).toMatchObject({
+      text: "修订后的第一轮问题",
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+    expect(mockedClient.prepare).toHaveBeenLastCalledWith({
+      mode: "qa", message: "修订后的第一轮问题",
+    });
+  });
+
+  it("regenerating an earlier answer discards subsequent turns, without preparing twice", async () => {
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("问题一"); });
+    const answer = result.current.active?.messages.find((item) => item.kind === "result");
+    await act(async () => { await result.current.send("问题二"); });
+
+    await act(async () => { await result.current.regenerate(answer!.id); });
+
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(2);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(3);
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
+  });
+
+  it("editing an advanced research message preserves its manually selected targets", async () => {
+    mockedClient.submit.mockReset().mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    act(() => result.current.setMode("compare"));
+    await act(async () => {
+      await result.current.runAdvanced({
+        task_type: "compare", question: "原问题", targets: ["P-1", "P-2"], dimensions: ["目标"],
+      });
+    });
+    const turn = result.current.active?.messages.find((item) => item.kind === "user");
+    await act(async () => { await result.current.editAndResend(turn!.id, "编辑后的比较问题"); });
+
+    expect(mockedClient.submit).toHaveBeenLastCalledWith({
+      task_type: "compare", question: "编辑后的比较问题",
+      targets: ["P-1", "P-2"], dimensions: ["目标"],
+    }, undefined);
+    expect(mockedClient.submit).toHaveBeenCalledTimes(2);
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+  });
+
+  it("does not edit or regenerate conversation history during an in-flight operation", async () => {
+    const pending = deferred<RunResult>();
+    mockedClient.prepare.mockReset().mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockReset().mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useConversations());
+    act(() => { void result.current.send("正在执行的问题"); });
+    await waitFor(() => expect(result.current.active?.busy).toBe("running"));
+    const original = result.current.active?.messages.find((item) => item.kind === "user");
+    await act(async () => {
+      await result.current.editAndResend(original!.id, "不应执行");
+      await result.current.regenerate("nonexistent");
+    });
+    expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
+    expect(mockedClient.prepare).toHaveBeenCalledTimes(1);
+    await act(async () => { pending.resolve(RESULT); await pending.promise; });
+  });
+
 });

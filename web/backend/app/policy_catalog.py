@@ -41,6 +41,12 @@ YEAR_RANGE = re.compile(r"(?:19|20)\d{2}\s*[—–―~～至到-]\s*(?:19|20)\d{
 ADMIN_LEVEL_ORDER = {"国家": 0, "国家级": 0, "省": 1, "省级": 1,
                      "市": 2, "市级": 2, "区县": 3, "区县级": 3,
                      "县": 3, "县级": 3}
+ADMIN_LEVEL_VALUES = ("national", "province", "prefecture", "county", "unclassified")
+ADMIN_LEVEL_LABELS = dict(zip(ADMIN_LEVEL_VALUES, ("国家级", "省级", "市级", "区县级", "未分类")))
+ADMIN_LEVEL_NORMALIZATION = {"国家": "national", "国家级": "national", "省": "province",
+                             "省级": "province", "市": "prefecture", "市级": "prefecture",
+                             "区县": "county", "区县级": "county", "县": "county", "县级": "county"}
+REGION_STATUSES = ("mapped", "unclassified", "not_applicable")
 
 
 class CatalogUnavailable(RuntimeError):
@@ -290,67 +296,295 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
 class PolicyCatalogService:
     """只读目录服务：所有查询基于加载完成的内存快照，线程安全（快照不可变）。"""
 
-    def __init__(self, snapshot: CatalogSnapshot):
+    def __init__(self, snapshot: CatalogSnapshot, *, region_payload: dict | None = None,
+                 region_mapping: dict[str, dict[str, str | None]] | None = None,
+                 region_mapping_version: str | None = None):
         self.snapshot = snapshot
+        self.region_payload = region_payload
+        self.region_mapping = region_mapping
+        self.region_mapping_version = region_mapping_version
         self._by_planid = {record.planid: record for record in snapshot.records}
         if len(self._by_planid) != len(snapshot.records):
             raise CatalogUnavailable("当前发布存在重复政策编号")
+        self._region_nodes: dict[str, dict] = {}
+        self._region_parent: dict[str, str | None] = {}
+        self._region_descendants: dict[str, set[str]] = {}
+        if region_payload:
+            def index_nodes(nodes: list[dict], parent: str | None = None):
+                for node in nodes:
+                    code = node["code"]
+                    self._region_nodes[code] = node
+                    self._region_parent[code] = parent
+                    index_nodes(node["children"], code)
+            index_nodes(region_payload["data"])
+            def collect_descendants(node: dict) -> set[str]:
+                descendants = {node["code"]}
+                for child in node["children"]:
+                    descendants.update(collect_descendants(child))
+                self._region_descendants[node["code"]] = descendants
+                return descendants
+            for root in region_payload["data"]:
+                collect_descendants(root)
 
-    # ---- 公共查询 -------------------------------------------------------
     def dataset(self) -> dict:
         return {"generation_id": self.snapshot.generation_id,
                 "revision": self.snapshot.revision,
                 "total_documents": self.snapshot.total_documents,
                 "partial": self.snapshot.partial,
-                "source": "current_published_frozen_release"}
+                "source": "current_published_frozen_release",
+                "region_version": self.region_payload.get("region_version") if self.region_payload else None,
+                "region_mapping_version": self.region_mapping_version}
 
-    def list_policies(self, *, q: str | None, area: str | None, fyp: str | None,
-                      plantype: str | None, page: int, page_size: int) -> dict:
-        q = self._check_query(q)
-        area = self._check_filter(area, "area")
-        fyp = self._check_filter(fyp, "fyp")
-        plantype = self._check_filter(plantype, "plantype")
+    def _legacy_dataset(self) -> dict:
+        return {key: value for key, value in self.dataset().items()
+                if key not in {"region_version", "region_mapping_version"}}
+
+    def list_policies(self, *, q: str | None = None, area: str | None = None,
+                      fyp: str | None = None, plantype: str | None = None,
+                      page: int = 1, page_size: int = DEFAULT_PAGE_SIZE,
+                      admin_level: str | None = None, province_code: str | None = None,
+                      prefecture_code: str | None = None, county_code: str | None = None,
+                      region_status: str | None = None, year: str | int | None = None,
+                      fyp_status: str | None = None, plantype_status: str | None = None) -> dict:
+        filters, query = self._normalize_filters(
+            q=q, area=area, fyp=fyp, plantype=plantype, admin_level=admin_level,
+            province_code=province_code, prefecture_code=prefecture_code,
+            county_code=county_code, region_status=region_status, year=year,
+            fyp_status=fyp_status, plantype_status=plantype_status)
         page, page_size = self._check_paging(page, page_size)
-        wanted_fyp = normalize_fyp(fyp)
-        matched: list[tuple[PolicyRecord, list[dict]]] = []
-        for record in self.snapshot.records:
-            if area is not None and record.area != area:
-                continue
-            if wanted_fyp is not None and normalize_fyp(record.fyp) != wanted_fyp:
-                continue
-            if plantype is not None and record.plantype_label != plantype:
-                continue
-            matches: list[dict] = []
-            if q is not None:
-                matches = self._match_record(record, q)
-                if not matches:
-                    continue
-            matched.append((record, matches))
-        matched.sort(key=lambda item: _sort_key(item[0], q))
-        matched_documents = len(matched)
+        matched = [(record, self._match_record(record, filters["q"]) if filters["q"] else [])
+                   for record in self.snapshot.records if self._matches(record, filters)]
+        matched.sort(key=lambda item: _sort_key(item[0], filters["q"]))
+        total = len(matched)
         start = (page - 1) * page_size
-        page_items = matched[start:start + page_size]
         items = []
-        for record, matches in page_items:
-            item = {"planid": record.planid, "title": record.title, "area": record.area,
-                    "fyp": record.fyp, "plantype_label": record.plantype_label,
-                    "year": record.year,
-                    "matches": matches if q is not None else []}
-            items.append(item)
-        total_pages = (matched_documents + page_size - 1) // page_size if page_size else 0
-        return {"dataset": self.dataset(),
-                "query": {"q": q, "area": area, "fyp": fyp, "plantype": plantype,
-                          "match_mode": "literal" if q is not None else None},
-                "matched_documents": matched_documents,
-                "page": page, "page_size": page_size, "total_pages": total_pages,
+        for record, matches in matched[start:start + page_size]:
+            mapping = (self.region_mapping or {}).get(record.planid)
+            items.append({"planid": record.planid, "title": record.title, "area": record.area,
+                          "fyp": record.fyp, "plantype_label": record.plantype_label,
+                          "year": record.year,
+                          "admin_level": self._admin_level(record),
+                          "region_code": mapping.get("region_code") if mapping else None,
+                          "region_status": mapping.get("region_status") if mapping else None,
+                          "matches": matches})
+        return {"dataset": self.dataset(), "query": {**query,
+                "match_mode": "literal" if filters["q"] is not None else None},
+                "matched_documents": total, "page": page, "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size,
                 "items": items}
+
+    def facets(self, **params) -> dict:
+        if self.region_payload is None:
+            raise CatalogUnavailable("地区树资源不可用")
+        if self.region_mapping is None or self.region_mapping_version is None:
+            raise CatalogUnavailable("地区映射尚未就绪")
+        base, query = self._normalize_filters(**params)
+        def counts(filters: dict) -> dict[str, int]:
+            result: dict[str, int] = {}
+            for record in self.snapshot.records:
+                if self._matches(record, filters):
+                    result[record.planid] = 1
+            return result
+        def count(filters: dict) -> int:
+            return len(counts(filters))
+        admin_filters = self._without(base, "admin_level", "region_status", "province_code",
+                                      "prefecture_code", "county_code", "area")
+        admin_options = [{"value": value, "label": ADMIN_LEVEL_LABELS[value],
+                          "count": count({**admin_filters, "admin_level": value})}
+                         for value in ADMIN_LEVEL_VALUES]
+        year_filters = self._without(base, "year")
+        year_values = sorted({record.year for record in self.snapshot.records if record.year is not None}, reverse=True)
+        year_options = [{"value": year_value, "label": str(year_value),
+                         "count": count({**year_filters, "year": year_value})} for year_value in year_values]
+        year_options.append({"value": "unknown", "label": "年份未知",
+                             "count": count({**year_filters, "year": "unknown"})})
+        fyp_filters = self._without(base, "fyp", "fyp_status")
+        fyp_values = sorted({normalize_fyp(r.fyp) for r in self.snapshot.records if r.fyp is not None})
+        fyp_options = [{"value": value, "label": value,
+                        "count": count({**fyp_filters, "fyp": value})} for value in fyp_values]
+        fyp_missing = count({**fyp_filters, "fyp_status": "unclassified"})
+        plantype_filters = self._without(base, "plantype", "plantype_status")
+        plantype_values = sorted({r.plantype_label for r in self.snapshot.records if r.plantype_label is not None})
+        plantype_options = [{"value": value, "label": value,
+                             "count": count({**plantype_filters, "plantype": value})} for value in plantype_values]
+        plantype_missing = count({**plantype_filters, "plantype_status": "unclassified"})
+        region_filter_base = self._without(base, "province_code", "prefecture_code", "county_code",
+                                           "region_status", "area")
+        province_options = [self._region_option(node, region_filter_base) for node in self.region_payload["data"]
+                            if node["tier"] == "province"]
+        province = base.get("province_code")
+        prefecture = base.get("prefecture_code")
+        prefecture_options = []
+        county_options = []
+        if province:
+            for node in self._region_nodes[province]["children"]:
+                if node["tier"] == "prefecture":
+                    prefecture_options.append(self._region_option(node, region_filter_base))
+        if prefecture:
+            county_nodes = self._region_nodes[prefecture]["children"]
+        elif province:
+            county_nodes = [node for node in self._region_nodes[province]["children"]
+                            if node["tier"] == "county"]
+        else:
+            county_nodes = []
+        county_options = [self._region_option(node, region_filter_base) for node in county_nodes
+                          if node["tier"] == "county"]
+        region_state_filters = self._without(base, "province_code", "prefecture_code", "county_code",
+                                             "region_status", "area")
+        region_unc = count({**region_state_filters, "region_status": "unclassified"})
+        region_na = count({**region_state_filters, "region_status": "not_applicable"})
+        return {"dataset": self.dataset(), "query": query, "facets": {
+            "admin_level": {"options": admin_options, "regions": {
+                "province_options": province_options, "prefecture_options": prefecture_options,
+                "county_options": county_options,
+                "unclassified": {"label": "地区未分类", "count": region_unc},
+                "not_applicable": {"label": "不适用地区树", "count": region_na}}},
+            "year": {"options": year_options},
+            "fyp": {"options": fyp_options, "unclassified": {"label": "未分类", "count": fyp_missing}},
+            "plantype": {"options": plantype_options,
+                         "unclassified": {"label": "未分类", "count": plantype_missing}},
+        }}
+
+    def _region_option(self, node: dict, filters: dict) -> dict:
+        descendants = self._region_descendants[node["code"]]
+        selected = dict(filters)
+        selected["region_status"] = "mapped"
+        selected["_region_codes"] = descendants
+        return {"code": node["code"], "name": node["name"], "source_type": node["source_type"],
+                "tier": node["tier"], "count": sum(1 for record in self.snapshot.records
+                    if self._matches(record, selected))}
+
+    @staticmethod
+    def _without(filters: dict, *keys: str) -> dict:
+        return {key: value for key, value in filters.items() if key not in keys}
+
+    @staticmethod
+    def _admin_level(record: PolicyRecord) -> str:
+        value = record.admin_level if isinstance(record.admin_level, str) else ""
+        return ADMIN_LEVEL_NORMALIZATION.get(value or "", "unclassified")
+
+    def _normalize_filters(self, *, q=None, area=None, fyp=None, plantype=None,
+                           admin_level=None, province_code=None, prefecture_code=None,
+                           county_code=None, region_status=None, year=None, fyp_status=None,
+                           plantype_status=None) -> tuple[dict, dict]:
+        q = self._check_query(q)
+        for name, value in (("area", area), ("fyp", fyp), ("plantype", plantype)):
+            self._check_filter(value, name)
+        fyp, plantype = normalize_fyp(fyp), plantype
+        if admin_level is not None and admin_level not in ADMIN_LEVEL_VALUES:
+            raise InvalidParameter("admin_level 值无效")
+        if region_status is not None and region_status not in REGION_STATUSES:
+            raise InvalidParameter("region_status 值无效")
+        if region_status is not None and self.region_mapping is None:
+            raise CatalogUnavailable("地区映射尚未就绪")
+        if fyp_status not in (None, "unclassified") or plantype_status not in (None, "unclassified"):
+            raise InvalidParameter("状态筛选值无效")
+        if fyp is not None and fyp_status is not None:
+            raise InvalidParameter("fyp 与 fyp_status 不能同时使用")
+        if plantype is not None and plantype_status is not None:
+            raise InvalidParameter("plantype 与 plantype_status 不能同时使用")
+        normalized_year: int | str | None = None
+        if year is not None:
+            year_text = str(year)
+            if year_text == "unknown":
+                normalized_year = "unknown"
+            elif re.fullmatch(r"\d{4}", year_text) and 1900 <= int(year_text) <= 2099:
+                normalized_year = int(year_text)
+            else:
+                raise InvalidParameter("year 必须为 1900–2099 的四位年份或 unknown")
+        codes = {"province_code": province_code, "prefecture_code": prefecture_code,
+                 "county_code": county_code}
+        if any(value is not None for value in codes.values()):
+            if self.region_payload is None or self.region_mapping is None:
+                raise CatalogUnavailable("地区映射尚未就绪")
+            for key, value in codes.items():
+                if value is not None and value not in self._region_nodes:
+                    raise InvalidParameter("地区代码无效")
+                expected_tier = key.removesuffix("_code")
+                if value is not None and self._region_nodes[value]["tier"] != expected_tier:
+                    raise InvalidParameter("地区代码层级不符")
+            if admin_level == "national" and any(codes.values()):
+                raise InvalidParameter("国家级文献不能与地区代码同时筛选")
+            if any(codes.values()) and region_status in {"unclassified", "not_applicable"}:
+                raise InvalidParameter("地区代码与当前地区状态不能同时筛选")
+            if prefecture_code and not province_code:
+                province_code = self._ancestor(prefecture_code, "province")
+            if county_code:
+                actual_prefecture = self._ancestor(county_code, "prefecture")
+                actual_province = self._ancestor(county_code, "province")
+                if province_code is not None and province_code != actual_province:
+                    raise InvalidParameter("地区选择的父级关系冲突")
+                if prefecture_code is not None and prefecture_code != actual_prefecture:
+                    raise InvalidParameter("地区选择的父级关系冲突")
+                province_code = actual_province
+                prefecture_code = actual_prefecture
+            if prefecture_code and self._ancestor(prefecture_code, "province") != province_code:
+                raise InvalidParameter("地区选择的父级关系冲突")
+        if region_status == "not_applicable" and admin_level not in (None, "national"):
+            # Valid empty intersection; matching remains ordinary AND semantics.
+            pass
+        filters = {"q": q, "area": area, "fyp": fyp, "plantype": plantype,
+                   "admin_level": admin_level, "province_code": province_code,
+                   "prefecture_code": prefecture_code, "county_code": county_code,
+                   "region_status": region_status, "year": normalized_year,
+                   "fyp_status": fyp_status, "plantype_status": plantype_status}
+        query = {key: value for key, value in filters.items()}
+        return filters, query
+
+    def _ancestor(self, code: str, tier: str) -> str | None:
+        parent = self._region_parent[code]
+        while parent is not None:
+            if self._region_nodes[parent]["tier"] == tier:
+                return parent
+            parent = self._region_parent[parent]
+        return None
+
+    def _matches(self, record: PolicyRecord, filters: dict) -> bool:
+        if filters.get("area") is not None and record.area != filters["area"]:
+            return False
+        if filters.get("admin_level") is not None and self._admin_level(record) != filters["admin_level"]:
+            return False
+        mapping = (self.region_mapping or {}).get(record.planid)
+        if filters.get("region_status") is not None:
+            if mapping is None or mapping["region_status"] != filters["region_status"]:
+                return False
+        code_set = filters.get("_region_codes")
+        if code_set is not None and (mapping is None or mapping.get("region_code") not in code_set):
+            return False
+        for key in ("province_code", "prefecture_code", "county_code"):
+            code = filters.get(key)
+            if code is None:
+                continue
+            if mapping is None or mapping.get("region_status") != "mapped":
+                return False
+            if key == "county_code":
+                if mapping.get("region_code") != code:
+                    return False
+            elif mapping.get("region_code") not in self._region_descendants[code]:
+                return False
+        if filters.get("fyp_status") == "unclassified" and record.fyp is not None:
+            return False
+        if filters.get("fyp") is not None and normalize_fyp(record.fyp) != filters["fyp"]:
+            return False
+        if filters.get("plantype_status") == "unclassified" and record.plantype_label is not None:
+            return False
+        if filters.get("plantype") is not None and record.plantype_label != filters["plantype"]:
+            return False
+        if "year" in filters and filters["year"] is not None:
+            if filters["year"] == "unknown" and record.year is not None:
+                return False
+            if isinstance(filters["year"], int) and record.year != filters["year"]:
+                return False
+        if filters.get("q") is not None and not self._match_record(record, filters["q"]):
+            return False
+        return True
 
     def get_policy(self, planid: str) -> dict:
         planid = self._check_planid(planid)
         record = self._by_planid.get(planid)
         if record is None:
             raise LookupError("未找到该政策")
-        return {"dataset": self.dataset(),
+        return {"dataset": self._legacy_dataset(),
                 "policy": {"planid": record.planid, "title": record.title,
                            "area": record.area, "fyp": record.fyp,
                            "plantype_label": record.plantype_label,
@@ -371,7 +605,7 @@ class PolicyCatalogService:
         if offset > total:
             raise InvalidParameter("offset 超出正文长度")
         end = min(offset + limit, total)
-        return {"dataset": self.dataset(), "planid": record.planid,
+        return {"dataset": self._legacy_dataset(), "planid": record.planid,
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
                 "text": record.body[offset:end]}

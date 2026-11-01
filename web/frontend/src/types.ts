@@ -1,5 +1,20 @@
 export type TaskType = "qa" | "extract" | "organize" | "compare" | "compare_plans";
 
+export interface ResearchResolution {
+  status: "ready" | "needs_clarification";
+  message: string;
+  request: ResearchRequest | null;
+  policies: Array<{ area: string | null; planid: string; title: string | null; fyp: string | null }>;
+}
+
+export interface CompareResolution {
+  status: "ready" | "needs_clarification";
+  message: string;
+  targets: string[];
+  dimensions: string[];
+  policies: Array<{ area: string; planid: string; title: string | null; fyp: string | null; match: string }>;
+}
+
 export interface ResearchRequest {
   question: string;
   task_type: TaskType;
@@ -89,6 +104,94 @@ export interface CatalogDatasetInfo {
   total_documents: number;
   partial: boolean | null;
   source: "current_published_frozen_release" | "demo_synthetic";
+  region_version?: string | null;
+  region_mapping_version?: string | null;
+}
+
+export type PolicyAdminLevel = "national" | "province" | "prefecture" | "county" | "unclassified";
+export type PolicyRegionStatus = "mapped" | "unclassified" | "not_applicable";
+export type PolicyFacetStatus = "unclassified";
+export type PolicyYear = number | "unknown";
+
+export interface PolicyVersionPin {
+  generation_id: string;
+  revision: number;
+  region_version: string;
+  region_mapping_version: string | "unavailable";
+}
+
+export interface PolicyFacetFilters {
+  q?: string;
+  area?: string;
+  fyp?: string;
+  plantype?: string;
+  admin_level?: PolicyAdminLevel;
+  province_code?: string;
+  prefecture_code?: string;
+  county_code?: string;
+  region_status?: PolicyRegionStatus;
+  year?: PolicyYear;
+  fyp_status?: PolicyFacetStatus;
+  plantype_status?: PolicyFacetStatus;
+}
+
+export type PolicyFacetRequest = PolicyFacetFilters & Partial<PolicyVersionPin>;
+export type PolicyFacetQuery = { [Key in keyof PolicyFacetFilters]-?: PolicyFacetFilters[Key] | null };
+
+export type RegionTier = "province" | "prefecture" | "county" | "unknown";
+
+export interface RegionNode {
+  code: string;
+  name: string;
+  source_type: string;
+  tier: RegionTier;
+  children: RegionNode[];
+}
+
+export interface PolicyFacetOption<TValue = string | number> {
+  value: TValue;
+  label: string;
+  count: number;
+}
+
+export interface PolicyRegionOption {
+  code: string;
+  name: string;
+  source_type: string;
+  tier: Exclude<RegionTier, "unknown">;
+  count: number;
+}
+
+export interface PolicyFacetsResponse {
+  dataset: CatalogDatasetInfo & { region_version: string; region_mapping_version: string | null };
+  query: PolicyFacetQuery;
+  facets: {
+    admin_level: {
+      options: PolicyFacetOption<PolicyAdminLevel>[];
+      regions: {
+        province_options: PolicyRegionOption[];
+        prefecture_options: PolicyRegionOption[];
+        county_options: PolicyRegionOption[];
+        unclassified: { label: string; count: number };
+        not_applicable: { label: string; count: number };
+      };
+    };
+    year: { options: PolicyFacetOption<PolicyYear>[] };
+    fyp: { options: PolicyFacetOption<string>[]; unclassified: { label: string; count: number } };
+    plantype: { options: PolicyFacetOption<string>[]; unclassified: { label: string; count: number } };
+  };
+}
+
+export interface PolicyRegionsResponse {
+  region_version: string;
+  artifact_sha256: string;
+  source: string;
+  source_url: string;
+  retrieved_at_utc: string;
+  snapshot_as_of: string | null;
+  official_version: string | null;
+  node_count: number;
+  data: RegionNode[];
 }
 
 export interface PolicyMatch {
@@ -104,6 +207,9 @@ export interface PolicyListItem {
   fyp: string | null;
   year?: number | null;
   plantype_label: string | null;
+  admin_level?: PolicyAdminLevel | null;
+  region_code?: string | null;
+  region_status?: PolicyRegionStatus | null;
   matches: PolicyMatch[];
 }
 
@@ -115,6 +221,18 @@ export interface PolicyListResponse {
     fyp: string | null;
     plantype: string | null;
     match_mode: "literal" | null;
+    admin_level?: PolicyAdminLevel | null;
+    province_code?: string | null;
+    prefecture_code?: string | null;
+    county_code?: string | null;
+    region_status?: PolicyRegionStatus | null;
+    year?: PolicyYear | null;
+    fyp_status?: PolicyFacetStatus | null;
+    plantype_status?: PolicyFacetStatus | null;
+    generation_id?: string | null;
+    revision?: number | null;
+    region_version?: string | null;
+    region_mapping_version?: string | null;
   };
   matched_documents: number;
   page: number;
@@ -156,13 +274,13 @@ export interface PolicyContentResponse {
   text: string;
 }
 
-export interface PolicyListParams {
-  q?: string;
-  area?: string;
-  fyp?: string;
-  plantype?: string;
+export interface PolicyListParams extends PolicyFacetFilters {
   page?: number;
   page_size?: number;
+  generation_id?: string;
+  revision?: number;
+  region_version?: string;
+  region_mapping_version?: string | "unavailable";
 }
 
 export type RunStatus = "completed" | "failed" | "limit_reached";
@@ -385,6 +503,12 @@ export interface ComparisonAnalysis {
 }
 
 export interface ComparisonResult {
+  task_completion?: {
+    status: "complete" | "partial";
+    requested_dimensions: string[];
+    supported_dimensions: string[];
+    unsupported_dimensions: string[];
+  };
   objects: ComparisonObject[];
   dimensions: string[];
   matrix: {
@@ -405,8 +529,25 @@ export interface ComparisonResult {
   evaluation_criteria?: string[];
 }
 
+export interface QAAnalysisResult {
+  schema_version: "qa-analysis/1";
+  analyses: {
+    kind: "synthesis" | "comparison" | "implication";
+    text: string;
+    scope_note: string;
+    supporting_claim_indexes: number[];
+    supporting_chunk_ids: string[];
+    verification: "evidence_linked_only";
+  }[];
+  verification: {
+    policy_facts: "existing_quote_and_number_checks";
+    analysis: "dependency_links_checked_semantics_not_verified";
+  };
+}
+
 export type StructuredResult =
   | OrganizeResult
+  | QAAnalysisResult
   | ComparisonResult
   | ExtractResult
   | DocumentIdentityFallback

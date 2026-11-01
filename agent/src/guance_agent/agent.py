@@ -25,8 +25,9 @@ def effective_prompt(structured: bool, task_type: str = "qa") -> str:
             prompt += ('\n研究型问答必须提供 report：{"dimensions":["维度"],"blocks":'
                        '[{"id":"唯一编号","title_path":["标题"],"dimension":"维度",'
                        '"kind":"fact","text":"段落正文",'
-                       '"supporting_claim_indexes":[0]}]}；索引从 0 开始，分析块至少引用两条事实 Claim。'
-                       'kind 只能是 fact 或 analysis。普通寒暄不附 report。')
+                       '"supporting_claim_indexes":[0]}]}；索引从 0 开始，分析块至少引用两条不同事实 Claim。'
+                       'kind 只能是 fact 或 analysis。report 是权威正文；answer 只作简短结论。'
+                       '普通寒暄不附 report。若没有 report，必要时可用 analyses 关联事实作分析。')
     return prompt
 
 

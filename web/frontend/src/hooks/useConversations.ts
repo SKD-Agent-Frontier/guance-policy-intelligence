@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ApiError, researchClient, validatePreparationResponse } from "../api/client";
 import type { DemoScenario } from "../data/demo";
 import { createAdvancedDraft, type AdvancedDraft, type Conversation, type ConversationMessage } from "../conversationTypes";
+import { summarizeConversationTitle } from "../conversationTitle";
 import type {
   PreparedRequest,
   ResearchPreparationRequest,
@@ -103,6 +104,12 @@ export function useConversations() {
   const generations = useRef(new Map<string, number>());
   const operations = useRef(new Map<string, number>());
   const lastOperations = useRef(new Map<string, LastOperation>());
+  // Keep the exact execution request associated with each assistant answer.
+  // These maps are session-local, like the conversation history itself.
+  const resultRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
+  const advancedRequests = useRef(new Map<string, { request: ResearchRequest; scenario?: DemoScenario }>());
+  const pendingNaturalLanguage = useRef(new Map<string, { mode: TaskType; question: string }>());
+  const userModes = useRef(new Map<string, TaskType>());
 
   const updateSessions = useCallback((updater: (current: Conversation[]) => Conversation[]) => {
     const next = updater(sessionsRef.current);
@@ -115,9 +122,15 @@ export function useConversations() {
   }, [updateSessions]);
 
   const appendMessage = useCallback((id: string, item: ConversationMessage) => {
+    if (item.kind === "user") {
+      const current = sessionsRef.current.find((conversation) => conversation.id === id);
+      if (current) userModes.current.set(item.id, current.mode);
+    }
     updateConversation(id, (conversation) => ({
       ...conversation,
-      title: conversation.title === "新对话" && item.kind === "user" ? item.text.slice(0, 32) : conversation.title,
+      title: item.kind === "user" && !conversation.messages.some((entry) => entry.kind === "user")
+        ? summarizeConversationTitle(item.text, conversation.mode)
+        : conversation.title,
       messages: [...conversation.messages, item],
     }));
   }, [updateConversation]);
@@ -151,12 +164,13 @@ export function useConversations() {
   ) => {
     if (!isCurrent(conversationId, token)) return;
     setBusy(conversationId, "running");
-    appendMessage(conversationId, message("execution", { text: "研究任务正在执行。" }));
     lastOperations.current.set(conversationId, { kind: "execution", request, scenario, failed: false });
     try {
       const result = await researchClient.submit(request, scenario);
       if (!isCurrent(conversationId, token)) return;
-      appendMessage(conversationId, message("result", { result }));
+      const answer = message("result", { result });
+      resultRequests.current.set(answer.id, { request, scenario });
+      appendMessage(conversationId, answer);
       const resultError = runResultError(result);
       if (resultError) appendMessage(conversationId, message("error", resultError));
       lastOperations.current.set(conversationId, {
@@ -223,22 +237,49 @@ export function useConversations() {
     if (!conversation || !text.trim()) return;
     if (operations.current.has(conversationId)) return;
     if (isAdvancedMode(conversation.mode)) {
+      const token = beginOperation(conversationId);
+      if (!token) return;
       appendMessage(conversationId, message("user", { text }));
-      updateConversation(conversationId, (current) => ({
-        ...current,
-        advancedDraft: {
-          ...current.advancedDraft,
-          open: true,
-          question: text,
-          focusVersion: current.advancedDraft.focusVersion + 1,
-        },
-      }));
-      const guidance = {
-        extract: "已收到你的提取需求。当前版本需要先指定 1 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
-        compare: "已收到你的比较需求。当前版本需要先指定要比较的政策。你可以前往文献目录查找政策编号，或直接在下方填写。",
-        compare_plans: "已收到你的多方案分析需求。当前版本需要先指定至少 2 个政策对象。你可以前往文献目录查找政策编号，或直接在下方填写。",
-      }[conversation.mode];
-      appendMessage(conversationId, message("advanced_guidance", { text: guidance }));
+      const pending = pendingNaturalLanguage.current.get(conversationId);
+      // 回答澄清问题时仍保留原研究任务；用户无需重新填写对象或编号。
+      const question = pending?.mode === conversation.mode
+        ? `${pending.question}；补充条件：${text}` : text;
+      setBusy(conversationId, "preparing");
+      try {
+        const resolution = await researchClient.resolveResearch(conversation.mode, question);
+        if (!isCurrent(conversationId, token)) return;
+        const request = resolution.request;
+        const count = request?.targets?.length ?? 0;
+        const valid = resolution.status === "ready" && request?.task_type === conversation.mode
+          && count >= (conversation.mode === "extract" ? 1 : 2)
+          && count <= (conversation.mode === "extract" ? 1 : 8)
+          && new Set(request?.targets ?? []).size === count;
+        if (valid && request) {
+          pendingNaturalLanguage.current.delete(conversationId);
+          // 研究范围由已发布政策目录给出；绝不从未核验的模型文本生成编号。
+          if (resolution.message && resolution.policies.length > 1) {
+            appendMessage(conversationId, message("advanced_guidance", { text: resolution.message }));
+          }
+          await execute(conversationId, request, scenario, token);
+        } else {
+          pendingNaturalLanguage.current.set(conversationId, { mode: conversation.mode, question });
+          appendMessage(conversationId, message("advanced_guidance", {
+            text: resolution.message || "当前无法可靠确定研究对象，请用自然语言补充政策名称或研究范围。",
+          }));
+          setBusy(conversationId, "idle");
+        }
+      } catch (error) {
+        if (isCurrent(conversationId, token)) {
+          const mapped = apiError(error, "prepare");
+          appendMessage(conversationId, message("error", {
+            code: mapped.code,
+            text: `研究对象自动定位失败：${mapped.text}。可以重试本次研究。`,
+          }));
+          setBusy(conversationId, "idle");
+        }
+      } finally {
+        finishOperation(conversationId, token);
+      }
       return;
     }
     if (conversation.messages.at(-1)?.kind === "error"
@@ -259,7 +300,7 @@ export function useConversations() {
     } finally {
       finishOperation(conversationId, token);
     }
-  }, [appendMessage, beginOperation, finishOperation, prepareAndMaybeExecute, updateConversation]);
+  }, [appendMessage, beginOperation, execute, finishOperation, isCurrent, prepareAndMaybeExecute, setBusy, updateConversation]);
 
   const updateAdvancedDraft = useCallback((patch: Partial<AdvancedDraft>) => {
     const conversationId = activeIdRef.current;
@@ -287,7 +328,9 @@ export function useConversations() {
     if (!conversation) return;
     const token = beginOperation(conversationId);
     if (!token) return;
-    appendMessage(conversationId, message("user", { text: request.question }));
+    const userTurn = message("user", { text: request.question });
+    advancedRequests.current.set(userTurn.id, { request, scenario });
+    appendMessage(conversationId, userTurn);
     if (!isAdvancedMode(request.task_type) || request.task_type !== conversation.mode) {
       appendMessage(conversationId, message("error", {
         code: "UNSUPPORTED_MODE",
@@ -302,6 +345,85 @@ export function useConversations() {
       finishOperation(conversationId, token);
     }
   }, [appendMessage, beginOperation, execute, finishOperation]);
+
+  // Rewind a turn rather than mutating a rendered bubble. Any later turns depend
+  // on the old answer and must be removed before the new request is submitted.
+  const rewindToUser = useCallback((conversation: Conversation, userIndex: number) => {
+    const turn = conversation.messages[userIndex];
+    if (turn?.kind !== "user") return;
+    const mode = userModes.current.get(turn.id) ?? conversation.mode;
+    const retained = conversation.messages.slice(0, userIndex);
+    const prior = retained.filter((item) => item.kind === "preparation").at(-1);
+    const preparation = prior?.kind === "preparation" && prior.response.mode === mode
+      ? prior.response : null;
+    lastOperations.current.delete(conversation.id);
+    updateConversation(conversation.id, (current) => ({
+      ...current,
+      title: retained.some((item) => item.kind === "user") ? current.title : "新对话",
+      mode,
+      messages: retained,
+      preparation,
+      busy: "idle",
+      advancedDraft: createAdvancedDraft(),
+    }));
+  }, [updateConversation]);
+
+  const editAndResend = useCallback(async (messageId: string, editedText: string, scenario?: DemoScenario) => {
+    const text = editedText.trim();
+    const conversation = sessionsRef.current.find((item) => item.id === activeIdRef.current);
+    if (!text || !conversation || conversation.busy !== "idle" || operations.current.has(conversation.id)) return;
+    const index = conversation.messages.findIndex((item) => item.id === messageId && item.kind === "user");
+    if (index < 0) return;
+    const original = conversation.messages[index];
+    if (original.kind !== "user") return;
+    const advanced = advancedRequests.current.get(original.id);
+    rewindToUser(conversation, index);
+    if (advanced) await runAdvanced({ ...advanced.request, question: text }, scenario ?? advanced.scenario);
+    else await send(text, scenario);
+  }, [rewindToUser, runAdvanced, send]);
+
+  const regenerate = useCallback(async (messageId: string, scenario?: DemoScenario) => {
+    const conversation = sessionsRef.current.find((item) => item.id === activeIdRef.current);
+    if (!conversation || conversation.busy !== "idle" || operations.current.has(conversation.id)) return;
+    const index = conversation.messages.findIndex((item) => item.id === messageId);
+    if (index < 0) return;
+    const target = conversation.messages[index];
+    if (target.kind === "user" || target.kind === "execution") return;
+    const userIndex = conversation.messages.slice(0, index).map((item) => item.kind).lastIndexOf("user");
+    if (userIndex < 0) return;
+
+    // A completed answer can reuse the precisely prepared request, avoiding
+    // unnecessary preparation and preserving advanced selection parameters.
+    const saved = target.kind === "result" ? resultRequests.current.get(target.id) : undefined;
+    if (saved) {
+      const retained = conversation.messages.slice(0, index);
+      lastOperations.current.delete(conversation.id);
+      updateConversation(conversation.id, (current) => ({
+        ...current, messages: retained, busy: "idle",
+        preparation: (() => {
+          const prior = retained.filter((item) => item.kind === "preparation").at(-1);
+          return prior?.kind === "preparation" ? prior.response : null;
+        })(),
+        advancedDraft: createAdvancedDraft(),
+      }));
+      const token = beginOperation(conversation.id);
+      if (!token) return;
+      try {
+        await execute(conversation.id, saved.request, scenario ?? saved.scenario, token);
+      } finally {
+        finishOperation(conversation.id, token);
+      }
+      return;
+    }
+
+    // Clarifications, guidance and errors need the original user input replayed.
+    const original = conversation.messages[userIndex];
+    if (original.kind !== "user") return;
+    const advanced = advancedRequests.current.get(original.id);
+    rewindToUser(conversation, userIndex);
+    if (advanced) await runAdvanced(advanced.request, scenario ?? advanced.scenario);
+    else await send(original.text, scenario);
+  }, [beginOperation, execute, finishOperation, rewindToUser, runAdvanced, send, updateConversation]);
 
   const retry = useCallback(async () => {
     const conversationId = activeIdRef.current;
@@ -344,8 +466,8 @@ export function useConversations() {
     setActiveId(id);
   }, []);
 
-  const newConversation = useCallback(() => {
-    const conversation = createConversation();
+  const newConversation = useCallback((mode: TaskType = "qa") => {
+    const conversation = createConversation(mode);
     updateSessions((current) => [conversation, ...current]);
     activeIdRef.current = conversation.id;
     setActiveId(conversation.id);
@@ -382,6 +504,8 @@ export function useConversations() {
     updateAdvancedDraft,
     openAdvanced,
     retry,
+    regenerate,
+    editAndResend,
     restartPreparation,
   };
 }

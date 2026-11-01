@@ -1,6 +1,9 @@
 """只接收本次证据 ID，确定性生成结果和出处。"""
 from .context import RunContext, sanitize_error_detail
 from .format_recovery import parse_agent_output
+from .qa_analysis import prepare_candidates
+from .qa_report import needs_outline, verified_qa_outline
+from .qa_report_verification import prune_report
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
@@ -39,8 +42,6 @@ def _parse_nonstructured_output(raw: str) -> AgentOutput:
 def rebuild_trusted_answer(result, ctx, reason: str) -> None:
     """重建答案；QA 报告按块剪枝，旧 QA 与业务仍沿用事实型回退。"""
     if result.task_type == "qa" and result._qa_report_supplied:
-        from .qa_report import prune_report
-
         prune_report(result, ctx, reason)
         return
     active_ids = {chunk_id for claim in result.claims for chunk_id in claim.chunk_ids}
@@ -48,8 +49,16 @@ def rebuild_trusted_answer(result, ctx, reason: str) -> None:
     result.evidence_status = "insufficient"
     result.meta["answer_rebuilt"] = reason
     if result.claims:
-        result.answer = "以下仅保留可追溯到已读原文的结论：\n" + "\n".join(
-            f"- {claim.text}" for claim in result.claims)
+        question = getattr(ctx, "question", "") if ctx else ""
+        if getattr(result, "task_type", "qa") == "qa" and needs_outline(question):
+            result.answer, missing = verified_qa_outline(result.claims, question)
+            result.meta["report_outline"] = {
+                "source": "verified_claims", "coverage_missing": missing,
+                "rebuild_reason": reason,
+            }
+        else:
+            result.answer = "以下仅保留可追溯到已读原文的结论：\n" + "\n".join(
+                f"- {claim.text}" for claim in result.claims)
     else:
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
 
@@ -137,7 +146,7 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     result.dropped_chunk_ids = list(dict.fromkeys(dropped))
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
     if task.task_type == "qa" and parsed.report is not None:
-        from .qa_report import prepare_report_candidates, prune_report
+        from .qa_report_verification import prepare_report_candidates
 
         result._qa_report_supplied = True
         result._qa_report_dimensions = list(parsed.report.dimensions)
@@ -151,6 +160,10 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
             "declared_insufficient": parsed.insufficient,
         }
         prune_report(result, ctx, "initial_filter")
+    elif task.task_type == "qa" and parsed.analyses:
+        result.meta["analysis_drafts_received"] = len(parsed.analyses)
+        result._qa_analysis_candidates = prepare_candidates(
+            [item.model_dump() for item in parsed.analyses], parsed.claims, result.claims)
     # 提示一律进 warnings：answer 保持模型原话，便于评测比对，也不依赖某个渲染器才可见。
     if dropped_texts:
         result.warnings.append("以下结论缺少可核验证据，未被采信：" + "；".join(dropped_texts))

@@ -222,6 +222,13 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
 });
 
 test("Real client Mock API: advanced compare keeps its draft through catalog and sessions, then runs only valid targets", async ({ page }) => {
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ status: "needs_clarification", message: "没有明确的比较文献，请补充标题。",
+        targets: [], policies: [], dimensions: [] }),
+    });
+  });
   const prepareRequests: Record<string, unknown>[] = [];
   const runBodies: Record<string, unknown>[] = [];
   await page.route("**/api/research/prepare", async (route) => {
@@ -303,7 +310,8 @@ test("Real client Mock API: advanced compare keeps its draft through catalog and
   await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(secondQuestion);
   await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("");
   await openSidebar(page);
-  await page.locator(".history-link").filter({ hasText: question }).click();
+  // History uses a summarized title, not the verbatim first question.
+  await page.locator(".history-link").nth(1).click();
   await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("POLICY-A");
   await expect(page.getByRole("textbox", { name: "研究对象编号 2" })).toHaveValue("POLICY-B");
   await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
@@ -589,4 +597,88 @@ test("Real client Mock API: two results keep separate evidence links after switc
   await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 政策文献 separate-1");
   await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 原文引句 separate-1");
   await expect(page.locator(".message-evidence-panel")).not.toContainText("separate-2");
+});
+
+
+test("Real client Mock API: explicit region, period and subject compare runs without manual policy IDs", async ({ page }) => {
+  const bodyRequests: Record<string, unknown>[] = [];
+  const question = "比较浙江和江苏十四五数字经济发展目标的异同";
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ question });
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({
+        status: "ready", message: "已定位政策", targets: ["ZJ-14", "JS-14"],
+        dimensions: ["发展目标"],
+        policies: [
+          { area: "浙江", planid: "ZJ-14", title: "浙江省数字经济十四五规划", fyp: "十四五", match: "title" },
+          { area: "江苏", planid: "JS-14", title: "江苏省数字经济十四五规划", fyp: "十四五", match: "title" },
+        ],
+      }),
+    });
+  });
+  const runCount = await installRunRoute(page, (body) => bodyRequests.push(body));
+  await page.goto("/");
+  await page.getByRole("tab", { name: "政策比较" }).click();
+  await page.getByRole("textbox", { name: "研究需求" }).fill(question);
+  await page.getByRole("button", { name: "发送消息" }).click();
+
+  await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveCount(0);
+  expect(runCount()).toBe(1);
+  expect(bodyRequests[0]).toEqual({
+    task_type: "compare", question, targets: ["ZJ-14", "JS-14"], dimensions: ["发展目标"],
+  });
+});
+
+
+test("Landing page: template and advanced panels float without shifting the hero or background", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "要素提取" }).click();
+
+  const measure = async () => page.evaluate(() => {
+    const top = (selector: string) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error(`Missing layout anchor: ${selector}`);
+      return Math.round(element.getBoundingClientRect().top);
+    };
+    return {
+      title: top(".intro-block h1"),
+      fields: top(".composer-fields"),
+      background: top(".architecture-scene"),
+      scrollY: window.scrollY,
+    };
+  });
+  const original = await measure();
+  // The approved mountain/cloud artwork must remain visible in full, rather than
+  // reusing the old short 29vh cover crop that obscured the mountain composition.
+  const scene = page.locator(".architecture-scene");
+  const sceneHeight = await scene.evaluate((element) => element.getBoundingClientRect().height);
+  expect(sceneHeight).toBeGreaterThanOrEqual(367);
+  expect(sceneHeight).toBeLessThanOrEqual(371);
+  const artwork = scene.locator("img");
+  await expect(artwork).toHaveAttribute("src", "/research-mountain-architecture.webp");
+  await expect(artwork).toHaveCSS("object-fit", "fill");
+  await expect.poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
+
+  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
+  const advanced = page.locator(".advanced-fields");
+  await expect(advanced).toBeVisible();
+  await expect(advanced).toHaveCSS("position", "absolute");
+  await expect(advanced).toHaveCSS("overflow-y", "auto");
+  expect(await measure()).toEqual(original);
+  expect(await advanced.evaluate((element) => element.getBoundingClientRect().bottom))
+    .toBeLessThanOrEqual(900);
+
+  await page.getByRole("button", { name: "指令模板" }).click();
+  await expect(advanced).toHaveCount(0);
+  const templates = page.getByRole("region", { name: "指令模板列表" });
+  await expect(templates).toBeVisible();
+  await expect(templates).toHaveCSS("position", "absolute");
+  await expect(page.getByText("选择模板后将自动填入输入框，你可以继续修改后发送。")).toHaveCount(0);
+  expect(await measure()).toEqual(original);
+
+  await page.getByRole("button", { name: "关闭指令模板" }).click();
+  expect(await measure()).toEqual(original);
 });
