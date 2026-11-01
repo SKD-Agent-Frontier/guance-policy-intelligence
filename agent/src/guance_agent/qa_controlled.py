@@ -119,6 +119,15 @@ def search_queries(question: str, sub_query: str | None = None) -> list[str]:
             selected = [source[:70].strip()] if source else []
     if not requirements(question)["needs_report"] and not requirements(question)["dimensions"]:
         return selected[:1]
+    explicit: list[str] = []
+    if "机遇" in question:
+        explicit.append("发展机遇")
+    if "挑战" in question:
+        explicit.append("面临挑战")
+    for facet in reversed(explicit):
+        if facet in selected:
+            selected.remove(facet)
+        selected.insert(0, facet)
     return selected[:MAX_QUERIES]
 
 
