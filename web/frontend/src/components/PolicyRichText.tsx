@@ -136,13 +136,13 @@ function cleanTocLine(line: string): string {
   }
   return source;
 }
-function tocDepth(line: string): number {
+function tocDepth(line: string, hasParts: boolean): number {
   const text = cleanTocLine(line).trim();
   if (/^第[一二三四五六七八九十百千0-9]+[编篇部]/.test(text)) return 0;
-  if (/^第[一二三四五六七八九十百千0-9]+章/.test(text)) return 0;
-  if (/^第[一二三四五六七八九十百千0-9]+节/.test(text)) return 1;
-  if (/^[（(][一二三四五六七八九十0-9]+[）)]/.test(text)) return 2;
-  if (/^[一二三四五六七八九十]+[、．.]/.test(text)) return 2;
+  if (/^第[一二三四五六七八九十百千0-9]+章/.test(text)) return hasParts ? 1 : 0;
+  if (/^第[一二三四五六七八九十百千0-9]+节/.test(text)) return hasParts ? 2 : 1;
+  if (/^[（(][一二三四五六七八九十0-9]+[）)]/.test(text)) return hasParts ? 3 : 2;
+  if (/^[一二三四五六七八九十]+[、．.]/.test(text)) return hasParts ? 3 : 2;
   return 0;
 }
 
@@ -300,6 +300,8 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     cursor += Array.from(line).length + Array.from(fragments[index + 1] ?? "").length;
   }
   const toc = textOffset === 0 ? tocRange(lines) : null;
+  const tocHasParts = lines.some(line =>
+    /^第[一二三四五六七八九十百千0-9]+[编篇部]/.test(cleanTocLine(line)));
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
@@ -333,7 +335,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       if (!omitPrintedToc) {
         const cleaned = cleanTocLine(line);
         if (cleaned && !PDF_PAGE_MARK.test(cleaned)) {
-          blocks.push(<p className={`catalog-prose catalog-toc-line catalog-toc-depth-${tocDepth(cleaned)}`}
+          blocks.push(<p className={`catalog-prose catalog-toc-line catalog-toc-depth-${tocDepth(cleaned, tocHasParts)}`}
             key={key++}>{inlineContent(cleaned)}</p>);
         }
       }
