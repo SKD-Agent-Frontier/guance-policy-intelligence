@@ -36,6 +36,8 @@ from .output import (
 from .qa_analysis import finalize_qa_analysis
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
+from .research_delivery import deliver_research, draft_verified_report
+from .research_supplement import supplement_one
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_runtime import ResearchRuntime
 from .routing import RouteDecision, decide
@@ -640,6 +642,13 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
     result = finalize_qa_analysis(result, task.question)
+    if task.task_type == "qa" and ctx is not None and result.status == "completed":
+        # Synthesis is a draft only; supplementary facts must pass fresh checks.
+        # Both share the original task deadline and preserve the existing result
+        # when the remaining budget is insufficient.
+        await draft_verified_report(result, task.question, rt, deadline)
+        await supplement_one(result, task, s, ctx, rt, deadline,
+                             _execute_once, _recover_qa_output)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)
         try:
@@ -664,6 +673,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
     finalize_recovered_qa_answer(result, task.question)
+    if task.task_type == "qa":
+        deliver_research(result, task.question)
     if research_runtime is not None:
         try:
             research_runtime.finish(result, ctx)
