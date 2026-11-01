@@ -352,16 +352,34 @@ describe("useConversations", () => {
 
     await act(async () => { await result.current.send("什么是数字经济？"); });
 
-    expect(result.current.active?.messages).toContainEqual(expect.objectContaining({
-      kind: "error",
-      code: "MAX_TURNS",
-    }));
+    // One failed result carries the original error code; no duplicate error message.
+    expect(result.current.active?.messages.filter((item) => item.kind === "error")).toHaveLength(0);
     expect(result.current.active?.messages).toContainEqual(expect.objectContaining({
       kind: "result",
-      result: expect.objectContaining({ status: "limit_reached", evidence_status: "none" }),
+      result: expect.objectContaining({
+        status: "limit_reached", evidence_status: "none",
+        error: { code: "MAX_TURNS", message: "达到执行轮数上限" },
+      }),
     }));
     await act(async () => { await result.current.retry(); });
     expect(mockedClient.submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps OUTPUT_PARSE diagnostics inside one failed result message", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockResolvedValue({
+      ...RESULT, status: "failed", evidence_status: "none",
+      error: { code: "OUTPUT_PARSE", message: "模型输出无法解析为约定结构" },
+    } as RunResult);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("低空经济"); });
+    const messages = result.current.active?.messages ?? [];
+    expect(messages.filter((entry) => entry.kind === "result")).toHaveLength(1);
+    expect(messages.filter((entry) => entry.kind === "error")).toHaveLength(0);
+    expect(messages.at(-1)).toMatchObject({
+      kind: "result",
+      result: { status: "failed", error: { code: "OUTPUT_PARSE", message: "模型输出无法解析为约定结构" } },
+    });
   });
 
   it("keeps completed results with none evidence as results, not retryable errors", async () => {
