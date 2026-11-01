@@ -1394,11 +1394,39 @@ textarea:focus-visible {
   background: transparent;
 }
 .message-error {
-  border-color: #ead6d2;
-  background: #fffaf9;
+  /* The diagnostic is the single bordered card; message actions sit below it. */
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.message-error .message-role {
-  color: #a44840;
+.research-failure-card {
+  padding: 19px 22px;
+  border: 1px solid #ead4d0;
+  border-radius: 9px;
+  background: #fff9f8;
+  color: #312c2b;
+}
+.research-failure-status {
+  margin-bottom: 16px;
+  color: var(--accent, #b22924);
+  font-size: 12px;
+  font-weight: 500;
+}
+.research-failure-status code {
+  font: inherit;
+}
+.conversation-message .research-failure-reason {
+  margin: 0 0 11px;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.conversation-message .research-failure-explanation {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 .clarification-question {
   margin-top: 9px;
