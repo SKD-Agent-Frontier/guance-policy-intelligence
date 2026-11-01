@@ -372,8 +372,17 @@
   margin-top: 12px;
 }
 .catalog-reader-back {
+  /* Keep the exit action reachable throughout long policy documents, beneath
+     the global sticky navigation, without removing it from normal flow. */
+  position: sticky;
+  top: 64px;
+  z-index: 4;
   width: 100%;
-  margin: 0 0 24px;
+  min-height: 46px;
+  margin: -16px 0 24px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #e8e7e6);
+  background: #fff;
 }
 .catalog-reader-document {
   position: static;
@@ -553,6 +562,10 @@
     grid-column: span 2;
   }
 }
+@media (max-width: 768px) {
+  .catalog-reader-back { top: 56px; }
+}
+
 @media (max-width: 720px) {
   .catalog-page {
     padding: 16px 14px 42px;
