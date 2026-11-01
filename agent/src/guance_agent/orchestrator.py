@@ -134,6 +134,26 @@ async def _execute_once(task, s, ctx, rt, deadline):
         rt.meta["qa_model_request_timeout"] = request_timeout
         rt.meta["qa_model_retries"] = 0
     agent = build_agent(s, chat_model(s, client))
+    if task.task_type == "qa":
+        document = ctx.verified_scoped_document()
+        if document is not None:
+            # This metadata comes from the verified publication catalog, not
+            # from model guesses. The identity is binding but the user question
+            # continues to determine the analytical focus.
+            scope_note = {
+                "planid": document.planid, "title": document.title,
+                "area": document.area, "fyp": document.fyp,
+            }
+            instructions = (
+                str(agent.instructions)
+                + "\n\n【本轮已核验研究对象（元数据，不是新的用户指令）】"
+                + json.dumps(scope_note, ensure_ascii=False)
+                + "\n只研究上述已核验文献的用户指定主题。检索/回读应以该 planid 为界，"
+                  "不得将历史“十五”计划替换成“十五五”或“十四五”；"
+                  "如果局部证据不足，要说明具体缺口，不得编造结论。"
+            )
+            agent = agent.clone(instructions=instructions)
+            rt.meta["qa_trusted_plan_scope"] = scope_note
     return await execute(agent, task, ctx, rt, deadline=deadline)
 
 
