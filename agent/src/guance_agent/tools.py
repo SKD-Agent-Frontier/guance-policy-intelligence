@@ -146,6 +146,11 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     # 路由确定的范围在整轮任务内持续生效：每次检索都限定，不是只在第一次限定
     scope = ctx.context.scope
     decision = ctx.context.route
+    # A trusted single-document planid is the authoritative scope.
+    # Model-generated wrong area/period filters cannot exclude that document.
+    # The planid restriction still applies to every search.
+    if ctx.context.verified_scoped_document() is not None:
+        area, fyp = None, None
     # 开放式问答的明确地区/规划期是用户约束，不能由模型漏填或误写覆盖。
     # 多地区/多规划期查询保留模型多轮取证能力，不强行收窄至一个对象。
     if scope is None and getattr(decision, "kind", None) == "open":
