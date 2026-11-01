@@ -21,6 +21,22 @@ describe("policy chapter outline", () => {
     expect(policyOutline([article])).toEqual([{ ...article, label: "第一条 工作要求", depth: 0 }]);
   });
 
+  it("strips corrupted OCR prefix (%2) without fabricating unverified chapter numbers", () => {
+    const original = [
+      { index: 0, level: 2, path: "（%2） 发展基础", start: 100, end: 200 },
+      { index: 1, level: 2, path: "(%2) 存在问题", start: 250, end: 350 },
+      { index: 2, level: 3, path: "(%2) 发展基础 / (%2) 加快数据资源共享", start: 420, end: 500 },
+      { index: 3, level: 1, path: "第一章 总体要求......13", start: 600, end: 720 },
+    ];
+    expect(policyOutline(original).map(item => ({ label: item.label, depth: item.depth }))).toEqual([
+      { label: "发展基础", depth: 1 },
+      { label: "存在问题", depth: 1 },
+      { label: "加快数据资源共享", depth: 2 },
+      { label: "第一章 总体要求", depth: 0 },
+    ]);
+    expect(policyOutline(original)[0].start).toBe(100);
+  });
+
   it("filters table fragments, repeated source positions and invalid headings", () => {
     const raw = [
       { index: 0, level: 1, path: "# 第一章 总则", start: 0, end: 200 },
