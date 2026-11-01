@@ -6,6 +6,7 @@ import time
 
 from .literal_keywords import enforce_literal_result
 from .output import build_result
+from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .research_quality import followup_gap
 from .verify import verify_numbers, verify_quotes
 
@@ -31,16 +32,29 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         return
     meta["attempted"] = True
     meta["status"] = "running"
-    followup = task.model_copy(update={"question": (
-        task.question + "\n【本轮补充研究】只补充尚缺的研究维度：「"
-        + gap + "」。必须调用真实知识库搜集证据，严格区分已查得与未查得。"
-        "不得改变用户原始对象、地区、时期范围；不重复此前事实。"
-    )})
+    # The user question and trusted scope remain authoritative. The focused
+    # program search receives the gap separately, not as a user instruction.
+    followup = task.model_copy(update={"question": task.question})
     followup_deadline = min(deadline - 40, time.monotonic() + 48)
     try:
-        outcome = await asyncio.wait_for(
-            execute_once(followup, s, ctx, rt, followup_deadline),
-            timeout=max(0.1, followup_deadline - time.monotonic()))
+        # Real-RAG QA uses the same bounded program-side retrieval as the
+        # initial answer. The legacy SDK path remains for mock/backward tests.
+        controlled = (getattr(s, "kb_backend", None) == "rag"
+                      and rt.meta.get("qa_execution_mode") == "bounded_retrieval")
+        if controlled:
+            seen = frozenset(ref.chunk_id for ref in result.evidence_refs)
+            outcome = await asyncio.wait_for(
+                execute_controlled(
+                    followup, s, ctx, rt, followup_deadline, focus=gap,
+                    exclude_chunks=seen,
+                ),
+                timeout=max(0.1, followup_deadline - time.monotonic()),
+            )
+        else:
+            outcome = await asyncio.wait_for(
+                execute_once(followup, s, ctx, rt, followup_deadline),
+                timeout=max(0.1, followup_deadline - time.monotonic()),
+            )
         if outcome.error_code is not None:
             meta["status"] = "execution_unavailable"
             return
@@ -56,6 +70,8 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         remaining = max(0.1, min(8.0, deadline - time.monotonic() - 35))
         await asyncio.wait_for(verify_numbers(part, ctx), timeout=remaining)
         enforce_literal_result(part, ctx)
+        if controlled:
+            finalize_controlled_facts(part)
     except (Exception, asyncio.CancelledError) as exc:
         if isinstance(exc, asyncio.CancelledError):
             raise
