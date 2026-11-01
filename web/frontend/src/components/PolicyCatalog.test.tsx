@@ -67,6 +67,7 @@ type TestItem = {
   fyp: string | null;
   year?: number | null;
   plantype_label: string | null;
+  preview?: string | null;
   matches: Array<{ field: "title" | "body"; offset: number; snippet: string }>;
 };
 
