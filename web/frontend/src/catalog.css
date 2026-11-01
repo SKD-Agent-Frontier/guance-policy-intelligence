@@ -733,3 +733,99 @@
   .catalog-rich-text .catalog-markdown-table { min-width: 420px; }
   .catalog-reader-document .catalog-rich-text { font-size: 16px; }
 }
+
+
+/* The section label is visually separated from the first paragraph. */
+.catalog-original-heading {
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line, #e8e7e6);
+}
+.catalog-reader-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.catalog-reader-facts {
+  display: flex;
+  flex: 1 1 480px;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  color: #83736c;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.catalog-reader-info-row .catalog-add-to-topic {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  margin-left: auto;
+}
+.catalog-preview-info-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.catalog-page-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #7d6a62;
+}
+.catalog-page-picker select {
+  padding: 5px 8px;
+  min-width: 60px;
+  border: 1px solid #e0d8d3;
+  border-radius: 6px;
+  color: #483e39;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.catalog-page-picker select:focus-visible {
+  outline: 2px solid var(--accent, #b22924);
+  outline-offset: 2px;
+}
+.catalog-page-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.catalog-table-unparsed {
+  background: #fcfbfa;
+}
+.catalog-table-unparsed pre {
+  margin: 0;
+  padding: 14px;
+  width: max-content;
+  min-width: 100%;
+  font-family: inherit;
+  font-size: .9em;
+  line-height: 1.8;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.catalog-markdown-table caption {
+  padding: 12px 14px;
+  font-size: 1em;
+  font-weight: 600;
+  text-align: left;
+  background: #f7f5f3;
+}
+@media (max-width: 720px) {
+  .catalog-reader-facts { flex-basis: 100%; }
+  .catalog-reader-info-row .catalog-add-to-topic { margin-left: auto; }
+}
