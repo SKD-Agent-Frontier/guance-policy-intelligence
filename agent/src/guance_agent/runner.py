@@ -78,7 +78,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
     cm = asyncio.timeout_at(deadline)
     try:
         async with cm:
-            max_turns = min(rt.settings.max_turns, 5) if task.task_type == "qa" else rt.settings.max_turns
+            max_turns = min(rt.settings.max_turns, 4) if task.task_type == "qa" else rt.settings.max_turns
             run_agent = agent
             hooks = rt.hooks
             run_config = RunConfig(
@@ -95,7 +95,7 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
                         continue
                     original_is_enabled = tool.is_enabled
 
-                    async def can_use_tool(run_context, tool_agent, *, original=original_is_enabled):
+                    async def can_use_tool(run_context, tool_agent, *, original=original_is_enabled, tool_name=tool.name):
                         # The SDK selects visible tools BEFORE invoking the
                         # model-input filter. Disable them at tool-eligibility
                         # time, not only after a finalization flag is set.
@@ -103,6 +103,17 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
                                       or deadline - time.monotonic() <= 70.0)
                         if final_turn and not state["dispatch_pending"]:
                             return False
+                        if tool_name == "kb_search" and not state["dispatch_pending"]:
+                            # Avoid endless search-only loops: after two successful
+                            # searches, require reading a source before searching again.
+                            searches = sum(
+                                call.get("name") == "kb_search" and call.get("status") == "ok"
+                                for call in ctx.tool_calls)
+                            reads = any(call.get("name") == "kb_read" and call.get("status") == "ok"
+                                        for call in ctx.tool_calls)
+                            if searches >= 2 and not reads:
+                                rt.meta["qa_read_before_more_search"] = True
+                                return False
                         if isinstance(original, bool):
                             return original
                         enabled = original(run_context, tool_agent)
