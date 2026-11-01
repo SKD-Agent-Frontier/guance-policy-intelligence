@@ -10,6 +10,27 @@ from guance_agent.research_planner import ResearchDiscovery, ResearchPlanner
 from .policy_catalog import PolicyCatalogService
 from .research_planning import resolve_research_internal
 
+# Catalog resolution reasons are a separate public API vocabulary. Never pass
+# them unchecked to the strict ResearchDiscovery contract (the previous code
+# raised ValidationError/INTERNAL for valid insufficient-peer results).
+_RESOLUTION_REASONS = {
+    "user_scope_missing": "user_scope_missing",
+    "user_period_missing": "user_scope_missing",
+    "ambiguous_document_identity": "ambiguous_document_identity",
+    "anchor_document_missing": "catalog_evidence_missing",
+    "comparison_document_missing": "catalog_evidence_missing",
+    "insufficient_peer_coverage": "insufficient_document_coverage",
+    "insufficient_document_coverage": "insufficient_document_coverage",
+    "requested_document_missing": "requested_document_missing",
+    "catalog_evidence_missing": "catalog_evidence_missing",
+    "catalog_unavailable": "catalog_unavailable",
+}
+
+
+def _discovery_reason(reason: str | None) -> str:
+    """Translate a resolver detail into the shared, validated failure category."""
+    return _RESOLUTION_REASONS.get(reason, "catalog_evidence_missing")
+
 
 def _catalog_region_within_scope(catalog: PolicyCatalogService, record, allowed_areas: list[str]) -> bool:
     """Verify record location against user geography using catalog lineage, not city strings.
@@ -129,7 +150,7 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
             contract, plan, [],
             status="needs_clarification" if resolution.get("status") == "needs_clarification" else "insufficient",
             message=resolution.get("message") or "当前发布目录不能确认足够的研究对象。",
-            reason_code=resolution.get("reason"),
+            reason_code=_discovery_reason(resolution.get("reason")),
             requested_subjects=resolution.get("requested_subjects", []),
             subject_gaps=resolution.get("subject_gaps", []),
             coverage_limited_subjects=resolution.get("coverage_limited_subjects", []),
