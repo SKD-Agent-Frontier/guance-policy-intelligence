@@ -114,3 +114,32 @@ def test_no_claims_is_insufficient_not_complete():
     assert quality["status"] == "insufficient"
     deliver_research(result, "某政策的具体补贴金额是多少？")
     assert result.meta["research_completion"]["status"] == "insufficient"
+
+
+def test_semantic_review_pruning_requires_fresh_final_source_coverage():
+    """Reviewed report may retain only one of two originally cited documents."""
+    refs = [_ref("c1", "23132", "海西州"), _ref("c2", "45100", "双流区")]
+    question = "请归纳两篇政策的共同点与差异"
+    result = _result([_claim("c1"), _claim("c2")], refs)
+    ctx = _ctx(refs, question=question)
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    assert result.meta["evidence_coverage"]["covered_planids"] == ["23132", "45100"]
+    assert result.meta["evidence_coverage"]["status"] == "complete"
+
+    # Model semantic review rejects one fact and its dependent report blocks.
+    result.claims = result.claims[:1]
+    result.evidence_refs = refs[:1]
+    result.evidence_status = "insufficient"
+    result.meta["answer_rebuilt"] = "semantic_review"
+    result.meta["qa_execution_mode"] = "bounded_retrieval"
+    # This is the final recomputation now performed in orchestrator after review.
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    coverage = result.meta["evidence_coverage"]
+    assert coverage["covered_planids"] == ["23132"]
+    assert coverage["status"] == "partial"
+    assert "multiple_documents_required" in coverage["gaps"]
+    deliver_research(result, question)
+    completion = result.meta["research_completion"]
+    assert completion["status"] == "partial"
+    assert completion["covered_planids"] == ["23132"]
+    assert "45100" not in completion["covered_planids"]
