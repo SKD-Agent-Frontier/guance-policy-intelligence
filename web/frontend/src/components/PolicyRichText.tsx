@@ -44,13 +44,14 @@ export function policyHeading(
 function normalizeDocumentTitle(title: string): string {
   return normalizeHeadingText(title).replace(/[“”‘’"'《》<>（）()·—－:：，,、]/g, "");
 }
-const DATE_LINE = /^(?:[（(]\s*)?(?:(?:19|20)\d{2}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?|(?:经|于)(?:.{0,35})(?:会议|人大))(?:.{0,68})(?:[）)])?$/;
+const DATE_STAMP = /^[（(]?\s*(?:19|20)\d{2}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?\s*[）)]?$/;
+const APPROVAL_LINE = /^[（(]?\s*(?:19|20)\d{2}\s*年.*(?:审议通过|批准|通过|印发|公布|发布|会议)[^。；;]*[）)]?$/;
 function originalDateLine(line: string): boolean {
   const source = line.trim().replace(/^#{1,6}\s*/, "");
-  return source.length >= 5 && source.length <= 110 && DATE_LINE.test(source)
-    && /(?:(?:19|20)\d{2}年|批准|通过|发布|审议|印发)/.test(source)
-    && !/[。；;]$/.test(source);
+  return source.length >= 5 && source.length <= 110
+    && (DATE_STAMP.test(source) || APPROVAL_LINE.test(source));
 }
+
 function isDocumentTitle(line: string, title?: string): boolean {
   const source = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
   if (!source || source.length > 130 || /^第[一二三四五六七八九十百千\d]+[编篇章章节]/.test(source)) return false;
