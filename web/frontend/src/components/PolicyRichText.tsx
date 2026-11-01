@@ -301,8 +301,13 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     cursor += Array.from(line).length + Array.from(fragments[index + 1] ?? "").length;
   }
   const toc = textOffset === 0 ? tocRange(lines) : null;
-  const tocHasParts = lines.some(line =>
-    /^第[一二三四五六七八九十百千0-9]+[编篇部]/.test(cleanTocLine(line)));
+  const tocHasParts = lines.some((line, index) => {
+    const withinToc = printedToc
+      ? linePositions[index] >= printedToc[0] && linePositions[index] < printedToc[1]
+      : toc != null && index >= toc[0] && index <= toc[1];
+    return withinToc
+      && /^第[一二三四五六七八九十百千0-9]+[编篇部]/.test(cleanTocLine(line));
+  });
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
