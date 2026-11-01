@@ -29,7 +29,8 @@ export function policyOutline(sections: readonly PolicySection[]): OutlineEntry[
     seen.add(key);
     return true;
   });
-  const shallowest = Math.min(...unique.map(section => section.level), 1);
+  if (!unique.length) return [];
+  const shallowest = Math.min(...unique.map(section => section.level));
   return unique.map(section => ({
     ...section,
     depth: Math.max(0, Math.min(4, section.level - shallowest)),
