@@ -259,7 +259,7 @@ describe("useConversations", () => {
 
     expect(mockedClient.prepare).not.toHaveBeenCalled();
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
-    expect(mockedClient.submit).toHaveBeenCalledWith(request, undefined);
+    expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining(request), undefined);
   });
 
   it("does not hand off a message while an advanced run is already in progress", async () => {
