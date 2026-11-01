@@ -294,6 +294,8 @@ describe("PolicyCatalog", () => {
     expect(await screen.findByRole("heading", { name: "政策P-1" })).toBeVisible();
     expect(await screen.findByText(firstPage)).toBeVisible();
     expect(screen.getByLabelText("原文页码")).toHaveTextContent("第 1 / 2 页");
+    expect(screen.getByText("5000 字")).toBeInTheDocument();
+    expect(screen.queryByText("0 / 5000 字")).not.toBeInTheDocument();
     expect(catalog.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
 
     vi.mocked(window.scrollTo).mockClear();
