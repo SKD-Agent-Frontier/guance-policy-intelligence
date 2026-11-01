@@ -217,16 +217,22 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
 
     comparison_question = question.replace("京津冀", "北京、天津、河北")
     if mode == "compare" and len(provinces_in_text(comparison_question)) >= 2:
-        found = resolve_compare(comparison_question, catalog)
+        found = resolve_compare(comparison_question, catalog, internal=True)
         if found["status"] == "ready":
             by_id = {r.planid: r for r in catalog.snapshot.records}
             return _ready(mode, question, [by_id[i] for i in found["targets"]],
                           dimensions or found["dimensions"], found["message"])
-        if found.get("status") == "insufficient":
-            return _insufficient(found["message"], found.get("reason", "catalog_evidence_missing"))
-        clarification = _clarify(found["message"].replace("使用高级入口", "补充文献名称"))
+        if (found.get("status") == "insufficient"
+                or found.get("reason_code") == "catalog_evidence_missing"):
+            return _insufficient(found["message"], "catalog_evidence_missing")
+        message = ("当前比较能力需要明确共同的五年规划时期，请补充本次研究时期。"
+                   if found.get("reason_code") == "user_period_missing" else found["message"])
+        clarification = _clarify(message)
         if comparison_question != question:
-            clarification["requested_subjects"] = provinces_in_text(comparison_question)
+            clarification["requested_subjects"] = [
+                {"北京": "北京市", "天津": "天津市", "河北": "河北省"}.get(name, name)
+                for name in provinces_in_text(comparison_question)
+            ]
         return clarification
 
     areas = _mentioned_areas(question, catalog)

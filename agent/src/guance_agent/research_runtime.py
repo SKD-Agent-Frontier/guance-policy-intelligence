@@ -534,8 +534,7 @@ class ResearchRuntime:
         elif evaluation.status == "limit_reached":
             result.status = "limit_reached"
             timed_out = (time.monotonic() >= self.deadline
-                         or "deadline_exceeded" in evaluation.gaps
-                         or getattr(getattr(result, "error", None), "code", None) == "RUN_TIMEOUT")
+                         or "deadline_exceeded" in evaluation.gaps)
             if timed_out:
                 result.error = RunError(code="RUN_TIMEOUT", message="本次任务超时，已停止")
                 result.evidence_status = "insufficient"

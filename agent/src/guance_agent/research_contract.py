@@ -54,7 +54,7 @@ class TaskContract(StrictModel):
     def from_task(cls, task, decision=None) -> "TaskContract":
         task_type = task.task_type
         targets = list(task.targets or [])
-        dimensions = list(task.dimensions or [])
+        dimensions = list(dict.fromkeys(task.dimensions or []))
         decision = decision or decide(task.question)
         areas = list(getattr(decision, "areas", ()))
         periods = list(getattr(decision, "fyps", ()))

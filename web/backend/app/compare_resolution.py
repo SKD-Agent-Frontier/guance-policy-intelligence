@@ -93,7 +93,7 @@ def _period(question: str) -> str | None:
 
 
 def _topic(question: str, areas: list[str], period: str | None, dimensions: list[str]) -> str:
-    value = question
+    value = re.sub(r"(?:的)?发展特点(?:及差异)?[。！？?]*$", "", question)
     for alias, province in _ALIASES:
         if province in areas:
             value = value.replace(alias, "")
@@ -106,7 +106,7 @@ def _topic(question: str, areas: list[str], period: str | None, dimensions: list
         value = value.replace(dimension, "")
     value = re.sub(
         r"比较|对比|分析|研究|请|帮我|一下|的异同|异同|有何不同|有哪些不同|"
-        r"相同点|不同点|差异|区别|共同点|两省|两个省|两地|各自|之间|"
+        r"相同点|不同点|差异|区别|共同点|两省|两个省|两地|三地|各自|之间|"
         r"相关政策|政策文件|政策|规划|目标|内容|方面|情况|分别|是什么|"
         r"[和与及、，,。！？?：:；;\s]",
         "", value,
@@ -146,18 +146,21 @@ def _score(record: PolicyRecord, period: str, topic: str) -> int | None:
     )
 
 
-def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
+def _resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
     """输出可交给 compare Agent 的目标编号；无确定来源则拒绝自动执行。"""
     areas = _areas(question)
     period = _period(question)
     dimensions = [dimension for dimension in _DIMENSIONS if dimension in question]
     topic = _topic(question, areas, period, dimensions)
     if len(areas) < 2 or len(areas) > 8:
-        return {"status": "needs_clarification", "message": "请明确需要比较的 2—8 个省级地区。", "targets": [], "policies": [], "dimensions": dimensions}
+        return {"status": "needs_clarification", "reason_code": "user_scope_missing",
+                "message": "请明确需要比较的 2—8 个省级地区。", "targets": [], "policies": [], "dimensions": dimensions}
     if not period:
-        return {"status": "needs_clarification", "message": "请明确共同的五年规划时期（例如十四五），或使用高级入口指定文献。", "targets": [], "policies": [], "dimensions": dimensions}
+        return {"status": "needs_clarification", "reason_code": "user_period_missing",
+                "message": "请明确共同的五年规划时期（例如十四五），或使用高级入口指定文献。", "targets": [], "policies": [], "dimensions": dimensions}
     if len(topic) < 2:
-        return {"status": "needs_clarification", "message": "请补充比较主题，例如数字经济；无需提供政策编号。", "targets": [], "policies": [], "dimensions": dimensions}
+        return {"status": "needs_clarification", "reason_code": "user_scope_missing",
+                "message": "请补充比较主题，例如数字经济；无需提供政策编号。", "targets": [], "policies": [], "dimensions": dimensions}
 
     selected: list[dict] = []
     for area in areas:
@@ -186,7 +189,7 @@ def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
                 "文件主题不匹配；不会把这些文献自动替代为研究对象。"
                 if body_only else "当前发布库未找到题名直接对应研究主题的政策。"
             )
-            return {"status": "needs_clarification",
+            return {"status": "needs_clarification", "reason_code": "catalog_evidence_missing",
                     "message": f"{area}「{period}·{topic}」没有可安全自动选择的主题政策。{hint}"
                                "请核对文献目录，选定合适文件后使用高级入口；"
                                "如需要，也可调整研究范围。当前不生成比较结论。",
@@ -196,7 +199,7 @@ def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
         if len(candidates) > 1 and candidates[1][0] == top_score:
             titles = "；".join(f"《{record.title}》（{record.planid}）"
                                for _, record in candidates[:3])
-            return {"status": "needs_clarification",
+            return {"status": "needs_clarification", "reason_code": "ambiguous_policy_identity",
                     "message": f"{area}存在多个同等匹配的政策文献：{titles}。请补充文件标题以消除歧义；编号仅供高级定位使用。",
                     "targets": [], "policies": selected, "dimensions": dimensions}
         selected.append({"area": area, "planid": top.planid, "title": top.title,
@@ -206,3 +209,11 @@ def resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
             "message": "已根据地区、规划时期和完整主题词在当前发布库中定位比较文献。",
             "targets": [item["planid"] for item in selected],
             "policies": selected, "dimensions": dimensions}
+
+
+def resolve_compare(question: str, catalog: PolicyCatalogService, *, internal: bool = False) -> dict:
+    """Keep the public response stable while exposing typed discovery reasons internally."""
+    result = _resolve_compare(question, catalog)
+    if not internal:
+        result.pop("reason_code", None)
+    return result
