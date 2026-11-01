@@ -55,6 +55,29 @@ function formatPeriod(fyp: string | null | undefined, year: number | null | unde
     : "未提供";
 }
 
+/**
+ * Reflow source hard-wraps in the full-page reader without changing stored text.
+ * Explicit blank lines and section/list headings remain paragraph boundaries.
+ */
+export function reflowPolicyReaderText(text: string): string {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const sectionStart = /^(?:#{1,6}\s*|第[一二三四五六七八九十百千0-9]+[章节篇部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十0-9]+[）)]|\d+[、．.]\s*|[-*•]\s+)/;
+  const output: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { output.push(""); continue; }
+    const last = output.length ? output[output.length - 1] : "";
+    if (!last || sectionStart.test(line) || sectionStart.test(last) ||
+        /[。！？；;：:]$/.test(last) || /^\d+$/.test(last) || /^\d+$/.test(line)) {
+      output.push(line);
+    } else {
+      const gap = /[A-Za-z0-9]$/.test(last) && /^[A-Za-z0-9]/.test(line) ? " " : "";
+      output[output.length - 1] = last + gap + line;
+    }
+  }
+  return output.join("\n");
+}
+
 function highlightLiteral(text: string, query: string | null | undefined): React.ReactNode {
   if (!query) return text;
 
@@ -433,6 +456,8 @@ export function PolicyCatalog() {
   };
 
   const policy = detail?.policy;
+  const contentPage = content ? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1 : 1;
+  const contentPageCount = content ? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE)) : 1;
   const DetailContainer = reading ? "article" : "aside";
   const matchedLabel = list?.query.q
     ? "字面匹配"
@@ -699,7 +724,7 @@ export function PolicyCatalog() {
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <pre className="catalog-original-text">{content.text}</pre>}
+                  {content && <pre className="catalog-original-text">{reading ? reflowPolicyReaderText(content.text) : content.text}</pre>}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
@@ -708,7 +733,7 @@ export function PolicyCatalog() {
                       <button type="button" onClick={() => changeContentPage(-1)} disabled={contentLoading || pageCursor === 0}>
                         <ArrowLeft size={14} /> 上一页
                       </button>
-                      <span>{content.offset}–{content.offset + Array.from(content.text).length} / {content.total_chars}</span>
+                      <span aria-label="原文页码">第 {contentPage} / {contentPageCount} 页</span>
                       <button type="button" onClick={() => changeContentPage(1)} disabled={contentLoading || !content.has_more || content.text.length === 0}>
                         下一页 <ArrowRight size={14} />
                       </button>
