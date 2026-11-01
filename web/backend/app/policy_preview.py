@@ -15,7 +15,8 @@ PUNCTUATION = "。！？；"
 def _duplicate_title(line: str, title: str | None) -> bool:
     if not title:
         return False
-    normalize = lambda value: SPACE.sub("", HEADING.sub("", value)).strip("“”\"'·:：")
+    def normalize(value):
+        return SPACE.sub("", HEADING.sub("", value)).strip("“”\"'·:：")
     return normalize(line) == normalize(title)
 
 
