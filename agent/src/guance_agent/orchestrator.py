@@ -34,7 +34,7 @@ from .output import (
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
-from .qa_controlled import execute_controlled
+from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
 from .research_delivery import deliver_research, draft_verified_report
@@ -672,6 +672,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     _attach(result, planned_task)
                 research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
+    finalize_controlled_facts(result)
     result = finalize_qa_retrieval(result, task)
     if not result.meta.get("execution_recovery"):
         result = finalize_qa_analysis(result, task.question)
