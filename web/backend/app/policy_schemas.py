@@ -174,6 +174,9 @@ class PolicyDetail(BaseModel):
     year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     body_chars: int
     body_status: Literal["available", "missing", "suspected_garbled"] = "available"
+    printed_toc: tuple[int, int] | None = Field(
+        default=None, description="纸质目录在冻结正文中的半开码点范围；仅用于展示"
+    )
     sections: list[SectionInfo]
 
 
