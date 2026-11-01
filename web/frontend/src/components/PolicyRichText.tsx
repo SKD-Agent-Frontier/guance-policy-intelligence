@@ -101,7 +101,9 @@ function PolicyHeading({ level, children }: { level: HeadingLevel; children: str
  * chapter title or an ordinary sentence ending in a year.
  */
 const TOC_ENTRY = /^(?:第[一二三四五六七八九十百千0-9]+[编篇部章节]|[（(][一二三四五六七八九十0-9]+[）)]|[一二三四五六七八九十]+[、．.])/;
-const TOC_PAGE = /(?:[.．·•…⋯。﹒:：\s]{2,})[0-9０-９]{1,3}\s*$/;
+// In legacy PDF extraction the page number may be lost while its dotted
+// leader survives (e.g. "第一章 发展现状................"). Recognize both.
+const TOC_PAGE = /(?:[.．·•…⋯。﹒:：]{4,}\s*[0-9０-９]{0,3}|[.．·•…⋯。﹒:：\s]{2,}[0-9０-９]{1,3})\s*$/;
 const TOC_ATTACHED_PAGE = /(?:[\u3400-\u9fff）)]|[）)]\s+)[0-9０-９]{1,3}\s*$/;
 function tocPageEntry(line: string): boolean {
   const source = line.trim().replace(/^#{1,6}\s*/, "");
@@ -128,7 +130,7 @@ function tocRange(lines: readonly string[]): [number, number] | null {
 }
 function cleanTocLine(line: string): string {
   const source = line.trim().replace(/^#{1,6}\s*/, "");
-  const leaders = /[.．·•…⋯。﹒:：]{2,}\s*[0-9０-９]{1,4}\s*$/;
+  const leaders = /[.．·•…⋯。﹒:：]{2,}\s*[0-9０-９]{0,4}\s*$/;
   if (leaders.test(source)) return source.replace(leaders, "").trimEnd();
   // In a validated printed TOC, a chapter/section may attach its PDF page
   // number directly to the title. Do not apply this outside TOC context.
@@ -243,6 +245,29 @@ function TableBlock({ headers, rows, caption, headerless = false }: {
   </div>;
 }
 
+/** Visual-only recovery for OCR paragraphs flattened to a single huge line.
+ * Split on actual sentence boundaries; never insert or delete policy words.
+ * Short authentic paragraphs and Markdown tables remain untouched. */
+export function readablePolicyParagraphs(text: string, softWrap: boolean): string[] {
+  if (!softWrap || Array.from(text).length < 320) return [text];
+  const sentences = text.match(/[^。！？；]+[。！？；]?/g) ?? [text];
+  if (sentences.length < 3) return [text];
+  const paragraphs: string[] = [];
+  let current = "";
+  for (const sentence of sentences) {
+    current += sentence;
+    if (Array.from(current).length >= 165 && /[。！？；]$/.test(sentence)) {
+      paragraphs.push(current);
+      current = "";
+    }
+  }
+  if (current) {
+    if (paragraphs.length && Array.from(current).length < 55) paragraphs[paragraphs.length - 1] += current;
+    else paragraphs.push(current);
+  }
+  return paragraphs;
+}
+
 function paragraphLines(lines: string[], softWrap: boolean): string[] {
   if (!softWrap) return lines;
   const merged: string[] = [];
@@ -314,7 +339,9 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   const flushProse = () => {
     if (!prose.length) return;
     for (const paragraph of paragraphLines(prose, softWrap)) {
-      blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
+      for (const readable of readablePolicyParagraphs(paragraph, softWrap)) {
+        blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(readable)}</p>);
+      }
     }
     prose = [];
   };
@@ -340,7 +367,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       flushProse();
       if (!omitPrintedToc) {
         const cleaned = cleanTocLine(line);
-        if (cleaned && !PDF_PAGE_MARK.test(cleaned)) {
+        if (cleaned && !PDF_PAGE_MARK.test(cleaned) && !/^[0-9０-９]{1,3}$/.test(cleaned)) {
           blocks.push(<p className={`catalog-prose catalog-toc-line catalog-toc-depth-${tocDepth(cleaned, tocHasParts)}`}
             key={key++}>{inlineContent(cleaned)}</p>);
         }
