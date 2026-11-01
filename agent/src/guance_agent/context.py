@@ -232,3 +232,15 @@ class RunContext:
     literal_keyword: str | None = None
     literal_hit_ids: set[str] = field(default_factory=set)
     research: object | None = None
+
+    def verified_scoped_document(self):
+        """Only a catalog-verified single-document research scope can fix filters.
+
+        An arbitrary model planid (or a multi-document plan) is never enough.
+        """
+        if not self.research or not self.scope or len(self.scope) != 1:
+            return None
+        plan = self.research.plan
+        return next((doc for doc in plan.documents
+                     if doc.planid == self.scope[0] and doc.source_verified), None)
+
