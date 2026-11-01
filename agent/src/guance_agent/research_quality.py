@@ -68,10 +68,15 @@ def evaluate(result, question: str) -> dict:
                        and claim.chunk_ids and claim.quotes
                        and set(claim.chunk_ids) <= refs]
     analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
+    # Simple factual QA does not require a report to count as evidence-backed.
+    # For a single explicitly named factual facet, surviving quote-verified
+    # claims establish *structural* coverage, not semantic sufficiency.
+    simple_fact = (not required["needs_report"] and not required["needs_analysis"]
+                   and len(required["dimensions"]) == 1 and bool(verified_claims))
     covered = [label for label in required["dimensions"] if any(
         _matching(block, label) and (
             label not in ANALYTICAL or block.get("kind") == "analysis"
-        ) for block in blocks)]
+        ) for block in blocks) or (simple_fact and label not in ANALYTICAL)]
     missing = [item for item in required["dimensions"] if item not in covered]
     gaps = []
     if not verified_claims or result.meta.get("verification_incomplete"):
@@ -92,6 +97,7 @@ def evaluate(result, question: str) -> dict:
         "needs_analysis": required["needs_analysis"],
         "needs_report": required["needs_report"], "gaps": gaps,
         "verified_claim_count": len(verified_claims),
+        "factual_answer_coverage": bool(simple_fact),
         "audited_report_blocks": len(blocks),
         "audited_analysis_blocks": len(analytical_blocks),
         "note": "完成度是保守的结构/覆盖检查，不证明推理在语义上正确或全库检索充分。",
@@ -106,8 +112,12 @@ def followup_gap(result, question: str) -> str | None:
     if not wanted:
         return None
     drafts = list(getattr(result, "_qa_report_candidates", []) or [])
+    facts = [{"text": claim.text, "dimension": ""} for claim in result.claims
+             if claim.quotes and claim.chunk_ids]
     present = [label for label in wanted if any(_matching(block, label)
                and (label not in ANALYTICAL or block.get("kind") == "analysis")
-               for block in drafts)]
+               for block in drafts)
+               or (label not in ANALYTICAL and any(
+                   _matching(fact, label) for fact in facts))]
     missing = [label for label in wanted if label not in present]
     return missing[0] if missing else None
