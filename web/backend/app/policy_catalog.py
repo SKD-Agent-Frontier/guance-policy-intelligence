@@ -12,12 +12,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+IMAGE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,160}\Z")
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".gif": "image/gif", ".webp": "image/webp"}
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_QUERY_CHARS = 100
 MAX_FILTER_CHARS = 50
 MAX_PAGE_SIZE = 100
@@ -93,6 +98,7 @@ class CatalogSnapshot:
     revision: int
     partial: bool | None
     records: tuple[PolicyRecord, ...]
+    media_roots: tuple[Path, ...] = ()
 
     @property
     def total_documents(self) -> int:
@@ -289,8 +295,13 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
             conn.rollback()
         finally:
             conn.close()
+    # Read-only media allowlist. Originals may be copied alongside the prepared
+    # snapshots, or mounted separately via GUANCE_POLICY_MEDIA_ROOT.
+    configured_media = os.environ.get("GUANCE_POLICY_MEDIA_ROOT", "").strip()
+    media_roots = (Path(configured_media).resolve(), prepared) if configured_media else (prepared,)
     return CatalogSnapshot(generation_id=generation, revision=revision,
-                           partial=manifest.get("partial"), records=tuple(records))
+                           partial=manifest.get("partial"), records=tuple(records),
+                           media_roots=media_roots)
 
 
 class PolicyCatalogService:
@@ -609,6 +620,47 @@ class PolicyCatalogService:
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
                 "text": record.body[offset:end]}
+
+    def resolve_media(self, planid: str, filename: str) -> tuple[Path, str]:
+        """Resolve only an image the selected policy's frozen text actually cites."""
+        planid = self._check_planid(planid)
+        record = self._by_planid.get(planid)
+        if record is None:
+            raise LookupError("未找到该政策")
+        if not isinstance(filename, str) or not IMAGE_NAME.fullmatch(filename) or ".." in filename:
+            raise InvalidParameter("图片文件名无效")
+        mime = IMAGE_TYPES.get(Path(filename).suffix.lower())
+        if mime is None:
+            raise InvalidParameter("不支持的图片类型")
+        reference = re.compile(r'!\[[^\]\n]{0,200}\]\(\s*media/' + re.escape(filename)
+                               + r'(?:\s+"[^"]*")?\s*\)', re.IGNORECASE)
+        if not reference.search(record.body):
+            raise LookupError("原文没有引用此图片")
+        for root in self.snapshot.media_roots:
+            root = root.resolve()
+            candidates = (
+                root / planid / "media" / filename,
+                root / "media" / filename,
+                root / "snapshots" / "media" / filename,
+                root / "snapshots" / planid / "media" / filename,
+            )
+            for candidate in candidates:
+                path = candidate.resolve()
+                if not path.is_relative_to(root) or not path.is_file():
+                    continue
+                if path.stat().st_size > MAX_IMAGE_BYTES:
+                    raise InvalidParameter("图片文件过大")
+                with path.open("rb") as source:
+                    signature = source.read(16)
+                valid = ((mime == "image/png" and signature.startswith(b"\x89PNG\r\n\x1a\n"))
+                         or (mime == "image/jpeg" and signature.startswith(b"\xff\xd8\xff"))
+                         or (mime == "image/gif" and signature.startswith((b"GIF87a", b"GIF89a")))
+                         or (mime == "image/webp" and signature[:4] == b"RIFF"
+                             and signature[8:12] == b"WEBP"))
+                if not valid:
+                    raise InvalidParameter("图片格式无效")
+                return path, mime
+        raise LookupError("图片原件未发布")
 
     # ---- 内部校验与匹配 -------------------------------------------------
     @staticmethod
