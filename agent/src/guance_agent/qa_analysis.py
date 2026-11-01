@@ -73,6 +73,9 @@ def finalize_qa_analysis(result: RunResult, question: str = "") -> RunResult:
     """Publish only dependency-complete synthesis after verification and final QA filtering."""
     if result.task_type != "qa":
         return result
+    if result._qa_report_supplied:
+        result._qa_analysis_candidates = []
+        return result
     candidates = result._qa_analysis_candidates
     result._qa_analysis_candidates = []
     if result.status != "completed" or result.error:

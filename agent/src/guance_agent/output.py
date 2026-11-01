@@ -3,6 +3,7 @@ from .context import RunContext, sanitize_error_detail
 from .format_recovery import parse_agent_output
 from .qa_analysis import prepare_candidates
 from .qa_report import needs_outline, verified_qa_outline
+from .qa_report_verification import prune_report
 from .runner import ExecOutcome
 from .schemas import AgentOutput, RunError, RunResult, TaskRequest
 
@@ -39,7 +40,10 @@ def _parse_nonstructured_output(raw: str) -> AgentOutput:
 
 
 def rebuild_trusted_answer(result, ctx, reason: str) -> None:
-    """证据被删除后只展示仍可追溯的结论，不能保留模型原始答案。"""
+    """重建答案；QA 报告按块剪枝，旧 QA 与业务仍沿用事实型回退。"""
+    if result.task_type == "qa" and result._qa_report_supplied:
+        prune_report(result, ctx, reason)
+        return
     active_ids = {chunk_id for claim in result.claims for chunk_id in claim.chunk_ids}
     result.evidence_refs = [ref for ref in result.evidence_refs if ref.chunk_id in active_ids]
     result.evidence_status = "insufficient"
@@ -141,7 +145,22 @@ def build_result(task: TaskRequest, outcome: ExecOutcome | None, ctx: RunContext
     result.meta["dropped_claims"] = len(dropped_texts)
     result.dropped_chunk_ids = list(dict.fromkeys(dropped))
     result.evidence_refs, result.answer = list(refs.values()), parsed.answer
-    if task.task_type == "qa" and parsed.analyses:
+    if task.task_type == "qa" and parsed.report is not None:
+        from .qa_report_verification import prepare_report_candidates
+
+        result._qa_report_supplied = True
+        result._qa_report_dimensions = list(parsed.report.dimensions)
+        result._qa_report_candidates = prepare_report_candidates(parsed.report, parsed.claims)
+        result.meta["qa_report"] = {
+            "received": len(parsed.report.blocks),
+            "retained": 0,
+            "withdrawn": 0,
+            "reason": "awaiting_verification",
+            "semantic_review": "pending",
+            "declared_insufficient": parsed.insufficient,
+        }
+        prune_report(result, ctx, "initial_filter")
+    elif task.task_type == "qa" and parsed.analyses:
         result.meta["analysis_drafts_received"] = len(parsed.analyses)
         result._qa_analysis_candidates = prepare_candidates(
             [item.model_dump() for item in parsed.analyses], parsed.claims, result.claims)
