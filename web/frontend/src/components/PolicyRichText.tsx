@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiBaseUrl } from "../api/config";
+import type { PolicySection } from "../types";
 
 /** Whitelisted local media basename; never render remote or arbitrary file paths. */
 const IMAGE_LINK = /^\s*!\[([^\]]*)\]\s*\(\s*media\/([A-Za-z0-9_.-]+)(?:\s+"[^"]*")?\s*\)\s*$/i;
@@ -61,6 +62,27 @@ function isDocumentTitle(line: string, title?: string): boolean {
   // Source title can differ from metadata (e.g. abbreviated document name).
   return source.length >= 12 && /(?:纲要|规划|报告|通知|方案|意见|办法|条例|决定)$/.test(source)
     && !/[。？！；;]$/.test(source);
+}
+
+/**
+ * A published section starts at an immutable code-point offset. Prefer this
+ * reference over a visual guess based on short source lines.
+ */
+function sectionHeading(
+  line: string, absoluteOffset: number, sections: readonly PolicySection[],
+): { level: HeadingLevel; text: string } | null {
+  const cleaned = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
+  const normalized = normalizeHeadingText(cleaned);
+  if (!normalized || !sections.length) return null;
+  const matched = sections.find(section => section.level >= 1 && section.level <= 6
+    && Math.abs(section.start - absoluteOffset) <= 3
+    && normalizeHeadingText(section.path.split(/\s+\/\s+/).at(-1) ?? "") === normalized);
+  if (!matched) return null;
+  if (/^序\s*言$/.test(cleaned)) return { level: 2, text: "序言" };
+  return {
+    level: Math.max(2, Math.min(6, matched.level + 1)) as HeadingLevel,
+    text: cleaned,
+  };
 }
 
 function PolicyHeading({ level, children }: { level: HeadingLevel; children: string }) {
@@ -164,11 +186,21 @@ function PolicyImage({ planid, name, alt }: { planid: string; name: string; alt:
  * All remaining policy source is rendered as ordinary escaped text.
  * Never alters the underlying source, code-point offsets, or pagination.
  */
-export function PolicyRichText({ text, planid, softWrap = false, originalHints = [], documentTitle, firstPage = false }: {
+export function PolicyRichText({ text, planid, softWrap = false, originalHints = [], documentTitle, firstPage = false,
+  sections = [], textOffset = 0 }: {
   text: string; planid: string; softWrap?: boolean; originalHints?: readonly OriginalHeadingHint[];
   documentTitle?: string | null; firstPage?: boolean;
+  sections?: readonly PolicySection[]; textOffset?: number;
 }) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  // Maintain exact Unicode code-point line positions for authoritative
+  // chapter matching even when a page begins at a nonzero source offset.
+  const linePositions: number[] = [];
+  let cursor = textOffset;
+  for (const line of lines) {
+    linePositions.push(cursor);
+    cursor += Array.from(line).length + 1;
+  }
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
@@ -276,7 +308,8 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       continue;
     }
 
-    const heading = policyHeading(line, originalHints);
+    const heading = sectionHeading(line, linePositions[index], sections)
+      ?? policyHeading(line, originalHints);
     if (heading) {
       flushProse();
       blocks.push(<PolicyHeading level={heading.level} key={key++}>{heading.text}</PolicyHeading>);
