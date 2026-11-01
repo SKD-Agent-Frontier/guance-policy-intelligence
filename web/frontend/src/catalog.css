@@ -398,10 +398,14 @@
   box-shadow: none;
 }
 .catalog-reader-document h1 {
-  margin: 0 0 28px;
+  margin: 20px auto 32px;
+  max-width: min(100%, 1120px);
   font-family: var(--font-display, serif);
-  font-size: clamp(24px, 2.6vw, 34px);
-  line-height: 1.5;
+  font-size: clamp(25px, 2.6vw, 36px);
+  font-weight: 700;
+  line-height: 1.55;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 .policy-reader {
   /* Full-width reading canvas, aligned to the back control and page padding. */
@@ -827,4 +831,24 @@
 @media (max-width: 720px) {
   .catalog-reader-facts { flex-basis: 100%; }
   .catalog-reader-info-row .catalog-add-to-topic { margin-left: auto; }
+}
+
+
+/* Approvals, publication dates and source-title notes belong to the document
+   masthead and are centred like conventional policy documents. */
+.catalog-reader-document .catalog-document-date {
+  max-width: 1100px;
+  margin: 14px auto 25px;
+  text-align: center;
+  font-family: var(--font-display, serif);
+  font-size: .96em;
+  line-height: 1.75;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.catalog-preview .catalog-document-date {
+  margin: 8px 0 15px;
+  color: #675952;
+  font-size: 12px;
+  text-align: center;
 }
