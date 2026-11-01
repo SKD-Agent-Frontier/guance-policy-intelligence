@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .policy_format import read_original_html_headings
+from .policy_preview import search_preview
 
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 IMAGE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,160}\Z")
@@ -388,7 +389,9 @@ class PolicyCatalogService:
                           "admin_level": self._admin_level(record),
                           "region_code": mapping.get("region_code") if mapping else None,
                           "region_status": mapping.get("region_status") if mapping else None,
-                          "matches": matches})
+                          "matches": matches,
+                          "preview": search_preview(record.body, record.title, filters["q"])
+                          if filters["q"] else None})
         return {"dataset": self.dataset(), "query": {**query,
                 "match_mode": "literal" if filters["q"] is not None else None},
                 "matched_documents": total, "page": page, "page_size": page_size,
