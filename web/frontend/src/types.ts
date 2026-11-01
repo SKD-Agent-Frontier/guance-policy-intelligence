@@ -274,6 +274,8 @@ export interface PolicyContentResponse {
   total_chars: number;
   has_more: boolean;
   text: string;
+  page?: number | null;
+  page_count?: number | null;
 }
 
 export interface PolicyListParams extends PolicyFacetFilters {
