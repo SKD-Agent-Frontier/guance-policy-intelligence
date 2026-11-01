@@ -39,6 +39,27 @@ export function policyHeading(
   return null;
 }
 
+/** Main document heading/date are only recognized at the start of the first
+ * page. Never infer them inside later pages or inside policy paragraphs. */
+function normalizeDocumentTitle(title: string): string {
+  return normalizeHeadingText(title).replace(/[“”‘’"'《》<>（）()·—－:：，,、]/g, "");
+}
+const DATE_LINE = /^(?:[（(]\s*)?(?:(?:19|20)\d{2}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?|(?:经|于)(?:.{0,35})(?:会议|人大))(?:.{0,68})(?:[）)])?$/;
+function originalDateLine(line: string): boolean {
+  const source = line.trim().replace(/^#{1,6}\s*/, "");
+  return source.length >= 5 && source.length <= 110 && DATE_LINE.test(source)
+    && /(?:(?:19|20)\d{2}年|批准|通过|发布|审议|印发)/.test(source)
+    && !/[。；;]$/.test(source);
+}
+function isDocumentTitle(line: string, title?: string): boolean {
+  const source = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
+  if (!source || source.length > 130 || /^第[一二三四五六七八九十百千\d]+[编篇章章节]/.test(source)) return false;
+  if (title && normalizeDocumentTitle(source) === normalizeDocumentTitle(title)) return true;
+  // Source title can differ from metadata (e.g. abbreviated document name).
+  return source.length >= 12 && /(?:规划纲要|发展规划|实施方案|工作报告|意见|通知|发展纲要)$/.test(source)
+    && !/[。？！；;]$/.test(source);
+}
+
 function PolicyHeading({ level, children }: { level: HeadingLevel; children: string }) {
   if (level === 2) return <h2 className="catalog-heading">{children}</h2>;
   if (level === 3) return <h3 className="catalog-heading">{children}</h3>;
@@ -140,8 +161,9 @@ function PolicyImage({ planid, name, alt }: { planid: string; name: string; alt:
  * All remaining policy source is rendered as ordinary escaped text.
  * Never alters the underlying source, code-point offsets, or pagination.
  */
-export function PolicyRichText({ text, planid, softWrap = false, originalHints = [] }: {
+export function PolicyRichText({ text, planid, softWrap = false, originalHints = [], documentTitle, firstPage = false }: {
   text: string; planid: string; softWrap?: boolean; originalHints?: readonly OriginalHeadingHint[];
+  documentTitle?: string | null; firstPage?: boolean;
 }) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const blocks: React.ReactNode[] = [];
@@ -155,9 +177,35 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     prose = [];
   };
   let index = 0;
+  let leadTitleFound = false;
+  let documentLead = firstPage;
+  let leadLineCount = 0;
   while (index < lines.length) {
     const line = lines[index];
     if (!line.trim()) { flushProse(); index++; continue; }
+
+    // The metadata title is already displayed as a centered H1 in reader mode.
+    // Repeated source titles are left in the frozen text, but not drawn twice.
+    if (documentLead && leadLineCount < 12) {
+      const plain = line.trim().replace(/^#{1,6}\\s*/, "").replace(/\\s*#+\\s*$/, "");
+      if (!leadTitleFound && isDocumentTitle(plain, documentTitle ?? undefined)) {
+        flushProse();
+        leadTitleFound = true;
+        leadLineCount++;
+        index++;
+        continue;
+      }
+      if ((leadTitleFound || leadLineCount <= 2) && originalDateLine(plain)) {
+        flushProse();
+        blocks.push(<p className="catalog-document-date" key={key++}>{plain}</p>);
+        leadLineCount++;
+        index++;
+        continue;
+      }
+      leadLineCount++;
+      // Heading or long paragraphs indicate ordinary source content.
+      if (policyHeading(line, originalHints) || line.trim().length > 130 || leadLineCount >= 12) documentLead = false;
+    }
 
     const image = IMAGE_LINK.exec(line);
     if (image) {
