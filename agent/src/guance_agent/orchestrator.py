@@ -34,6 +34,7 @@ from .output import (
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .qa_controlled import execute_controlled
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
 from .research_delivery import deliver_research, draft_verified_report
@@ -576,6 +577,12 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                         result = await _run_business(planned_task, s, rt, ctx, deadline, decision, module)
                     elif decision.blocked:
                         result = _blocked(planned_task, ctx, rt.meta, decision)
+                    elif (task.task_type == "qa" and s.kb_backend == "rag"
+                          and not s.structured_output
+                          and (decision.kind == "open" or planned_task.targets
+                               or decision.planids)):
+                        # Programmatic source retrieval with one grounded LLM call.
+                        result = await _run_controlled_qa(planned_task, s, ctx, rt, deadline)
                     elif decision.kind == "objects":
                         result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
                     else:
@@ -611,12 +618,21 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     result = await _run_business(task, s, rt, ctx, deadline, decision, module)
                 elif decision.blocked:
                     result = _blocked(task, ctx, rt.meta, decision)
+                elif (task.task_type == "qa" and s.kb_backend == "rag"
+                      and not s.structured_output
+                      and (decision.kind == "open" or task.targets or decision.planids)):
+                    result = await _run_controlled_qa(task, s, ctx, rt, deadline)
                 elif decision.kind == "objects":
                     result = await _run_objects(task, s, ctx, rt, decision, deadline)
                 else:
                     result = await _run_single(task, s, ctx, rt, deadline, decision)
             if result is None:
                 result = _discovery_result(task, rt, "研究未能产生结果。")
+            if (task.task_type == "qa" and result.status == "failed"
+                    and not result.meta.get("execution_recovery")):
+                recovered = await recover_read_excerpts(result, ctx, deadline)
+                if not recovered:
+                    recover_empty_search_failure(result, ctx)
             if research_runtime is not None and research_runtime.status == "executing":
                 if result.status == "limit_reached":
                     research_runtime.transition("limit_reached", result.error.message if result.error else "运行预算已耗尽")
@@ -694,6 +710,15 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     finalize_recovered_qa_answer(result, task.question)
     if task.task_type == "qa":
         deliver_research(result, task.question)
+    if task.task_type == "qa" and isinstance(result.meta.get("llm"), dict):
+        if result.meta.get("original_execution_error") or result.error:
+            result.meta["llm"]["parse"] = "failed"
+        elif result.meta["llm"].get("parse") == "pending":
+            result.meta["llm"]["parse"] = (
+                "ok" if not result.meta.get("output_parse")
+                or result.meta["output_parse"].get("classification") == "ok"
+                else "failed"
+            )
     if research_runtime is not None:
         try:
             research_runtime.finish(result, ctx)
@@ -1031,6 +1056,17 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
         return outcome, meta
     rt.log("qa_output_parse_repaired", classification=classification, method="model")
     return replace(outcome, final_output=repaired), meta
+
+
+async def _run_controlled_qa(task, s, ctx, rt, deadline):
+    """Keep all existing QA parse, quote, number and report audit gates."""
+    outcome = await execute_controlled(task, s, ctx, rt, deadline)
+    outcome, parse_meta = await _recover_qa_output(
+        outcome, s, rt, deadline, repair_budget={"remaining": 0})
+    result = build_result(task, outcome, ctx, rt.meta)
+    if parse_meta:
+        result.meta.update(parse_meta)
+    return result
 
 
 async def _run_single(task, s, ctx, rt, deadline, decision):
