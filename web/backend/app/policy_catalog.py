@@ -663,7 +663,7 @@ class PolicyCatalogService:
                 "text": record.body[offset:end]}
 
     @staticmethod
-    def _reading_boundary(body: str, target: int) -> int:
+    def _reading_boundary(body: str, target: int, page_chars: int = 4000) -> int:
         """Find a repeatable nearby paragraph/line boundary for a display page.
 
         This is a *view* boundary only; read_content() and all evidence offsets
@@ -674,15 +674,20 @@ class PolicyCatalogService:
             return 0
         if target >= total:
             return total
-        low, high = max(0, target - 480), min(total, target + 480)
+        # Adjacent display page searches must not overlap, or a short final
+        # page could collapse into the previous page at the same boundary.
+        radius = min(480, max(50, page_chars // 8))
+        low, high = max(0, target - radius), min(total, target + radius)
         nearby = body[low:high]
         paragraphs = [low + match.end()
-                      for match in re.finditer(r"\r?\n(?:[ \t]*\r?\n)+", nearby)]
+                      for match in re.finditer(r"\r?\n(?:[ \t]*\r?\n)+", nearby)
+                      if 0 < low + match.end() < total]
         if paragraphs:
             return min(paragraphs, key=lambda pos: (abs(pos - target), pos < target))
         # Hard-wrapped rows are the next safest boundary. If the entire window
         # is one huge line, use the exact target rather than skipping text.
-        newlines = [low + i + 1 for i, char in enumerate(nearby) if char == "\n"]
+        newlines = [low + i + 1 for i, char in enumerate(nearby)
+                    if char == "\n" and 0 < low + i + 1 < total]
         if newlines:
             return min(newlines, key=lambda pos: (abs(pos - target), pos < target))
         return target
@@ -705,8 +710,8 @@ class PolicyCatalogService:
         if type(page) is not int or page < 1 or page > page_count:
             raise InvalidParameter("页码超出正文范围")
         nominal_start, nominal_end = (page - 1) * page_chars, min(page * page_chars, total)
-        start = self._reading_boundary(record.body, nominal_start)
-        end = self._reading_boundary(record.body, nominal_end)
+        start = self._reading_boundary(record.body, nominal_start, page_chars)
+        end = self._reading_boundary(record.body, nominal_end, page_chars)
         if end < start or end - start > MAX_CONTENT_LIMIT:
             # This can only occur for an unusual source; keep exact boundaries.
             start, end = nominal_start, nominal_end
