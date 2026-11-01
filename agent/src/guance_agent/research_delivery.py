@@ -23,13 +23,12 @@ text、supporting_claim_indexes(从0开始)。事实块需依赖至少1条事实
 不得写出输入 facts 之外的数字、政策身份或未经证实的观点。"""
 
 
-def _verified_fact_fallback(result, question: str, *, max_blocks: int = 5):
+def _verified_fact_fallback(result, *, max_blocks: int = 5):
     """Prepare *draft* fact blocks only; the semantic reviewer must approve each.
 
     Copies original verified claim text verbatim. It never makes up analysis,
     never asserts requirements are fully covered, and never bypasses review.
     """
-    req = requirements(question)
     refs = {ref.chunk_id for ref in result.evidence_refs}
     check = result.meta.get("quote_verification") or {}
     if (check.get("unverified") != 0 or check.get("approved", 0) < 1
@@ -44,9 +43,9 @@ def _verified_fact_fallback(result, question: str, *, max_blocks: int = 5):
     dimension = "已核验政策事实"
     blocks = [
         QABlock(id=f"verified-fact-{i}", title_path=["已核验政策事实"],
-                dimension=dimension, kind="fact", text=claim.text[:1200],
+                dimension=dimension, kind="fact", text=claim.text,
                 supporting_claim_indexes=[i])
-        for i, claim in facts[:max_blocks] if claim.text.strip()
+        for i, claim in facts[:max_blocks] if 1 <= len(claim.text.strip()) <= 1200
     ]
     return QAReportDraft(dimensions=[dimension], blocks=blocks) if blocks else None
 
@@ -121,7 +120,7 @@ async def draft_verified_report(result, question, rt, deadline: float) -> bool:
     # A failed draft is not a reason to lose already quote-verified facts.
     # Submit conservative verbatim fact blocks to the SAME semantic reviewer,
     # never to the user as a completed or audited report.
-    fallback = _verified_fact_fallback(result, question)
+    fallback = _verified_fact_fallback(result)
     if fallback is None or deadline - time.monotonic() < 34:
         result.meta["research_report_draft"] = "unavailable_or_invalid"
         return False
