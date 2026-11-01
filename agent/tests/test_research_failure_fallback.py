@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from guance_agent.research_fallback import (
+    complete_excerpt,
     recover_empty_search_failure,
     recover_read_excerpts,
 )
@@ -124,3 +125,11 @@ def test_user_requirements_cover_missing_acceptance_dimensions():
     got = requirements(question)["dimensions"]
     assert {"产业扶持", "基础设施建设", "人才培养", "地区差异",
             "政策作用", "政策局限"} <= set(got)
+
+
+def test_verbatim_excerpt_never_cuts_mid_sentence():
+    original = ("推动工业结构调整。" + "支持" * 130 + "。" + "重点发展高新技术。")
+    text = complete_excerpt(original)
+    assert text is not None and text.endswith("。")
+    assert text == "推动工业结构调整。"
+    assert complete_excerpt("连续文本" * 80) is None
