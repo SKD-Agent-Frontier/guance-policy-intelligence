@@ -5,6 +5,10 @@ import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
 import { extractPolicyVersionPin } from "../api/policyFacets";
 import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
+import { TopicPicker } from "./TopicPicker";
+import { builtInThemes, tagsForPolicy } from "../policyTopics";
+import type { TopicCollection, TopicPolicy } from "../topicStore";
+import "../topics.css";
 import { usePolicyCatalogFacets } from "../hooks/usePolicyCatalogFacets";
 import type {
   PolicyContentResponse,
@@ -125,7 +129,18 @@ function hasNewFilters(filters: PolicyFacetFilters) {
   return NEW_FILTER_KEYS.some(key => filters[key] !== undefined);
 }
 
-export function PolicyCatalog() {
+type TopicActions = {
+  collections?: TopicCollection[];
+  onCreateTopic?: (name: string) => string | null;
+  onAddPolicy?: (topicId: string, policy: TopicPolicy) => void;
+  requestedPolicyId?: string | null;
+  onBackToTopics?: () => void;
+};
+
+export function PolicyCatalog({
+  collections = [], onCreateTopic, onAddPolicy,
+  requestedPolicyId = null, onBackToTopics,
+}: TopicActions = {}) {
   const [filters, setFilters] = useState<Filters>({ q: "", area: "", fyp: "", plantype: "" });
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
   const appliedFiltersRef = useRef<Filters>({});
@@ -161,6 +176,7 @@ export function PolicyCatalog() {
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const returnPlanId = useRef<string | null>(null);
+  const openedRequestedPolicy = useRef<string | null>(null);
 
   const loadList = useCallback(async (params: CatalogParams, showResults = true) => {
     listController.current?.abort();
@@ -325,6 +341,14 @@ export function PolicyCatalog() {
     void loadContent(planid, 0);
   };
 
+  // Deep-link from the thematic library directly to the full original text.
+  // The catalog remains the single source of truth for current published text.
+  useEffect(() => {
+    if (!requestedPolicyId || openedRequestedPolicy.current === requestedPolicyId) return;
+    openedRequestedPolicy.current = requestedPolicyId;
+    openPolicy(requestedPolicyId, true);
+  }, [requestedPolicyId]);
+
   const closePolicy = () => {
     cancelPreviewTimer();
     setReading(false);
@@ -456,6 +480,19 @@ export function PolicyCatalog() {
   };
 
   const policy = detail?.policy;
+  const addPolicyToCollection = (id: string) => {
+    if (!policy || !onAddPolicy) return;
+    onAddPolicy(id, {
+      planid: policy.planid,
+      title: policy.title?.trim() || `政策 ${policy.planid}`,
+      area: policy.area,
+      fyp: policy.fyp,
+      plantype_label: policy.plantype_label,
+      generation_id: detail?.dataset.generation_id ?? null,
+    });
+  };
+  const policyTags = policy ? tagsForPolicy(policy.planid) : [];
+  const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
   const contentPage = content ? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1 : 1;
   const contentPageCount = content ? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE)) : 1;
   const DetailContainer = reading ? "article" : "aside";
@@ -674,7 +711,7 @@ export function PolicyCatalog() {
       </div>
       </>}
 
-      {reading && <button type="button" className="catalog-reader-back" onClick={closePolicy}><ArrowLeft size={17} />返回检索结果</button>}
+      {reading && <button type="button" className="catalog-reader-back" onClick={onBackToTopics ?? closePolicy}><ArrowLeft size={17} />返回检索结果</button>}
 
         {selectedPlanId && (
           <DetailContainer className={`catalog-detail ${reading ? "catalog-reader-document" : "catalog-preview"}`} aria-label={reading ? "政策原文正文" : "政策详情预览"} aria-busy={detailLoading || contentLoading}
@@ -696,6 +733,13 @@ export function PolicyCatalog() {
                 {list && detail && !sameVersion(list.dataset, detail.dataset) && (
                   <p className="catalog-version-note">政策信息与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                 )}
+                {(onAddPolicy && onCreateTopic) && <div className="catalog-add-to-topic">
+                  <TopicPicker planid={policy.planid} collections={collections}
+                    onCreate={onCreateTopic} onAdd={addPolicyToCollection} />
+                  {visibleTopics.length > 0 && <span className="catalog-system-topic" title="根据标题推断的系统主题分类">
+                    主题：{visibleTopics.map((topic) => topic.name).join(" · ")}
+                  </span>}
+                </div>}
                 {!reading && <>
                 <dl className="catalog-metadata">
                   <div><dt>地区</dt><dd>{metadata(policy.area)}</dd></div>
