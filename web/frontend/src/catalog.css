@@ -869,3 +869,37 @@
 .catalog-preview .catalog-rich-text h1.catalog-source-title {
   font-size: 19px;
 }
+
+
+/* Show one label per heading with visible nested chapter hierarchy. */
+.catalog-sections .catalog-chapter-outline {
+  list-style: none;
+  max-height: min(45vh, 360px);
+  padding: 0;
+  margin: 12px 0 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.catalog-chapter-outline li {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.catalog-chapter-outline button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.catalog-chapter-outline button:hover,
+.catalog-chapter-outline button:focus-visible { background: #f9f3f1; }
+.catalog-chapter-depth-0 button { font-weight: 600; color: #443a34; }
+.catalog-chapter-depth-1 button { padding-left: 22px; }
+.catalog-chapter-depth-2 button { padding-left: 36px; }
+.catalog-chapter-depth-3 button { padding-left: 50px; }
+.catalog-chapter-depth-4 button { padding-left: 64px; }
