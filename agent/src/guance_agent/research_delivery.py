@@ -94,7 +94,7 @@ def deliver_research(result, question: str) -> None:
     else:
         checked = [claim for claim in result.claims
                    if claim.quotes and claim.chunk_ids
-                   and set(claim.chunk_ids) <= refs]
+                   and set(claim.chunk_ids) <= set(refs)]
         if not checked:
             return
         body = "\n".join("- " + claim.text for claim in checked)
