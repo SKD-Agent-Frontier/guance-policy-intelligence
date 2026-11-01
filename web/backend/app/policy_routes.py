@@ -272,6 +272,23 @@ async def get_policy_content(
         raise HTTPException(status_code=404, detail="未找到该政策") from exc
 
 
+@router.get("/policies/{planid}/reading-page", response_model=PolicyContentResponse)
+async def get_policy_reading_page(
+    request: Request, planid: str,
+    page: int = Query(default=1, ge=1, description="展示页码，从 1 开始"),
+    page_chars: int = Query(default=4000, ge=500, le=10000),
+):
+    """Presentation-only pages aligned to nearby source paragraph boundaries."""
+    _reject_unknown_query(request, {"page", "page_chars"})
+    service = await _catalog(request)
+    try:
+        return await asyncio.to_thread(service.read_display_page, planid, page=page, page_chars=page_chars)
+    except InvalidParameter as exc:
+        _raise_parameter(exc)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="未找到该政策") from exc
+
+
 @router.get("/policies/{planid}/heading-hints")
 async def get_policy_heading_hints(request: Request, planid: str):
     """Optional heading hints from an original HTML; evidence text stays frozen."""
