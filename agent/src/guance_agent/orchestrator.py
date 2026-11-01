@@ -29,6 +29,7 @@ from .output import (
     LIMIT_CODES,
     build_result,
     finalize_qa_retrieval,
+    finalize_recovered_qa_answer,
     insufficient_message,
     rebuild_trusted_answer,
 )
@@ -659,6 +660,10 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             result.meta.setdefault("qa_report", {}).update(
                 reason="semantic_review_timeout", semantic_review="timeout", retained=0)
             result.warnings.append("报告语义审核超出本次运行时限，已撤回报告段落")
+    # Recovery from token-cap truncation is allowed to publish only the
+    # surviving, quote-verified facts. Do it after all verification gates and
+    # before ResearchRuntime assesses final completion.
+    finalize_recovered_qa_answer(result, task.question)
     if research_runtime is not None:
         try:
             research_runtime.finish(result, ctx)
