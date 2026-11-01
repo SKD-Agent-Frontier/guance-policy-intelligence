@@ -93,6 +93,34 @@ describe("Results", () => {
     expect(html).not.toContain("研究结论");
   });
 
+  it("labels partial evidence-linked QA reports without claiming complete research", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      evidence_status: "insufficient",
+      answer: "## 已核验政策事实（非完整研究结论）\\n\\n政策涉及基础设施建设。",
+      claims: [{ text: "政策涉及基础设施建设", chunk_ids: ["chunk-a"], quotes: ["建设基础设施"], dimension: null, anchors: [] }],
+      meta: { research_delivery: { format: "evidence_linked_report", status: "partial", audited_analysis: false } },
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("研究结果（部分）");
+    expect(html).toContain("尚未完成的研究分析不得视为结论");
+    expect(html).not.toContain("<h1>研究结论</h1>");
+    expect(html).toContain("政策涉及基础设施建设");
+  });
+
+  it("identifies safe source-excerpt recovery as incomplete research", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      evidence_status: "insufficient",
+      answer: "以下仅为核验原文节选",
+      meta: {
+        execution_recovery: { source: "kb_read" },
+        research_delivery: { status: "partial", audited_analysis: false },
+      },
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("本轮仅取得可核验的政策原文节选");
+    expect(html).toContain("研究结果（部分）");
+  });
+
   it("keeps plain QA layout unchanged without analysis", () => {
     const html = renderToStaticMarkup(<Results result={makeResult({
       task_type: "qa",
