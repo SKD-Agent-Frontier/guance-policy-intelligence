@@ -632,7 +632,7 @@ class PolicyCatalogService:
         mime = IMAGE_TYPES.get(Path(filename).suffix.lower())
         if mime is None:
             raise InvalidParameter("不支持的图片类型")
-        reference = re.compile(r'!\[[^\]\n]{0,200}\]\(\s*media/' + re.escape(filename)
+        reference = re.compile(r'!\[[^\]\n]{0,200}\]\s*\(\s*media/' + re.escape(filename)
                                + r'(?:\s+"[^"]*")?\s*\)', re.IGNORECASE)
         if not reference.search(record.body):
             raise LookupError("原文没有引用此图片")
