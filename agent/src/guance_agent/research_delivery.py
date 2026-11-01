@@ -170,13 +170,13 @@ def _gap_label(gap: str) -> str:
     if gap in _COMPLETION_GAPS:
         return _COMPLETION_GAPS[gap]
     if gap.startswith("dimension_uncovered:"):
-        return "未覆盖维度：" + gap.split(":", 1)[1]
+        return "未满足维度：" + gap.split(":", 1)[1]
     if gap.startswith("coverage:target_document_missing:"):
         return "缺少目标文献 planid=" + gap.rsplit(":", 1)[1]
     if gap.startswith("coverage:multiple_documents"):
         return "多文献证据覆盖不足"
     if gap.startswith("coverage:dimension_uncovered:"):
-        return "未覆盖维度：" + gap.rsplit(":", 1)[1]
+        return "未满足维度：" + gap.rsplit(":", 1)[1]
     if gap.startswith("coverage:"):
         return "覆盖缺口：" + gap.split(":", 1)[1]
     return gap
@@ -188,7 +188,9 @@ def _append_completion(result, quality: dict, coverage: dict) -> None:
     status = _COMPLETION_STATUS.get(quality.get("status"), quality.get("status"))
     lines = ["", "研究完成情况", "", f"完成状态：{status}"]
     if quality.get("missing_dimensions"):
-        lines.append("未覆盖维度：" + "、".join(quality["missing_dimensions"]))
+        prefix = ("缺少经审核分析的维度：" if "audited_analysis_missing" in (quality.get("gaps") or [])
+                  else "未满足维度：")
+        lines.append(prefix + "、".join(quality["missing_dimensions"]))
     missing_docs = quality.get("missing_planids") or []
     if missing_docs:
         lines.append("缺少有效证据的文献：" + "、".join("planid=" + pid for pid in missing_docs))
