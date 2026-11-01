@@ -62,24 +62,78 @@ def _excerpt(line: str, keyword: str | None) -> str:
     return excerpt
 
 
-def search_preview(body: str, title: str | None, keyword: str) -> str | None:
-    """Choose a readable excerpt without changing source positions or match fields."""
-    fallback: str | None = None
+def _blocks(body: str, title: str | None):
+    """Coalesce source hard-wraps without touching the original or its offsets."""
+    pending: list[str] = []
+    at_start = True
+
+    def flush():
+        nonlocal pending
+        if not pending:
+            return None
+        joined = pending[0]
+        for next_line in pending[1:]:
+            gap = (" " if joined[-1:].isascii() and joined[-1:].isalnum()
+                   and next_line[:1].isascii() and next_line[:1].isalnum()
+                   else "")
+            joined += gap + next_line
+        pending = []
+        return joined
+
+    compact_title = SPACE.sub("", title or "").strip("“”\"'·:：")
     for raw in body.splitlines():
         line = raw.strip()
-        if not line or _duplicate_title(line, title):
+        if not line:
+            item = flush()
+            if item:
+                yield item, False
+                at_start = False
             continue
-        if line in ("---", "***") or line.startswith(("![", "\x60\x60\x60", "<!--")):
+        if line.startswith(("![", "\x60\x60\x60", "<!--")) or line in ("---", "***"):
+            item = flush()
+            if item:
+                yield item, False
+                at_start = False
+            continue
+        # Many source files repeat the title in two or three wrapped lines.
+        compact_line = SPACE.sub("", HEADING.sub("", line)).strip("“”\"'·:：")
+        if _duplicate_title(line, title) or (at_start and len(compact_line) >= 7
+                                              and compact_line in compact_title):
             continue
         table = _table_row(line)
-        text = table if table is not None else line
-        readable = _tidy(text)
-        if len(readable.strip("· -#|")) < 5:
+        if table is not None:
+            item = flush()
+            if item:
+                yield item, False
+                at_start = False
+            if table:
+                yield table, True
+                at_start = False
             continue
-        if fallback is None and table is None and not HEADING.match(line):
-            fallback = _excerpt(text, None)
-        if keyword in line and not (HEADING.match(line) and len(readable) < 65):
-            result = _excerpt(text, keyword)
+        if HEADING.match(line):
+            item = flush()
+            if item:
+                yield item, False
+                at_start = False
+            # An isolated heading is not a useful search preview.
+            continue
+        pending.append(line)
+    item = flush()
+    if item:
+        yield item, False
+
+
+def search_preview(body: str, title: str | None, keyword: str) -> str | None:
+    """Choose readable context; raw matches still carry exact source code-point offsets."""
+    fallback: str | None = None
+    for line, is_table in _blocks(body, title):
+        readable = _tidy(line)
+        if len(readable.strip("· -#|")) < 6:
+            continue
+        if fallback is None and not is_table and len(readable) >= 14:
+            fallback = _excerpt(line, None)
+        if keyword in line:
+            result = _excerpt(line, keyword)
             if result:
                 return result
     return fallback
