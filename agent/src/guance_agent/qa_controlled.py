@@ -55,12 +55,29 @@ SYSTEM = """你是政策原文核验助手。必须严格依据用户提供的�
 JSON: {"answer":"概括","claims":[{"text":"有据可查的政策事实",
 "chunk_ids":["输入中出现的唯一 chunk_id"],"quotes":["从对应片段逐字复制的原文短句"]}],
 "insufficient":false}。
-最多输出 5 条 claims，每条最多 1 个 chunk_id 和 1 条 quotes。
-quote 必须原文一字不差，不能跨片段拼接；不要创造时间、数字、效果或政策身份。
+事实预算由本次任务指定（通常 3–8 条）；每条最多 1 个 chunk_id 和 1 条 quotes。
+quote 必须原文一字不差，不能跨片段拼接；优先复制完整连续原句，不要改写、补写或删标点。
+不要创造时间、数字、效果或政策身份。
 事实和分析分开：answer 只陈述已获证据能支持的简要事实，不夸大因果与覆盖。
 若无法从原文回答，输出 {"answer":"本轮政策原文不足以回答该问题",
 "claims":[],"insufficient":true}。
 """
+
+MULTI_DOC_MARKERS = ("比较", "对比", "异同", "分别", "归纳", "不同政策",
+                     "两篇", "多篇", "各自", "共同点", "差异", "多份")
+MULTI_FACT_MARKERS = ("哪些", "主要措施", "主要方向", "方面", "要点", "措施",
+                      "支持方向", "主要做法", "具体做法")
+
+
+def claim_budget(question: str) -> int:
+    """Bounded task-adaptive fact capacity; never unbounded."""
+    if any(marker in question for marker in MULTI_DOC_MARKERS):
+        return 8
+    if any(marker in question for marker in MULTI_FACT_MARKERS):
+        return 6
+    if len(requirements(question)["dimensions"]) >= 2:
+        return 6
+    return 3
 
 
 def search_queries(question: str, sub_query: str | None = None) -> list[str]:
@@ -241,7 +258,8 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     return evidence
 
 
-def messages_for(task, evidence: list[dict], context_note: str | None = None) -> list[dict]:
+def messages_for(task, evidence: list[dict], context_note: str | None = None,
+                 fact_budget: int | None = None) -> list[dict]:
     budget = TOTAL_EVIDENCE_CHARS
     parts = [f"原始问题：{task.question[:1000]}", ""]
     if context_note:
@@ -257,6 +275,8 @@ def messages_for(task, evidence: list[dict], context_note: str | None = None) ->
         )
         parts.append(item["text"][:length])
         budget -= length
+    parts.append(f"本次最多输出 {fact_budget or claim_budget(task.question)} 条 claims；"
+                 "每条 quote 必须从同一来源片段逐字复制连续原句。")
     parts.append("只输出规定的 JSON，不得在 answer 中写任何未被 claims 支撑的政策判断。")
     return [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": "\n".join(parts)}]
@@ -316,11 +336,14 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
     if remaining < 40:
         return ExecOutcome(None, "MODEL_TIMEOUT")
     timeout = min(REQUEST_TIMEOUT, float(s.llm_request_timeout), remaining - 30)
+    fact_budget = claim_budget(task.question)
     try:
         response = await asyncio.wait_for(
             rt.client.chat.completions.create(
-                model=s.llm_model, messages=messages_for(task, evidence, context_note),
-                max_tokens=min(2200, s.llm_max_output_tokens),
+                model=s.llm_model, messages=messages_for(task, evidence, context_note,
+                                                        fact_budget),
+                max_tokens=min(2800 if fact_budget > 5 else 2200,
+                               s.llm_max_output_tokens),
                 extra_body=thinking_off(s), timeout=timeout,
                 **({} if s.llm_temperature is None
                    else {"temperature": s.llm_temperature}),
