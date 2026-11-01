@@ -123,6 +123,16 @@ function cleanTocLine(line: string): string {
   return source.replace(/(?:[.．·•…⋯。﹒:：\s]*[0-9０-９]{1,3})\s*$/, "").replace(/[.．·•…⋯。﹒\s]+$/, "");
 }
 
+const PDF_PAGE_MARK = /^\s*[—－-]\s*\d{1,4}\s*[—－-]\s*$/;
+function collapsedNumericTable(line: string): boolean {
+  // The original extractor sometimes flattens whole indicator tables into
+  // prose. Display such rows separately, never guess their numerical columns.
+  if (line.length < 220 || line.includes("|")) return false;
+  const numbers = (line.match(/(?:^|[\s（(])\d+(?:\.\d+)?(?=[\s）),，—－]|$)/g) ?? []).length;
+  const markers = (line.match(/(?:预期性|约束性|累计|地区生产总值|（%）|\(%\))/g) ?? []).length;
+  return numbers >= 12 && markers >= 4;
+}
+
 const RULE = /^:?-{3,}:?$/;
 
 function tableCells(line: string): string[] {
@@ -283,6 +293,11 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   while (index < lines.length) {
     const line = lines[index];
     if (!line.trim()) { flushProse(); index++; continue; }
+    if (PDF_PAGE_MARK.test(line.trim())) {
+      flushProse();
+      index++;
+      continue;
+    }
 
     // In a printed TOC, every entry uses ordinary body typography; chapter
     // heading hierarchy applies only when the *actual body* begins.
@@ -351,6 +366,16 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       continue;
     }
 
+    if (collapsedNumericTable(line)) {
+      flushProse();
+      blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
+        role="region" aria-label="原文指标表格（结构不完整）" tabIndex={0}>
+        <p className="catalog-table-warning">原文中的表格列结构未完整保留，以下为原始文字，未重排指标数值。</p>
+        <pre>{line}</pre>
+      </div>);
+      index++;
+      continue;
+    }
     if (line.includes("||") && /\|\s*:?-{3,}:?\s*\|/.test(line)) {
       const recovered = flattenedTable(line);
       flushProse();
