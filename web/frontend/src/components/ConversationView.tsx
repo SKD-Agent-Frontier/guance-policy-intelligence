@@ -30,7 +30,14 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
   const historyRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const submittedDraft = useRef<string | null>(null);
-  const latestMessage = conversation.messages.at(-1);
+  // Older sessions can contain both a failed result and a duplicate error
+  // immediately afterwards. Keep the original history data, but show one card.
+  const visibleMessages = conversation.messages.filter((entry, index, entries) => {
+    const prior = entries[index - 1];
+    return !(entry.kind === "error" && prior?.kind === "result"
+      && prior.result.status !== "completed");
+  });
+  const latestMessage = visibleMessages.at(-1);
   const preparationConflict = latestMessage?.kind === "error" && latestMessage.code === "PREPARATION_CONFLICT";
 
   useEffect(() => {
@@ -130,16 +137,16 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
         const element = event.currentTarget;
         stickToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
       }}>
-        {conversation.messages.length === 0 ? (
+        {visibleMessages.length === 0 ? (
           <div className="conversation-empty">
             <strong>从一个研究问题开始</strong>
             <p>直接描述你的研究目标，我会依据可用政策资料开展研究。</p>
           </div>
-        ) : conversation.messages.map((message, index) => (
+        ) : visibleMessages.map((message, index) => (
           <Message
             key={message.id}
             message={message}
-            isLatest={index === conversation.messages.length - 1}
+            isLatest={index === visibleMessages.length - 1}
             conversation={conversation}
             onSend={(message) => { setDraft(""); onSend(message); }}
             onRetry={onRetry}
@@ -240,10 +247,10 @@ function Message({
     const preparationConflict = message.code === "PREPARATION_CONFLICT" || /409|PREPARATION_STATE|STATE_EXPIRED|REVISION_CONFLICT/i.test(message.code);
     const preparationBlocked = message.code === "UNSUPPORTED_MODE" || message.code === "PREPARATION_BLOCKED";
     const canRetry = isLatest && !["UNSUPPORTED_MODE", "PREPARATION_BLOCKED", "PREPARATION_RESTART", "RAG_EMPTY", "NO_EVIDENCE", "INSUFFICIENT_EVIDENCE"].includes(message.code);
-    return <article className="conversation-message message-error" role="alert">
-      <div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>
+    return <article className="conversation-message message-error">
+      <ResearchFailureCard code={message.code} text={message.text} />
       {isLatest && (preparationConflict || preparationBlocked) && <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button>}
-      <MessageActions text={message.text + "\n" + errorExplanation(message.code)}
+      <MessageActions text={`暂时无法继续 · ${message.code}\n${message.text}\n${errorExplanation(message.code)}`}
         onRegenerate={message.code === "PREPARATION_RESTART" ? undefined
           : canRetry && !preparationConflict && !preparationBlocked ? onRetry
           : () => onRegenerate(message.id)}
@@ -277,6 +284,14 @@ function Message({
   );
 }
 
+function ResearchFailureCard({ code, text }: { code: string; text: string }) {
+  return <section className="research-failure-card" role="alert">
+    <div className="research-failure-status">暂时无法继续 · <code>{code}</code></div>
+    <p className="research-failure-reason">{text}</p>
+    <p className="research-failure-explanation">{errorExplanation(code)}</p>
+  </section>;
+}
+
 function errorExplanation(code: string) {
   if (code === "OUTPUT_PARSE") return "模型输出未通过结构校验；不能据此判断知识库是否有相关政策。可以重试本次研究。";
   if (code === "MAX_TURNS") return "研究步骤达到上限；不能据此判断知识库是否有相关内容。可调整问题后重新准备。";
@@ -307,19 +322,25 @@ function ResultMessage({
 }) {
   const result = message.result;
   const bodyRef = useRef<HTMLDivElement>(null);
+  const failed = result.status !== "completed";
+  const code = result.error?.code || (result.status === "limit_reached" ? "LIMIT_REACHED" : "EXECUTION_FAILED");
+  const reason = result.error?.message || result.answer || "研究任务未能完成。";
   return <article className="conversation-message result-message" data-result-message-id={message.id}>
-    <div ref={bodyRef} className="result-message-body"><Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} /></div>
-    {(result.evidence_status !== "verified" || result.warnings?.length > 0 || result.error) && (
+    <div ref={bodyRef} className="result-message-body">
+      {failed ? <ResearchFailureCard code={code} text={reason} />
+        : <Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} />}
+    </div>
+    {(result.evidence_status !== "verified" || result.warnings?.length > 0 || (!failed && result.error)) && (
       <details className="result-followup-notes">
         <summary>研究提示与核验信息</summary>
         {result.evidence_status !== "verified" && <p>本轮未形成足够的可核验证据，不能据此判断政策不存在。</p>}
-        {result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
+        {!failed && result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
         {result.warnings?.length > 0 && <ul>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
       </details>
     )}
-    <MessageActions contentRef={bodyRef} text={result.answer}
-      onRegenerate={isLatest && result.status !== "completed" ? onRetry : onRegenerate}
-      regenerateLabel={isLatest && result.status !== "completed" ? "重试本次研究" : undefined}
+    <MessageActions contentRef={bodyRef}
+      onRegenerate={isLatest && failed ? onRetry : onRegenerate}
+      regenerateLabel={isLatest && failed ? "重试本次研究" : undefined}
       disabled={disabled} />
   </article>;
 }
