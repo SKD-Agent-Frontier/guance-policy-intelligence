@@ -1,5 +1,4 @@
 """Research-intent evaluation, audited report drafting, and bounded gap repair."""
-import asyncio
 import json
 import time
 from types import SimpleNamespace
