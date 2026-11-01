@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .compare_resolution import _DIMENSIONS, resolve_compare
+from .compare_resolution import _DIMENSIONS, _PROVINCES, resolve_compare
 from .compare_resolution import _areas as provinces_in_text
 from .policy_catalog import PolicyCatalogService, PolicyRecord, normalize_fyp
 
@@ -192,18 +192,19 @@ def _unperioded_comparison_coverage(question: str, catalog: PolicyCatalogService
     ambiguous: list[str] = []
     counts: dict[str, int] = {}
     for area in areas:
-        matches = [record for record in _area_records(catalog, area)
+        canonical = _PROVINCES.get(area, (area,))[0]
+        matches = [record for record in _area_records(catalog, canonical)
                    if topic in (record.title or "") and (record.body or "").strip()]
         counts[area] = len(matches)
         if not matches:
-            gaps.append(area)
+            gaps.append(canonical)
         elif len(matches) > 1:
-            ambiguous.append(area)
+            ambiguous.append(canonical)
         else:
             selected.append(matches[0])
-    subjects = list(dict.fromkeys(areas))
+    subjects = list(dict.fromkeys(_PROVINCES.get(area, (area,))[0] for area in areas))
     if gaps or ambiguous:
-        coverage = "、".join(f"{area}：{counts[area]}篇" for area in subjects)
+        coverage = "、".join(f"{_PROVINCES.get(area, (area,))[0]}：{counts[area]}篇" for area in areas)
         result = _insufficient(
             f"已在当前发布库按题名核查「{topic}」政策覆盖（{coverage}）。"
             "缺失地区无法支撑完整比较；多候选地区不能任意选一篇。"
