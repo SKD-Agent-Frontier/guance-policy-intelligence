@@ -207,6 +207,17 @@ describe("cross-document archival formatting regressions", () => {
     expect(screen.getByText("真实正文内容。")).toBeInTheDocument();
   });
 
+  it("separates an OCR-joined Jinchang title and preface without repeating H1", () => {
+    const title = "金昌市“十四五”服务业发展规划";
+    const prose = "“十三五”期间，金昌市坚持服务业高质量发展。".repeat(12);
+    const { container } = render(<PolicyRichText planid="22135" firstPage softWrap documentTitle={title}
+      text={title + "前 言 " + prose} />);
+    expect(screen.queryByRole("heading", { level: 1, name: title })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "前言" })).toBeInTheDocument();
+    expect(container.textContent).toContain(prose);
+    expect(container.querySelectorAll("p.catalog-prose").length).toBeGreaterThan(1);
+  });
+
   it("visually splits flattened Jinchang-style prose at full stops without deleting content", () => {
     const line = "金昌市坚持服务业高质量发展，推动现代产业体系建设。".repeat(17);
     const pieces = readablePolicyParagraphs(line, true);
