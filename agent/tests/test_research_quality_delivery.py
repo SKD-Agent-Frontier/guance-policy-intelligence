@@ -177,7 +177,7 @@ async def test_followup_adds_only_fresh_verified_facts(monkeypatch):
                            model_copy=lambda update: SimpleNamespace(
                                task_type="qa", question=update["question"]))
     s = SimpleNamespace(max_turns=8, max_input_chars=4000)
-    rt = SimpleNamespace(hooks=SimpleNamespace(turns=0))
+    rt = SimpleNamespace(hooks=SimpleNamespace(turns=0), meta={})
     ctx = SimpleNamespace(route=SimpleNamespace(kind="open"))
     await supplement.supplement_one(result, task, s, ctx, rt,
                                     time.monotonic() + 120, execute_once, recover)
