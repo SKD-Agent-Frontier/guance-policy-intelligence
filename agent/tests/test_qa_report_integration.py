@@ -176,3 +176,36 @@ async def test_no_report_or_non_qa_never_calls_report_finalizer(env, monkeypatch
 
     assert result.answer == "旧格式回答"
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_qa_report_retractions_happen_before_research_contract_evaluation(env, monkeypatch):
+    """A QA report must not remain contract-complete after semantic review withdraws its evidence."""
+    settings, task = _configured(env), env[1]
+    kb = VerifiableMockKB(settings.mock_kb_path)
+    hit = kb.search("农业", None, None, 1)[0]
+    _install_model(monkeypatch, settings, [
+        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
+        _report_payload(hit),
+    ])
+
+    async def reject(self, messages, *, max_tokens, timeout):
+        payload = json.loads(messages[1]["content"].split("\n", 1)[1])
+        return json.dumps({
+            "facts": [{"index": item["index"], "supported": False}
+                      for item in payload["facts"]],
+            "blocks": [{"id": item["id"], "supported": False}
+                       for item in payload["blocks"]],
+        }, ensure_ascii=False)
+
+    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
+    monkeypatch.setattr(Runtime, "complete_text", reject)
+    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
+
+    assert result.meta["qa_report"]["semantic_review"] == "model_reviewed"
+    assert result.structured["schema_version"] == "qa-report/1"
+    assert result.structured["blocks"] == []
+    assert result.claims == []
+    assert result.meta["research"]["status"] == "insufficient"
+    assert "verified_claims_missing" in result.meta["research"]["gaps"]
+    assert "农业发展任务" not in result.answer
