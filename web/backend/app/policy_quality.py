@@ -11,9 +11,16 @@ from typing import Literal
 BodyStatus = Literal["available", "missing", "suspected_garbled"]
 
 
-def body_status(body: str) -> BodyStatus:
-    """Detect empty text or clear font-encoding extraction failures conservatively."""
+def body_status(body: str, title: str | None = None) -> BodyStatus:
+    """Detect missing or badly extracted bodies without touching their source."""
     if not body.strip():
+        return "missing"
+    # A title alone is not a policy body, nor are remnants of a website footer.
+    if title and "".join(body.split()) == "".join(title.split()):
+        return "missing"
+    if len(body.strip()) < 500 and sum(word in body for word in (
+        "网站导航", "网站声明", "主办单位", "网站标识码", "ICP备",
+    )) >= 3:
         return "missing"
     if len(body) < 800:
         return "available"

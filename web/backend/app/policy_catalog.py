@@ -97,7 +97,7 @@ class PolicyRecord:
 
     @property
     def body_status(self) -> str:
-        return body_status(self.body)
+        return body_status(self.body, self.title)
 
 
 @dataclass(frozen=True)

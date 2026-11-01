@@ -326,6 +326,9 @@ def test_quality_status_does_not_rewrite_frozen_body():
     assert body_status(garbled) == "suspected_garbled"
     assert body_status("第一章 发展规划。\\n加快建设公共服务体系。" * 150) == "available"
     assert body_status("促进就业，提升服务水平。") == "available"
+    assert body_status("政策标题", "政策标题") == "missing"
+    assert body_status("网站导航 | 网站声明 | 主办单位 | 网站标识码") == "missing"
+    assert body_status("关于支持创新创业的通知", "另一个标题") == "available"
 
 
 # ---- 任务四：详情与正文 ------------------------------------------------

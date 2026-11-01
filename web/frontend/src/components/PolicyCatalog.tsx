@@ -847,7 +847,7 @@ export function PolicyCatalog({
                       )}>{showRawFor === content.planid ? "收起异常原始文本" : "查看异常原始文本"}</button>
                     </div>
                   )}
-                  {content && content.total_chars > 0
+                  {content && content.total_chars > 0 && policy.body_status !== "missing"
                     && (policy.body_status !== "suspected_garbled" || showRawFor === content.planid)
                     && <PolicyRichText text={content.text} planid={content.planid} softWrap originalHints={originalHints}
                       documentTitle={policy.title} firstPage={content.offset === 0}

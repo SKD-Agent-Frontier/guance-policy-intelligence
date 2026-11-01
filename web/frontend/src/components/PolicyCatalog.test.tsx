@@ -247,6 +247,23 @@ describe("PolicyCatalog", () => {
     expect(screen.getByText("ILLEGIBLE !#$%&()*+,-./0123456789")).toBeInTheDocument();
   });
 
+  it("does not render title-only debris as source body when backend marks it missing", async () => {
+    const user = userEvent.setup();
+    catalog.detail.mockResolvedValueOnce({
+      ...detailResponse("P-1", "政策P-1"),
+      policy: { ...detailResponse("P-1", "政策P-1").policy,
+        body_chars: 5, body_status: "missing" },
+    } as never);
+    catalog.content.mockResolvedValueOnce({
+      ...contentResponse("P-1", 0, "政策P-1", 5), body_status: "missing",
+    } as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByText("正文缺失")).toBeInTheDocument();
+    expect(screen.queryByText("政策P-1", { selector: ".catalog-prose" })).not.toBeInTheDocument();
+  });
+
   it("opens a standalone original view and restores the search on return", async () => {
     const user = userEvent.setup();
     render(<PolicyCatalog />);
