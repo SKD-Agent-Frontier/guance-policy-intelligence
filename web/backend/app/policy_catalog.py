@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .policy_format import read_original_html_headings
 from .policy_preview import search_preview
+from .policy_toc import printed_toc_range
 from .policy_quality import body_status
 
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
@@ -640,6 +641,7 @@ class PolicyCatalogService:
                            "plantype_label": record.plantype_label,
                            "year": record.year,
                            "body_chars": len(record.body),
+                           "printed_toc": printed_toc_range(record.body),
                            "body_status": record.body_status,
                            "sections": [section.as_dict() for section in record.sections]}}
 
