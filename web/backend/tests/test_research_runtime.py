@@ -179,7 +179,9 @@ def test_beijing_tianjin_hebei_ai_research_requires_title_linked_documents():
 
     question = "分析京津冀三地人工智能产业政策的发展特点及差异。"
     initial = resolve_research_internal("compare", question, catalog())
-    assert initial["status"] == "needs_clarification"
+    assert initial["status"] == "insufficient"
+    assert "北京市" in initial["message"]
+    assert "天津市" in initial["message"]
     assert initial["requested_subjects"] == ["北京市", "天津市", "河北省"]
     assert not initial["policies"]
 
