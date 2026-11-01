@@ -65,10 +65,19 @@ def requested_area(decision, question: str) -> str | None:
     if len(areas) != 1:
         return None
     candidate = str(areas[0]).strip()
-    # Never impose incorrectly parsed area prefixes like '给出天津市'.
-    if len(candidate) > 12 or candidate not in question:
-        return None
-    return candidate
+    # Strip spurious leading words such as '给出天津市' rather than
+    # applying a filter which cannot match any catalog region.
+    region = re.search(
+        r"(北京|天津|上海|重庆|河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|"
+        r"江西|山东|河南|湖北|湖南|广东|海南|四川|贵州|云南|陕西|甘肃|青海|"
+        r"内蒙古|广西|西藏|宁夏|新疆)(省|市|自治区|特别行政区)?",
+        candidate,
+    )
+    if region and region.group() in question:
+        return region.group()
+    if 1 <= len(candidate) <= 8 and candidate in question and candidate == question:
+        return candidate
+    return None
 
 
 async def acquire(task, ctx, deadline: float) -> list[dict]:
