@@ -336,15 +336,24 @@ class ResearchRuntime:
         if task_type == "qa":
             # Model-declared dimensions cannot replace original user requirements.
             quality = (getattr(result, "meta", {}) or {}).get("research_quality")
-            if isinstance(quality, dict):
-                covered = set(quality.get("covered_dimensions") or [])
-                for dimension in quality.get("required_dimensions") or []:
-                    unit = f"dimension:{dimension}"
-                    required.append(unit)
-                    if dimension in covered:
-                        satisfied.append(unit)
-                    else:
-                        gaps.append(f"research_dimension_uncovered:{dimension}")
+            quality = quality if isinstance(quality, dict) else {}
+            # Do not let a missing quality report erase user-specified QA
+            # dimensions or allow one verified fact to count as full delivery.
+            required_dimensions = list(dict.fromkeys([
+                *self._contract.completion.required_dimensions,
+                *(quality.get("required_dimensions") or []),
+            ]))
+            covered = set(quality.get("covered_dimensions") or [])
+            supported_by_claim = {claim.dimension for claim in trusted_claims
+                                  if claim.dimension and evidence_verified}
+            for dimension in required_dimensions:
+                unit = f"dimension:{dimension}"
+                required.append(unit)
+                if evidence_verified and (dimension in covered or dimension in supported_by_claim):
+                    satisfied.append(unit)
+                else:
+                    gaps.append(f"research_dimension_uncovered:{dimension}")
+            if quality:
                 for field, unit in (("needs_report", "audited_report"),
                                     ("needs_analysis", "audited_analysis")):
                     if quality.get(field):
