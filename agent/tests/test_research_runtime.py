@@ -229,3 +229,12 @@ def test_non_deadline_execution_limits_keep_legacy_error_code(error_code):
     assert evaluation.status == "limit_reached"
     assert result.status == "limit_reached"
     assert result.error.code == error_code
+
+
+def test_compare_requires_two_distinct_subjects_not_just_two_documents():
+    """Two policy documents for one city must not satisfy a comparison contract."""
+    for mode in ("compare", "compare_plans"):
+        required = contract(mode).completion
+        assert required.min_documents == 2
+        assert required.min_subjects == 2
+    assert contract("extract").completion.min_subjects == 1
