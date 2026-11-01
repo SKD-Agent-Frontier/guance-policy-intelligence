@@ -20,14 +20,6 @@ type Props = {
   onOpenCatalog: () => void;
 };
 
-const labels: Record<TaskType, string> = {
-  qa: "政策问答",
-  extract: "要素提取",
-  organize: "文献梳理",
-  compare: "政策比较",
-  compare_plans: "多方案分析",
-};
-
 export function ConversationView({ conversation, onModeChange, onSend, onAdvancedSubmit, onRetry, onRegenerate = () => {}, onEditAndResend = () => {}, onRestartPreparation, onAdvancedDraftChange, onSpecifyPolicies, onOpenCatalog }: Props) {
   const [draft, setDraft] = useState("");
   const [reader, setReader] = useState<{ result: RunResult; reference: EvidenceRef } | null>(null);
@@ -114,7 +106,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
       <header className="conversation-heading">
         <div className="conversation-heading-mark"><BookOpenText size={17} /></div>
         <div>
-          <span className="conversation-eyebrow">{labels[conversation.mode]} · 当前会话</span>
+          <span className="conversation-eyebrow">当前研究</span>
           <h1>{conversation.title || "新建研究"}</h1>
         </div>
       </header>
@@ -141,7 +133,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
         {conversation.messages.length === 0 ? (
           <div className="conversation-empty">
             <strong>从一个研究问题开始</strong>
-            <p>选择研究模式，用自然语言描述你希望了解的政策问题。</p>
+            <p>直接描述你的研究目标，我会依据可用政策资料开展研究。</p>
           </div>
         ) : conversation.messages.map((message, index) => (
           <Message
