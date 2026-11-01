@@ -670,12 +670,12 @@ class PolicyCatalogService:
         low, high = max(0, target - 480), min(total, target + 480)
         nearby = body[low:high]
         paragraphs = [low + match.end()
-                      for match in re.finditer(r"\\r?\\n(?:[ \\t]*\\r?\\n)+", nearby)]
+                      for match in re.finditer(r"\r?\n(?:[ \t]*\r?\n)+", nearby)]
         if paragraphs:
             return min(paragraphs, key=lambda pos: (abs(pos - target), pos < target))
         # Hard-wrapped rows are the next safest boundary. If the entire window
         # is one huge line, use the exact target rather than skipping text.
-        newlines = [low + i + 1 for i, char in enumerate(nearby) if char == "\\n"]
+        newlines = [low + i + 1 for i, char in enumerate(nearby) if char == "\n"]
         if newlines:
             return min(newlines, key=lambda pos: (abs(pos - target), pos < target))
         return target
