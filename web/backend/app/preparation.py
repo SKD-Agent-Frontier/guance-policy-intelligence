@@ -633,6 +633,12 @@ class ResearchPreparationService:
         a readable subject; never carry previous requested answer facets.
         """
         latest = message.strip()
+        # An explicit new area in the current turn always wins; prefixing the
+        # old subject would make the old region look like part of the new scope.
+        latest_areas = cls._areas(latest)
+        previous_areas = cls._areas((entry.area or "") + " " + (entry.area_text or ""))
+        if latest_areas and any(area not in previous_areas for area in latest_areas):
+            return latest
         contextual = re.match(
             r"^(?:那|那么|它|这|该|还有|再|继续|进一步|换成|改为|地区改为|地区改成|"
             r"地区调整为|把地区改为|将地区改为|时间改为)",

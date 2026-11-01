@@ -103,6 +103,15 @@ def search_queries(question: str, sub_query: str | None = None) -> list[str]:
 
 def requested_area(decision, question: str) -> str | None:
     areas = getattr(decision, "areas", ()) or ()
+    if len(areas) > 1:
+        # A question like “与北京市其他远郊区县相比，密云区…” has a parent
+        # region plus one concrete district. The concrete target is the only
+        # safe retrieval filter; never filter by the collective label.
+        specific = [str(area).strip() for area in areas
+                    if str(area).strip().endswith(("区", "县", "旗"))]
+        if len(specific) != 1:
+            return None
+        areas = (specific[0],)
     if len(areas) != 1:
         return None
     candidate = str(areas[0]).strip()
@@ -116,9 +125,9 @@ def requested_area(decision, question: str) -> str | None:
     )
     if region and region.group() in question:
         return region.group()
-    cleaned = re.sub(r"^(?:请|给出|查询|介绍|分析|研究|说明|关于|找出)+", "", candidate)
+    cleaned = re.sub(r"^(?:请|给出|查询|介绍|分析|研究|说明|关于|找出|那|这)+", "", candidate)
     if (cleaned in question and re.fullmatch(
-            r"[\u4e00-\u9fff]{2,6}(?:省|市|自治区|自治州|区|县)", cleaned)):
+            r"[\u4e00-\u9fff]{2,12}(?:省|市|自治区|自治州|自治县|区|县|旗)", cleaned)):
         return cleaned
     return None
 
