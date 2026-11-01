@@ -147,6 +147,7 @@ export default function App() {
     setPage("catalog");
   };
   const openTopics = () => {
+    if (page === "home" || page === "workspace") researchPageBeforeCatalog.current = page;
     setRequestedPolicyId(null);
     setPage("topics");
   };
