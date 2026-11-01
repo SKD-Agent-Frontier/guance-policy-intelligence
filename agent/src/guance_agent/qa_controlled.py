@@ -171,6 +171,7 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     evidence = []
     rejected_topic = 0
     used = set()
+    read_attempts = 0
     for hit in found:
         if (len(evidence) >= read_limit or read_attempts >= read_limit
                 or deadline - time.monotonic() < 52):
