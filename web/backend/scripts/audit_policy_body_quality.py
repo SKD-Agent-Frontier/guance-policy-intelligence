@@ -24,7 +24,11 @@ def scan(root: Path) -> list[dict[str, str | int]]:
         frontmatter = re.match(r"\A---\r?\n.*?\r?\n---\r?\n", text, re.S)
         body = text[frontmatter.end():] if frontmatter else text
         metadata = text[:frontmatter.end()] if frontmatter else ""
-        title_match = re.search(r'(?m)^title:\s*"([^"\r\n]*)"\s*
+        title = next(
+            (line.partition(":")[2].strip().strip('"') for line in metadata.splitlines()
+             if line.startswith("title:")), None,
+        )
+        status = body_status(body, title)
         # Distinguish tiny metadata-only fragments from a genuine policy text.
         if status == "available" and 0 < len(body.strip()) < 200:
             status = "short_body"
