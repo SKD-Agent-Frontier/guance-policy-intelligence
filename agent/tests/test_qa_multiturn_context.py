@@ -146,7 +146,7 @@ async def test_controlled_qa_inherits_previous_single_document(env, monkeypatch)
     # to test the inherited-scope wiring below.
     assert store.load()[-1]["documents"] == []
     store.append(_turn(
-        "沧州市十五计划中产业结构调整的主要措施有哪些？",
+        "农业",
         {"planid": "TEST-001", "title": "测试规划", "area": "甲市",
          "fyp": "第十个五年计划"},
     ))
