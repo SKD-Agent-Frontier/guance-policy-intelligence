@@ -55,6 +55,22 @@ describe("policy heading hierarchy", () => {
     expect(screen.getByText("全面深化改革，推进经济社会发展。")).toBeInTheDocument();
   });
 
+  it("recognizes hard-wrapped long formal titles without duplicating body headings", () => {
+    const title = "中华人民共和国国民经济和社会发展第十四个五年规划和二〇三五年远景目标纲要";
+    render(<PolicyRichText planid="10001" documentTitle={title} firstPage
+      text={[
+        "中华人民共和国国民经济和社会发展第十四个五年规划和二〇三五年",
+        "远景目标纲要",
+        "",
+        "（2021年3月11日全国人民代表大会批准）",
+        "",
+        "第一篇 开启全面建设社会主义现代化国家新征程",
+      ].join("\n")} />);
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByText(/2021年3月11日/)).toHaveClass("catalog-document-date");
+    expect(screen.getByRole("heading", { level: 2, name: /第一篇/ })).toBeInTheDocument();
+  });
+
   it("renders a distinct source policy title as a centred H1, without modifying its text", () => {
     const sourceTitle = "西安市国民经济和社会发展第十四个五年规划纲要";
     render(<PolicyRichText planid="10001" documentTitle="西安市十四五规划" firstPage
