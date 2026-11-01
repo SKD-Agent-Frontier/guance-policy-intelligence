@@ -463,7 +463,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     elif decision.kind == "objects":
                         result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
                     else:
-                        result = await _run_single(planned_task, s, rt, ctx, deadline, decision)
+                        result = await _run_single(planned_task, s, ctx, rt, deadline, decision)
                     if result.status == "failed":
                         research_runtime.set_step_status("execute", "failed",
                                                          result.error.message if result.error else "执行失败")
@@ -493,7 +493,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                 elif decision.kind == "objects":
                     result = await _run_objects(task, s, ctx, rt, decision, deadline)
                 else:
-                    result = await _run_single(task, s, rt, ctx, deadline, decision)
+                    result = await _run_single(task, s, ctx, rt, deadline, decision)
             if result is None:
                 result = _discovery_result(task, rt, "研究未能产生结果。")
             if research_runtime is not None and research_runtime.status == "executing":

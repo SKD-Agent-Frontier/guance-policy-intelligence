@@ -1,5 +1,6 @@
 """Offline tests for the web catalog-to-agent research plan adapter."""
 import time
+from dataclasses import replace
 
 import pytest
 from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
@@ -170,3 +171,41 @@ async def test_prefecture_discovery_uses_catalog_parent_and_limits_claimed_scope
     assert set(result["requested_subjects"]) == {"衡水市", "保定市", "唐山市", "邯郸市"}
     assert set(result["subject_gaps"]) == {"唐山市", "邯郸市"}
     assert result["coverage_limited_subjects"] == []
+
+
+def test_beijing_tianjin_hebei_ai_research_requires_title_linked_documents():
+    from app.research_planning import resolve_research_internal
+
+    question = "分析京津冀三地人工智能产业政策的发展特点及差异。"
+    initial = resolve_research_internal("compare", question, catalog())
+    assert initial["status"] == "needs_clarification"
+    assert initial["requested_subjects"] == ["北京市", "天津市", "河北省"]
+    assert not initial["policies"]
+
+    question_with_period = question.replace("三地", "三地十四五")
+    period = "第十四个五年规划"
+    real_documents = [
+        record("ai-bj", "北京市", period, "北京市人工智能产业发展第十四五专项规划"),
+        record("ai-tj", "天津市", period, "天津市人工智能产业发展第十四五专项规划"),
+        record("ai-hebei", "河北省", period, "河北省人工智能产业发展第十四五专项规划"),
+    ]
+    real_documents = [replace(doc, admin_level="省级") for doc in real_documents]
+    selected = resolve_research_internal(
+        "compare", question_with_period, catalog(*real_documents),
+    )
+    assert selected["status"] == "ready"
+    assert {item["planid"] for item in selected["policies"]} == {"ai-bj", "ai-tj", "ai-hebei"}
+
+    body_only_documents = [
+        record("fire-bj", "北京市", period, "北京市消防安全第十四五专项规划",
+               body="正文偶然提及人工智能产业。"),
+        real_documents[1],
+        real_documents[2],
+    ]
+    body_only_documents = [replace(doc, admin_level="省级") for doc in body_only_documents]
+    missing_topic = resolve_research_internal(
+        "compare", question_with_period, catalog(*body_only_documents),
+    )
+    assert missing_topic["status"] == "insufficient"
+    assert "fire-bj" not in [item["planid"] for item in missing_topic["policies"]]
+    assert "policy" in missing_topic["reason"] or "catalog" in missing_topic["reason"]

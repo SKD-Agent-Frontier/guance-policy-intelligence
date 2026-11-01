@@ -523,14 +523,22 @@ class ResearchRuntime:
         """Evaluate the verified result and append only additive metadata to the public result."""
         evaluation = self.evaluate(result, ctx)
         if evaluation.status in {"partial", "insufficient"}:
-            result.evidence_status = "insufficient"
+            evidence_gaps = {"verified_claims_missing", "claims_not_fully_verified",
+                             "verified_evidence_missing"}
+            if (getattr(result, "evidence_status", None) == "verified"
+                    and evidence_gaps.intersection(evaluation.gaps)):
+                result.evidence_status = "insufficient"
             warning = "研究任务未满足全部交付条件；请结合 research 状态和缺口限定结论范围。"
             if hasattr(result, "warnings") and warning not in result.warnings:
                 result.warnings.append(warning)
         elif evaluation.status == "limit_reached":
             result.status = "limit_reached"
-            result.error = RunError(code="RUN_TIMEOUT", message="本次任务超时，已停止")
-            result.evidence_status = "insufficient"
+            timed_out = (time.monotonic() >= self.deadline
+                         or "deadline_exceeded" in evaluation.gaps
+                         or getattr(getattr(result, "error", None), "code", None) == "RUN_TIMEOUT")
+            if timed_out:
+                result.error = RunError(code="RUN_TIMEOUT", message="本次任务超时，已停止")
+                result.evidence_status = "insufficient"
         if self.status not in _TERMINAL:
             if evaluation.status in {"completed", "partial"} and self.status != "verifying":
                 if self.status == "executing":

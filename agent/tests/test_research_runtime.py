@@ -3,7 +3,6 @@ import time
 from types import SimpleNamespace
 
 import pytest
-
 from guance_agent.research_contract import (
     PolicyDocument,
     ResearchCoverage,
@@ -170,11 +169,35 @@ def test_runtime_marks_uncovered_requested_subjects_partial_after_verified_claim
     result = SimpleNamespace(
         status="completed", error=None, answer="有证据支持的回答", evidence_status="verified",
         claims=[SimpleNamespace(chunk_ids=["chunk1"], dimension=None)],
-        evidence_refs=[ref], structured={},
+        evidence_refs=[ref], structured={}, warnings=[], meta={},
     )
-    evaluation = runtime.evaluate(result, SimpleNamespace(evidence=Evidence()))
+    runtime.transition("planning")
+    runtime.transition("ready")
+    runtime.transition("executing")
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=Evidence()))
     assert evaluation.status == "partial"
     assert "requested_subject_uncovered:保定市" in evaluation.gaps
+    assert result.evidence_status == "verified"
+    assert result.meta["research"]["status"] == "partial"
+    assert result.warnings
+
+
+def test_insufficient_result_keeps_legacy_none_evidence_status():
+    task_contract = contract()
+    runtime = ResearchRuntime(task_contract, ResearchPlan.for_contract(task_contract),
+                              time.monotonic() + 60)
+    runtime.transition("planning")
+    runtime.transition("ready")
+    runtime.transition("executing")
+    result = SimpleNamespace(
+        status="completed", error=None, answer="没有引用的回答", evidence_status="none",
+        claims=[], evidence_refs=[], structured={}, warnings=[], meta={},
+    )
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=None))
+    assert evaluation.status == "insufficient"
+    assert result.evidence_status == "none"
+    assert result.meta["research"]["status"] == "insufficient"
+    assert result.warnings
 
 
 def test_expired_deadline_overrides_original_run_failure_in_public_result():
@@ -188,3 +211,20 @@ def test_expired_deadline_overrides_original_run_failure_in_public_result():
     evaluation = runtime.finish(result, SimpleNamespace(evidence=None))
     assert evaluation.status == "limit_reached"
     assert result.status == "limit_reached"
+    assert result.error.code == "RUN_TIMEOUT"
+    assert result.evidence_status == "insufficient"
+
+
+@pytest.mark.parametrize("error_code", ["MAX_TURNS", "TOOL_BUDGET"])
+def test_non_deadline_execution_limits_keep_legacy_error_code(error_code):
+    task_contract = contract()
+    runtime = ResearchRuntime(task_contract, ResearchPlan.for_contract(task_contract),
+                              time.monotonic() + 60)
+    result = SimpleNamespace(
+        status="limit_reached", error=SimpleNamespace(code=error_code, message="bounded stop"),
+        answer="", claims=[], evidence_refs=[], evidence_status="none", warnings=[], meta={},
+    )
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=None))
+    assert evaluation.status == "limit_reached"
+    assert result.status == "limit_reached"
+    assert result.error.code == error_code

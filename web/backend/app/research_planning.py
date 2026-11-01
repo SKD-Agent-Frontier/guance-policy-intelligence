@@ -215,15 +215,19 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
             return _clarify("请在研究问题中说明需要处理的政策名称或方案；比较需至少两份不同文献。")
         return _ready(mode, question, explicit, dimensions)
 
-    if mode == "compare" and len(provinces_in_text(question)) >= 2:
-        found = resolve_compare(question, catalog)
+    comparison_question = question.replace("京津冀", "北京、天津、河北")
+    if mode == "compare" and len(provinces_in_text(comparison_question)) >= 2:
+        found = resolve_compare(comparison_question, catalog)
         if found["status"] == "ready":
             by_id = {r.planid: r for r in catalog.snapshot.records}
             return _ready(mode, question, [by_id[i] for i in found["targets"]],
                           dimensions or found["dimensions"], found["message"])
         if found.get("status") == "insufficient":
             return _insufficient(found["message"], found.get("reason", "catalog_evidence_missing"))
-        return _clarify(found["message"].replace("使用高级入口", "补充文献名称"))
+        clarification = _clarify(found["message"].replace("使用高级入口", "补充文献名称"))
+        if comparison_question != question:
+            clarification["requested_subjects"] = provinces_in_text(comparison_question)
+        return clarification
 
     areas = _mentioned_areas(question, catalog)
     if mode == "qa":
