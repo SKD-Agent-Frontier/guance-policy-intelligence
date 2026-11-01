@@ -103,6 +103,66 @@ describe("PolicyFacetsPanel compact behavior", () => {
     expect(row.getAllByRole("button").at(-1)).toHaveTextContent("其他");
   });
 
+  it("orders historical planning periods newest first, keeping non-period metadata and missing last", async () => {
+    const custom: PolicyFacetsResponse = {
+      ...facets, facets: { ...facets.facets,
+        fyp: {
+          options: [
+            { value: "政府工作报告", label: "政府工作报告", count: 95 },
+            { value: "第十一个五年规划", label: "第十一个五年规划", count: 22 },
+            { value: "第十三个五年规划", label: "第十三个五年规划", count: 64 },
+            { value: "第十五个五年规划", label: "第十五个五年规划", count: 12 },
+            { value: "第十二个五年规划", label: "第十二个五年规划", count: 34 },
+            { value: "第十四个五年规划", label: "第十四个五年规划", count: 262 },
+            { value: "十五", label: "十五", count: 3 },
+          ],
+          unclassified: { label: "未分类", count: 17 },
+        },
+      },
+    };
+    const { onChange } = renderPanel({}, custom);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "按维度检索" }));
+    const row = within(screen.getByRole("heading", { name: "规划时期" }).parentElement!);
+    const names = row.getAllByRole("button").map(button => button.querySelector("span")?.textContent ?? button.textContent?.trim());
+    expect(names).toEqual([
+      "全部",
+      "第十五个五年规划",
+      "第十四个五年规划",
+      "第十三个五年规划",
+      "第十二个五年规划",
+      "第十一个五年规划",
+      "十五",
+      "政府工作报告",
+      "其他",
+    ]);
+    await user.click(row.getByRole("button", { name: "第十四个五年规划 262" }));
+    expect(onChange).toHaveBeenLastCalledWith({ fyp: "第十四个五年规划", fyp_status: undefined });
+  });
+
+  it("shows the explicit policy type 其他 only after 总体规划纲要", async () => {
+    const custom: PolicyFacetsResponse = {
+      ...facets, facets: { ...facets.facets,
+        plantype: {
+          options: [
+            { value: "专项规划", label: "专项规划", count: 409 },
+            { value: "其他", label: "其他", count: 10 },
+            { value: "总体规划纲要", label: "总体规划纲要", count: 87 },
+          ],
+          unclassified: { label: "未分类", count: 0 },
+        },
+      },
+    };
+    const { onChange } = renderPanel({}, custom);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "按维度检索" }));
+    const row = within(screen.getByRole("heading", { name: "政策类型" }).parentElement!);
+    expect(row.getAllByRole("button").map(button => button.querySelector("span")?.textContent ?? button.textContent?.trim()))
+      .toEqual(["全部", "专项规划", "总体规划纲要", "其他"]);
+    await user.click(row.getByRole("button", { name: "其他 10" }));
+    expect(onChange).toHaveBeenLastCalledWith({ plantype: "其他", plantype_status: undefined });
+  });
+
   it("keeps distinct year, fyp and type filters", async () => {
     const { onChange } = renderPanel();
     const user = userEvent.setup();
