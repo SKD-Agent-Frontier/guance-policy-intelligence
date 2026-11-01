@@ -37,7 +37,12 @@ from .output import (
 )
 from .qa_analysis import finalize_qa_analysis
 from .qa_context import build_trusted_turn, public_resolution, resolve_followup
-from .qa_controlled import execute_controlled, finalize_controlled_facts
+from .qa_controlled import (
+    execute_controlled,
+    finalize_controlled_facts,
+    verbatim_claims_from_evidence,
+    verbatim_coverage_claims,
+)
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
 from .research_delivery import add_analysis_block, deliver_research, draft_verified_report
@@ -668,6 +673,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             await _summarize_historical(
                 result, task, rt, deadline,
                 analyze=intent_meta.get("primary") == "analyze", prepend=True)
+        planids = {ref.planid for ref in result.evidence_refs}
+        if (not has_analysis and len(planids) >= 2
+                and intent_meta.get("primary") in {"compare", "synthesize"}):
+            await _summarize_historical(
+                result, task, rt, deadline, compare=True, prepend=True)
     # Recovery from token-cap truncation is allowed to publish only the
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
@@ -1046,6 +1056,7 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
 
 
 async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = False,
+                                compare: bool = False,
                                 prepend: bool = False) -> bool:
     """One bounded editorial summary over already-reviewed prior research."""
     remaining = deadline - time.monotonic()
@@ -1053,16 +1064,28 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
         return False
     blocks = (result.structured or {}).get("blocks") if isinstance(result.structured, dict) else []
     material = []
-    for block in blocks or []:
-        if isinstance(block, dict) and block.get("text"):
-            material.append({"heading": " / ".join(block.get("title_path") or []),
-                             "kind": block.get("kind"), "text": block.get("text")})
+    if compare:
+        refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+        for claim in result.claims:
+            ref = refs.get(claim.chunk_ids[0]) if claim.chunk_ids else None
+            material.append({
+                "heading": getattr(ref, "title", "") or "政策",
+                "kind": "fact", "text": claim.text,
+                "planid": getattr(ref, "planid", None),
+            })
+    else:
+        for block in blocks or []:
+            if isinstance(block, dict) and block.get("text"):
+                material.append({"heading": " / ".join(block.get("title_path") or []),
+                                 "kind": block.get("kind"), "text": block.get("text")})
     if not material:
         material = [{"heading": "已核验政策事实", "kind": "fact", "text": claim.text}
                     for claim in result.claims]
     instruction = (
         "请把下面已经核验、且已经通过报告审核的研究成果，"
-        + ("归纳其发展思路、重点与事实之间的关系，形成一段连贯、克制的分析。"
+        + ("归纳各来源政策的共同做法与关键差异，形成有依据的比较结论。"
+           if compare else
+           "归纳其发展思路、重点与事实之间的关系，形成一段连贯、克制的分析。"
            if analyze else
            "压缩成一段连贯、简洁的中文总结。")
         + "只能使用给定内容，不得增加新的政策事实、数字、政策名称、因果或效果判断；"
@@ -1212,8 +1235,19 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
     ctx.research_intent = intent_payload(intent)
     rt.meta["research_intent"] = ctx.research_intent
 
-    if prior and intent.use_history and intent.primary in {
-            "summarize", "analyze", "organize", "synthesize"}:
+    if intent.compare_without_new_object:
+        outcome = ExecOutcome(json.dumps({
+            "answer": "请明确要与哪一个地区或哪一篇政策比较；当前会话只确认了上一轮的"
+                      "研究对象，不能把旧政策当作其他地区的证据。",
+            "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "clarification"
+        return result
+
+    if prior and intent.use_history and not intent.compare_without_new_object \
+            and intent.primary in {"summarize", "analyze", "organize",
+                                   "synthesize", "compare"}:
         historical = await _run_historical_research(task, ctx, rt, deadline, prior, intent)
         if historical is not None:
             return historical
@@ -1225,16 +1259,7 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
             "claims": [], "insufficient": True,
         }, ensure_ascii=False), None)
         result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "bounded_retrieval"
-        return result
-    if intent.compare_without_new_object:
-        outcome = ExecOutcome(json.dumps({
-            "answer": "请明确要与哪一个地区或哪一篇政策比较；当前会话只确认了上一轮的"
-                      "研究对象，不能把旧政策当作其他地区的证据。",
-            "claims": [], "insufficient": True,
-        }, ensure_ascii=False), None)
-        result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        result.meta["qa_execution_mode"] = "clarification"
         return result
 
     resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
@@ -1248,7 +1273,7 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
             "claims": [], "insufficient": True,
         }, ensure_ascii=False), None)
         result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        result.meta["qa_execution_mode"] = "clarification"
         return result
     if resolution.get("inherited_planids"):
         # The prior source identity is trusted only after the current session
@@ -1264,6 +1289,37 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
     result = build_result(task, outcome, ctx, rt.meta)
     if parse_meta:
         result.meta.update(parse_meta)
+    if not result.claims:
+        fallback_claims = verbatim_claims_from_evidence(
+            task, getattr(rt, "_qa_evidence", []) or [], ctx)
+        if fallback_claims:
+            result.claims = fallback_claims
+            result.evidence_refs = [
+                ref for ref in (ctx.evidence.get(chunk_id)
+                                for chunk_id in dict.fromkeys(
+                                    chunk_id for claim in fallback_claims
+                                    for chunk_id in claim.chunk_ids))
+                if ref is not None
+            ]
+            result.answer = "\n".join("- " + claim.text for claim in fallback_claims)
+            result.meta["verbatim_evidence_fallback"] = {
+                "reason": "model_returned_no_claims",
+                "claim_count": len(fallback_claims),
+            }
+    coverage_claims = verbatim_coverage_claims(
+        result, task, getattr(rt, "_qa_evidence", []) or [], ctx)
+    additions = [claim for claim in coverage_claims
+                 if claim.text not in {item.text for item in result.claims}]
+    if additions:
+        result.claims.extend(additions)
+        existing_chunks = {ref.chunk_id for ref in result.evidence_refs}
+        result.evidence_refs.extend(
+            ref for ref in (ctx.evidence.get(chunk_id)
+                            for chunk_id in dict.fromkeys(
+                                chunk_id for claim in additions
+                                for chunk_id in claim.chunk_ids))
+            if ref is not None and ref.chunk_id not in existing_chunks)
+        result.meta["verbatim_coverage_repair"] = len(additions)
     return result
 
 

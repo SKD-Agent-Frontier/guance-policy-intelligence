@@ -16,8 +16,9 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimi
 from .client import thinking_off
 from .evidence_coverage import multi_document_required
 from .qa_context import normalize_period
-from .research_quality import requirements
+from .research_quality import INTENT_TERMS, requirements
 from .runner import ExecOutcome
+from .schemas import Claim
 from .tools import _call
 
 MAX_QUERIES = 4
@@ -147,7 +148,7 @@ def requested_area(decision, question: str) -> str | None:
         return region.group()
     cleaned = re.sub(r"^(?:请|给出|查询|介绍|分析|研究|说明|关于|找出|那|这)+", "", candidate)
     if (cleaned in question and re.fullmatch(
-            r"[\u4e00-\u9fff]{2,12}(?:省|市|自治区|自治州|自治县|区|县|旗)", cleaned)):
+            r"[\u4e00-\u9fff]{2,12}(?:省|市|自治区|自治州|自治县|区|县|旗|州)", cleaned)):
         return cleaned
     return None
 
@@ -185,11 +186,26 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         queries = ["数字经济"] + [
             "数字经济 " + q for q in queries if q != "数字经济"
         ][:MAX_QUERIES - 1]
-    for query in queries:
+    searches = [(query, area) for query in queries]
+    if (multi_document_required(task.question) and scope is None
+            and len(getattr(decision, "areas", ()) or ()) >= 2):
+        # A two-policy question needs one filtered search per named policy; a
+        # generic query can let the highest-scoring document monopolise top-k.
+        base = queries[0] if queries else retrieval_question[:60]
+        for term in ("数字基础设施", "信息基础设施", "新型基础设施", "基础设施建设"):
+            if term in retrieval_question:
+                base = term
+                break
+        searches = ([(base, str(item)) for item in getattr(decision, "areas")
+                     if item]
+                    + [(f"{item} {base}", None) for item in getattr(decision, "areas")
+                       if item]
+                    + searches)[:MAX_QUERIES + 3]
+    for query, query_area in searches:
         if deadline - time.monotonic() < 55:
             break
         reply = json.loads(await _call(
-            ctx, "kb_search", ctx.kb.search, query, area, fyp, 8, planids=scope,
+            ctx, "kb_search", ctx.kb.search, query, query_area, fyp, 8, planids=scope,
         ))
         if reply["status"] in {"backend_error", "timeout", "invalid_argument"}:
             ctx._controlled_retrieval_error = reply["status"]
@@ -342,6 +358,44 @@ def _usage(response) -> dict:
             "per_call": [entry]}
 
 
+def verbatim_coverage_claims(result, task, evidence: list[dict], ctx) -> list[Claim]:
+    """Add exact section sentences for a requested dimension the model omitted.
+
+    This is a deterministic completeness repair, not free-form generation:
+    every added claim is an exact already-read sentence and still passes the
+    normal quote verifier in the caller.
+    """
+    required = requirements(task.question)["dimensions"]
+    existing = " ".join(claim.text for claim in result.claims)
+    missing_terms = []
+    for label in required:
+        terms = INTENT_TERMS.get(label, ())
+        if terms and not any(term in existing for term in terms):
+            missing_terms.extend(terms)
+    if not missing_terms:
+        return []
+    seen = {claim.text.strip() for claim in result.claims}
+    added = []
+    for item in evidence:
+        for sentence in re.split(r"(?<=[。；;！？!?])\s*", str(item.get("text") or "")):
+            sentence = sentence.strip()
+            if (not 12 <= len(sentence) <= 300 or sentence in seen
+                    or not any(term in sentence for term in missing_terms)):
+                continue
+            seen.add(sentence)
+            added.append(Claim(text=sentence, chunk_ids=[item["chunk_id"]],
+                               quotes=[sentence], anchors=[]))
+            if len(added) >= 3:
+                return added
+    return added
+
+
+def verbatim_claims_from_evidence(task, evidence: list[dict], ctx) -> list[Claim]:
+    """Legacy entry point used when the model returned no claims at all."""
+    empty = type("_Result", (), {"claims": []})()
+    return verbatim_coverage_claims(empty, task, evidence, ctx)
+
+
 async def execute_controlled(task, s, ctx, rt, deadline: float, *,
                              focus: str | None = None,
                              exclude_chunks: frozenset[str] = frozenset()) -> ExecOutcome:
@@ -362,6 +416,7 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
 
     record_key = "qa_supplement_retrieval" if focus else "qa_controlled_retrieval"
+    rt._qa_evidence = evidence
     rt.meta[record_key] = {
         "search_count": sum(call.get("name") == "kb_search"
                             for call in ctx.tool_calls),
