@@ -84,6 +84,20 @@ def test_resolver_does_not_inherit_after_explicit_region_change():
     assert "不得沿用" in resolution["context_note"]
 
 
+def test_composed_subject_prefix_does_not_put_prior_region_in_new_scope():
+    documents = [{"planid": "2561", "title": "沧州市十五计划", "area": "沧州市",
+                  "fyp": "第十个五年计划"}]
+    resolution = resolve_followup(
+        "研究对象：沧州市“十五”计；本轮问题：那河北省的十五计划里类似措施有哪些？",
+        [_turn("沧州市十五计划中产业结构调整的主要措施有哪些？", *documents)],
+        SimpleNamespace(areas=("河北省",), fyps=("第十个五年计划",)),
+    )
+    assert resolution["status"] == "scope_changed"
+    assert resolution["requested_constraints"] == {
+        "areas": ["河北省"], "periods": ["第十个五年计划"]}
+    assert "沧州市" not in resolution["requested_constraints"]["areas"]
+
+
 def test_resolver_marks_ambiguous_when_multiple_previous_documents():
     documents = [
         {"planid": "23132", "title": "海西州数字经济规划", "area": "海西州",

@@ -11,6 +11,8 @@ import re
 from hashlib import sha256
 from pathlib import Path
 
+from .routing import current_question
+
 MAX_TURNS = 8
 MAX_QUESTION_CHARS = 1000
 
@@ -87,6 +89,7 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
     Empty turns deliberately act as a boundary: after an unanswered scope change,
     a later pronoun cannot resurrect an older document from the same session.
     """
+    question = current_question(question)
     documents: dict[str, dict] = {}
     chunks: list[str] = []
     registry = getattr(ctx, "evidence", None)
@@ -131,6 +134,7 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
 
 
 def _mentioned_regions(question: str, route) -> list[str]:
+    question = current_question(question)
     candidates = [term for term in REGION_TERMS if term in question]
     for area in getattr(route, "areas", ()) or ():
         value = str(area or "")
@@ -146,12 +150,12 @@ def _mentioned_regions(question: str, route) -> list[str]:
 
 def _mentioned_periods(question: str) -> list[str]:
     found = []
-    remaining = question
+    remaining = current_question(question)
     for marker, normalized in sorted(PERIOD_ALIASES, key=lambda item: -len(item[0])):
         if marker in remaining:
             found.append(normalized)
             remaining = remaining.replace(marker, "")
-    return found
+    return list(dict.fromkeys(found))
 
 
 def _normalize_prior_fyp(fyp: str | None) -> str | None:
@@ -200,6 +204,7 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
     """
     # The latest turn is authoritative even if it has no accepted sources.
     # Never skip an unsuccessful scope change to resurrect an older document.
+    question = current_question(question)
     prior = next((turn for turn in reversed(turns or [])
                   if isinstance(turn, dict)), None)
     base = {
@@ -237,18 +242,27 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
                      if _normalize_prior_fyp(doc.get("fyp"))}
     explicit_areas = _mentioned_regions(question, route)
     explicit_periods = _mentioned_periods(question)
-    area_changed = any(area not in prior_areas and
-                       not any(area in prior_area or prior_area in area
-                               for prior_area in prior_areas if prior_area)
-                       for area in explicit_areas)
-    period_changed = any(period not in prior_periods for period in explicit_periods)
+    # A synthesized subject prefix may repeat the previous area/period. Only
+    # genuinely new constraints may trigger a scope change; otherwise the old
+    # research object leaks back into the reported new scope.
+    new_areas = [area for area in explicit_areas
+                 if area not in prior_areas
+                 and not any(area in prior_area or prior_area in area
+                             for prior_area in prior_areas if prior_area)]
+    new_periods = [period for period in explicit_periods
+                   if period not in prior_periods]
+    area_changed = bool(new_areas)
+    period_changed = bool(new_periods)
+    # If the area changed, the current turn may legitimately restate the same
+    # period; it is part of the new scope and must not be reported as stale.
+    requested_periods = explicit_periods if area_changed else new_periods
 
     if area_changed or period_changed:
         details = []
         if area_changed:
-            details.append("地区 " + "/".join(explicit_areas))
+            details.append("地区 " + "/".join(new_areas))
         if period_changed:
-            details.append("时期 " + "/".join(explicit_periods))
+            details.append("时期 " + "/".join(new_periods))
         return {
             **base,
             "status": "scope_changed",
@@ -256,8 +270,8 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
             "documents": documents,
             "reason": "用户显式更换研究范围：" + "；".join(details),
             "requested_constraints": {
-                "areas": explicit_areas,
-                "periods": explicit_periods,
+                "areas": new_areas,
+                "periods": requested_periods,
             },
             "context_note": ("用户本轮显式更换了研究范围（" + "；".join(details)
                              + "），不得沿用上一轮研究对象；请按新范围重新检索。"
