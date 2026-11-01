@@ -349,6 +349,11 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
+  const showRecoveredProse = (text: string) => {
+    for (const paragraph of readablePolicyParagraphs(text, softWrap)) {
+      blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
+    }
+  };
   const flushProse = () => {
     if (!prose.length) return;
     for (const paragraph of paragraphLines(prose, softWrap)) {
@@ -470,7 +475,10 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       const recovered = flattenedTable(line);
       flushProse();
       if (recovered) {
-        blocks.push(<TableBlock key={key++} caption={recovered.caption} headers={recovered.headers} rows={recovered.rows} />);
+        const displaced = recoverDisplacedTableHeader(recovered.headers);
+        if (displaced) showRecoveredProse(displaced.prose);
+        blocks.push(<TableBlock key={key++} caption={recovered.caption}
+          headers={displaced?.headers ?? recovered.headers} rows={recovered.rows} />);
       } else {
         // Keep unverified legacy tables separate and horizontally scrollable
         // instead of passing pipes into running Chinese prose.
@@ -494,11 +502,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
         index++;
       }
       const displaced = recoverDisplacedTableHeader(headers);
-      if (displaced) {
-        for (const paragraph of readablePolicyParagraphs(displaced.prose, softWrap)) {
-          blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
-        }
-      }
+      if (displaced) showRecoveredProse(displaced.prose);
       blocks.push(<TableBlock key={key++} headers={displaced?.headers ?? headers} rows={rows} />);
       continue;
     }
@@ -512,7 +516,10 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       }
       const parsed = plainTableRows(rows);
       if (parsed) {
-        blocks.push(<TableBlock key={key++} headers={[]} rows={parsed} headerless />);
+        const displaced = recoverDisplacedTableHeader(parsed[0]);
+        if (displaced) showRecoveredProse(displaced.prose);
+        blocks.push(<TableBlock key={key++} headers={[]} headerless
+          rows={displaced ? [displaced.headers, ...parsed.slice(1)] : parsed} />);
       } else {
         blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
           role="region" aria-label="原文表格（列结构待核验）" tabIndex={0}>
