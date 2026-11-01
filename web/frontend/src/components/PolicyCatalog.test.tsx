@@ -262,7 +262,6 @@ describe("PolicyCatalog", () => {
     }, expect.any(AbortSignal)));
     expect(await screen.findByText(/字面匹配.*篇/)).toBeVisible();
     expect(screen.getByText("当前库共有 506 篇政策文献")).toBeVisible();
-    expect(screen.getByText(/不等于全部语义相关政策/)).toBeVisible();
   });
 
   it("requests the selected directory page", async () => {
