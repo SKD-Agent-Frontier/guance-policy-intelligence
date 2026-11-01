@@ -1,5 +1,4 @@
 """Read-only original HTML heading hints and per-planid media tests."""
-from pathlib import Path
 
 from app.policy_format import read_original_html_headings
 
