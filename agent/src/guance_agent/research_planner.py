@@ -68,6 +68,13 @@ class ResearchPlanner:
         documents: list[PolicyDocument] = []
         subject_labels: list[str] = []
         document_subjects: dict[str, list[str]] = {}
+        # Comparison subjects may be administrative regions OR distinct policies.
+        # For same-region comparisons (and all scheme comparisons), using the
+        # region label alone would collapse two different policy subjects into one.
+        regions = {policy.get("area") for policy in policies
+                   if isinstance(policy, dict) and policy.get("area")}
+        by_policy = (contract.task_type == "compare_plans"
+                     or (contract.task_type == "compare" and len(regions) <= 1))
         for policy in policies:
             if not isinstance(policy, dict):
                 raise ValueError("catalog result must contain document objects")
@@ -78,7 +85,7 @@ class ResearchPlanner:
             if not isinstance(policy.get("document_id"), str) or not isinstance(policy.get("generation_id"), str):
                 raise ValueError("verified catalog documents require source identity")
             area = policy.get("area") if isinstance(policy.get("area"), str) else None
-            label = area or title
+            label = f"{title}（planid={planid}）" if by_policy else (area or title)
             if label not in subject_labels:
                 subject_labels.append(label)
             subject_id = f"subject_{subject_labels.index(label) + 1}"
