@@ -91,6 +91,23 @@ describe("useConversations", () => {
     vi.clearAllMocks();
   });
 
+  it("reuses one unpredictable Agent session per conversation but not across conversations", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("第一问"); });
+    await act(async () => { await result.current.send("那它的后续措施呢？"); });
+    const first = mockedClient.submit.mock.calls[0][0].session_id;
+    const second = mockedClient.submit.mock.calls[1][0].session_id;
+    expect(first).toMatch(/^guance-[a-f0-9-]{32,36}$/);
+    expect(second).toBe(first);
+    act(() => { result.current.newConversation(); });
+    await act(async () => { await result.current.send("独立的新问题"); });
+    const third = mockedClient.submit.mock.calls[2][0].session_id;
+    expect(third).toMatch(/^guance-[a-f0-9-]{32,36}$/);
+    expect(third).not.toBe(first);
+  });
+
   it("prepares without running, forwards only the revision token, then runs the ready request once", async () => {
     mockedClient.prepare
       .mockResolvedValueOnce(preparation("needs_clarification"))
