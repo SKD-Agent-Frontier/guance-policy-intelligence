@@ -16,6 +16,15 @@ describe("policy heading hierarchy", () => {
     expect(policyHeading(source)?.level).toBe(level);
   });
 
+  it("prefers original HTML heading levels where the frozen text matches", () => {
+    const hints = [{ text: "经济 发展概况", level: 2 }];
+    expect(policyHeading("经济发展概况", hints)).toEqual({
+      level: 2, text: "经济发展概况",
+    });
+    render(<PolicyRichText planid="10001" text="经济发展概况" originalHints={hints} />);
+    expect(screen.getByRole("heading", { name: "经济发展概况", level: 2 })).toBeInTheDocument();
+  });
+
   it("never mistakes long prose or ordinary sentences for headings", () => {
     expect(policyHeading("（四）聚焦就业导向，加强重点群体就业技能培训。实施农民工职业技能提升行动，完善城乡就业体系。")).toBeNull();
     expect(policyHeading("发展目标是扩大就业、提高收入。")).toBeNull();
