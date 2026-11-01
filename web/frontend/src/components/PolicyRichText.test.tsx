@@ -167,6 +167,30 @@ describe("policy source rich-text rendering", () => {
     expect(fallback).toHaveTextContent("人均生产总值");
   });
 
+  it("keeps flattened OCR indicator data separate and avoids inventing table columns", () => {
+    const source = "“十四五”时期经济社会发展主要指标属性" +
+      Array.from({ length: 19 }, (_, n) => " " + (n + 1) + " 地区生产总值 "
+        + (n * 1.25).toFixed(2) + " 预期性").join("");
+    render(<PolicyRichText planid="P-TABLE" text={source + "\n\n到2035年实现高质量发展。"} />);
+    const fallback = screen.getByRole("region", { name: "原文指标表格（结构不完整）" });
+    expect(fallback).toHaveTextContent("未重排指标数值");
+    expect(fallback).toHaveTextContent(source);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("到2035年实现高质量发展。")).toBeInTheDocument();
+  });
+
+  it("does not show standalone printed PDF page numbers as policy text", () => {
+    render(<PolicyRichText planid="P-TOC" text={[
+      "— 10 —", "第一章 发展基础..................................6",
+      "— 11 —", "第二章 指导思想………………………………13",
+      "实际政策正文未做修改。",
+    ].join("\n")} />);
+    expect(screen.queryByText("— 10 —")).not.toBeInTheDocument();
+    expect(screen.queryByText("— 11 —")).not.toBeInTheDocument();
+    expect(screen.getByText("第一章 发展基础")).toHaveClass("catalog-toc-line");
+    expect(screen.getByText("第二章 指导思想")).toHaveClass("catalog-toc-line");
+  });
+
   it("renders only safe policy-local images, gracefully reporting missing originals", () => {
     render(<PolicyRichText planid="P-1" text={[
       "![图3](media/WY1589821259615703040.PNG)",
