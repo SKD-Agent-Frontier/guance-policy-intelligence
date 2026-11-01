@@ -9,6 +9,22 @@ import { builtInThemes } from "../policyTopics";
 afterEach(cleanup);
 
 describe("TopicsPage", () => {
+  it("places the new topic action at the right of 我的专题, not in the page header", () => {
+    const { container } = render(<TopicsPage collections={[]} onCreate={() => null}
+      onAddPolicy={vi.fn()} onRemovePolicy={vi.fn()} onDelete={vi.fn()} onOpenPolicy={vi.fn()} />);
+    const mainHeader = container.querySelector(".topics-page-header");
+    const personalSection = screen.getByRole("region", { name: "我的专题" });
+    const personalHeading = personalSection.querySelector(".topics-personal-heading");
+    expect(mainHeader?.querySelector(".topics-primary-action")).toBeNull();
+    expect(within(personalHeading as HTMLElement).getByRole("button", { name: "新建专题" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "新建专题" })).toHaveLength(1);
+    fireEvent.click(within(personalHeading as HTMLElement).getByRole("button", { name: "新建专题" }));
+    expect(within(personalSection).getByRole("textbox", { name: "专题名称" })).toBeInTheDocument();
+    fireEvent.click(within(personalSection).getByRole("button", { name: "取消" }));
+    expect(within(personalSection).queryByRole("textbox", { name: "专题名称" })).toBeNull();
+  });
+
   it("lists all counted system themes and allows opening their source policies", () => {
     const onOpenPolicy = vi.fn();
     render(<TopicsPage collections={[]} onCreate={() => null} onAddPolicy={vi.fn()}
