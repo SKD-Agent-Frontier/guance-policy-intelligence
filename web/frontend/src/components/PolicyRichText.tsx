@@ -166,6 +166,19 @@ function tableCells(line: string): string[] {
   return raw.split(/(?<!\\)\|/).map(cell => cell.replace(/\\\|/g, "|").trim());
 }
 
+/** Some PDF conversions attach the paragraph before a pipe table to its first
+ * header ("...主要指标 类别 | 指标 | 2020年 ..."). Only recover if the
+ * displaced prose is unmistakably long and ends in an actual short label. */
+export function recoverDisplacedTableHeader(headers: string[]): { prose: string; headers: string[] } | null {
+  if (headers.length < 4 || headers[0].length < 240) return null;
+  const first = headers[0];
+  const label = /(?:类别|分类|项目|序号)\s*$/.exec(first);
+  if (!label || label.index < 200) return null;
+  const prose = first.slice(0, label.index).trim();
+  if (!/[。；]/.test(prose)) return null;
+  return { prose, headers: [label[0].trim(), ...headers.slice(1)] };
+}
+
 function tableHeader(lines: string[], index: number): string[] | null {
   if (index + 1 >= lines.length || !lines[index].includes("|")) return null;
   const headers = tableCells(lines[index]);
@@ -480,7 +493,13 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
         rows.push(row);
         index++;
       }
-      blocks.push(<TableBlock key={key++} headers={headers} rows={rows} />);
+      const displaced = recoverDisplacedTableHeader(headers);
+      if (displaced) {
+        for (const paragraph of readablePolicyParagraphs(displaced.prose, softWrap)) {
+          blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
+        }
+      }
+      blocks.push(<TableBlock key={key++} headers={displaced?.headers ?? headers} rows={rows} />);
       continue;
     }
 
