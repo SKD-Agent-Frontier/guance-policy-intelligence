@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { BookOpenText, Check, Copy, Pencil, RotateCcw } from "lucide-react";
+import { Check, Copy, Pencil, RotateCcw } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
 import { EvidenceOriginalReader, SourceHoverCard } from "./EvidenceOriginalReader";
@@ -104,7 +104,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
   return (
     <main className="conversation-workspace" aria-label="研究工作区">
       <header className="conversation-heading">
-        <div className="conversation-heading-mark"><BookOpenText size={17} /></div>
+        <div className="conversation-heading-mark"><img src="/guance-mark.svg" alt="" /></div>
         <div>
           <span className="conversation-eyebrow">当前研究</span>
           <h1>{conversation.title || "新建研究"}</h1>
@@ -242,9 +242,12 @@ function Message({
     const canRetry = isLatest && !["UNSUPPORTED_MODE", "PREPARATION_BLOCKED", "PREPARATION_RESTART", "RAG_EMPTY", "NO_EVIDENCE", "INSUFFICIENT_EVIDENCE"].includes(message.code);
     return <article className="conversation-message message-error" role="alert">
       <div className="message-role">暂时无法继续 · {message.code}</div><p>{message.text}</p><p>{errorExplanation(message.code)}</p>
-      {isLatest && (preparationConflict || preparationBlocked) ? <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button> : canRetry && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试</button>}
+      {isLatest && (preparationConflict || preparationBlocked) && <button type="button" className="retry-inline" onClick={onRestartPreparation}>{preparationConflict ? "重新开始准备研究" : "修改条件后重新准备"}</button>}
       <MessageActions text={message.text + "\n" + errorExplanation(message.code)}
-        onRegenerate={message.code === "PREPARATION_RESTART" ? undefined : () => onRegenerate(message.id)}
+        onRegenerate={message.code === "PREPARATION_RESTART" ? undefined
+          : canRetry && !preparationConflict && !preparationBlocked ? onRetry
+          : () => onRegenerate(message.id)}
+        regenerateLabel={canRetry && !preparationConflict && !preparationBlocked ? "重试本次研究" : undefined}
         disabled={!canChangeHistory} />
     </article>;
   }
@@ -314,19 +317,22 @@ function ResultMessage({
         {result.warnings?.length > 0 && <ul>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
       </details>
     )}
-    {isLatest && result.status !== "completed" && <button type="button" className="retry-inline" onClick={onRetry}><RotateCcw size={13} />重试本次研究</button>}
-    <MessageActions contentRef={bodyRef} text={result.answer} onRegenerate={onRegenerate} disabled={disabled} />
+    <MessageActions contentRef={bodyRef} text={result.answer}
+      onRegenerate={isLatest && result.status !== "completed" ? onRetry : onRegenerate}
+      regenerateLabel={isLatest && result.status !== "completed" ? "重试本次研究" : undefined}
+      disabled={disabled} />
   </article>;
 }
 
 
 /** Chat-style controls live beneath message content and are excluded from copied text. */
 function MessageActions({
-  text, contentRef, onRegenerate, onEdit, disabled = false,
+  text, contentRef, onRegenerate, regenerateLabel = "重新生成", onEdit, disabled = false,
 }: {
   text?: string;
   contentRef?: RefObject<HTMLElement | null>;
   onRegenerate?: () => void;
+  regenerateLabel?: string;
   onEdit?: () => void;
   disabled?: boolean;
 }) {
@@ -364,7 +370,9 @@ function MessageActions({
     <button type="button" title={copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制"}
       aria-label={copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制消息"}
       onClick={() => void copyMessage()}>{copyState === "copied" ? <Check size={15} /> : <Copy size={15} />}</button>
-    {onRegenerate && <button type="button" title="重新生成（后续对话将被替换）" aria-label="重新生成"
+    {onRegenerate && <button type="button"
+      title={regenerateLabel === "重新生成" ? "重新生成（后续对话将被替换）" : regenerateLabel}
+      aria-label={regenerateLabel}
       disabled={disabled} onClick={onRegenerate}><RotateCcw size={15} /></button>}
     {onEdit && <button type="button" title="编辑消息" aria-label="编辑消息"
       disabled={disabled} onClick={onEdit}><Pencil size={15} /></button>}
