@@ -57,3 +57,28 @@ def test_no_heading_requires_four_nearby_numbered_entries():
 def test_numbered_source_prose_does_not_trigger_toc_by_itself():
     body = "目录\n" + "第五章 工作要求。\n" * 5 + "2025年第三季度推进实施。\n"
     assert printed_toc_range(body) is None
+
+
+
+def test_jian_22455_toc_without_printed_page_numbers_is_hidden_only_in_reader():
+    # Some source PDFs retain leaders but drop the page-number column entirely.
+    body = (
+        "2\n目 录\n"
+        "第一章 发展现状.....................................\n"
+        "第一节 “十三五”时期工作成就························\n"
+        "第二节 “十四五”时期发展形势.......................\n"
+        "第二章 总体要求.....................................\n"
+        "第一节 指导思想.....................................\n"
+        "\n第一章 发展现状\n真实政策正文：全市市场监管体系建设取得进展。\n"
+    )
+    span = printed_toc_range(body)
+    assert span is not None
+    assert body[span[0]:].startswith("2\n目 录")
+    assert body[span[1]:].startswith("第一章 发展现状\n真实政策正文")
+    # Ordinary policy prose and the real first chapter are not suppressed.
+    assert body[span[1]:].count("真实政策正文") == 1
+
+
+def test_unmarked_sections_are_not_mistaken_for_a_printed_index():
+    text = "目 录\n第一章 发展目标\n第一节 总体要求\n\n第一章 发展目标\n实际正文。"
+    assert printed_toc_range(text) is None
