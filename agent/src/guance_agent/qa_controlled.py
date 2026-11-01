@@ -14,13 +14,15 @@ import time
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from .client import thinking_off
+from .research_quality import requirements
 from .runner import ExecOutcome
 from .tools import _call
 
-MAX_QUERIES = 2
-MAX_READS = 3
-READ_CHARS = 2100
-TOTAL_EVIDENCE_CHARS = 6000
+MAX_QUERIES = 4
+MAX_READS = 6
+SIMPLE_READS = 3
+READ_CHARS = 1800
+TOTAL_EVIDENCE_CHARS = 8500
 REQUEST_TIMEOUT = 50.0
 
 CONCEPTS = (
@@ -44,20 +46,23 @@ quote 必须原文一字不差，不能跨片段拼接；不要创造时间、�
 
 
 def search_queries(question: str, sub_query: str | None = None) -> list[str]:
-    """Two stable lexical queries; ignore model-made long search history."""
-    matched = [term for term in CONCEPTS if term in question]
-    # Preserve the most discriminative shared subject, then one research facet.
-    queries = []
-    for term in matched:
-        if term not in queries and not any(term in q for q in queries):
-            queries.append(term)
-        if len(queries) >= MAX_QUERIES:
+    """Choose a subject plus explicit evidence facets, not generic filler."""
+    topic = [term for term in CONCEPTS if term in question
+             and term not in {"政策意义", "积极作用", "局限", "挑战"}]
+    # Keep specific subject terms first and then diversify the requested facets.
+    selected = []
+    for term in topic:
+        if term not in selected and not any(term in q for q in selected):
+            selected.append(term)
+        if len(selected) >= MAX_QUERIES:
             break
-    if not queries:
+    if not selected:
         source = (sub_query or question).strip()
-        source = re.sub(r"[，。？！,?!：:；;（）()\s]+", " ", source)
-        queries = [source[:70].strip()] if source else []
-    return queries
+        source = re.sub(r"[，。？！,?!：:；;（）()\\s]+", " ", source)
+        selected = [source[:70].strip()] if source else []
+    if not requirements(question)["needs_report"]:
+        return selected[:1]
+    return selected[:MAX_QUERIES]
 
 
 def requested_area(decision, question: str) -> str | None:
@@ -96,8 +101,9 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
         if raw_fyp in task.question:
             fyp = raw_fyp
 
-    found = []
-    seen = set()
+    research = requirements(task.question)["needs_report"]
+    read_limit = MAX_READS if research else SIMPLE_READS
+    groups = []
     for query in search_queries(task.question, getattr(decision, "sub_query", None)):
         if deadline - time.monotonic() < 55:
             break
@@ -107,19 +113,23 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
         if reply["status"] in {"backend_error", "timeout", "invalid_argument"}:
             ctx._controlled_retrieval_error = reply["status"]
             break
-        if reply["status"] != "ok":
-            continue
-        for hit in reply["data"]:
-            cid = hit["chunk_id"]
-            if cid not in seen:
-                seen.add(cid)
-                found.append(hit)
-        if scope is not None and len(scope) == 1 and len(found) >= MAX_READS:
-            break
+        if reply["status"] == "ok":
+            groups.append(reply["data"])
 
-    # Open research should sample multiple documents before repeated chunks
-    # from one document; preserve lexical rank inside each group.
+    # Round-robin among queries: one dominant keyword must not monopolize all
+    # reads when the user explicitly asked several different dimensions.
+    found, seen_chunks = [], set()
+    for offset in range(max(map(len, groups), default=0)):
+        for group in groups:
+            if offset >= len(group):
+                continue
+            hit = group[offset]
+            if hit["chunk_id"] not in seen_chunks:
+                seen_chunks.add(hit["chunk_id"])
+                found.append(hit)
     if scope is None:
+        # For open-topic research choose distinct documents first, with stable
+        # within-retrieval ranking for the rest.
         primary, secondary, seen_documents = [], [], set()
         for hit in found:
             if hit["planid"] not in seen_documents:
@@ -131,7 +141,7 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
     evidence = []
     used = set()
     for hit in found:
-        if len(evidence) >= MAX_READS or deadline - time.monotonic() < 52:
+        if len(evidence) >= read_limit or deadline - time.monotonic() < 52:
             break
         cid = hit["chunk_id"]
         if cid in used:
@@ -207,6 +217,8 @@ async def execute_controlled(task, s, ctx, rt, deadline: float) -> ExecOutcome:
     rt.meta["qa_controlled_retrieval"] = {
         "search_count": sum(call.get("name") == "kb_search"
                             for call in ctx.tool_calls),
+        "read_limit": MAX_READS if requirements(task.question)["needs_report"]
+                      else SIMPLE_READS,
         "read_chunks": [item["chunk_id"] for item in evidence],
         "read_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
         "evidence_chars": sum(len(item["text"]) for item in evidence),
