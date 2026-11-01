@@ -6,6 +6,7 @@ into an alleged completed policy analysis.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from .schemas import Claim
@@ -13,6 +14,27 @@ from .schemas import Claim
 RECOVERABLE_ERRORS = frozenset({"OUTPUT_PARSE", "MODEL_TIMEOUT", "MAX_TURNS"})
 MAX_EXCERPTS = 3
 MAX_QUOTE_CHARS = 220
+MAX_SENTENCE_SCAN_CHARS = 360
+
+
+def complete_excerpt(text: str) -> str | None:
+    """Only return a bounded complete sentence copied exactly from original."""
+    visible = text.lstrip()
+    if not visible:
+        return None
+    within = [
+        match.end() for match in re.finditer(r"[。；;！？!?\n]", visible[:MAX_QUOTE_CHARS])
+        if match.end() >= 16
+    ]
+    if within:
+        return visible[:within[-1]].strip()
+    # The first sentence may be longer than the ideal excerpt size; avoid
+    # slicing it mid-word, but preserve a firm total fallback budget.
+    longer = re.search(r"[。；;！？!?\n]", visible[:MAX_SENTENCE_SCAN_CHARS])
+    if longer and longer.end() >= 16:
+        return visible[:longer.end()].strip()
+    return None
+
 
 
 async def recover_read_excerpts(result, ctx, deadline: float) -> bool:
@@ -56,9 +78,8 @@ async def recover_read_excerpts(result, ctx, deadline: float) -> bool:
             for start, end in ref.observed_ranges:
                 if end <= start or start < base or end > base + len(content):
                     continue
-                candidate = content[start - base:min(end - base,
-                                                    start - base + MAX_QUOTE_CHARS)].strip()
-                if len(candidate) >= 16:
+                candidate = complete_excerpt(content[start - base:end - base])
+                if candidate is not None:
                     quote = candidate
                     break
             if not quote:
