@@ -57,7 +57,7 @@ def test_collective_scope_does_not_invent_missing_comparison_documents():
     answer = resolve_research("compare", QUESTION, catalog(record("only", "衡水市")))
     assert answer["status"] == "needs_clarification"
     assert answer["request"] is None
-    assert "没有足够" in answer["message"]
+    assert "缺少河北省其他地市" in answer["message"]
     assert "填写" not in answer["message"]
 
 
