@@ -35,12 +35,22 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
     # The user question and trusted scope remain authoritative. The focused
     # program search receives the gap separately, not as a user instruction.
     followup = task.model_copy(update={"question": task.question})
-    followup_deadline = min(deadline - 40, time.monotonic() + 48)
+    controlled_mode = (getattr(s, "kb_backend", None) == "rag"
+                       and rt.meta.get("qa_execution_mode") == "bounded_retrieval")
+    # In real-RAG research, preserve a meaningful window for report drafting
+    # and semantic review after this single supplemental attempt.
+    if controlled_mode and deadline - time.monotonic() < 120:
+        meta["status"] = "skipped_budget"
+        meta["attempted"] = False
+        return
+    followup_deadline = min(
+        deadline - (85 if controlled_mode else 40),
+        time.monotonic() + (35 if controlled_mode else 48),
+    )
     try:
         # Real-RAG QA uses the same bounded program-side retrieval as the
         # initial answer. The legacy SDK path remains for mock/backward tests.
-        controlled = (getattr(s, "kb_backend", None) == "rag"
-                      and rt.meta.get("qa_execution_mode") == "bounded_retrieval")
+        controlled = controlled_mode
         if controlled:
             seen = frozenset(ref.chunk_id for ref in result.evidence_refs)
             outcome = await asyncio.wait_for(
