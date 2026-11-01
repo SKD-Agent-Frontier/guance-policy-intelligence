@@ -56,33 +56,3 @@ if __name__ == "__main__":
             writer = csv.DictWriter(target, fieldnames=["planid", "status", "body_chars", "path"])
             writer.writeheader()
             writer.writerows(rows)
-, metadata)
-        title = title_match.group(1) if title_match else None
-        status = body_status(body, title)
-        # Distinguish tiny metadata-only fragments from a genuine policy text.
-        if status == "available" and 0 < len(body.strip()) < 200:
-            status = "short_body"
-        if status != "available":
-            results.append({
-                "planid": path.stem, "status": status,
-                "body_chars": len(body.strip()), "path": str(path),
-            })
-    return results
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("corpus_root", type=Path)
-    parser.add_argument("--csv", type=Path, help="Optional report output")
-    args = parser.parse_args()
-    rows = scan(args.corpus_root)
-    counts = {status: sum(row["status"] == status for row in rows)
-              for status in ("missing", "suspected_garbled", "short_body")}
-    print(f"quality candidates: {counts}; total={len(rows)}")
-    for row in rows:
-        print(f"{row['planid']}: {row['status']} ({row['body_chars']} chars)")
-    if args.csv:
-        with args.csv.open("w", encoding="utf-8-sig", newline="") as target:
-            writer = csv.DictWriter(target, fieldnames=["planid", "status", "body_chars", "path"])
-            writer.writeheader()
-            writer.writerows(rows)
