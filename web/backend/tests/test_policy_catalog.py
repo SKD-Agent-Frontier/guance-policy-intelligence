@@ -361,13 +361,13 @@ def test_policy_media_serves_only_cited_images(client, tmp_path):
     """Images must be policy-specific and never read arbitrary local paths."""
     media = tmp_path / "10001" / "media"
     media.mkdir(parents=True)
-    valid = b"\\x89PNG\\r\\n\\x1a\\n" + b"PNG-fixture"
+    valid = b"\x89PNG\r\n\x1a\n" + b"PNG-fixture"
     (media / "Chart.PNG").write_bytes(valid)
     (media / "NotCited.PNG").write_bytes(valid)
     original = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n\\n![图表](media/Chart.PNG)"})
+                        "body": record.body + "\n\n![图表](media/Chart.PNG)"})
         if record.planid == "10001" else record
         for record in original.records
     )
@@ -397,7 +397,7 @@ def test_policy_media_rejects_renamed_nonimages(client, tmp_path):
     original = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n![图](media/Chart.PNG)"})
+                        "body": record.body + "\n![图](media/Chart.PNG)"})
         if record.planid == "10001" else record
         for record in original.records
     )
