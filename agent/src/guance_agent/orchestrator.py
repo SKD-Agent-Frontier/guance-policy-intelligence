@@ -125,7 +125,15 @@ async def _execute_once(task, s, ctx, rt, deadline):
     """
     if task.task_type == "extract":
         return await _run_oneshot(task, s, ctx, rt, build_messages)
-    agent = build_agent(s, chat_model(s, rt.client))
+    client = rt.client
+    if task.task_type == "qa" and hasattr(client, "with_options"):
+        # Do not retry long QA calls under a fixed overall run deadline.
+        request_timeout = min(s.llm_request_timeout, 50.0,
+                              max(1.0, deadline - time.monotonic() - 5.0))
+        client = client.with_options(timeout=request_timeout, max_retries=0)
+        rt.meta["qa_model_request_timeout"] = request_timeout
+        rt.meta["qa_model_retries"] = 0
+    agent = build_agent(s, chat_model(s, client))
     return await execute(agent, task, ctx, rt, deadline=deadline)
 
 
