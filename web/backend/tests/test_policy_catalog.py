@@ -399,13 +399,13 @@ def test_media_uses_clean_corpus_chinese_partitions_first(client, tmp_path):
     standard_path = standard / "corpus" / "10001" / "media" / "image1.png"
     clean_path.parent.mkdir(parents=True)
     standard_path.parent.mkdir(parents=True)
-    payload = b"\\x89PNG\\r\\n\\x1a\\n" + b"clean-source"
+    payload = b"\x89PNG\r\n\x1a\n" + b"clean-source"
     clean_path.write_bytes(payload)
-    standard_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"reference-source")
+    standard_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"reference-source")
     original = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n![图1](media/image1.png)"})
+                        "body": record.body + "\n![图1](media/image1.png)"})
         if record.planid == "10001" else record
         for record in original.records
     )
@@ -429,11 +429,11 @@ def test_media_uses_clean_edge_case_partition_without_cross_policy_fallback(clie
     clean = tmp_path / "样例数据（干净版）"
     media = clean / "edge_cases（边界压力样本）" / "10001" / "media"
     media.mkdir(parents=True)
-    (media / "chart.jpeg").write_bytes(b"\\xff\\xd8\\xff" + b"original-chart")
+    (media / "chart.jpeg").write_bytes(b"\xff\xd8\xff" + b"original-chart")
     original = _snapshot()
     records = tuple(
         PolicyRecord(**{**record.__dict__,
-                        "body": record.body + "\\n![图表](media/chart.jpeg)"})
+                        "body": record.body + "\n![图表](media/chart.jpeg)"})
         if record.planid == "10001" else record
         for record in original.records
     )
@@ -442,13 +442,13 @@ def test_media_uses_clean_edge_case_partition_without_cross_policy_fallback(clie
                         records=records, media_roots=(clean,))
     )
     assert client.get("/api/policies/10001/media/chart.jpeg").content == (
-        b"\\xff\\xd8\\xff" + b"original-chart"
+        b"\xff\xd8\xff" + b"original-chart"
     )
     (media / "chart.jpeg").unlink()
     # Same filename under another planid must never be substituted.
     other_media = clean / "corpus（代表性样本）" / "10002" / "media"
     other_media.mkdir(parents=True)
-    (other_media / "chart.jpeg").write_bytes(b"\\xff\\xd8\\xff" + b"wrong-document")
+    (other_media / "chart.jpeg").write_bytes(b"\xff\xd8\xff" + b"wrong-document")
     assert client.get("/api/policies/10001/media/chart.jpeg").status_code == 404
 
 def test_policy_media_rejects_renamed_nonimages(client, tmp_path):
