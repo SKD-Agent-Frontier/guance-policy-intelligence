@@ -285,7 +285,7 @@ describe("conversation simplification and original source reader", () => {
     expect(screen.queryByText("本轮研究未完成")).not.toBeInTheDocument();
     expect(container.querySelectorAll(".message-error")).toHaveLength(0);
     expect(screen.getByText("研究提示与核验信息")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "复制消息" }).closest(".result-message")).not.toBeNull();
+    expect(screen.getAllByRole("button", { name: "复制消息" }).at(-1)!.closest(".result-message")).not.toBeNull();
     const retry = screen.getByRole("button", { name: "重试本次研究" });
     expect(retry.closest(".result-message")).not.toBeNull();
     fireEvent.click(retry);
