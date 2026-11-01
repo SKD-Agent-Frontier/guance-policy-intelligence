@@ -539,7 +539,10 @@ export function PolicyCatalog({
       generation_id: detail?.dataset.generation_id ?? null,
     });
   };
-  const outline = policyOutline(policy?.sections ?? []);
+  const outline = policyOutline(policy?.sections ?? []).filter(section =>
+    !policy?.printed_toc
+    || section.start < policy.printed_toc[0]
+    || section.start >= policy.printed_toc[1]);
   const policyTags = policy ? tagsForPolicy(policy.planid) : [];
   const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
   const contentPage = content ? (content.page ?? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1) : 1;
@@ -851,7 +854,8 @@ export function PolicyCatalog({
                     && (policy.body_status !== "suspected_garbled" || showRawFor === content.planid)
                     && <PolicyRichText text={content.text} planid={content.planid} softWrap originalHints={originalHints}
                       documentTitle={policy.title} firstPage={content.offset === 0}
-                      sections={policy.sections} textOffset={content.offset} />}
+                      sections={policy.sections} textOffset={content.offset}
+                      printedToc={policy.printed_toc} omitPrintedToc={reading} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
