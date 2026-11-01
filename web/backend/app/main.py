@@ -14,7 +14,8 @@ from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
 from guance_agent.research_planner import ResearchPlanner
 
-from .policy_routes import _catalog as get_policy_catalog, router as policy_catalog_router
+from .policy_routes import _catalog as get_policy_catalog
+from .policy_routes import router as policy_catalog_router
 from .preparation import (
     CONFLICT_DETAIL,
     PreparationStateError,

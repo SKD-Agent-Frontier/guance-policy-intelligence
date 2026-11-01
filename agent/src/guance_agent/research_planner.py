@@ -10,8 +10,8 @@ from .research_contract import (
     ResearchCoverage,
     ResearchPlan,
     ResearchScope,
-    ResearchSubject,
     ResearchStep,
+    ResearchSubject,
     TaskContract,
 )
 
