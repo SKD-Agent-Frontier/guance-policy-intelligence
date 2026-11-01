@@ -209,3 +209,47 @@ async def test_qa_report_retractions_happen_before_research_contract_evaluation(
     assert result.meta["research"]["status"] == "insufficient"
     assert "verified_claims_missing" in result.meta["research"]["gaps"]
     assert "农业发展任务" not in result.answer
+
+
+@pytest.mark.asyncio
+async def test_truncated_claims_reach_readable_answer_after_actual_verification(env, monkeypatch):
+    """The ordinary run_task pipeline must publish a verified partial report, not placeholder text."""
+    from guance_agent.runner import ExecOutcome
+
+    settings, task = _configured(env), env[1]
+    settings = replace(settings, llm_max_output_tokens=8)
+    kb = VerifiableMockKB(settings.mock_kb_path)
+    hit = kb.search("农业", None, None, 1)[0]
+    quote = hit.content[:24]
+    raw = json.dumps({
+        "answer": "未完成",
+        "claims": [{"text": "农业发展任务", "chunk_ids": [hit.chunk_id],
+                    "quotes": [quote]}],
+    }, ensure_ascii=False)
+    # The final claim must be fully closed, while the following JSON content
+    # is truncated at the output cap; do not recover an unfinished claim.
+    raw = raw[:-1] + ', "report": {"dimensions": ['
+    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
+    monkeypatch.setattr("guance_agent.runtime.get_client", lambda _settings: object())
+
+    async def limited_response(_task, _settings, ctx, rt, _deadline):
+        ctx.evidence.add_result([hit], "kb_search")
+        ctx.tool_calls.append({"name": "kb_search", "status": "ok", "message": ""})
+        return ExecOutcome(raw, None, telemetry={
+            "model_calls": 1, "input_tokens": 200, "output_tokens": 8,
+            "per_call": [{"input": 200, "output": 8}],
+        })
+
+    monkeypatch.setattr(orchestrator, "_execute_once", limited_response)
+    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
+
+    assert result.status == "completed"
+    assert result.meta["output_parse"]["recovery"] == "complete_claims_only"
+    assert result.claims
+    assert result.evidence_refs
+    assert "农业发展任务" in result.answer
+    assert "planid=" in result.answer
+    assert "仅保留已完整生成的政策事实" not in result.answer
+    assert result.structured["qa_recovery"]["status"] == "partial"
+    assert result.evidence_status == "insufficient"
+    assert result.meta["research"]["status"] == "partial"
