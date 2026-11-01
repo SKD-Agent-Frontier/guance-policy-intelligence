@@ -12,12 +12,15 @@ type Props = {
   onRemovePolicy: (id: string, planid: string) => void;
   onDelete: (id: string) => void;
   onOpenPolicy: (planid: string) => void;
+  selection?: TopicSelection;
+  onSelectionChange?: (selection: TopicSelection) => void;
 };
 
-type Selection = { kind: "public" | "personal"; id: string } | null;
+export type TopicSelection = { kind: "public" | "personal"; id: string } | null;
 
-export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy, onDelete, onOpenPolicy }: Props) {
-  const [selected, setSelected] = useState<Selection>(null);
+export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy, onDelete, onOpenPolicy, selection, onSelectionChange }: Props) {
+  const [internalSelected, setInternalSelected] = useState<TopicSelection>(null);
+  const selected = selection === undefined ? internalSelected : selection;
   const [newName, setNewName] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +32,11 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
   const publicDocuments = useMemo(() => theme ? themedPolicies(theme.id) : [], [theme?.id]);
   const documents = (personal ? personal.policies : publicDocuments).filter((item) =>
     `${item.title} ${item.area || ""}`.includes(filter.trim()));
-  const showSelection = (next: Selection) => { setSelected(next); setFilter(""); setVisible(30); };
+  const showSelection = (next: TopicSelection) => {
+    if (onSelectionChange) onSelectionChange(next);
+    else setInternalSelected(next);
+    setFilter(""); setVisible(30);
+  };
   const create = () => {
     const id = onCreate(newName);
     if (!id) { setError("专题名称不能为空、不能重复，且不能超过 60 字。"); return; }
@@ -44,7 +51,7 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         <h1>研究专题</h1>
         <p>按政策主题浏览 506 篇样本文献，也可以建立自己的资料集合。</p>
       </div>
-      <button className="topics-primary-action" type="button" onClick={() => { setShowNew(true); setSelected(null); }}>
+      <button className="topics-primary-action" type="button" onClick={() => { setShowNew(true); showSelection(null); }}>
         <Plus size={17} /> 新建专题
       </button>
     </header>
