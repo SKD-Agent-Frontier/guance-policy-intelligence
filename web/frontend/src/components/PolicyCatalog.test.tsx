@@ -333,6 +333,36 @@ describe("PolicyCatalog", () => {
 
   });
 
+  it("supports direct policy page selection and shows reader metadata", async () => {
+    const user = userEvent.setup();
+    catalog.detail.mockResolvedValue({
+      ...detailResponse("P-1", "政策P-1"),
+      policy: {
+        ...detailResponse("P-1", "政策P-1").policy,
+        fyp: "第十四个五年规划", plantype_label: "专项规划", body_chars: 9000,
+      },
+    } as never);
+    catalog.content.mockImplementation(async (planid, offset = 0) =>
+      contentResponse(planid, offset, offset === 8000 ? "最后一页正文" : "甲".repeat(4000), 9000) as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    const reader = await screen.findByRole("article", { name: "政策原文正文" });
+    const facts = within(reader).getByLabelText("政策元数据");
+    expect(facts).toHaveTextContent("地区：北京市");
+    expect(facts).toHaveTextContent("规划时期：十四五");
+    expect(facts).toHaveTextContent("政策类型：专项规划");
+    expect(facts).toHaveTextContent("planid：P-1");
+    const picker = within(reader).getByRole("combobox", { name: "跳转原文页码" });
+    expect(picker).toHaveValue("1");
+    await user.selectOptions(picker, "3");
+    await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 8000, 4000, expect.any(AbortSignal)));
+    expect(await within(reader).findByText("最后一页正文")).toBeVisible();
+    expect(within(reader).getByLabelText("原文页码")).toHaveTextContent("第 3 / 3 页");
+    await user.click(within(reader).getByRole("button", { name: /上一页/ }));
+    await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 4000, 4000, expect.any(AbortSignal)));
+  });
+
   it.each([
     { fyp: "十一五", year: null, expected: "十一五" },
     { fyp: "第十一个五年计划", year: 2008, expected: "十一五" },
