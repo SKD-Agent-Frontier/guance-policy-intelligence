@@ -93,17 +93,16 @@ def _documents(result) -> list[dict]:
 
 
 def _missing_dimensions(result, task: TaskRequest) -> list[dict]:
-    """没抽到的维度：读取成功过就算「该篇没有」，一次都没读成才算「没检索到」。
-
-    这个区分是政策研究的基本要求——把「没有政策」写成「没查到」会误导判断。
-    """
+    """Missing extracted facets are not proof of absence in an unread corpus."""
     dimensions = task.dimensions or list(DIMENSIONS)
     covered = {claim.dimension for claim in result.claims if claim.dimension}
     missing = [name for name in dimensions if name not in covered]
     if not missing:
         return []
-    statuses = {call.get("status") for call in result.meta.get("tool_calls") or []}
-    reason = "not_in_document" if "ok" in statuses else "not_retrieved"
+    # Any successful search (or partial read) is not proof that every requested
+    # facet was absent from the *entire* policy. We have only Top-K evidence.
+    # Use the honest bounded-retrieval status until full document coverage is proven.
+    reason = "not_retrieved"
     return [{"dimension": name, "reason": reason} for name in missing]
 
 
