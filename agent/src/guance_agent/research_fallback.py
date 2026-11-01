@@ -102,3 +102,28 @@ async def recover_read_excerpts(result, ctx, deadline: float) -> bool:
     result.warnings.append(
         "本轮模型执行失败；仅提供已读原文的逐字核验节选，未生成综合研究结论。")
     return True
+
+
+def recover_empty_search_failure(result, ctx) -> bool:
+    """Describe actual empty searches; never claim the policy does not exist."""
+    if (result.task_type != "qa" or result.status != "failed"
+            or result.error is None or result.error.code != "OUTPUT_PARSE"
+            or ctx is None or ctx.evidence.ids()):
+        return False
+    calls = list(ctx.tool_calls)
+    if not calls or any(call.get("status") not in {"empty", "no_text", "not_found"}
+                        for call in calls):
+        return False
+    code = result.error.code
+    result.meta["original_execution_error"] = code
+    result.meta["execution_recovery"] = {
+        "kind": "empty_search_only", "status": "insufficient",
+        "original_error": code,
+    }
+    result.status, result.error, result.evidence_status = "completed", None, "insufficient"
+    result.answer = (
+        "本轮对知识库的检索没有取得可供引用的政策正文，模型最终输出也未能"
+        "正确解析；无法依据本次结果回答。这里的“未检索到”不代表相关政策不存在。"
+    )
+    result.warnings.append("模型输出格式异常；没有发布任何未经核验的政策事实。")
+    return True
