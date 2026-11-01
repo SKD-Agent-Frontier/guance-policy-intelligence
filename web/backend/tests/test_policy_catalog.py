@@ -654,6 +654,18 @@ def test_reading_pages_join_exactly_to_frozen_body_and_keep_codepoint_offsets(cl
     assert original["offset"] == 17  # underlying evidence API is unchanged
 
 
+def test_short_last_reading_page_is_not_empty_after_boundary_adjustment():
+    body = "甲" * 7960 + "\n\n" + "乙" * 150
+    svc = PolicyCatalogService(CatalogSnapshot(
+        "g", 1, None, (_record("90001", "政策", "x", None, "其他", body),),
+    ))
+    parts = [svc.read_display_page("90001", page=page, page_chars=4000)
+             for page in (1, 2, 3)]
+    assert all(part["text"] for part in parts)
+    assert "".join(part["text"] for part in parts) == body
+    assert parts[-1]["has_more"] is False
+
+
 def test_reading_page_validates_bounds_without_leaking_other_policies(client):
     assert client.get("/api/policies/10001/reading-page").status_code == 200
     assert client.get("/api/policies/10001/reading-page",
