@@ -136,3 +136,60 @@ def test_area_parser_normalizes_verb_prefix_but_keeps_city_scope():
     ]:
         decision = SimpleNamespace(areas=(value,))
         assert requested_area(decision, "请给出天津市和苏州市或成都市的政策") == expected
+
+
+@pytest.mark.asyncio
+async def test_complex_scoped_question_runs_multiple_facets_before_generation(env):
+    settings, original = env
+    task = original.model_copy(update={"question": (
+        "分析某市产业结构调整的产业发展方向、重点措施和政策意义，并形成研究报告。"
+    )})
+    queries = search_queries(task.question)
+    assert len(queries) >= 2
+    assert "产业结构调整" in queries
+    api = ChatAPI()
+
+    class TracedKB(MockKB):
+        def __init__(self, path):
+            super().__init__(path)
+            self.queries = []
+
+        def search(self, query, area, fyp, top_k, *, planids=None):
+            self.queries.append(query)
+            return super().search("农业", area, fyp, top_k, planids=planids)
+
+    kb = TracedKB(settings.mock_kb_path)
+    ctx = _context(settings, task, kb, scope=("TEST-001",))
+    rt = SimpleNamespace(
+        client=SimpleNamespace(chat=SimpleNamespace(completions=api)),
+        meta={}, log=lambda *a, **kw: None,
+    )
+    outcome = await execute_controlled(task, settings, ctx, rt,
+                                       time.monotonic() + 120)
+    assert outcome.error_code is None
+    assert len(kb.queries) >= 2
+    assert api.calls == 1
+    assert 1 <= len(rt.meta["qa_controlled_retrieval"]["read_chunks"]) <= 6
+
+
+@pytest.mark.asyncio
+async def test_followup_can_exclude_previously_read_chunks(env):
+    settings, original = env
+    task = original.model_copy(update={"question": "研究农业发展政策"})
+    kb = MockKB(settings.mock_kb_path)
+    ctx = _context(settings, task, kb, scope=("TEST-001",))
+    api = ChatAPI()
+    rt = SimpleNamespace(
+        client=SimpleNamespace(chat=SimpleNamespace(completions=api)),
+        meta={}, log=lambda *a, **kw: None,
+    )
+    first = await execute_controlled(task, settings, ctx, rt,
+                                     time.monotonic() + 120)
+    assert first.error_code is None and api.calls == 1
+    current = frozenset(ctx.evidence.ids())
+    second = await execute_controlled(
+        task, settings, ctx, rt, time.monotonic() + 120,
+        focus="农业", exclude_chunks=current,
+    )
+    assert second.error_code is None
+    assert not set(rt.meta["qa_controlled_retrieval"]["read_chunks"]) & current
