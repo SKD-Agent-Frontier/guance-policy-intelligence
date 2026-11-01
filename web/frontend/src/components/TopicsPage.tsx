@@ -50,20 +50,7 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         <p className="library-heading-kicker">RESEARCH LIBRARY</p>
         <h1 className="library-heading-title">研究专题</h1>
       </div>
-      <button className="topics-primary-action" type="button" onClick={() => { setShowNew(true); showSelection(null); }}>
-        <Plus size={17} /> 新建专题
-      </button>
     </header>
-
-    {showNew && <form className="topics-new-form" onSubmit={(event) => { event.preventDefault(); create(); }}>
-      <label htmlFor="topics-new-name">专题名称</label>
-      <input id="topics-new-name" autoFocus maxLength={60}
-        placeholder="例如：京津冀算力政策研究" value={newName}
-        onChange={(event) => { setNewName(event.target.value); setError(""); }} />
-      <button type="submit" disabled={!newName.trim()}>创建专题</button>
-      <button type="button" onClick={() => { setShowNew(false); setError(""); }}>取消</button>
-      {error && <p role="alert">{error}</p>}
-    </form>}
 
     {selected && (theme || personal) ? <div className="topics-detail">
       <div className="topics-detail-sticky-header">
@@ -113,14 +100,28 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         </div>
       </section>
       <section className="topics-section" aria-label="我的专题">
-        <div className="topics-section-heading"><h2>我的专题</h2><span>{collections.length} 个专题</span></div>
+        <div className="topics-section-heading topics-personal-heading">
+          <h2>我的专题</h2><span>{collections.length} 个专题</span>
+          <button className="topics-primary-action" type="button" onClick={() => setShowNew(true)}>
+            <Plus size={17} /> 新建专题
+          </button>
+        </div>
+        {showNew && <form className="topics-new-form" onSubmit={(event) => { event.preventDefault(); create(); }}>
+          <label htmlFor="topics-new-name">专题名称</label>
+          <input id="topics-new-name" autoFocus maxLength={60}
+            placeholder="例如：京津冀算力政策研究" value={newName}
+            onChange={(event) => { setNewName(event.target.value); setError(""); }} />
+          <button type="submit" disabled={!newName.trim()}>创建专题</button>
+          <button type="button" onClick={() => { setShowNew(false); setError(""); }}>取消</button>
+          {error && <p role="alert">{error}</p>}
+        </form>}
         {collections.length ? <div className="topics-grid topics-grid-personal">
           {collections.map((topic) => <button type="button" key={topic.id} className="topics-card topics-personal-card"
             onClick={() => showSelection({ kind: "personal", id: topic.id })}>
             <span className="topics-card-heading"><FolderPlus size={21} aria-hidden="true" /><strong>{topic.name}</strong></span>
             <span className="topics-card-description">个人研究资料集合</span><small>{topic.policies.length} 篇文献 <span aria-hidden="true">↗</span></small>
           </button>)}
-        </div> : <div className="topics-empty">尚未创建个人专题。可以点击上方“新建专题”，也可以直接从文献预览添加。</div>}
+        </div> : <div className="topics-empty">尚未创建个人专题。可以点击右侧“新建专题”，也可以直接从文献预览添加。</div>}
         <p className="topics-note">个人专题目前仅保存在此浏览器的本地存储中，清理浏览器数据或更换设备可能导致记录丢失；尚不支持云端同步。</p>
       </section>
     </>}
