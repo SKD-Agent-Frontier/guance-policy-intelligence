@@ -492,6 +492,19 @@ export function PolicyCatalog({
     void loadContent(selectedPlanId, nextOffset);
   };
 
+  const jumpToContentPage = (page: number) => {
+    if (!content || !selectedPlanId || contentLoading || !Number.isInteger(page)) return;
+    const count = Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE));
+    if (page < 1 || page > count) return;
+    const offset = (page - 1) * CONTENT_PAGE_SIZE;
+    if (offset === content.offset) return;
+    // Reset the cursor to exact code-point page boundaries. The frozen text
+    // and citations are still read from the same server-side offsets.
+    setPageOffsets(Array.from({ length: page }, (_, index) => index * CONTENT_PAGE_SIZE));
+    setPageCursor(page - 1);
+    void loadContent(selectedPlanId, offset);
+  };
+
   const jumpToSection = (offset: number) => {
     if (!selectedPlanId) return;
     setPageOffsets([offset]);
@@ -763,13 +776,22 @@ export function PolicyCatalog({
                 {list && detail && !sameVersion(list.dataset, detail.dataset) && (
                   <p className="catalog-version-note">政策信息与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                 )}
-                {(onAddPolicy && onCreateTopic) && <div className="catalog-add-to-topic">
-                  <TopicPicker planid={policy.planid} collections={collections}
-                    onCreate={onCreateTopic} onAdd={addPolicyToCollection} />
-                  {visibleTopics.length > 0 && <span className="catalog-system-topic" title="根据标题推断的系统主题分类">
-                    主题：{visibleTopics.map((topic) => topic.name).join(" · ")}
+                <div className={reading ? "catalog-reader-info-row" : "catalog-preview-info-row"}>
+                  {reading && <div className="catalog-reader-facts" aria-label="政策元数据">
+                    <span>地区：{metadata(policy.area)}</span>
+                    <span>规划时期：{formatPeriod(policy.fyp, policy.year)}</span>
+                    <span>政策类型：{metadata(policy.plantype_label)}</span>
+                    <span>planid：{policy.planid}</span>
+                    {visibleTopics.length > 0 && <span title="根据标题推断的系统主题分类">主题：{visibleTopics.map(topic => topic.name).join(" · ")}</span>}
+                  </div>}
+                  {(onAddPolicy && onCreateTopic) && <div className="catalog-add-to-topic">
+                    <TopicPicker planid={policy.planid} collections={collections}
+                      onCreate={onCreateTopic} onAdd={addPolicyToCollection} />
+                  </div>}
+                  {!reading && visibleTopics.length > 0 && <span className="catalog-system-topic" title="根据标题推断的系统主题分类">
+                    主题：{visibleTopics.map(topic => topic.name).join(" · ")}
                   </span>}
-                </div>}
+                </div>
                 {!reading && <>
                 <dl className="catalog-metadata">
                   <div><dt>地区</dt><dd>{metadata(policy.area)}</dd></div>
@@ -807,7 +829,15 @@ export function PolicyCatalog({
                       <button type="button" onClick={() => changeContentPage(-1)} disabled={contentLoading || pageCursor === 0}>
                         <ArrowLeft size={14} /> 上一页
                       </button>
-                      <span aria-label="原文页码">第 {contentPage} / {contentPageCount} 页</span>
+                      <label className="catalog-page-picker">
+                        第 <select aria-label="跳转原文页码" value={contentPage}
+                          disabled={contentLoading}
+                          onChange={(event) => jumpToContentPage(Number(event.target.value))}>
+                          {Array.from({ length: contentPageCount }, (_, index) =>
+                            <option key={index + 1} value={index + 1}>{index + 1}</option>)}
+                        </select> / {contentPageCount} 页
+                      </label>
+                      <span className="catalog-page-announcement" aria-label="原文页码">第 {contentPage} / {contentPageCount} 页</span>
                       <button type="button" onClick={() => changeContentPage(1)} disabled={contentLoading || !content.has_more || content.text.length === 0}>
                         下一页 <ArrowRight size={14} />
                       </button>
