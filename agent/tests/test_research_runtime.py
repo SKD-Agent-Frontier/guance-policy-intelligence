@@ -3,6 +3,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
+
 from guance_agent.research_contract import (
     PolicyDocument,
     ResearchCoverage,
