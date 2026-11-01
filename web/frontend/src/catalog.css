@@ -918,7 +918,7 @@
 }
 .catalog-chapter-outline button:hover,
 .catalog-chapter-outline button:focus-visible { background: #f9f3f1; }
-.catalog-chapter-depth-0 button { font-weight: 600; color: #443a34; }
+.catalog-chapter-depth-0 button { font-weight: 400; color: #443a34; }
 .catalog-chapter-depth-1 button { padding-left: 22px; }
 .catalog-chapter-depth-2 button { padding-left: 36px; }
 .catalog-chapter-depth-3 button { padding-left: 50px; }
@@ -935,4 +935,24 @@
   font-size: 12px;
   line-height: 1.6;
   white-space: normal;
+}
+
+
+/* Preview-only paper TOC: plain body text with hierarchy via indentation,
+   no dotted leaders, source PDF page numbers, or heading font treatments. */
+.catalog-rich-text .catalog-toc-line {
+  margin: 0 0 5px;
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.catalog-rich-text .catalog-toc-depth-0 { padding-left: 0; }
+.catalog-rich-text .catalog-toc-depth-1 { padding-left: 2em; }
+.catalog-rich-text .catalog-toc-depth-2 { padding-left: 4em; }
+.catalog-chapter-outline button {
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  font-weight: 400;
 }
