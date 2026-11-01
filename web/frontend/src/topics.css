@@ -15,6 +15,10 @@
 .topics-section-heading{display:flex;align-items:baseline;gap:16px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:13px}
 .topics-section-heading h2{font-family:var(--font-display);font-size:25px;font-weight:500;margin:0}
 .topics-section-heading span{color:#9c938f;font-size:12px}
+/* Put the create action at the far right of the personal collection heading. */
+.topics-personal-heading{align-items:center;flex-wrap:wrap}
+.topics-personal-heading .topics-primary-action{margin-left:auto;flex-shrink:0}
+
 .topics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
 .topics-card{display:flex;align-items:flex-start;flex-direction:column;gap:7px;text-align:left;min-width:0;padding:16px 19px;background:#fff;border:1px solid #e8e3df;border-radius:11px;cursor:pointer;transition:background .15s,border .15s,transform .15s}
 .topics-card:hover,.topics-card:focus-visible{background:#fff9f8;border-color:#c9aaa1;transform:translateY(-2px)}
