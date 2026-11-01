@@ -147,20 +147,57 @@ def _completion_payload(result, quality: dict) -> dict:
     }
 
 
+_COMPLETION_STATUS = {
+    "complete": "完整完成",
+    "partial": "部分完成",
+    "insufficient": "证据不足",
+}
+_COMPLETION_GAPS = {
+    "verified_facts_missing": "没有可核验事实",
+    "evidence_insufficient": "证据不足",
+    "claims_removed_or_answer_rebuilt": "引文核验后有结论被删除或答案重建",
+    "audited_report_missing": "缺少经审核的报告",
+    "audited_analysis_missing": "缺少经审核的分析",
+    "object_scope_mismatch": "研究对象范围不一致",
+    "source_excerpts_only": "仅取得原文摘录",
+    "execution_not_completed": "执行未完成",
+    "multi_document_required": "多文献覆盖不足",
+    "evidence_coverage_insufficient": "证据覆盖不足",
+}
+
+
+def _gap_label(gap: str) -> str:
+    if gap in _COMPLETION_GAPS:
+        return _COMPLETION_GAPS[gap]
+    if gap.startswith("dimension_uncovered:"):
+        return "未覆盖维度：" + gap.split(":", 1)[1]
+    if gap.startswith("coverage:target_document_missing:"):
+        return "缺少目标文献 planid=" + gap.rsplit(":", 1)[1]
+    if gap.startswith("coverage:multiple_documents"):
+        return "多文献证据覆盖不足"
+    if gap.startswith("coverage:dimension_uncovered:"):
+        return "未覆盖维度：" + gap.rsplit(":", 1)[1]
+    if gap.startswith("coverage:"):
+        return "覆盖缺口：" + gap.split(":", 1)[1]
+    return gap
+
+
 def _append_completion(result, quality: dict, coverage: dict) -> None:
-    if quality.get("status") == "complete" or "## 研究完成情况" in (result.answer or ""):
+    if quality.get("status") == "complete" or "研究完成情况" in (result.answer or ""):
         return
-    lines = ["", "## 研究完成情况", "", f"- 完成状态：{quality.get('status')}"]
+    status = _COMPLETION_STATUS.get(quality.get("status"), quality.get("status"))
+    lines = ["", "研究完成情况", "", f"完成状态：{status}"]
     if quality.get("missing_dimensions"):
-        lines.append("- 未覆盖维度：" + "、".join(quality["missing_dimensions"]))
+        lines.append("未覆盖维度：" + "、".join(quality["missing_dimensions"]))
     missing_docs = quality.get("missing_planids") or []
     if missing_docs:
-        lines.append("- 缺少有效证据的文献：" + "、".join("planid=" + pid for pid in missing_docs))
+        lines.append("缺少有效证据的文献：" + "、".join("planid=" + pid for pid in missing_docs))
     if coverage.get("multi_document_required") and not coverage.get("multi_document_satisfied"):
-        lines.append("- 多文献要求：尚未形成至少两篇政策各自的有效证据。")
+        lines.append("多文献要求：尚未形成至少两篇政策各自的有效证据。")
     if quality.get("gaps"):
-        lines.append("- 完成度缺口：" + "、".join(quality["gaps"][:8]))
-    lines.append("- 说明：以上仅基于本轮已核验事实；未找到某项内容不代表政策中不存在该项内容。")
+        labels = list(dict.fromkeys(_gap_label(gap) for gap in quality["gaps"]))
+        lines.append("完成度缺口：" + "、".join(labels[:8]))
+    lines.append("说明：以上仅基于本轮已核验事实；未找到某项内容不代表政策中不存在该项内容。")
     result.answer = (result.answer or "").rstrip() + "\n" + "\n".join(lines) + "\n"
 
 

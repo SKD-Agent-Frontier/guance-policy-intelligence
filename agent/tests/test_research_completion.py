@@ -66,7 +66,9 @@ def test_removed_claims_force_partial_and_delivery_explains_gap():
     assert "claims_removed_or_answer_rebuilt" in quality["gaps"]
     deliver_research(result, "某政策的产业扶持是什么")
     assert result.meta["research_completion"]["status"] == "partial"
-    assert "## 研究完成情况" in result.answer
+    assert "研究完成情况" in result.answer
+    assert "## 研究完成情况" not in result.answer
+    assert "引文核验后有结论被删除" in result.answer
 
 
 def test_scope_mismatch_removes_wrong_policy_claims():
@@ -105,7 +107,7 @@ def test_correct_single_document_completion_stays_complete():
         result, "某政策的产业扶持是什么？", ctx)
     quality = evaluate(result, "某政策的产业扶持是什么？")
     assert quality["status"] == "complete"
-    assert "## 研究完成情况" not in (deliver_research(result, "某政策的产业扶持是什么？") or result.answer)
+    assert "研究完成情况" not in (deliver_research(result, "某政策的产业扶持是什么？") or result.answer)
 
 
 def test_no_claims_is_insufficient_not_complete():
