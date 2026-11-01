@@ -262,6 +262,7 @@ export interface PolicyDetailResponse {
     plantype_label: string | null;
     body_chars: number;
     body_status?: "available" | "missing" | "suspected_garbled";
+    printed_toc?: [number, number] | null;
     sections: PolicySection[];
   };
 }
