@@ -63,7 +63,7 @@ export function Sidebar({ conversations, activeId, collapsed, mobileOpen, onExpa
       {!isCollapsed && <>
         <div className="sidebar-section-title" ref={historyHeadingRef} tabIndex={-1}><span>最近研究</span><span className="sidebar-session-count">{history.length}</span></div>
         <div className="sidebar-history">
-          {history.length === 0 ? <div className="sidebar-empty">本次会话中的研究会显示在这里</div> : history.map((conversation) => <button key={conversation.id} type="button" className={`history-link ${conversation.id === activeId ? "is-current" : ""}`} title={conversation.title} onClick={() => closeAnd(() => onSelect(conversation.id))}>
+          {history.map((conversation) => <button key={conversation.id} type="button" className={`history-link ${conversation.id === activeId ? "is-current" : ""}`} title={conversation.title} onClick={() => closeAnd(() => onSelect(conversation.id))}>
             <span className="history-type">{names[conversation.mode]}{conversation.busy !== "idle" ? " · 处理中" : ""}</span>
             <span className="history-question">{conversation.title || "新建研究"}</span>
           </button>)}
