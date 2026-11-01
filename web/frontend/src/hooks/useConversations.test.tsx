@@ -16,6 +16,7 @@ vi.mock("../api/client", () => ({
     }
   },
   validatePreparationResponse: (response: unknown) => response,
+  isRealMode: true,
   researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
 
