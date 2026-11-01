@@ -53,6 +53,13 @@ def test_health_reports_http_readiness_only(client):
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "guance-web-api"}
+    # Liveness is not proof of real model + real corpus availability.
+    readiness = client.get("/api/readiness")
+    assert readiness.status_code == 503
+    assert readiness.json()["status"] == "not_ready"
+    assert readiness.json()["checks"] == {
+        "model": "unconfigured", "knowledge_base": "not_real_ready",
+    }
 
 
 @pytest.mark.parametrize(
@@ -515,3 +522,23 @@ def test_research_prepare_cors_uses_existing_allowlist(client):
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_readiness_uses_real_configuration_not_model_network_probe(monkeypatch, tmp_path):
+    settings = Settings(
+        kb_backend="rag", rag_store_project=str(tmp_path / "rag"),
+        llm_base_url="https://example.test/v1", llm_api_key="synthetic-not-real",
+        run_log=tmp_path / "runs.jsonl", session_path=tmp_path / "sessions.sqlite",
+    )
+    monkeypatch.setattr(api, "warm_up", lambda _: None)
+    monkeypatch.setattr(api, "close_kb", lambda: None)
+    monkeypatch.setattr(api, "aclose_client", AsyncMock())
+    with TestClient(api.create_app(settings=settings)) as client:
+        response = client.get("/api/readiness")
+        assert response.status_code == 200
+        assert response.json()["checks"] == {
+            "model": "configured", "knowledge_base": "real_ready",
+        }
+        # A configured endpoint can still be unreachable: never label this
+        # result as a live model canary or successful policy answer.
+        assert "不等于" in response.json()["note"]
