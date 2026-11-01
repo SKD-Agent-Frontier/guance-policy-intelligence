@@ -218,6 +218,24 @@ describe("cross-document archival formatting regressions", () => {
     expect(container.textContent).toBe(line);
   });
 
+  it("separates long policy prose absorbed by the first table header", () => {
+    const prose = "推进服务业供给侧结构性调整，改善服务供给质量。".repeat(18)
+      + "金昌市“十四五”服务业发展主要指标 ";
+    const original = [
+      "| " + prose + "类别 | 指标 | 2020年 | 2025年 | 年均增长（%） |",
+      "| --- | --- | --- | --- | --- |",
+      "| 产业规模目标 | 服务业增加值（亿元） | 102.10 | 143 | 7 |",
+    ].join("\n");
+    const { container } = render(<PolicyRichText planid="22135" softWrap text={original} />);
+    expect(container.querySelectorAll(".catalog-prose").length).toBeGreaterThan(1);
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "类别" })).toBeInTheDocument();
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(5);
+    expect(within(table).getByRole("cell", { name: "102.10" })).toBeInTheDocument();
+    expect(table.textContent).not.toContain("推进服务业供给侧");
+    expect(container.textContent).toContain("金昌市“十四五”服务业发展主要指标");
+  });
+
   it("does not discard long original table cells or invent numeric columns", () => {
     const source = [
       "| 类别 | 指标 | 2020年 | 2025年 | 年均增长（%） |",
