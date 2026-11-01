@@ -268,3 +268,22 @@ async def test_catalog_region_scope_fails_closed_for_unknown_or_mismapped_peer()
     )
     assert rejected.status == "insufficient"
     assert rejected.reason_code == "catalog_evidence_missing"
+
+
+@pytest.mark.asyncio
+async def test_collective_peer_gap_keeps_verified_anchor_and_reports_no_comparison():
+    """One real city plan may be identified without inventing missing peers."""
+    selected = catalog(record("h1", "衡水市"))
+    request = task("compare", None,
+                   "与河北省其他地市相比，衡水市在十三五规划的产业结构目标有什么特点？")
+    contract = TaskContract.from_task(request)
+    discovery = await discover_run_plan(
+        request, contract, ResearchPlanner.initial(contract),
+        time.monotonic() + 10, selected,
+    )
+    assert discovery.status == "insufficient"
+    assert discovery.reason_code == "insufficient_document_coverage"
+    assert [doc.planid for doc in discovery.plan.documents] == ["h1"]
+    assert discovery.plan.documents[0].source_verified
+    assert discovery.plan.coverage.subject_gaps
+    assert "不能据此得出跨地市比较结论" in discovery.message
