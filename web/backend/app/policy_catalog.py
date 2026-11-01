@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .policy_format import read_original_html_headings
-from .policy_quality import body_status
 from .policy_preview import search_preview
+from .policy_quality import body_status
 
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 IMAGE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,160}\Z")
