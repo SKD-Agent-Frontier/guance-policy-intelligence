@@ -75,6 +75,17 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         if part.status != "completed" or part.error:
             meta["status"] = "no_verified_output"
             return
+        if controlled:
+            # A source present in the shared registry is NOT newly retrieved
+            # evidence. Only this controlled follow-up's read chunks qualify.
+            fresh = set(rt.meta.get("qa_controlled_retrieval", {}).get("read_chunks", []))
+            part.claims = [claim for claim in part.claims
+                           if claim.chunk_ids and set(claim.chunk_ids) <= fresh]
+            part.evidence_refs = [ref for ref in part.evidence_refs
+                                  if ref.chunk_id in fresh]
+            if not part.claims:
+                meta["status"] = "no_new_read_claims"
+                return
         remaining = max(0.1, min(8.0, deadline - time.monotonic() - 35))
         await asyncio.wait_for(verify_quotes(part, ctx), timeout=remaining)
         remaining = max(0.1, min(8.0, deadline - time.monotonic() - 35))
