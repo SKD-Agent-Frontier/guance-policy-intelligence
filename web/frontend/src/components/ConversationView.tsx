@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { Check, Copy, Pencil, RotateCcw } from "lucide-react";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
+import { containsInternalStatus } from "./resultDisplay";
 import { EvidenceOriginalReader, SourceHoverCard } from "./EvidenceOriginalReader";
 import type { AdvancedDraft, Conversation, ConversationMessage } from "../conversationTypes";
 import type { EvidenceRef, ResearchRequest, RunResult, TaskType } from "../types";
@@ -325,17 +326,19 @@ function ResultMessage({
   const failed = result.status !== "completed";
   const code = result.error?.code || (result.status === "limit_reached" ? "LIMIT_REACHED" : "EXECUTION_FAILED");
   const reason = result.error?.message || result.answer || "研究任务未能完成。";
+  // Raw delivery state / gap codes belong to diagnostics, not to the reader-facing notes.
+  const visibleWarnings = (result.warnings ?? []).filter((warning) => !containsInternalStatus(warning));
   return <article className="conversation-message result-message" data-result-message-id={message.id}>
     <div ref={bodyRef} className="result-message-body">
       {failed ? <ResearchFailureCard code={code} text={reason} />
         : <Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} />}
     </div>
-    {(result.evidence_status !== "verified" || result.warnings?.length > 0 || (!failed && result.error)) && (
+    {(result.evidence_status !== "verified" || visibleWarnings.length > 0 || (!failed && result.error)) && (
       <details className="result-followup-notes">
         <summary>研究提示与核验信息</summary>
         {result.evidence_status !== "verified" && <p>本轮未形成足够的可核验证据，不能据此判断政策不存在。</p>}
         {!failed && result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
-        {result.warnings?.length > 0 && <ul>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+        {visibleWarnings.length > 0 && <ul>{visibleWarnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
       </details>
     )}
     <MessageActions contentRef={bodyRef}

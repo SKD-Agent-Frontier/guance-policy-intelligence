@@ -142,12 +142,12 @@ describe("conversation simplification and original source reader", () => {
 
   it("hides completed preparation, mode selector, local note, and status prelude", () => {
     renderCompleted();
-    expect(screen.getByRole("heading", { name: "研究结论" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "研究结果" })).toBeVisible();
     expect(document.querySelector(".results-content--qa .results-kicker")).toBeNull();
     expect(screen.queryByText("结论与本次检索到的原文逐条关联。")).not.toBeInTheDocument();
     expect(screen.getByText("依据与引句")).toBeInTheDocument();
-    expect(screen.getByText("1 条结论")).toBeInTheDocument();
-    expect(document.querySelector(".qa-claims .results-section-title > span:last-child")).toHaveTextContent("1 条结论");
+    expect(screen.getByText("1 条事实 · 1 篇文献")).toBeInTheDocument();
+    expect(document.querySelector(".qa-claims .results-section-title > span:last-child")).toHaveTextContent("1 条事实 · 1 篇文献");
     expect(screen.queryByText("研究请求已准备完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
     expect(screen.queryByText("正式研究结果")).not.toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("conversation simplification and original source reader", () => {
       offset: 0, limit: 4000, total_chars: 10, has_more: false, text: "真实政策正文",
     } as never);
     renderCompleted();
-    const original = screen.getByRole("button", { name: "原文 1" });
+    const original = screen.getByRole("button", { name: "查看原文" });
     vi.useFakeTimers();
     fireEvent.mouseOver(original);
     await act(async () => { vi.advanceTimersByTime(200); });
@@ -187,7 +187,46 @@ describe("conversation simplification and original source reader", () => {
     expect(catalogClient.detail).toHaveBeenCalledWith("P-1", expect.any(AbortSignal));
     expect(catalogClient.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
     fireEvent.click(screen.getByRole("button", { name: "返回研究对话" }));
-    expect(screen.getByRole("heading", { name: "研究结论" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "研究结果" })).toBeInTheDocument();
+  });
+
+  it("keeps internal research status and engineering prompts out of the reader-facing result", () => {
+    const base = completedConversation();
+    const result: RunResult = {
+      ...completed,
+      answer: [
+        "根据本轮已读政策原文，可提取以下具有逐字引文的事实。是否足以回应全部研究要求仍需单独评估：",
+        "- 相关结论",
+        "",
+        "研究完成情况",
+        "",
+        "完成状态：部分完成",
+        "完成度缺口：claims_removed_or_answer_rebuilt",
+      ].join("\n"),
+      meta: {
+        research_quality: { status: "partial" },
+        research_completion: { status: "partial", gaps: ["claims_removed_or_answer_rebuilt"] },
+        research_delivery: { status: "partial" },
+      },
+      warnings: ["部分结论未通过核验。", "完成度缺口：claims_removed_or_answer_rebuilt"],
+    };
+    const conversation: Conversation = {
+      ...base,
+      messages: base.messages.map((message) => message.kind === "result" ? { ...message, result } : message),
+    };
+    render(<ConversationView conversation={conversation} onModeChange={vi.fn()} onSend={vi.fn()}
+      onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()}
+      onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "研究结果" })).toBeVisible();
+    expect(screen.queryByText(/研究结果（部分）/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/根据本轮已读政策原文/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/研究完成情况/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/claims_removed_or_answer_rebuilt/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/partial/)).not.toBeInTheDocument();
+    // Readable notes stay in the collapsed diagnostics area; raw gap codes do not.
+    expect(screen.getByText("研究提示与核验信息")).toBeInTheDocument();
+    expect(screen.getByText("部分结论未通过核验。")).toBeInTheDocument();
   });
   it("shows copy and regenerate beneath the agent answer, and copy and edit beneath user text", () => {
     const onRegenerate = vi.fn();

@@ -194,7 +194,7 @@
   font-size: 11px;
   font-weight: 450;
 }
-/* QA evidence heading uses the same display typography as 研究结论. */
+/* QA evidence heading uses the same display typography as 研究结果. */
 .qa-claims .results-section-title {
   flex-wrap: wrap;
   align-items: baseline;
@@ -229,6 +229,251 @@
   color: #a29a96;
   font-family: var(--font-display);
   font-size: 12px;
+}
+
+/* One merged card per policy document. The card header owns the single primary
+   original-text entry; facts stay readable and evidence details stay expandable. */
+.qa-evidence-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.qa-source-card {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.qa-source-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 17px;
+  border-bottom: 1px solid var(--border);
+  background: #faf8f7;
+}
+
+.qa-source-identity {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.qa-source-identity > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.qa-source-identity > div {
+  min-width: 0;
+}
+
+.qa-source-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.qa-source-meta {
+  margin: 4px 0 0;
+  color: #8a837f;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.qa-source-open {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.qa-source-missing {
+  flex: 0 0 auto;
+  align-self: center;
+  color: #a29a96;
+  font-size: 11px;
+}
+
+.qa-source-facts {
+  margin: 0;
+  padding: 3px 17px 13px;
+  list-style: none;
+}
+
+.qa-source-fact {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px dashed #ece6e2;
+}
+
+.qa-source-fact:first-child {
+  border-top: 0;
+}
+
+.qa-source-fact-index {
+  padding-top: 2px;
+  color: #a29a96;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.qa-source-fact-body p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qa-source-fact-dimension {
+  display: inline-block;
+  margin-top: 5px;
+  color: #8f514e;
+  font-size: 10px;
+}
+
+.qa-source-evidence {
+  border-top: 1px solid var(--border);
+  padding: 0 17px 2px;
+}
+
+.qa-source-evidence > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 0;
+  color: #6f6865;
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+  user-select: none;
+}
+
+.qa-source-evidence > summary::-webkit-details-marker {
+  display: none;
+}
+
+.qa-source-evidence > summary::before {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: #8a837f;
+  content: "+";
+  font-size: 11px;
+  line-height: 1;
+}
+
+.qa-source-evidence[open] > summary::before {
+  content: "−";
+}
+
+.qa-source-evidence > summary:hover {
+  color: var(--ink);
+}
+
+.qa-source-evidence-list {
+  display: grid;
+  gap: 11px;
+  padding: 0 0 13px;
+}
+
+.qa-source-evidence-item {
+  padding: 11px 12px;
+  border: 1px solid #efe9e5;
+  border-radius: 7px;
+  background: #fbf9f8;
+}
+
+.qa-source-evidence-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #8a837f;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.qa-source-evidence-item blockquote {
+  margin: 0 0 7px;
+  padding: 8px 10px;
+  border-left: 2px solid rgb(178 41 36 / 32%);
+  background: #fff;
+}
+
+.qa-source-evidence-item blockquote p {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 12px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+
+.qa-source-evidence-empty {
+  margin: 0;
+  color: #a29a96;
+  font-size: 11px;
+}
+
+.qa-source-chunks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qa-source-chunk {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: #615a57;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  text-align: left;
+}
+
+.qa-source-chunk > span {
+  overflow: hidden;
+  max-width: 180px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-source-chunk code {
+  color: #a29a96;
+  font-size: 9px;
+}
+
+.qa-source-chunk:hover {
+  border-color: rgb(178 41 36 / 45%);
+  color: var(--accent);
+}
+
+.qa-source-chunk--missing {
+  border-style: dashed;
+  color: #a29a96;
+  cursor: default;
 }
 
 .result-fact p {
@@ -1115,6 +1360,29 @@
   .qa-claim {
     grid-template-columns: 24px minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .qa-source-head {
+    flex-direction: column;
+    gap: 10px;
+    padding: 13px 14px;
+  }
+
+  .qa-source-open {
+    align-self: flex-start;
+  }
+
+  .qa-source-facts {
+    padding: 2px 14px 11px;
+  }
+
+  .qa-source-fact {
+    grid-template-columns: 23px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .qa-source-evidence {
+    padding: 0 14px 2px;
   }
 
   .organize-group {
