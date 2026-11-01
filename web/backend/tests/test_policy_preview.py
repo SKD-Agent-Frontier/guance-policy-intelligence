@@ -1,6 +1,6 @@
 """Search cards have readable previews without changing literal evidence."""
-from app.policy_preview import search_preview
 from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
+from app.policy_preview import search_preview
 
 
 def test_first_title_hit_does_not_duplicate_heading_in_preview():
