@@ -37,6 +37,7 @@ from .qa_analysis import finalize_qa_analysis
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
 from .research_delivery import deliver_research, draft_verified_report
+from .research_fallback import recover_empty_search_failure, recover_read_excerpts
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_runtime import ResearchRuntime
 from .research_supplement import supplement_one
@@ -579,6 +580,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                         result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
                     else:
                         result = await _run_single(planned_task, s, ctx, rt, deadline, decision)
+                    if task.task_type == "qa" and result.status == "failed":
+                        # Only RAG-verified original excerpts can survive model failure.
+                        recovered = await recover_read_excerpts(result, ctx, deadline)
+                        if not recovered:
+                            recover_empty_search_failure(result, ctx)
                     if result.status == "failed":
                         research_runtime.set_step_status("execute", "failed",
                                                          result.error.message if result.error else "执行失败")
@@ -620,6 +626,16 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                     research_runtime.transition("verifying")
                     research_runtime.set_step_status("verify", "running")
             result.task_type = task.task_type
+            if task.task_type == "qa" and not result.meta.get("llm"):
+                calls = list(getattr(rt.hooks, "usage_per_call", []) or [])
+                if calls:
+                    result.meta["llm"] = {
+                        "model_calls": len(calls),
+                        "input_tokens": sum(item.get("input") or 0 for item in calls),
+                        "output_tokens": sum(item.get("output") or 0 for item in calls),
+                        "per_call": calls,
+                        "parse": "ok" if result.status == "completed" else "failed",
+                    }
             if result.status == "completed" and module is None:
                 try:
                     await asyncio.wait_for(verify_quotes(result, ctx),
