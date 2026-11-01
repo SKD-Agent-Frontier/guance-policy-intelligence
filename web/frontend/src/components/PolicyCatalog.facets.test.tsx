@@ -297,7 +297,7 @@ describe("PolicyCatalog facet integration", () => {
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期：unclassified");
     expect(screen.getByLabelText("已应用筛选条件")).not.toHaveTextContent("fyp_status");
 
-    await user.click(within(fypRow()).getByRole("button", { name: "其它 1" }));
+    await user.click(within(fypRow()).getByRole("button", { name: "其他 1" }));
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ fyp_status: "unclassified", year: "unknown", ...pin }), expect.any(AbortSignal)));
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期状态：未提供");
 
@@ -305,7 +305,7 @@ describe("PolicyCatalog facet integration", () => {
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ plantype: "unclassified", fyp_status: "unclassified", ...pin }), expect.any(AbortSignal)));
     expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("plantype_status");
 
-    expect(within(plantypeRow()).queryByRole("button", { name: "其它 0" })).not.toBeInTheDocument();
+    expect(within(plantypeRow()).queryByRole("button", { name: "其他 0" })).not.toBeInTheDocument();
   });
 
   it("pins repeated facet requests and does not restart the one-row bootstrap list after applying filters", async () => {
