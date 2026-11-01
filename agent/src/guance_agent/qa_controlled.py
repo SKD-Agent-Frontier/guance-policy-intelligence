@@ -87,7 +87,8 @@ def requested_area(decision, question: str) -> str | None:
     return None
 
 
-async def acquire(task, ctx, deadline: float) -> list[dict]:
+async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
+                  exclude_chunks: frozenset[str] = frozenset()) -> list[dict]:
     """Search and then read in the same trusted scope, with a fixed evidence cap."""
     decision = ctx.route
     scope = ctx.scope
@@ -104,7 +105,10 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
     research = requirements(task.question)["needs_report"]
     read_limit = MAX_READS if research else SIMPLE_READS
     groups = []
-    for query in search_queries(task.question, getattr(decision, "sub_query", None)):
+    queries = search_queries(task.question, getattr(decision, "sub_query", None))
+    if focus:
+        queries = list(dict.fromkeys([focus[:70]] + queries))[:MAX_QUERIES]
+    for query in queries:
         if deadline - time.monotonic() < 55:
             break
         reply = json.loads(await _call(
@@ -124,7 +128,7 @@ async def acquire(task, ctx, deadline: float) -> list[dict]:
             if offset >= len(group):
                 continue
             hit = group[offset]
-            if hit["chunk_id"] not in seen_chunks:
+            if hit["chunk_id"] not in seen_chunks and hit["chunk_id"] not in exclude_chunks:
                 seen_chunks.add(hit["chunk_id"])
                 found.append(hit)
     if scope is None:
@@ -202,11 +206,14 @@ def _usage(response) -> dict:
             "per_call": [entry]}
 
 
-async def execute_controlled(task, s, ctx, rt, deadline: float) -> ExecOutcome:
+async def execute_controlled(task, s, ctx, rt, deadline: float, *,
+                             focus: str | None = None,
+                             exclude_chunks: frozenset[str] = frozenset()) -> ExecOutcome:
     """Retrieve deterministically then perform at most one answer-model request."""
     rt.meta["qa_execution_mode"] = "bounded_retrieval"
     try:
-        evidence = await acquire(task, ctx, deadline)
+        evidence = await acquire(task, ctx, deadline, focus=focus,
+                                 exclude_chunks=exclude_chunks)
     except (ValueError, TypeError, KeyError) as exc:
         rt.log("qa_controlled_retrieval_error", kind=type(exc).__name__)
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
