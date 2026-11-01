@@ -390,6 +390,67 @@ def test_policy_media_serves_only_cited_images(client, tmp_path):
     assert client.get("/api/policies/10001/media/Chart.PNG").status_code == 404
 
 
+
+def test_media_uses_clean_corpus_chinese_partitions_first(client, tmp_path):
+    """The actual cleaned corpus is named corpus（代表性样本）/edge_cases（边界压力样本）."""
+    clean = tmp_path / "语料库" / "样例数据（干净版）"
+    standard = tmp_path / "语料库" / "Agent标准引用库"
+    clean_path = clean / "corpus（代表性样本）" / "10001" / "media" / "image1.png"
+    standard_path = standard / "corpus" / "10001" / "media" / "image1.png"
+    clean_path.parent.mkdir(parents=True)
+    standard_path.parent.mkdir(parents=True)
+    payload = b"\\x89PNG\\r\\n\\x1a\\n" + b"clean-source"
+    clean_path.write_bytes(payload)
+    standard_path.write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"reference-source")
+    original = _snapshot()
+    records = tuple(
+        PolicyRecord(**{**record.__dict__,
+                        "body": record.body + "\\n![图1](media/image1.png)"})
+        if record.planid == "10001" else record
+        for record in original.records
+    )
+    client.app.state.policy_catalog = PolicyCatalogService(
+        CatalogSnapshot(generation_id="generation-test", revision=3, partial=True,
+                        records=records, media_roots=(clean, standard))
+    )
+    response = client.get("/api/policies/10001/media/image1.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == payload
+    assert client.get("/api/policies/10002/media/image1.png").status_code == 404
+    assert client.get("/api/policies/10001/media/not-cited.png").status_code == 404
+    clean_path.unlink()
+    fallback = client.get("/api/policies/10001/media/image1.png")
+    assert fallback.status_code == 200
+    assert fallback.content == standard_path.read_bytes()
+
+
+def test_media_uses_clean_edge_case_partition_without_cross_policy_fallback(client, tmp_path):
+    clean = tmp_path / "样例数据（干净版）"
+    media = clean / "edge_cases（边界压力样本）" / "10001" / "media"
+    media.mkdir(parents=True)
+    (media / "chart.jpeg").write_bytes(b"\\xff\\xd8\\xff" + b"original-chart")
+    original = _snapshot()
+    records = tuple(
+        PolicyRecord(**{**record.__dict__,
+                        "body": record.body + "\\n![图表](media/chart.jpeg)"})
+        if record.planid == "10001" else record
+        for record in original.records
+    )
+    client.app.state.policy_catalog = PolicyCatalogService(
+        CatalogSnapshot(generation_id="generation-test", revision=3, partial=True,
+                        records=records, media_roots=(clean,))
+    )
+    assert client.get("/api/policies/10001/media/chart.jpeg").content == (
+        b"\\xff\\xd8\\xff" + b"original-chart"
+    )
+    (media / "chart.jpeg").unlink()
+    # Same filename under another planid must never be substituted.
+    other_media = clean / "corpus（代表性样本）" / "10002" / "media"
+    other_media.mkdir(parents=True)
+    (other_media / "chart.jpeg").write_bytes(b"\\xff\\xd8\\xff" + b"wrong-document")
+    assert client.get("/api/policies/10001/media/chart.jpeg").status_code == 404
+
 def test_policy_media_rejects_renamed_nonimages(client, tmp_path):
     media = tmp_path / "10001" / "media"
     media.mkdir(parents=True)
