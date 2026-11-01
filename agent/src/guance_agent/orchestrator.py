@@ -37,9 +37,9 @@ from .qa_analysis import finalize_qa_analysis
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
 from .research_delivery import deliver_research, draft_verified_report
-from .research_supplement import supplement_one
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_runtime import ResearchRuntime
+from .research_supplement import supplement_one
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
