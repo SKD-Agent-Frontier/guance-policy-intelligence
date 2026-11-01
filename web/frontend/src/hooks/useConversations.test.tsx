@@ -99,7 +99,7 @@ describe("useConversations", () => {
 
     await act(async () => { await result.current.send("数字经济"); });
     expect(mockedClient.submit).not.toHaveBeenCalled();
-    expect(mockedClient.prepare).toHaveBeenNthCalledWith(1, { mode: "qa", message: "数字经济" });
+    expect(mockedClient.prepare).toHaveBeenNthCalledWith(1, { mode: "qa", message: "数字经济", autonomous: true });
     act(() => result.current.setMode("qa"));
     expect(result.current.active?.preparation?.state.state_id).toBe("opaque-state");
 
@@ -107,6 +107,7 @@ describe("useConversations", () => {
     expect(mockedClient.prepare).toHaveBeenNthCalledWith(2, {
       mode: "qa",
       message: "产业政策",
+      autonomous: true,
       state: { state_id: "opaque-state", revision: 0 },
     });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
@@ -458,7 +459,7 @@ describe("useConversations", () => {
     });
     expect(result.current.active?.messages.filter((item) => item.kind === "result")).toHaveLength(1);
     expect(mockedClient.prepare).toHaveBeenLastCalledWith({
-      mode: "qa", message: "修订后的第一轮问题",
+      mode: "qa", message: "修订后的第一轮问题", autonomous: true,
     });
   });
 
