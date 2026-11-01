@@ -11,6 +11,32 @@ from .policy_catalog import PolicyCatalogService
 from .research_planning import resolve_research_internal
 
 
+def _catalog_region_within_scope(catalog: PolicyCatalogService, record, allowed_areas: list[str]) -> bool:
+    """Verify record location against user geography using catalog lineage, not city strings.
+
+    Province-level bounds cover verified descendants. A record with no reliable
+    mapping may only satisfy an exact explicit region name, never a claimed
+    parent/child relationship based on text similarity.
+    """
+    if not allowed_areas:
+        return True
+    mapping = (catalog.region_mapping or {}).get(record.planid) or {}
+    code = mapping.get("region_code") if mapping.get("region_status") == "mapped" else None
+    if code and code in catalog._region_nodes:
+        node = catalog._region_nodes[code]
+        # Disagreement between the mapped administrative name and the original
+        # record is not sufficient to assert a scope match.
+        if record.area and node["name"] != record.area:
+            return False
+        while code is not None:
+            ancestor = catalog._region_nodes.get(code)
+            if ancestor and ancestor["name"] in allowed_areas:
+                return True
+            code = catalog._region_parent.get(code)
+        return False
+    return bool(record.area and record.area in allowed_areas)
+
+
 async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
                            deadline: float, catalog: PolicyCatalogService) -> ResearchDiscovery:
     """Use the frozen catalog within the same run deadline; IDs are never model-created."""
@@ -66,6 +92,18 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
             "generation_id": catalog.snapshot.generation_id,
             "source": "policy_catalog",
         })
+    # Do not validate regions by copying discovered city names into user
+    # scope. Check the catalog's verified parent chain before binding any plan.
+    if trusted and contract.scope.areas:
+        out_of_scope = [entry["planid"] for entry in trusted
+                        if not _catalog_region_within_scope(
+                            catalog, records[entry["planid"]], contract.scope.areas)]
+        if out_of_scope:
+            return ResearchPlanner.with_catalog_documents(
+                contract, plan, [], status="insufficient",
+                reason_code="catalog_evidence_missing",
+                message="发现的政策文献地区与用户指定的研究范围不一致，已停止执行。",
+            )
     if task.targets is not None:
         trusted_ids = {record["planid"] for record in trusted}
         if not set(task.targets) <= trusted_ids:
