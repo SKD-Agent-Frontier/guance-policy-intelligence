@@ -3,7 +3,7 @@ import { apiBaseUrl } from "../api/config";
 import type { PolicySection } from "../types";
 
 /** Whitelisted local media basename; never render remote or arbitrary file paths. */
-const IMAGE_LINK = /^\s*!\[([^\]]*)\]\s*\(\s*media\/([A-Za-z0-9_.-]+)(?:\s+"[^"]*")?\s*\)\s*$/i;
+const IMAGE_LINK = /^\s*!\[([^\]]*)\]\s*\(\s*(?:<media\/([A-Za-z0-9_.-]+)>|media\/([A-Za-z0-9_.-]+))(?:\s+"[^"]*")?\s*\)\s*$/i;
 const MARKDOWN_HEADING = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/;
 const SECTION = /^(?:第[一二三四五六七八九十百千0-9]+[章节篇部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十0-9]+[）)]|\d+[、．.]\s*|[-*•]\s+)/;
 type HeadingLevel = 2 | 3 | 4 | 5 | 6;
@@ -402,7 +402,8 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     const image = IMAGE_LINK.exec(line);
     if (image) {
       flushProse();
-      blocks.push(<PolicyImage key={`${planid}:${image[2]}:${key++}`} planid={planid} alt={image[1]} name={image[2]} />);
+      const filename = image[2] || image[3];
+      blocks.push(<PolicyImage key={`${planid}:${filename}:${key++}`} planid={planid} alt={image[1]} name={filename} />);
       index++;
       continue;
     }

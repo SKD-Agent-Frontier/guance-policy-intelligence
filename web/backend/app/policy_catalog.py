@@ -747,8 +747,14 @@ class PolicyCatalogService:
         mime = IMAGE_TYPES.get(Path(filename).suffix.lower())
         if mime is None:
             raise InvalidParameter("不支持的图片类型")
-        reference = re.compile(r'!\[[^\]\n]{0,200}\]\s*\(\s*media/' + re.escape(filename)
-                               + r'(?:\s+"[^"]*")?\s*\)', re.IGNORECASE)
+        # Markdown permits both media/file.png and <media/file.png>. Keep
+        # paths policy-local and never loosen the allowed filename pattern.
+        local_target = re.escape(filename)
+        reference = re.compile(
+            r'!\[[^\]\n]{0,200}\]\s*\(\s*(?:<media/' + local_target
+            + r'>|media/' + local_target + r')(?:\s+"[^"]*")?\s*\)',
+            re.IGNORECASE,
+        )
         if not reference.search(record.body):
             raise LookupError("原文没有引用此图片")
         for root in self.snapshot.media_roots:

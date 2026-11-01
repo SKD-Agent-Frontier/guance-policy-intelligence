@@ -259,6 +259,20 @@ describe("policy source rich-text rendering", () => {
     expect(screen.getByRole("note")).toHaveTextContent("原文引用的图3未收录对应图片文件");
   });
 
+  it("renders bracketed Markdown media targets from the unchanged policy source", () => {
+    render(<PolicyRichText planid="25743" text={[
+      "![原文配图（原件第69页）](<media/figure_page_069.png>)",
+      "![合法本地图片](media/chart.jpeg)",
+      "![非法路径](<media/../escape.png>)",
+      "![远程资源](<https://example.test/image.png>)",
+    ].join("\n")} />);
+    const figure = screen.getByRole("img", { name: "原文配图（原件第69页）" });
+    expect(figure.getAttribute("src")).toContain("/api/policies/25743/media/figure_page_069.png");
+    expect(screen.getByRole("img", { name: "合法本地图片" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "非法路径" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "远程资源" })).not.toBeInTheDocument();
+  });
+
   it("resets a previous missing-image state when switching policy documents", () => {
     const { rerender } = render(<PolicyRichText planid="10001" text="![图1](media/image1.png)" />);
     fireEvent.error(screen.getByRole("img", { name: "图1" }));
