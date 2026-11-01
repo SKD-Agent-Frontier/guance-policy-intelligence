@@ -66,17 +66,20 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
     </form>}
 
     {selected && (theme || personal) ? <div className="topics-detail">
-      <button type="button" className="topics-back" onClick={() => showSelection(null)}><ArrowLeft size={15} /> 返回全部专题</button>
-      <div className="topics-detail-topline">
-        <div><span>{theme ? "系统主题分类 · 标题归类" : "我的专题 · 本地保存"}</span>
-          <h2>{theme?.name || personal?.name}</h2>
-          {theme && <p>{theme.description}</p>}
+      <div className="topics-detail-sticky-header">
+        <button type="button" className="topics-back" onClick={() => showSelection(null)}><ArrowLeft size={15} /> 返回全部专题</button>
+        <div className="topics-detail-topline">
+          <div>
+            {personal && <span>我的专题 · 本地保存</span>}
+            <h2>{theme?.name || personal?.name}</h2>
+            {theme && <p>{theme.description}</p>}
+          </div>
+          {personal && <button className="topics-destructive" type="button" onClick={() => {
+            if (window.confirm(`确定删除专题“${personal.name}”？该操作不会删除政策库中的原文。`)) {
+              onDelete(personal.id); showSelection(null);
+            }
+          }}><Trash2 size={15} /> 删除专题</button>}
         </div>
-        {personal && <button className="topics-destructive" type="button" onClick={() => {
-          if (window.confirm(`确定删除专题“${personal.name}”？该操作不会删除政策库中的原文。`)) {
-            onDelete(personal.id); showSelection(null);
-          }
-        }}><Trash2 size={15} /> 删除专题</button>}
       </div>
       <div className="topics-document-tools"><strong>{documents.length} 篇文献</strong>
         <input type="search" aria-label="搜索专题内文献" value={filter}
