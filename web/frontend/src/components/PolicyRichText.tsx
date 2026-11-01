@@ -274,8 +274,8 @@ function TableBlock({ headers, rows, caption, headerless = false }: {
 /** Visual-only recovery for OCR paragraphs flattened to a single huge line.
  * Split on actual sentence boundaries; never insert or delete policy words.
  * Short authentic paragraphs and Markdown tables remain untouched. */
-export function readablePolicyParagraphs(text: string, softWrap: boolean): string[] {
-  if (!softWrap || Array.from(text).length < 320) return [text];
+export function readablePolicyParagraphs(text: string, softWrap: boolean, minimumLength = 320): string[] {
+  if (!softWrap || Array.from(text).length < minimumLength) return [text];
   const sentences = text.match(/[^。！？；]+[。！？；]?/g) ?? [text];
   if (sentences.length < 3) return [text];
   const paragraphs: string[] = [];
@@ -362,8 +362,8 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
   let key = 0;
-  const showRecoveredProse = (text: string) => {
-    for (const paragraph of readablePolicyParagraphs(text, softWrap)) {
+  const showRecoveredProse = (text: string, joinedPreface = false) => {
+    for (const paragraph of readablePolicyParagraphs(text, softWrap, joinedPreface ? 180 : 320)) {
       blocks.push(<p className="catalog-prose" key={key++}>{inlineContent(paragraph)}</p>);
     }
   };
@@ -424,7 +424,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       if (preface && preface[2].trim()) {
         flushProse();
         blocks.push(<PolicyHeading level={2} key={key++}>{preface[1].replace(/\s/g, "")}</PolicyHeading>);
-        showRecoveredProse(preface[2].trimStart());
+        showRecoveredProse(preface[2].trimStart(), true);
         leadTitleFound = true;
         documentLead = false;
         index++;
