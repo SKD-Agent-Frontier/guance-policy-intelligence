@@ -210,6 +210,7 @@ export interface PolicyListItem {
   admin_level?: PolicyAdminLevel | null;
   region_code?: string | null;
   region_status?: PolicyRegionStatus | null;
+  preview?: string | null;
   matches: PolicyMatch[];
 }
 
