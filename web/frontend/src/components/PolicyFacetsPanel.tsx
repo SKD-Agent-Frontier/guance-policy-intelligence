@@ -63,7 +63,7 @@ function ChoiceRow<TValue extends string | number>({
           <button type="button"
             className={`policy-facets__choice${missingSelected ? " is-selected" : ""}`}
             aria-pressed={missingSelected} onClick={onSelectMissing}>
-            <span>其它</span><small>{missingOption.count}</small>
+            <span>其他</span><small>{missingOption.count}</small>
           </button>
         )}
       </div>
@@ -82,7 +82,7 @@ export function PolicyFacetsPanel({
   const adminOptions = ADMIN_LEVELS.flatMap(value => {
     const entry = facets?.facets.admin_level.options.find(option => option.value === value);
     if (!entry || (value === "unclassified" && entry.count === 0)) return [];
-    return [{ ...entry, label: value === "unclassified" ? "其它" : entry.label }];
+    return [{ ...entry, label: value === "unclassified" ? "其他" : entry.label }];
   });
 
   return (
@@ -92,7 +92,7 @@ export function PolicyFacetsPanel({
       <button type="button" className="policy-facets__toggle"
         aria-expanded={open} aria-controls="policy-facets-content"
         onClick={() => setManualOpen(previous => previous === true ? false : true)}>
-        <span>按维度查找</span>
+        <span>按维度检索</span>
         <ChevronDown size={17} aria-hidden="true" className={open ? "is-expanded" : ""} />
       </button>
       {open && (
