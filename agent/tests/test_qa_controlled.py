@@ -90,14 +90,14 @@ async def test_no_search_match_never_calls_model(env):
 
 def test_search_queries_are_bounded_and_sent_context_excludes_history():
     queries = search_queries("研究数字经济的产业扶持和人才培养政策")
-    assert len(queries) == 2
-    assert queries == ["数字经济", "产业扶持"]
+    assert len(queries) == 3
+    assert queries == ["数字经济", "产业扶持", "人才培养"]
     task = SimpleNamespace(question="产业结构调整")
     evidence = [{"chunk_id": str(i), "planid": "x", "title": "title",
                  "section_path": "section", "text": "a" * 2500} for i in range(5)]
     messages = messages_for(task, evidence)
-    assert sum(min(len(x["text"]), 2100) for x in evidence[:3]) > TOTAL_EVIDENCE_CHARS
-    assert messages[1]["content"].count("【来源】") == 3
+    assert sum(min(len(x["text"]), 1800) for x in evidence) > TOTAL_EVIDENCE_CHARS
+    assert messages[1]["content"].count("【来源】") == 5
     assert len(messages[1]["content"]) < TOTAL_EVIDENCE_CHARS + 1100
 
 
