@@ -187,7 +187,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     // The metadata title is already displayed as a centered H1 in reader mode.
     // Repeated source titles are left in the frozen text, but not drawn twice.
     if (documentLead && leadLineCount < 12) {
-      const plain = line.trim().replace(/^#{1,6}\\s*/, "").replace(/\\s*#+\\s*$/, "");
+      const plain = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
       if (!leadTitleFound && isDocumentTitle(plain, documentTitle ?? undefined)) {
         flushProse();
         leadTitleFound = true;
