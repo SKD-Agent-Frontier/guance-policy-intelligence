@@ -126,19 +126,77 @@ async def draft_verified_report(result, question, rt, deadline: float) -> bool:
         return False
     return _install_draft(result, fallback, "fact_fallback_pending_semantic_review")
 
+def _completion_payload(result, quality: dict) -> dict:
+    coverage = result.meta.get("evidence_coverage") or {}
+    return {
+        "status": quality.get("status"),
+        "required": list(dict.fromkeys(
+            list(quality.get("required_dimensions") or [])
+            + ["document:" + pid for pid in (quality.get("required_planids") or [])]
+            + (["multi_document"] if coverage.get("multi_document_required") else []))),
+        "satisfied": list(dict.fromkeys(
+            list(quality.get("covered_dimensions") or [])
+            + ["document:" + pid for pid in (quality.get("covered_planids") or [])]
+            + (["multi_document"] if (coverage.get("multi_document_required")
+                                       and coverage.get("multi_document_satisfied")) else []))),
+        "gaps": list(quality.get("gaps") or []),
+        "covered_planids": list(quality.get("covered_planids") or []),
+        "missing_planids": list(quality.get("missing_planids") or []),
+        "verified_claim_count": quality.get("verified_claim_count", 0),
+        "reason": ("; ".join(quality.get("gaps") or []) or "requirements_satisfied"),
+    }
+
+
+def _append_completion(result, quality: dict, coverage: dict) -> None:
+    if quality.get("status") == "complete" or "## 研究完成情况" in (result.answer or ""):
+        return
+    lines = ["", "## 研究完成情况", "", f"- 完成状态：{quality.get('status')}"]
+    if quality.get("missing_dimensions"):
+        lines.append("- 未覆盖维度：" + "、".join(quality["missing_dimensions"]))
+    missing_docs = quality.get("missing_planids") or []
+    if missing_docs:
+        lines.append("- 缺少有效证据的文献：" + "、".join("planid=" + pid for pid in missing_docs))
+    if coverage.get("multi_document_required") and not coverage.get("multi_document_satisfied"):
+        lines.append("- 多文献要求：尚未形成至少两篇政策各自的有效证据。")
+    if quality.get("gaps"):
+        lines.append("- 完成度缺口：" + "、".join(quality["gaps"][:8]))
+    lines.append("- 说明：以上仅基于本轮已核验事实；未找到某项内容不代表政策中不存在该项内容。")
+    result.answer = (result.answer or "").rstrip() + "\n" + "\n".join(lines) + "\n"
+
+
 def deliver_research(result, question: str) -> None:
     """Publish audited analysis, or only traceable facts with explicit gaps."""
     req = requirements(question)
     quality = evaluate(result, question)
     result.meta["research_quality"] = quality
+    completion = _completion_payload(result, quality)
+    result.meta["research_completion"] = completion
+    coverage = result.meta.get("evidence_coverage") or {}
+    research_mode = bool(
+        result.meta.get("qa_execution_mode") == "bounded_retrieval"
+        or isinstance(result.meta.get("evidence_coverage"), dict)
+        or result.meta.get("qa_context_resolution") is not None
+    )
     if result.meta.get("execution_recovery"):
         result.meta["research_delivery"] = {
             "format": "verbatim_excerpts_or_no_results",
             "status": "partial" if result.claims else "insufficient",
             "audited_analysis": False,
+            "source_planids": list(dict.fromkeys(
+                ref.planid for ref in result.evidence_refs)),
         }
         return
     if not req["needs_report"] or result.status != "completed" or result.error:
+        result.meta["research_delivery"] = {
+            "format": "fact_answer",
+            "status": quality["status"],
+            "audited_analysis": False,
+            "source_planids": list(dict.fromkeys(
+                ref.planid for ref in result.evidence_refs)),
+        }
+        if research_mode and quality["status"] != "complete":
+            result.evidence_status = "insufficient"
+            _append_completion(result, quality, coverage)
         return
     refs = {ref.chunk_id: ref for ref in result.evidence_refs}
     structured = result.structured if isinstance(result.structured, dict) else {}
@@ -191,4 +249,8 @@ def deliver_research(result, question: str) -> None:
         "status": quality["status"],
         "audited_analysis": bool(audited),
         "source_planids": list(documents),
+        "completion_status": quality["status"],
+        "gaps": list(quality["gaps"]),
+        "covered_planids": list(quality.get("covered_planids") or []),
+        "missing_planids": list(quality.get("missing_planids") or []),
     }

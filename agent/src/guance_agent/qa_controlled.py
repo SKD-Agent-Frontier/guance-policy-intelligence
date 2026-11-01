@@ -14,6 +14,8 @@ import time
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from .client import thinking_off
+from .evidence_coverage import multi_document_required
+from .qa_context import normalize_period
 from .research_quality import requirements
 from .runner import ExecOutcome
 from .tools import _call
@@ -54,12 +56,29 @@ SYSTEM = """你是政策原文核验助手。必须严格依据用户提供的�
 JSON: {"answer":"概括","claims":[{"text":"有据可查的政策事实",
 "chunk_ids":["输入中出现的唯一 chunk_id"],"quotes":["从对应片段逐字复制的原文短句"]}],
 "insufficient":false}。
-最多输出 5 条 claims，每条最多 1 个 chunk_id 和 1 条 quotes。
-quote 必须原文一字不差，不能跨片段拼接；不要创造时间、数字、效果或政策身份。
+事实预算由本次任务指定（通常 3–8 条）；每条最多 1 个 chunk_id 和 1 条 quotes。
+quote 必须原文一字不差，不能跨片段拼接；优先复制完整连续原句，不要改写、补写或删标点。
+不要创造时间、数字、效果或政策身份。
 事实和分析分开：answer 只陈述已获证据能支持的简要事实，不夸大因果与覆盖。
 若无法从原文回答，输出 {"answer":"本轮政策原文不足以回答该问题",
 "claims":[],"insufficient":true}。
 """
+
+MULTI_DOC_MARKERS = ("比较", "对比", "异同", "分别", "归纳", "不同政策",
+                     "两篇", "多篇", "各自", "共同点", "差异", "多份")
+MULTI_FACT_MARKERS = ("哪些", "主要措施", "主要方向", "方面", "要点", "措施",
+                      "支持方向", "主要做法", "具体做法")
+
+
+def claim_budget(question: str) -> int:
+    """Bounded task-adaptive fact capacity; never unbounded."""
+    if any(marker in question for marker in MULTI_DOC_MARKERS):
+        return 8
+    if any(marker in question for marker in MULTI_FACT_MARKERS):
+        return 6
+    if len(requirements(question)["dimensions"]) >= 2:
+        return 6
+    return 3
 
 
 def search_queries(question: str, sub_query: str | None = None) -> list[str]:
@@ -105,7 +124,8 @@ def requested_area(decision, question: str) -> str | None:
 
 
 async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
-                  exclude_chunks: frozenset[str] = frozenset()) -> list[dict]:
+                  exclude_chunks: frozenset[str] = frozenset(),
+                  query_question: str | None = None) -> list[dict]:
     """Search and then read in the same trusted scope, with a fixed evidence cap."""
     decision = ctx.route
     scope = ctx.scope
@@ -119,13 +139,15 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         if raw_fyp in task.question:
             fyp = raw_fyp
 
-    research = requirements(task.question)["needs_report"]
+    research = requirements(task.question)["needs_report"] or multi_document_required(
+        task.question)
     read_limit = MAX_READS if research else SIMPLE_READS
     groups = []
-    queries = search_queries(task.question, getattr(decision, "sub_query", None))
+    retrieval_question = query_question or task.question
+    queries = search_queries(retrieval_question, getattr(decision, "sub_query", None))
     if focus:
         queries = list(dict.fromkeys([focus[:70]] + queries))[:MAX_QUERIES]
-    elif scope is None and "数字经济" in task.question:
+    elif scope is None and "数字经济" in retrieval_question:
         # Keep the broad subject retrieval but tie each requested facet to it.
         queries = ["数字经济"] + [
             "数字经济 " + q for q in queries if q != "数字经济"
@@ -168,8 +190,23 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
             else:
                 secondary.append(hit)
         found = primary + secondary
+    # For a multi-document scope, put one candidate per target document before
+    # overflowing one document: a high lexical score must not hide document B.
+    if scope is not None and len(scope) > 1:
+        first_per_doc, rest = {}, []
+        for hit in found:
+            planid = hit["planid"]
+            if planid in scope and planid not in first_per_doc:
+                first_per_doc[planid] = hit
+            else:
+                rest.append(hit)
+        found = list(first_per_doc.values()) + rest
     evidence = []
     rejected_topic = 0
+    rejected_scope = 0
+    requested = (getattr(ctx, "qa_followup", None) or {}).get("requested_constraints") or {}
+    requested_areas = {str(item) for item in requested.get("areas", []) if item}
+    requested_periods = {normalize_period(item) for item in requested.get("periods", []) if item}
     used = set()
     read_attempts = 0
     for hit in found:
@@ -192,6 +229,17 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         if reply["status"] != "ok":
             continue
         passage = reply["data"]
+        # A turn that explicitly changed region/period must not fall back to a
+        # read from a different scope merely because it was the best lexical hit.
+        passage_area = str(passage.get("area") or hit.get("area") or "")
+        passage_period = normalize_period(passage.get("fyp") or hit.get("fyp"))
+        if requested_areas and not any(
+                area in passage_area or passage_area in area for area in requested_areas):
+            rejected_scope += 1
+            continue
+        if requested_periods and passage_period not in requested_periods:
+            rejected_scope += 1
+            continue
         if subject_terms and not _subject_score(
                 " ".join((str(hit.get("title") or ""),
                           str(hit.get("section_path") or ""),
@@ -216,16 +264,20 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         "queries": queries, "candidate_count": len(found),
         "topic_filter": "digital_economy" if subject_terms else None,
         "unrelated_read_rejected": rejected_topic,
+        "scope_read_rejected": rejected_scope,
         "accepted_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
         "read_attempts": read_attempts,
     }
     return evidence
 
 
-def messages_for(task, evidence: list[dict]) -> list[dict]:
+def messages_for(task, evidence: list[dict], context_note: str | None = None,
+                 fact_budget: int | None = None) -> list[dict]:
     budget = TOTAL_EVIDENCE_CHARS
-    parts = [f"原始问题：{task.question[:1000]}", "",
-             "以下为工具回读的真实政策原文，仅允许引用这些片段。"]
+    parts = [f"原始问题：{task.question[:1000]}", ""]
+    if context_note:
+        parts.extend([context_note, ""])
+    parts.append("以下为工具回读的真实政策原文，仅允许引用这些片段。")
     for item in evidence:
         length = min(len(item["text"]), READ_CHARS, budget)
         if length <= 0:
@@ -236,6 +288,12 @@ def messages_for(task, evidence: list[dict]) -> list[dict]:
         )
         parts.append(item["text"][:length])
         budget -= length
+    parts.append(f"本次最多输出 {fact_budget or claim_budget(task.question)} 条 claims；"
+                 "每条 quote 必须从同一来源片段逐字复制连续原句。")
+    if multi_document_required(task.question):
+        parts.append("本题涉及多篇政策：至少为两篇不同 planid 的文献提供 claim，"
+                     "在 answer 中分别说明各文献事实与共同点/差异；"
+                     "不足两篇时明确说明覆盖缺口，不得用一篇冒充多篇归纳。")
     parts.append("只输出规定的 JSON，不得在 answer 中写任何未被 claims 支撑的政策判断。")
     return [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": "\n".join(parts)}]
@@ -255,9 +313,13 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
                              exclude_chunks: frozenset[str] = frozenset()) -> ExecOutcome:
     """Retrieve deterministically then perform at most one answer-model request."""
     rt.meta["qa_execution_mode"] = "bounded_retrieval"
+    followup = None if focus else getattr(ctx, "qa_followup", None)
+    context_note = followup.get("context_note") if isinstance(followup, dict) else None
+    query_question = followup.get("retrieval_query") if isinstance(followup, dict) else None
     try:
         evidence = await acquire(task, ctx, deadline, focus=focus,
-                                 exclude_chunks=exclude_chunks)
+                                 exclude_chunks=exclude_chunks,
+                                 query_question=query_question)
     except (ValueError, TypeError, KeyError) as exc:
         rt.log("qa_controlled_retrieval_error", kind=type(exc).__name__)
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
@@ -291,11 +353,14 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
     if remaining < 40:
         return ExecOutcome(None, "MODEL_TIMEOUT")
     timeout = min(REQUEST_TIMEOUT, float(s.llm_request_timeout), remaining - 30)
+    fact_budget = claim_budget(task.question)
     try:
         response = await asyncio.wait_for(
             rt.client.chat.completions.create(
-                model=s.llm_model, messages=messages_for(task, evidence),
-                max_tokens=min(2200, s.llm_max_output_tokens),
+                model=s.llm_model, messages=messages_for(task, evidence, context_note,
+                                                        fact_budget),
+                max_tokens=min(2800 if fact_budget > 5 else 2200,
+                               s.llm_max_output_tokens),
                 extra_body=thinking_off(s), timeout=timeout,
                 **({} if s.llm_temperature is None
                    else {"temperature": s.llm_temperature}),

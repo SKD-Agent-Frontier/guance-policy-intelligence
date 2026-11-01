@@ -9,12 +9,13 @@ from __future__ import annotations
 INTENT_TERMS = {
     "政策目标": ("政策目标", "发展目标", "主要目标"),
     "政策措施": ("政策措施", "支持措施", "扶持措施", "政策工具"),
-    "地区差异": ("地区差异", "区域差异", "政策差异", "异同", "对比", "比较"),
+    "地区差异": ("地区差异", "区域差异", "政策差异", "异同", "对比", "比较",
+                  "差异", "共同点", "区别"),
     "政策优势": ("政策优势", "优势"),
     "问题挑战": ("问题挑战", "挑战", "不足", "难点"),
     "演变趋势": ("演变", "变化趋势", "发展趋势", "政策变化"),
     "产业发展方向": ("产业发展方向", "产业布局", "产业发展重点"),
-    "重点措施": ("重点措施", "主要措施", "主要部署"),
+    "重点措施": ("重点措施", "主要措施", "主要部署", "措施"),
     "政策意义": ("政策意义", "政策影响", "发展意义"),
     "产业扶持": ("产业扶持", "产业支持", "产业补贴"),
     "基础设施建设": ("基础设施建设", "基础设施", "算力设施"),
@@ -24,7 +25,8 @@ INTENT_TERMS = {
     "政策建议": ("政策建议", "对策建议", "改进建议"),
 }
 ANALYTICAL = frozenset({"地区差异", "政策优势", "问题挑战", "演变趋势", "政策建议", "政策作用", "政策局限", "政策意义"})
-ANALYSIS_WORDS = ("分析", "研究", "研判", "评估", "报告", "比较", "对比", "异同")
+ANALYSIS_WORDS = ("分析", "研究", "研判", "评估", "报告", "比较", "对比", "异同",
+                  "归纳", "共同点", "差异", "区别", "综合")
 
 
 def requirements(question: str) -> dict:
@@ -88,8 +90,30 @@ def evaluate(result, question: str) -> dict:
     if required["needs_analysis"] and not analytical_blocks:
         gaps.append("audited_analysis_missing")
     gaps.extend("dimension_uncovered:" + label for label in missing)
+
+    # Round 4: execution success is not research completion. These checks are
+    # derived from program-verified facts/coverage, never model declarations.
+    if result.evidence_status in {"insufficient", "none"}:
+        gaps.append("evidence_insufficient")
+    if (result.meta.get("answer_rebuilt")
+            or (isinstance(quote_check, dict) and quote_check.get("removed_claims"))):
+        gaps.append("claims_removed_or_answer_rebuilt")
+    scope_filter = result.meta.get("object_scope_filter") or {}
+    if isinstance(scope_filter, dict) and scope_filter.get("dropped_claims"):
+        gaps.append("object_scope_mismatch")
+    coverage = result.meta.get("evidence_coverage") or {}
+    if isinstance(coverage, dict) and coverage:
+        for gap in coverage.get("gaps") or []:
+            if gap not in gaps:
+                gaps.append("coverage:" + gap)
+        if coverage.get("status") == "insufficient":
+            gaps.append("evidence_coverage_insufficient")
+    if result.status != "completed" or result.error is not None:
+        gaps.append("execution_not_completed")
+    gaps = list(dict.fromkeys(gaps))
     status = ("complete" if not gaps and result.status == "completed"
-              and result.error is None else
+              and result.error is None and result.evidence_status == "verified"
+              and (not coverage or coverage.get("status") == "complete") else
               "partial" if verified_claims else "insufficient")
     return {
         "status": status, "required_dimensions": required["dimensions"],
@@ -100,7 +124,11 @@ def evaluate(result, question: str) -> dict:
         "factual_answer_coverage": bool(simple_fact),
         "audited_report_blocks": len(blocks),
         "audited_analysis_blocks": len(analytical_blocks),
-        "note": "完成度是保守的结构/覆盖检查，不证明推理在语义上正确或全库检索充分。",
+        "required_planids": coverage.get("required_planids", []) if isinstance(coverage, dict) else [],
+        "covered_planids": coverage.get("covered_planids", []) if isinstance(coverage, dict) else [],
+        "missing_planids": coverage.get("missing_planids", []) if isinstance(coverage, dict) else [],
+        "evidence_coverage_status": coverage.get("status") if isinstance(coverage, dict) else None,
+        "note": "完成度由程序核验的 Claim、EvidenceRef、覆盖结构和状态一致性共同决定，不证明推理在语义上正确或全库检索充分。",
     }
 
 

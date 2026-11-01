@@ -161,13 +161,23 @@ async def verify_quotes(result, ctx) -> int:
     """剔除不合格引文，返回被丢弃的引文条数。
 
     后端没有 verify_quote（mock/sample）时直接跳过：宁可少做，也不假装核过。
+    诊断只记录安全的结构化失败类别；只有显式开启 log_content 时保存限量引文预览。
+
     """
     checker = getattr(ctx.kb, "verify_quote", None) if ctx else None
     if not result.claims:
         return 0
+    generated_claims = len(result.claims)
+
+    generated_quotes = sum(len(claim.quotes) for claim in result.claims)
+
     checked = approved_count = rejected = unverified = removed_claims = removed_quotes = 0
     kept_claims = []
+    failures = []
+
     budget = quote_budget(result)
+    source_cache = {}
+
     # 先把引文回贴到原文，吸收空白差异；回贴后仍是原文的精确切片
     filled, unfound = fill_quotes_from_anchors(
         result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None), result=result)
@@ -177,27 +187,60 @@ async def verify_quotes(result, ctx) -> int:
     snapped = snap_claims(result.claims, ctx, getter=getattr(ctx.kb, "get_chunk_source", None))
     if snapped:
         result.meta["quotes_snapped"] = snapped
-    for claim in result.claims:
+    for claim_index, claim in enumerate(result.claims):
+
         if not claim.quotes:
             kept_claims.append(claim)
             continue
         approved = []
-        for quote in claim.quotes:
+        for quote_index, quote in enumerate(claim.quotes):
+
             if checker is None or checked >= budget:
                 unverified += 1
+                failures.append(_quote_failure(
+
+                    ctx, claim_index, quote_index, claim, quote, "unverified",
+
+                    "verifier_unavailable" if checker is None else "budget_exceeded"))
+
                 continue
             checked += 1
-            if await _approved(checker, ctx, claim, quote):
+            ok, base_reason = await _check_quote(checker, ctx, claim, quote)
+
+            if ok:
+
                 approved.append(quote)
                 approved_count += 1
             else:
                 rejected += 1
+                category, context = _classify_rejected_quote(
+
+                    ctx, claim, quote, base_reason, source_cache)
+
+                failures.append(_quote_failure(
+
+                    ctx, claim_index, quote_index, claim, quote, "rejected",
+
+                    category, context=context))
+
         # 一条结论的所有模型引句都必须逐字核验；否则不能保留其政策判断。
         if len(approved) != len(claim.quotes):
             removed_claims += 1
             removed_quotes += len(claim.quotes)
             continue
         kept_claims.append(claim)
+    if removed_claims:
+
+        result.claims = kept_claims
+
+    categories = {}
+
+    for failure in failures:
+
+        category = failure["failure_category"]
+
+        categories[category] = categories.get(category, 0) + 1
+
     result.meta["quote_verification"] = {
         "checked": checked,
         "approved": approved_count,
@@ -205,6 +248,40 @@ async def verify_quotes(result, ctx) -> int:
         "unverified": unverified,
         "removed_claims": removed_claims,
         "removed_quotes": removed_quotes,
+        "failure_categories": categories,
+
+    }
+
+    result.meta["quote_diagnostics"] = failures[:DIAGNOSTIC_LIMIT]
+
+    retained = len(kept_claims)
+
+    result.meta["claim_retention"] = {
+
+        "claims_generated": generated_claims,
+
+        "claims_retained": retained,
+
+        "claims_rejected": removed_claims,
+
+        "claim_retention_rate": (round(retained / generated_claims, 4)
+
+                                 if generated_claims else 0.0),
+
+        "quotes_generated": generated_quotes,
+
+        "quotes_checked": checked,
+
+        "quotes_approved": approved_count,
+
+        "quotes_rejected": rejected,
+
+        "quotes_unverified": unverified,
+
+        "quote_pass_rate": (round(approved_count / checked, 4) if checked else 0.0),
+
+        "diagnostics_truncated": len(failures) > DIAGNOSTIC_LIMIT,
+
     }
     if unverified:
         reason = "当前后端不支持逐字核验" if checker is None else "超出本次核验上限"
@@ -212,14 +289,257 @@ async def verify_quotes(result, ctx) -> int:
     if rejected:
         result.warnings.append(f"有 {rejected} 句引文未能在已提供的原文范围内逐字核对")
     if removed_claims:
-        result.claims = kept_claims
         result.warnings.append(f"为避免未核验引文被采信，已移除 {removed_claims} 条结论及其 {removed_quotes} 句引文")
         rebuild_trusted_answer(result, ctx, "quote_verification")
     return removed_quotes
 
 
-async def _approved(checker, ctx, claim, quote) -> bool:
-    """任一同版本已见块能证明这句引文即通过；核验异常或超时按不通过。"""
+DIAGNOSTIC_LIMIT = 20
+
+
+
+
+
+def _quote_failure(ctx, claim_index, quote_index, claim, quote, status, category,
+
+                   context: str = "") -> dict:
+
+    """Default diagnostics contain no model quote; previews require opt-in."""
+
+    item = {
+
+        "claim_index": claim_index,
+
+        "quote_index": quote_index,
+
+        "chunk_id": next(iter(claim.chunk_ids), None),
+
+        "chunk_ids": list(claim.chunk_ids),
+
+        "status": status,
+
+        "failure_category": category,
+
+        "repair_attempted": False,
+
+        "repair_result": None,
+
+    }
+
+    if ctx is not None and getattr(ctx.settings, "log_content", False):
+
+        item["quote_preview"] = (quote or "")[:80]
+
+        item["context_preview"] = (context or "")[:120]
+
+    return item
+
+
+
+
+
+def _window_text(source, ref) -> list[str]:
+
+    base = getattr(source, "chunk_char_start", None) or 0
+
+    content = getattr(source, "content", None)
+
+    if not isinstance(content, str):
+
+        return []
+
+    windows = []
+
+    for start, end in ref.observed_ranges:
+
+        windows.append(content[max(0, start - base):max(0, end - base)])
+
+    return windows
+
+
+
+
+
+def _classify_rejected_quote(ctx, claim, quote, base_reason, cache) -> tuple[str, str]:
+
+    """Best-effort failure taxonomy. Never reinterprets a verifier exception as absence."""
+
+    if base_reason in {"verification_timeout", "verification_error"}:
+
+        return base_reason, ""
+
+    getter = getattr(getattr(ctx, "kb", None), "get_chunk_source", None) if ctx else None
+
+    if not callable(getter):
+
+        return "unknown", ""
+
+    refs = []
+
+    for chunk_id in claim.chunk_ids:
+
+        ref = ctx.evidence.get(chunk_id)
+
+        if ref is None or not ref.observed_ranges:
+
+            continue
+
+        refs.append((chunk_id, ref))
+
+    if not refs:
+
+        return "invalid_evidence_ref", ""
+
+    exact = normalized = outside = False
+
+    context = ""
+
+    source_error = False
+
+    for chunk_id, ref in refs:
+
+        key = (chunk_id, getattr(ref, "document_id", None), getattr(ref, "generation_id", None))
+
+        if key not in cache:
+
+            try:
+
+                cache[key] = getter(
+
+                    chunk_id, document_id=getattr(ref, "document_id", None),
+
+                    generation_id=getattr(ref, "generation_id", None))
+
+            except Exception:                   # noqa: BLE001 - only for classification
+
+                cache[key] = None
+
+                source_error = True
+
+        source = cache[key]
+
+        if source is None:
+
+            source_error = True
+
+            continue
+
+        windows = _window_text(source, ref)
+
+        context = context or (windows[0][:120] if windows else "")
+
+        if quote and any(quote in window for window in windows):
+
+            exact = True
+
+            continue
+
+        needle, _ = _squash(quote or "")
+
+        for window in windows:
+
+            if needle and needle in _squash(window)[0]:
+
+                normalized = True
+
+                break
+
+        content = getattr(source, "content", "") or ""
+
+        if quote and quote in content and not exact:
+
+            outside = True
+
+    if exact:
+
+        # A literal slice in the same observed window still rejected by the
+
+        # backend usually means version/coordinate disagreement; do not call it
+
+        # absent text.
+
+        return "document_version_mismatch", context
+
+    if normalized:
+
+        return "format_mismatch", context
+
+    if outside:
+
+        return "quote_outside_read_range", context
+
+    if source_error:
+
+        return "verification_error", context
+
+    # The quote may be copied from another read chunk/policy.
+
+    for other_id in getattr(ctx.evidence, "ids", lambda: [])():
+
+        if other_id in claim.chunk_ids:
+
+            continue
+
+        other = ctx.evidence.get(other_id)
+
+        if other is None or not other.observed_ranges:
+
+            continue
+
+        key = (other_id, getattr(other, "document_id", None),
+
+               getattr(other, "generation_id", None))
+
+        if key not in cache:
+
+            try:
+
+                cache[key] = getter(
+
+                    other_id, document_id=getattr(other, "document_id", None),
+
+                    generation_id=getattr(other, "generation_id", None))
+
+            except Exception:                   # noqa: BLE001
+
+                cache[key] = None
+
+        source = cache[key]
+
+        if source is None:
+
+            continue
+
+        windows = _window_text(source, other)
+
+        content = getattr(source, "content", "") or ""
+
+        if (quote and (quote in content or any(quote in window for window in windows))):
+
+            claimed_planids = {
+
+                getattr(ctx.evidence.get(cid), "planid", None) for cid in claim.chunk_ids}
+
+            category = ("quote_in_other_policy"
+
+                        if getattr(other, "planid", None) not in claimed_planids
+
+                        else "quote_in_other_chunk")
+
+            return category, windows[0][:120] if windows else content[:120]
+
+    return "quote_not_in_chunk", context
+
+
+
+
+
+async def _check_quote(checker, ctx, claim, quote) -> tuple[bool, str | None]:
+
+    """Return approval plus a safe reason for rejection (no quote text)."""
+
+    last_reason = None
+
     for chunk_id in claim.chunk_ids:
         ref = ctx.evidence.get(chunk_id)
         if ref is None or not ref.observed_ranges:
@@ -229,11 +549,35 @@ async def _approved(checker, ctx, claim, quote) -> bool:
                 asyncio.to_thread(checker, chunk_id, quote, ref.observed_ranges,
                                   document_id=ref.document_id, generation_id=ref.generation_id),
                 timeout=ctx.settings.tool_timeout)
+        except TimeoutError:
+
+            last_reason = "verification_timeout"
+
+            continue
+
         except Exception:                      # noqa: BLE001 - 核验失败按不通过
+            last_reason = "verification_error"
+
             continue
         if ok:
-            return True
-    return False
+            return True, None
+
+        last_reason = last_reason or "verification_service_false"
+
+    return False, last_reason or "invalid_evidence_ref"
+
+
+
+
+
+async def _approved(checker, ctx, claim, quote) -> bool:
+
+    """Compatibility wrapper; existing callers keep the boolean contract."""
+
+    approved, _ = await _check_quote(checker, ctx, claim, quote)
+
+    return approved
+
 
 
 # 政策身份字段：planid / 篇名 / 地区 / 规划期 / 章节路径。

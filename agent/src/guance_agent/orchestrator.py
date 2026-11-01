@@ -14,6 +14,7 @@ from .business.services import BusinessServices
 from .client import thinking_off
 from .config import ConfigurationError, Settings
 from .context import RunContext
+from .evidence_coverage import build_coverage
 from .extract import build_messages, retrieve
 from .format_recovery import (
     REPAIRABLE,
@@ -28,12 +29,14 @@ from .output import (
     ERRORS,
     LIMIT_CODES,
     build_result,
+    enforce_qa_scope,
     finalize_qa_retrieval,
     finalize_recovered_qa_answer,
     insufficient_message,
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .qa_context import build_trusted_turn, public_resolution, resolve_followup
 from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
@@ -443,7 +446,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
         ctx = RunContext(s, kb, task.run_id, task.session_id,
-                         question=task.question, research=research_runtime)
+                         question=task.question, research=research_runtime,
+                         trusted_turns=list(getattr(rt, "trusted_turns", []) or []))
         async with _session_lock(task.session_id):
             result = None
             planned_task = task
@@ -672,6 +676,10 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                 research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
     finalize_controlled_facts(result)
+    if (task.task_type == "qa" and ctx is not None
+            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+        enforce_qa_scope(result, ctx)
+        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
     result = finalize_qa_retrieval(result, task)
     if not result.meta.get("execution_recovery"):
         result = finalize_qa_analysis(result, task.question)
@@ -685,6 +693,9 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         # verified claims can support its draft and final semantic review.
         await supplement_one(result, task, s, ctx, rt, deadline,
                              _execute_once, _recover_qa_output)
+        if (ctx is not None
+                and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+            result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
         await draft_verified_report(result, task.question, rt, deadline)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)
@@ -710,8 +721,37 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
     finalize_recovered_qa_answer(result, task.question)
+    if (task.task_type == "qa" and ctx is not None
+            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+        # Semantic report review may remove claims and refs after the first
+        # coverage calculation. Completion must use the final surviving set.
+        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
     if task.task_type == "qa":
         deliver_research(result, task.question)
+    resolution = result.meta.get("qa_context_resolution")
+    if (task.task_type == "qa" and isinstance(resolution, dict)
+            and resolution.get("status") == "ambiguous"):
+        # Ambiguous pronoun references must never silently reuse the first
+        # previous document as if it were uniquely identified.
+        clarification = resolution.get("clarification")
+        if clarification:
+            result.answer = clarification
+            result.evidence_status = "insufficient"
+            result.warnings.append(
+                "多轮指代无法唯一确定，已停止检索并要求用户明确研究对象；未混合上一轮证据。")
+    if (task.task_type == "qa" and not result.claims
+            and isinstance(resolution, dict)
+            and resolution.get("status") == "scope_changed"):
+        constraints = resolution.get("requested_constraints") or {}
+        areas = "、".join(constraints.get("areas") or []) or "未指定地区"
+        periods = "、".join(constraints.get("periods") or []) or "未指定时期"
+        result.answer = (
+            f"本轮已按新的研究范围（{areas}，{periods}）重新检索，但知识库中没有"
+            "找到与该地区、时期同时匹配的可引用政策原文；未取得证据不代表相关政策不存在。"
+            "上一轮的沧州对象未被混入本轮证据。"
+        )
+        result.evidence_status = "insufficient"
+        result.warnings.append("多轮范围变更后未找到匹配的新研究对象，已按新范围安全拒答。")
     if task.task_type == "qa" and isinstance(result.meta.get("llm"), dict):
         if result.meta.get("original_execution_error") or result.error:
             result.meta["llm"]["parse"] = "failed"
@@ -730,6 +770,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             result.error = RunError(code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
             result.warnings.append("研究运行时无法完成任务契约验收")
             result.meta["research_runtime_error"] = type(exc).__name__
+    if (task.task_type == "qa" and ctx is not None
+            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+        # Save after quote/number checks, scope filtering and report review;
+        # empty turns still establish a boundary for later pronoun follow-ups.
+        rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
     try:
         rt.finish(result, ctx)
     except OSError as exc:
@@ -1062,6 +1107,32 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
 
 async def _run_controlled_qa(task, s, ctx, rt, deadline):
     """Keep all existing QA parse, quote, number and report audit gates."""
+    # Read inside the session execution lock, not only at Runtime.prepare(),
+    # so queued turns see the previous turn's most recent persisted state.
+    store = getattr(rt, "context_store", None)
+    if store is not None:
+        ctx.trusted_turns = store.load()
+    resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
+                                  getattr(ctx, "route", None))
+    ctx.qa_context_resolution = public_resolution(resolution)
+    rt.meta["qa_context_resolution"] = ctx.qa_context_resolution
+    if resolution["status"] == "ambiguous":
+        outcome = ExecOutcome(json.dumps({
+            "answer": resolution.get("clarification")
+            or "无法唯一确定上一轮的研究对象，请明确具体文献或地区后再提问。",
+            "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        return result
+    if resolution.get("inherited_planids"):
+        # The prior source identity is trusted only after the current session
+        # was claimed; current evidence is still re-read and re-verified below.
+        ctx.scope = tuple(resolution["inherited_planids"])
+    if resolution.get("inherited_planids") or resolution.get("context_note"):
+        # Context notes and explicit region/period constraints both need to
+        # reach controlled retrieval, but only inherited identities change scope.
+        ctx.qa_followup = resolution
     outcome = await execute_controlled(task, s, ctx, rt, deadline)
     outcome, parse_meta = await _recover_qa_output(
         outcome, s, rt, deadline, repair_budget={"remaining": 0})
