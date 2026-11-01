@@ -346,11 +346,14 @@
 }
 .catalog-preview {
   position: fixed;
-  top: 88px;
+  top: 0;
   right: 24px;
+  bottom: 0;
   z-index: 20;
   width: min(480px, calc(100vw - 100px));
-  max-height: calc(100svh - 112px);
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
   overscroll-behavior: contain;
 }
 .catalog-preview-read,
@@ -369,14 +372,15 @@
   margin-top: 12px;
 }
 .catalog-reader-back {
-  width: min(960px, 100%);
-  margin: 0 auto 24px;
+  width: 100%;
+  margin: 0 0 24px;
 }
 .catalog-reader-document {
   position: static;
-  width: min(960px, 100%);
+  width: 100%;
+  max-width: none;
   max-height: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   overflow: visible;
   border: 0;
@@ -389,7 +393,19 @@
   font-size: clamp(24px, 2.6vw, 34px);
   line-height: 1.5;
 }
+.policy-reader {
+  /* Full-width reading canvas, aligned to the back control and page padding. */
+  width: 100%;
+  max-width: none;
+}
+
+.catalog-reader-document .catalog-original {
+  width: 100%;
+}
+
 .catalog-reader-document .catalog-original-text {
+  width: 100%;
+  max-width: none;
   max-height: none;
   min-height: 0;
   margin-top: 20px;
@@ -398,8 +414,8 @@
   border: 0;
   border-radius: 0;
   background: #fff;
-  font-size: 16px;
-  line-height: 2;
+  font-size: 17px;
+  line-height: 1.95;
 }
 .policy-reader:focus {
   outline: none;
@@ -576,4 +592,10 @@
   .catalog-content-pagination span {
     font-size: 10px;
   }
+}
+
+.catalog-applied-filters {
+  width: 100%;
+  max-width: 1160px;
+  margin: 16px auto;
 }
