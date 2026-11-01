@@ -78,7 +78,7 @@ def parse_areas(text: str) -> tuple[str, ...]:
         name = _trim_area(raw)
         # 「地区」是泛指，不是行政区名
         # “城市更新”“产业园区”等不是具体行政区，不能被强制作为检索过滤条件。
-        generic = ("地区", "城市", "上市", "园区", "社区", "景区", "校区",
+        generic = ("地区", "地市", "城市", "上市", "园区", "社区", "景区", "校区",
                    "片区", "街区", "辖区", "疫区")
         if len(name) >= 2 and not name.endswith(generic):
             out.append(name)
