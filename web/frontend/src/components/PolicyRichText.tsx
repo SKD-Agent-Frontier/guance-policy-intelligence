@@ -21,6 +21,9 @@ export function policyHeading(
   const original = originalHints.find(hint => normalizeHeadingText(hint.text) === normalized
     && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6);
   if (original) return { level: original.level as HeadingLevel, text: source.replace(/^#{1,6}\s*/, "") };
+  if (/^序\\s*言$/.test(source.replace(/^#{1,6}\\s*/, ""))) {
+    return { level: 2, text: "序言" };
+  }
   const markdown = MARKDOWN_HEADING.exec(source);
   if (markdown) return { level: Math.min(6, markdown[1].length + 1) as HeadingLevel, text: markdown[2] };
   // OCR/PDF hard-wrapped sentences can begin with numbering: don't turn entire
@@ -56,6 +59,46 @@ function tableHeader(lines: string[], index: number): string[] | null {
   if (headers.length < 2 || headers.length > 24 || dividers.length !== headers.length
     || !dividers.every(cell => RULE.test(cell.replace(/\s/g, "")))) return null;
   return headers;
+}
+
+/**
+ * Legacy policy archives sometimes flatten a Markdown table into one line:
+ * "| 专栏... |---| | 指标 | 2015 | 2020 || 一、经济发展 || 1. GDP |..."
+ * Recover a real table only if its header and EVERY data row are consistent.
+ */
+function flattenedTable(line: string): { caption: string; headers: string[]; rows: string[][] } | null {
+  const separator = /\|\s*:?-{3,}:?\s*\|/.exec(line);
+  if (!separator || !line.includes("||")) return null;
+  const headerStart = separator.index + separator[0].length;
+  const rawRows = line.slice(headerStart).split(/\s*\|\|\s*/);
+  if (rawRows.length < 2) return null;
+  const headers = tableCells(rawRows[0]);
+  if (headers.length < 3 || headers.length > 24 || headers.some(x => !x)) return null;
+  const rows: string[][] = [];
+  for (const raw of rawRows.slice(1)) {
+    const cells = tableCells(raw);
+    if (cells.length === headers.length) rows.push(cells);
+    else if (cells.length === 1 && /^[一二三四五六七八九十]+[、．.]/.test(cells[0])) rows.push([cells[0]]);
+    else return null;
+  }
+  if (!rows.length) return null;
+  return { caption: line.slice(0, separator.index).replace(/^\s*\|/, "").trim(), headers, rows };
+}
+
+function TableBlock({ headers, rows, caption }: {
+  headers: string[]; rows: string[][]; caption?: string;
+}) {
+  return <div className="catalog-table-scroll" role="region" aria-label="政策原文表格" tabIndex={0}>
+    <table className="catalog-markdown-table">
+      {caption && <caption>{caption}</caption>}
+      <thead><tr>{headers.map((cell, i) => <th key={i} scope="col">{cell}</th>)}</tr></thead>
+      <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>
+        {row.length === 1
+          ? <th scope="row" colSpan={headers.length}>{row[0]}</th>
+          : row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}
+      </tr>)}</tbody>
+    </table>
+  </div>;
 }
 
 function paragraphLines(lines: string[], softWrap: boolean): string[] {
@@ -121,6 +164,22 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       continue;
     }
 
+    if (line.includes("||") && /\\|\\s*:?-{3,}:?\\s*\\|/.test(line)) {
+      const recovered = flattenedTable(line);
+      flushProse();
+      if (recovered) {
+        blocks.push(<TableBlock key={key++} caption={recovered.caption} headers={recovered.headers} rows={recovered.rows} />);
+      } else {
+        // Keep unverified legacy tables separate and horizontally scrollable
+        // instead of passing pipes into running Chinese prose.
+        blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
+          role="region" aria-label="原文表格（无法确认列结构）" tabIndex={0}>
+          <pre>{line.replace(/\s*\|\|\s*/g, "\n")}</pre>
+        </div>);
+      }
+      index++;
+      continue;
+    }
     const headers = tableHeader(lines, index);
     if (headers) {
       flushProse();
@@ -132,13 +191,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
         rows.push(row);
         index++;
       }
-      blocks.push(<div key={key++} className="catalog-table-scroll" role="region" aria-label="政策原文表格" tabIndex={0}>
-        <table className="catalog-markdown-table">
-          <thead><tr>{headers.map((cell, i) => <th key={i} scope="col">{cell}</th>)}</tr></thead>
-          <tbody>{rows.map((row, rowIndex) =>
-            <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
-        </table>
-      </div>);
+      blocks.push(<TableBlock key={key++} headers={headers} rows={rows} />);
       continue;
     }
 
