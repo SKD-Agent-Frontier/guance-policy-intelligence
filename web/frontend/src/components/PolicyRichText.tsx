@@ -121,7 +121,9 @@ function paragraphLines(lines: string[], softWrap: boolean): string[] {
 
 function PolicyImage({ planid, name, alt }: { planid: string; name: string; alt: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="catalog-media-missing" role="note">图片暂不可用：{alt || name}</div>;
+  if (failed) return <p className="catalog-media-missing" role="note">
+    原文引用的{alt || name}未收录对应图片文件
+  </p>;
   return <figure className="catalog-media-figure">
     <img
       src={`${apiBaseUrl}/api/policies/${encodeURIComponent(planid)}/media/${encodeURIComponent(name)}`}
@@ -160,7 +162,7 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     const image = IMAGE_LINK.exec(line);
     if (image) {
       flushProse();
-      blocks.push(<PolicyImage key={key++} planid={planid} alt={image[1]} name={image[2]} />);
+      blocks.push(<PolicyImage key={`${planid}:${image[2]}:${key++}`} planid={planid} alt={image[1]} name={image[2]} />);
       index++;
       continue;
     }
