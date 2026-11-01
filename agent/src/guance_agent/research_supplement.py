@@ -67,6 +67,9 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
             )
         if outcome.error_code is not None:
             meta["status"] = "execution_unavailable"
+            meta["error_code"] = outcome.error_code
+            if controlled:
+                meta["retrieval"] = dict(rt.meta.get("qa_supplement_retrieval", {}))
             return
         outcome, _ = await recover(
             outcome, s, rt, followup_deadline,
@@ -78,7 +81,9 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         if controlled:
             # A source present in the shared registry is NOT newly retrieved
             # evidence. Only this controlled follow-up's read chunks qualify.
-            fresh = set(rt.meta.get("qa_controlled_retrieval", {}).get("read_chunks", []))
+            details = dict(rt.meta.get("qa_supplement_retrieval", {}))
+            meta["retrieval"] = details
+            fresh = set(details.get("read_chunks", []))
             part.claims = [claim for claim in part.claims
                            if claim.chunk_ids and set(claim.chunk_ids) <= fresh]
             part.evidence_refs = [ref for ref in part.evidence_refs
