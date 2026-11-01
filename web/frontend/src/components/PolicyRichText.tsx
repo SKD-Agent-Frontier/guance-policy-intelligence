@@ -8,7 +8,7 @@ const SECTION = /^(?:第[一二三四五六七八九十百千0-9]+[章节篇部�
 type HeadingLevel = 2 | 3 | 4 | 5 | 6;
 export type OriginalHeadingHint = { text: string; level: number };
 function normalizeHeadingText(value: string): string {
-  return value.replace(/[\\s　]/g, "").replace(/^#+|#+$/g, "");
+  return value.replace(/[\s　]/g, "").replace(/^#+|#+$/g, "");
 }
 
 
@@ -17,10 +17,10 @@ export function policyHeading(
   line: string, originalHints: readonly OriginalHeadingHint[] = [],
 ): { level: HeadingLevel; text: string } | null {
   const source = line.trim();
-  const normalized = normalizeHeadingText(source.replace(/^#{1,6}\\s*/, ""));
+  const normalized = normalizeHeadingText(source.replace(/^#{1,6}\s*/, ""));
   const original = originalHints.find(hint => normalizeHeadingText(hint.text) === normalized
     && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6);
-  if (original) return { level: original.level as HeadingLevel, text: source.replace(/^#{1,6}\\s*/, "") };
+  if (original) return { level: original.level as HeadingLevel, text: source.replace(/^#{1,6}\s*/, "") };
   const markdown = MARKDOWN_HEADING.exec(source);
   if (markdown) return { level: Math.min(6, markdown[1].length + 1) as HeadingLevel, text: markdown[2] };
   // OCR/PDF hard-wrapped sentences can begin with numbering: don't turn entire
