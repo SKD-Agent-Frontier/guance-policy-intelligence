@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { PolicyRichText, policyHeading } from "./PolicyRichText";
+import { PolicyRichText, policyHeading, readablePolicyParagraphs } from "./PolicyRichText";
 
 afterEach(cleanup);
 
@@ -177,6 +177,60 @@ describe("printed table of contents", () => {
     expect(screen.getByRole("heading", { name: "第一章 政策措施" })).toBeInTheDocument();
     expect(screen.getByText("（五）2025年投资项目31个。")).not.toHaveClass("catalog-toc-line");
     expect(screen.getByText("建设目标2025")).toBeInTheDocument();
+  });
+});
+
+describe("cross-document archival formatting regressions", () => {
+  it("handles Ji'an's page-less dotted index, indents sections, and hides it in the reader", () => {
+    const source = [
+      "2", "目 录",
+      "第一章 发展现状....................................",
+      "第一节 “十三五”时期工作成就···············",
+      "第二节 “十四五”时期发展形势................",
+      "第二章 总体要求....................................",
+      "第一节 指导思想.....................................",
+      "", "第一章 发展现状", "真实正文内容。",
+    ].join("\n");
+    const { container, rerender } = render(<PolicyRichText planid="22455" firstPage softWrap text={source} />);
+    const items = container.querySelectorAll(".catalog-toc-line");
+    expect(items).toHaveLength(6);
+    expect(items[2]).toHaveClass("catalog-toc-depth-1");
+    expect(items[3]).toHaveClass("catalog-toc-depth-1");
+    expect(items[2]).toHaveTextContent("第一节 “十三五”时期工作成就");
+    expect(items[2].textContent).not.toMatch(/[.．·…]{2,}/);
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
+    rerender(<PolicyRichText planid="22455" firstPage softWrap text={source} omitPrintedToc />);
+    expect(container.querySelectorAll(".catalog-toc-line")).toHaveLength(0);
+    expect(screen.queryByText("目 录")).not.toBeInTheDocument();
+    expect(screen.queryByText(/十三五.*工作成就/)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "第一章 发展现状" })).toBeInTheDocument();
+    expect(screen.getByText("真实正文内容。")).toBeInTheDocument();
+  });
+
+  it("visually splits flattened Jinchang-style prose at full stops without deleting content", () => {
+    const line = "金昌市坚持服务业高质量发展，推动现代产业体系建设。".repeat(17);
+    const pieces = readablePolicyParagraphs(line, true);
+    expect(pieces.length).toBeGreaterThan(2);
+    expect(pieces.join("")).toBe(line);
+    expect(readablePolicyParagraphs(line, false)).toEqual([line]);
+    const { container } = render(<PolicyRichText planid="22135" softWrap text={line} />);
+    expect(container.querySelectorAll("p.catalog-prose").length).toBe(pieces.length);
+    expect(container.textContent).toBe(line);
+  });
+
+  it("does not discard long original table cells or invent numeric columns", () => {
+    const source = [
+      "| 类别 | 指标 | 2020年 | 2025年 | 年均增长（%） |",
+      "| --- | --- | --- | --- | --- |",
+      "| " + "服务业供给侧改革、加快转型升级。".repeat(30) + " | 增加值（亿元） | 102.10 | 143 | 7 |",
+      "| 产业规模目标 | 企业数 | 100 | 150 | 5 |",
+    ].join("\n");
+    render(<PolicyRichText planid="22135" softWrap text={source} />);
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(5);
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+    expect(within(table).getByText(/服务业供给侧改革/).textContent)
+      .toContain("加快转型升级。");
   });
 });
 
