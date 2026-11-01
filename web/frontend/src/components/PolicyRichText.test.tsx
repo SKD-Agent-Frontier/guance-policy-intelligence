@@ -119,6 +119,59 @@ describe("printed table of contents", () => {
     expect(screen.queryByRole("heading", { name: /第四章深入/ })).not.toBeInTheDocument();
   });
 
+  it("omits every printed-TOC line from the full reader, but retains actual chapters", () => {
+    const text = [
+      "— 3 —", "目 录", "前 言..............................5",
+      "第一章 发展基础....................6",
+      "第一节 发展现状....................6",
+      "第二章 总体要求....................13",
+      "— 5 —", "前 言", "人民健康是社会主义现代化的重要标志。",
+      "第一章 发展基础", "真实的政策内容。",
+    ].join("\n");
+    const first = text.indexOf("目 录");
+    const end = text.indexOf("前 言\n人民健康");
+    const { container } = render(<PolicyRichText planid="32011" firstPage
+      text={text} printedToc={[first, end]} omitPrintedToc />);
+    expect(container.querySelectorAll(".catalog-toc-line")).toHaveLength(0);
+    expect(screen.queryByText("目 录")).not.toBeInTheDocument();
+    expect(screen.queryByText(/发展基础[.．·…]{3,}/)).not.toBeInTheDocument();
+    expect(screen.getByText("人民健康是社会主义现代化的重要标志。")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "第一章 发展基础" })).toBeInTheDocument();
+  });
+
+  it("shows printed TOC only in the preview with body-sized text and indentation", () => {
+    const text = [
+      "目 录", "前 言...................................5",
+      "第一章 发展基础..........................6",
+      "第一节 发展现状..........................6",
+      "（一）工作成效............................7",
+      "第二章 总体要求.........................13",
+      "前 言", "实际政策正文。",
+    ].join("\n");
+    const end = text.indexOf("前 言\n实际政策正文");
+    render(<PolicyRichText planid="32011" text={text} printedToc={[0, end]} />);
+    const entries = document.querySelectorAll(".catalog-toc-line");
+    expect(entries).toHaveLength(6);
+    expect(entries[1]).toHaveClass("catalog-toc-depth-0");
+    expect(entries[3]).toHaveClass("catalog-toc-depth-1");
+    expect(entries[4]).toHaveClass("catalog-toc-depth-2");
+    expect(entries[1].textContent).toBe("前 言");
+    expect(entries[2].textContent).toBe("第一章 发展基础");
+    expect(entries[3].textContent).toBe("第一节 发展现状");
+    expect(entries[3].textContent).not.toMatch(/[.．·…]{2,}|6$/);
+    expect(screen.getByText("实际政策正文。")).toBeInTheDocument();
+  });
+
+  it("hides continuing TOC on subsequent reading pages even when the heading is absent", () => {
+    const text = "第一节 发展现状................6\n第二节 发展形势...............10\n前 言\n正文开始。";
+    const last = "第一节 发展现状................6\n第二节 发展形势...............10\n".length;
+    const { container } = render(<PolicyRichText planid="32011" textOffset={350}
+      text={text} printedToc={[110, 350 + last]} omitPrintedToc />);
+    expect(container.querySelectorAll(".catalog-toc-line")).toHaveLength(0);
+    expect(screen.queryByText(/第一节 发展现状/)).not.toBeInTheDocument();
+    expect(screen.getByText("正文开始。")).toBeInTheDocument();
+  });
+
   it("does not strip dates, numbers or chapter formatting in ordinary policy paragraphs", () => {
     render(<PolicyRichText planid="P-BODY" text={"第一章 政策措施\n（五）2025年投资项目31个。\n建设目标2025"} />);
     expect(screen.getByRole("heading", { name: "第一章 政策措施" })).toBeInTheDocument();
@@ -181,7 +234,7 @@ describe("policy source rich-text rendering", () => {
 
   it("does not show standalone printed PDF page numbers as policy text", () => {
     render(<PolicyRichText planid="P-TOC" text={[
-      "— 10 —", "第一章 发展基础..................................6",
+      "— 10 —", "目 录", "第一章 发展基础..................................6",
       "— 11 —", "第二章 指导思想………………………………13",
       "实际政策正文未做修改。",
     ].join("\n")} />);
