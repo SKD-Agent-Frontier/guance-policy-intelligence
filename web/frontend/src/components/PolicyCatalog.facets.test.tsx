@@ -175,7 +175,7 @@ async function readyCatalog() {
   render(<PolicyCatalog />);
   await screen.findByText("当前库共有 3 篇政策文献");
   const panel = await screen.findByRole("region", { name: "政策维度筛选" });
-  await userEvent.setup().click(within(panel).getByRole("button", { name: "按维度查找" }));
+  await userEvent.setup().click(within(panel).getByRole("button", { name: "按维度检索" }));
   await within(panel).findByRole("button", { name: /年份未知/ });
   return panel;
 }
@@ -343,7 +343,7 @@ describe("PolicyCatalog facet integration", () => {
     render(<PolicyCatalog />);
 
     expect(await screen.findByText("当前库共有 3 篇政策文献")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "按维度查找" }));
+    await user.click(screen.getByRole("button", { name: "按维度检索" }));
     expect(await screen.findByText(/维度筛选暂不可用/)).toBeVisible();
     await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.type(screen.getByLabelText("地区精确筛选"), "北京市");
