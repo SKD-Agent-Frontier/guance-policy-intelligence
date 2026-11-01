@@ -608,6 +608,62 @@ def _make_project(tmp_path, *, extra_old_doc=False, tamper=False, traversal=Fals
     return project
 
 
+def test_reading_pages_join_exactly_to_frozen_body_and_keep_codepoint_offsets(client):
+    """Presentation pagination may shift a boundary, never lose/repeat source."""
+    text = "".join("数字经济😀" + "政策发展目标。" * 9 + "\n\n" for _ in range(118))
+    record = _record("90001", "数字经济政策", "x", None, "专项规划", text)
+    svc = PolicyCatalogService(CatalogSnapshot("g", 1, None, (record,)))
+    client.app.state.policy_catalog = svc
+    page_count = (len(text) + 3999) // 4000
+    cursor = 0
+    combined = ""
+    for page in range(1, page_count + 1):
+        response = client.get(
+            "/api/policies/90001/reading-page",
+            params={"page": page, "page_chars": 4000},
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["page"] == page
+        assert result["page_count"] == page_count
+        assert result["offset"] == cursor
+        assert result["text"] == text[cursor:cursor + result["limit"]]
+        assert result["total_chars"] == len(text)
+        assert result["has_more"] == (page < page_count)
+        cursor += len(result["text"])
+        combined += result["text"]
+    assert cursor == len(text)
+    assert combined == text
+    original = client.get(
+        "/api/policies/90001/content", params={"offset": 17, "limit": 20},
+    ).json()
+    assert original["text"] == text[17:37]
+    assert original["offset"] == 17  # underlying evidence API is unchanged
+
+
+def test_reading_page_validates_bounds_without_leaking_other_policies(client):
+    assert client.get("/api/policies/10001/reading-page").status_code == 200
+    assert client.get("/api/policies/10001/reading-page",
+                      params={"page": 2}).status_code == 400
+    assert client.get("/api/policies/10001/reading-page",
+                      params={"page": 0}).status_code == 422
+    assert client.get("/api/policies/10001/reading-page",
+                      params={"page_chars": 50}).status_code == 422
+    assert client.get("/api/policies/99999/reading-page").status_code == 404
+
+
+def test_reading_boundary_prefers_nearby_paragraph_without_splitting_line():
+    body = "甲" * 3900 + "\n\n" + "乙" * 4200 + "\n\n" + "丙" * 1500
+    svc = PolicyCatalogService(CatalogSnapshot(
+        "g", 1, None, (_record("90001", "政策", "x", None, "其他", body),),
+    ))
+    first = svc.read_display_page("90001", page=1, page_chars=4000)
+    second = svc.read_display_page("90001", page=2, page_chars=4000)
+    third = svc.read_display_page("90001", page=3, page_chars=4000)
+    assert first["text"].endswith("\n\n")
+    assert first["text"] + second["text"] + third["text"] == body
+
+
 def test_loader_reads_only_current_release(tmp_path):
     project = _make_project(tmp_path, extra_old_doc=True)
     snapshot = load_published_catalog(project)
