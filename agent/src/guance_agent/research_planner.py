@@ -115,9 +115,13 @@ class ResearchPlanner:
             targets = list(contract.scope.target_planids)
         areas = list(dict.fromkeys(doc.area for doc in documents if doc.area))
         periods = list(dict.fromkeys(doc.fyp for doc in documents if doc.fyp))
+        # scope records what the user allowed, not the regions of every located
+        # policy. A province bound permits its verified prefectures; expanding the
+        # bound with those city names would falsely violate the TaskContract.
+        # The actual discovered areas/periods remain in PolicyDocument and subjects.
         scope = ResearchScope(
-            areas=areas or list(contract.scope.areas),
-            periods=periods or list(contract.scope.periods),
+            areas=list(contract.scope.areas) or areas,
+            periods=list(contract.scope.periods) or periods,
             topics=list(contract.scope.topics),
             target_planids=targets,
         )
