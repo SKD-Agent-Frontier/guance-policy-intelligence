@@ -12,6 +12,8 @@ describe("policy heading hierarchy", () => {
     ["（四）聚焦就业导向", 4],
     ["1. 建设重点项目", 5],
     ["专栏1 “十三五”规划主要指标完成情况", 4],
+    ["序言", 2],
+    ["第一篇 经济发展", 2],
   ] as const)("recognizes %s as heading %s", (source, level) => {
     expect(policyHeading(source)?.level).toBe(level);
   });
@@ -23,6 +25,15 @@ describe("policy heading hierarchy", () => {
     });
     render(<PolicyRichText planid="10001" text="经济发展概况" originalHints={hints} />);
     expect(screen.getByRole("heading", { name: "经济发展概况", level: 2 })).toBeInTheDocument();
+  });
+
+  it("keeps 序言 at the same level as 第一篇 even if HTML suggests a smaller heading", () => {
+    expect(policyHeading("序言", [{ text: "序言", level: 4 }])).toEqual({ level: 2, text: "序言" });
+    expect(policyHeading("第一篇 经济发展")?.level).toBe(2);
+    render(<PolicyRichText planid="P-1" text={"序言\\n第一篇 经济发展"}
+      originalHints={[{ text: "序言", level: 4 }]} />);
+    expect(screen.getByRole("heading", { name: "序言", level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "第一篇 经济发展", level: 2 })).toBeInTheDocument();
   });
 
   it("never mistakes long prose or ordinary sentences for headings", () => {
@@ -52,6 +63,24 @@ describe("policy source rich-text rendering", () => {
     expect(within(table).getByRole("cell", { name: "4.8%" })).toBeInTheDocument();
     expect(within(table).getAllByRole("row")).toHaveLength(3);
     expect(screen.getByText("说明：以上指标采用原文口径。")).toBeInTheDocument();
+  });
+
+  it("recovers a fully consistent flattened legacy table with grouped headings", () => {
+    const line = "| 专栏：“十三五”经济社会发展主要目标 |---| | 指标 | 2015 | 2020 | 属性 || 一、经济发展 || 1.地区生产总值 | 494.4 | 600 | 预期性 || 2.人均生产总值 | 10486 | 15000 | 预期性";
+    render(<PolicyRichText planid="P-1" softWrap text={line} />);
+    const table = screen.getByRole("table", { name: "专栏：“十三五”经济社会发展主要目标" });
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(4);
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getByRole("cell", { name: "494.4" })).toBeInTheDocument();
+    expect(within(table).getByRole("rowheader", { name: "一、经济发展" })).toHaveAttribute("colspan", "4");
+  });
+
+  it("does not invent table cells when a flattened table's rows are incomplete", () => {
+    const fragment = "| 专栏：“十三五”发展目标 |---| | 指标 | 2015 | 2020 || 人均生产总值 | 100";
+    render(<PolicyRichText planid="P-1" text={fragment} />);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    const fallback = screen.getByRole("region", { name: "原文表格（无法确认列结构）" });
+    expect(fallback).toHaveTextContent("人均生产总值");
   });
 
   it("renders only safe policy-local images, gracefully reporting missing originals", () => {
