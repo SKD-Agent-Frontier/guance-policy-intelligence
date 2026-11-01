@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PolicyCatalog } from "./PolicyCatalog";
+import { PolicyCatalog, reflowPolicyReaderText } from "./PolicyCatalog";
 import { catalogClient } from "../api/catalogClient";
 
 const runtime = vi.hoisted(() => ({ isRealMode: true }));
@@ -267,6 +267,13 @@ describe("PolicyCatalog", () => {
     expect(screen.queryByText(/地区分布|政策类型分布/)).not.toBeInTheDocument();
   });
 
+  it("reflows policy prose visually but keeps explicit paragraphs and section headings", () => {
+    expect(reflowPolicyReaderText("建设新能源产业集群。发展高\\n性能镁合金、镁系材料\\n和配套产业。\\n\\n三、自然条件优势明显\\n海西州气候冷凉，\\n气温可随地理高度变化。"))
+      .toBe("建设新能源产业集群。发展高性能镁合金、镁系材料和配套产业。\\n\\n三、自然条件优势明显\\n海西州气候冷凉，气温可随地理高度变化。");
+    expect(reflowPolicyReaderText("## 第二章 发展目标\\n第一条 推进工作\\n\\n开展具体任务。"))
+      .toBe("## 第二章 发展目标\\n第一条 推进工作\\n\\n开展具体任务。");
+  });
+
   it("shows missing metadata as unavailable and reads the original in Unicode code-point pages", async () => {
     const user = userEvent.setup();
     const firstPage = `${"甲".repeat(3999)}😀`;
@@ -286,12 +293,14 @@ describe("PolicyCatalog", () => {
     await user.click(await screen.findByRole("button", { name: /数字经济政策/ }));
     expect(await screen.findByRole("heading", { name: "政策P-1" })).toBeVisible();
     expect(await screen.findByText(firstPage)).toBeVisible();
+    expect(screen.getByLabelText("原文页码")).toHaveTextContent("第 1 / 2 页");
     expect(catalog.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
 
     vi.mocked(window.scrollTo).mockClear();
     await user.click(screen.getByRole("button", { name: /下一页/ }));
     await waitFor(() => expect(catalog.content).toHaveBeenLastCalledWith("P-1", 4000, 4000, expect.any(AbortSignal)));
     expect(await screen.findByText("乙".repeat(1000))).toBeVisible();
+    expect(screen.getByLabelText("原文页码")).toHaveTextContent("第 2 / 2 页");
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0 });
 
     await user.click(screen.getByRole("button", { name: /上一页/ }));
