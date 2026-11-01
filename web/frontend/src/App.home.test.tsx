@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { createDemoResult } from "./data/demo";
 import { researchClient } from "./api/client";
 import type { PreparationResponse, ResearchPreparationRequest } from "./types";
 
@@ -65,6 +66,7 @@ describe("independent home composer and history conversations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client.prepare.mockImplementation(async (request) => needsClarification(request));
+    client.submit.mockImplementation(async (request) => createDemoResult(request, "success"));
   });
   afterEach(cleanup);
 
@@ -111,16 +113,11 @@ describe("independent home composer and history conversations", () => {
   });
 
   it("restores default QA home mode independently of an earlier comparison session", async () => {
-    client.resolveResearch.mockResolvedValue({
-      status: "needs_clarification",
-      message: "当前发布库需要更明确的政策对象",
-      request: null,
-      policies: [],
-    });
     render(<App />);
     chooseMode("政策比较");
     await submitHome("比较浙江和江苏十四五的数字经济政策");
-    expect(client.resolveResearch).toHaveBeenCalledWith("compare", "比较浙江和江苏十四五的数字经济政策");
+    expect(client.submit).toHaveBeenCalledWith(
+      { task_type: "compare", question: "比较浙江和江苏十四五的数字经济政策" }, expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
 
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
@@ -159,7 +156,8 @@ describe("independent home composer and history conversations", () => {
     expect(client.resolveResearch).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
 
-    expect(client.resolveResearch).toHaveBeenCalledWith("compare", question);
+    expect(client.submit).toHaveBeenCalledWith(
+      { task_type: "compare", question }, expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent(question);
     expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
 
