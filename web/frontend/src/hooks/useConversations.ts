@@ -291,6 +291,7 @@ export function useConversations() {
     const request: ResearchPreparationRequest = {
       mode: conversation.mode,
       message: text,
+      autonomous: true,
       ...(priorPreparation?.mode === conversation.mode
         ? { state: { state_id: priorPreparation.state.state_id, revision: priorPreparation.state.revision } }
         : {}),
