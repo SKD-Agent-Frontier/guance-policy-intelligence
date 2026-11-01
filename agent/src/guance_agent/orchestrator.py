@@ -347,6 +347,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                    research_discoverer=None, research_runtime: ResearchRuntime | None = None) -> RunResult:
     """Execute the task selected by the locked plan within one run deadline."""
     deadline = research_runtime.deadline if research_runtime is not None else time.monotonic() + s.run_timeout
+    rt.meta["research_question"] = task.question
     if task.task_type in RESEARCH_TASKS:
         contract = research_runtime.contract if research_runtime is not None else TaskContract.from_task(task)
         if research_runtime is None:
