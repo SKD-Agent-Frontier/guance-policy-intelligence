@@ -5,7 +5,7 @@ import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
 import { extractPolicyVersionPin } from "../api/policyFacets";
 import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
-import { PolicyRichText } from "./PolicyRichText";
+import { PolicyRichText, type OriginalHeadingHint } from "./PolicyRichText";
 import { TopicPicker } from "./TopicPicker";
 import { builtInThemes, tagsForPolicy } from "../policyTopics";
 import type { TopicCollection, TopicPolicy } from "../topicStore";
@@ -156,6 +156,7 @@ export function PolicyCatalog({
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [originalHints, setOriginalHints] = useState<OriginalHeadingHint[]>([]);
   const [detail, setDetail] = useState<PolicyDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -178,6 +179,24 @@ export function PolicyCatalog({
   const mainRef = useRef<HTMLElement>(null);
   const returnPlanId = useRef<string | null>(null);
   const openedRequestedPolicy = useRef<string | null>(null);
+
+  // HTML is only a formatting reference; failed or missing originals never
+  // affect the published Markdown evidence or pagination.
+  useEffect(() => {
+    setOriginalHints([]);
+    if (!selectedPlanId || !reading || typeof catalogClient.headingHints !== "function") return;
+    const controller = new AbortController();
+    void catalogClient.headingHints(selectedPlanId, controller.signal)
+      .then(response => {
+        if (!controller.signal.aborted && Array.isArray(response.headings)) {
+          setOriginalHints(response.headings.filter(hint =>
+            typeof hint.text === "string" && hint.text.length < 140
+            && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6));
+        }
+      })
+      .catch(() => { /* original HTML is optional */ });
+    return () => controller.abort();
+  }, [selectedPlanId, reading]);
 
   const loadList = useCallback(async (params: CatalogParams, showResults = true) => {
     listController.current?.abort();
@@ -769,7 +788,7 @@ export function PolicyCatalog({
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap={reading} />}
+                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap={reading} originalHints={originalHints} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
