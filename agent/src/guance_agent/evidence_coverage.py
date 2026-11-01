@@ -6,7 +6,7 @@ coverage is never trusted here.
 """
 from __future__ import annotations
 
-from .research_quality import INTENT_TERMS, requirements
+from .research_quality import ANALYTICAL, INTENT_TERMS, requirements
 
 MULTI_DOC_MARKERS = (
     "比较", "对比", "异同", "分别", "归纳", "不同政策", "两篇", "多篇",
@@ -71,6 +71,10 @@ def _explicit_planids(ctx) -> list[str]:
 def build_coverage(result, question: str, ctx) -> dict:
     """Return a serializable coverage dict with at most one bounded next action."""
     required = requirements(question)
+    # Analytical dimensions are judged only after an audited analysis block
+    # exists; factual coverage must not pretend a literal claim satisfies them.
+    factual_dimensions = [label for label in required["dimensions"]
+                          if label not in ANALYTICAL]
     multi_required = multi_document_required(question)
     claims = _verified_claims(result)
     refs_by_chunk = {ref.chunk_id: ref for ref in result.evidence_refs}
@@ -87,7 +91,7 @@ def build_coverage(result, question: str, ctx) -> dict:
                 continue
             planid = str(ref.planid)
             document_claims[planid] = document_claims.get(planid, 0) + 1
-            dims = _claim_dimensions(claim, required["dimensions"])
+            dims = _claim_dimensions(claim, factual_dimensions)
             if dims:
                 document_dimensions.setdefault(planid, [])
                 for dimension in dims:
@@ -98,7 +102,7 @@ def build_coverage(result, question: str, ctx) -> dict:
             break
 
     covered_planids = [pid for pid, count in document_claims.items() if count > 0]
-    missing_dimensions = [label for label in required["dimensions"]
+    missing_dimensions = [label for label in factual_dimensions
                           if label not in covered_dimensions]
 
     if explicit_planids:
@@ -159,6 +163,7 @@ def build_coverage(result, question: str, ctx) -> dict:
     return {
         "status": status,
         "required_dimensions": required["dimensions"],
+        "factual_dimensions": factual_dimensions,
         "covered_dimensions": covered_dimensions,
         "missing_dimensions": missing_dimensions,
         "required_planids": required_planids,

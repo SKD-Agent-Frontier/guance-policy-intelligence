@@ -86,12 +86,12 @@ def test_multi_document_coverage_gap_blocks_complete_and_is_delivered():
     result = _result([_claim("c1", "A政策提出产业扶持措施")], refs)
     ctx = _ctx(refs, kind="open")
     result.meta["evidence_coverage"] = build_coverage(
-        result, "请归纳两篇政策在产业扶持方面的共同点与差异", ctx)
-    quality = evaluate(result, "请归纳两篇政策在产业扶持方面的共同点与差异")
+        result, "请整理两篇政策的主要内容", ctx)
+    quality = evaluate(result, "请整理两篇政策的主要内容")
     assert quality["status"] == "partial"
     assert quality["missing_planids"] == []
     assert any(gap.startswith("coverage:multiple_documents") for gap in quality["gaps"])
-    deliver_research(result, "请归纳两篇政策在产业扶持方面的共同点与差异")
+    deliver_research(result, "请整理两篇政策的主要内容")
     assert result.meta["research_completion"]["status"] == "partial"
     assert "多文献要求" in result.answer
 

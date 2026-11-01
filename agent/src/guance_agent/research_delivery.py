@@ -137,7 +137,8 @@ def _completion_payload(result, quality: dict) -> dict:
         "satisfied": list(dict.fromkeys(
             list(quality.get("covered_dimensions") or [])
             + ["document:" + pid for pid in (quality.get("covered_planids") or [])]
-            + (["multi_document"] if coverage.get("multi_document_satisfied") else []))),
+            + (["multi_document"] if (coverage.get("multi_document_required")
+                                       and coverage.get("multi_document_satisfied")) else []))),
         "gaps": list(quality.get("gaps") or []),
         "covered_planids": list(quality.get("covered_planids") or []),
         "missing_planids": list(quality.get("missing_planids") or []),
