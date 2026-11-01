@@ -11,6 +11,7 @@ from guance_agent.kb import MockKB
 from guance_agent.orchestrator import run_task
 from guance_agent.qa_controlled import (
     TOTAL_EVIDENCE_CHARS,
+    acquire,
     execute_controlled,
     messages_for,
     requested_area,
@@ -193,3 +194,54 @@ async def test_followup_can_exclude_previously_read_chunks(env):
     )
     assert second.error_code is None
     assert not set(rt.meta["qa_controlled_retrieval"]["read_chunks"]) & current
+
+
+@pytest.mark.asyncio
+async def test_open_digital_economy_rejects_unrelated_tourism_fund(monkeypatch):
+    task = SimpleNamespace(question=(
+        "研究数字经济相关政策，在产业扶持、基础设施建设、人才培养方面的异同"
+    ))
+    hits = [
+        {"chunk_id": "bad", "planid": "99", "title": "文旅专项资金",
+         "section_path": "资金管理", "content": "支持人才培养"},
+        {"chunk_id": "good", "planid": "100", "title": "数字经济发展政策",
+         "section_path": "数字经济", "content": "数字经济发展措施"},
+    ]
+    read_calls, searches = [], []
+
+    async def fake_call(ctx, name, method, *args, **kwargs):
+        if name == "kb_search":
+            searches.append(args[0])
+            return json.dumps({"status": "ok", "data": hits})
+        cid = kwargs["chunk_id"]
+        read_calls.append(cid)
+        return json.dumps({
+            "status": "ok",
+            "data": {
+                "chunks": [{"chunk_id": cid}],
+                "is_index": False,
+                "content": ("促进数字经济基础设施建设" if cid == "good"
+                            else "支持文化旅游产业发展"),
+                "section_path": "政策措施",
+            },
+        })
+
+    refs = {
+        cid: SimpleNamespace(source="kb_read", observed_ranges=[(0, 10)])
+        for cid in ("good", "bad")
+    }
+    ctx = SimpleNamespace(
+        route=SimpleNamespace(kind="open", planids=(), areas=(), fyps=(),
+                              sub_query=""),
+        scope=None,
+        tool_calls=[],
+        evidence=SimpleNamespace(get=refs.get),
+    )
+    monkeypatch.setattr("guance_agent.qa_controlled._call", fake_call)
+    evidence = await acquire(task, ctx, time.monotonic() + 180)
+    assert len(searches) >= 2
+    assert all(query.startswith("数字经济") for query in searches)
+    assert [item["chunk_id"] for item in evidence] == ["good"]
+    assert ctx._qa_search_diagnostics["topic_filter"] == "digital_economy"
+    assert ctx._qa_search_diagnostics["unrelated_read_rejected"] == 1
+    assert len(read_calls) <= 6
