@@ -68,6 +68,8 @@ def evaluate(result, question: str) -> dict:
     gaps = []
     if not verified_claims or result.meta.get("verification_incomplete"):
         gaps.append("verified_facts_missing")
+    if result.meta.get("execution_recovery"):
+        gaps.append("source_excerpts_only")
     if required["needs_report"] and not blocks:
         gaps.append("audited_report_missing")
     if required["needs_analysis"] and not analytical_blocks:
