@@ -328,16 +328,16 @@ export function useConversations() {
     if (turn?.kind !== "user") return;
     const mode = userModes.current.get(turn.id) ?? conversation.mode;
     const retained = conversation.messages.slice(0, userIndex);
-    const prior = retained.filter((item) => item.kind === "preparation").at(-1);
-    const preparation = prior?.kind === "preparation" && prior.response.mode === mode
-      ? prior.response : null;
     lastOperations.current.delete(conversation.id);
+    // The server has no rewind primitive. A branch-edit must start a fresh
+    // trusted session and preparation token, never reuse invalid future state.
+    agentSessionIds.current.delete(conversation.id);
     updateConversation(conversation.id, (current) => ({
       ...current,
       title: retained.some((item) => item.kind === "user") ? current.title : "新对话",
       mode,
       messages: retained,
-      preparation,
+      preparation: null,
       busy: "idle",
       advancedDraft: createAdvancedDraft(),
     }));
@@ -373,6 +373,7 @@ export function useConversations() {
     if (saved) {
       const retained = conversation.messages.slice(0, index);
       lastOperations.current.delete(conversation.id);
+      agentSessionIds.current.delete(conversation.id);
       updateConversation(conversation.id, (current) => ({
         ...current, messages: retained, busy: "idle",
         preparation: (() => {
@@ -424,6 +425,7 @@ export function useConversations() {
     generations.current.set(conversationId, token + 1);
     operations.current.delete(conversationId);
     lastOperations.current.delete(conversationId);
+    agentSessionIds.current.delete(conversationId);
     updateConversation(conversationId, (conversation) => ({
       ...conversation,
       preparation: null,
@@ -456,6 +458,7 @@ export function useConversations() {
     generations.current.set(conversationId, (generations.current.get(conversationId) ?? 0) + 1);
     operations.current.delete(conversationId);
     lastOperations.current.delete(conversationId);
+    agentSessionIds.current.delete(conversationId);
     updateConversation(conversationId, (conversation) => ({
       ...conversation,
       mode,
