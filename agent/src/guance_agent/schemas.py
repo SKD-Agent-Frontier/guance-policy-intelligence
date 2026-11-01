@@ -1,7 +1,7 @@
 """工具契约与对外结果，不依赖 Agent SDK。"""
 from typing import Literal
 
-from pydantic import BaseModel, Field, PrivateAttr, ValidationError, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, StrictInt, ValidationError, model_validator
 
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
@@ -113,6 +113,48 @@ class Claim(BaseModel):
     # 提取时模型只给定位线索，不给引文；引文由程序从原文截取后写回 quotes
     anchors: list[str] = Field(default_factory=list)
 
+class QABlock(BaseModel):
+    id: str = Field(min_length=1)
+    title_path: list[str] = Field(min_length=1, max_length=2)
+    dimension: str = Field(min_length=1)
+    kind: Literal["fact", "analysis"]
+    text: str = Field(min_length=1, max_length=1200)
+    supporting_claim_indexes: list[StrictInt] = Field(min_length=1, max_length=96)
+
+    @model_validator(mode="after")
+    def _validate_support(self):
+        if any(not title or len(title) > 80 or "\n" in title or "\r" in title
+               for title in self.title_path):
+            raise ValueError("每级标题必须为 1–80 个字符")
+        if any(index < 0 for index in self.supporting_claim_indexes):
+            raise ValueError("事实索引必须是非负整数")
+        if len(set(self.supporting_claim_indexes)) != len(self.supporting_claim_indexes):
+            raise ValueError("事实索引不能重复")
+        minimum = 1 if self.kind == "fact" else 2
+        if len(self.supporting_claim_indexes) < minimum:
+            raise ValueError("事实块至少依赖 1 条事实；分析块至少依赖 2 条不同事实")
+        return self
+
+
+class QAReportDraft(BaseModel):
+    dimensions: list[str] = Field(min_length=1, max_length=8)
+    blocks: list[QABlock] = Field(max_length=12)
+
+    @model_validator(mode="after")
+    def _validate_report(self):
+        if any(not dimension for dimension in self.dimensions):
+            raise ValueError("报告维度不能为空")
+        if len(set(self.dimensions)) != len(self.dimensions):
+            raise ValueError("报告维度不能重复")
+        if len({block.id for block in self.blocks}) != len(self.blocks):
+            raise ValueError("报告块 ID 不能重复")
+        if sum(len(block.supporting_claim_indexes) for block in self.blocks) > 96:
+            raise ValueError("报告总事实依赖不能超过 96 条")
+        if any(block.dimension not in self.dimensions for block in self.blocks):
+            raise ValueError("报告块维度必须属于报告声明的维度")
+        return self
+
+
 class QAAnalysisDraft(BaseModel):
     """Schema-safe derived interpretation. Source dependencies are verified later."""
     kind: Literal["synthesis", "comparison", "implication"]
@@ -125,6 +167,7 @@ class AgentOutput(BaseModel):
     answer: str = ""
     claims: list[Claim] = Field(default_factory=list)
     insufficient: bool = False
+    report: QAReportDraft | None = None
     # Typed shape is required by the SDK strict structured-output mode.
     analyses: list[QAAnalysisDraft] = Field(default_factory=list)
 
@@ -139,6 +182,8 @@ class AgentOutput(BaseModel):
                 data["answer"] = ""
             if data.get("insufficient") is None:
                 data["insufficient"] = False
+            if "report" not in data:
+                data["report"] = None
             # analyses 是可选增值能力：单条格式错误不能使已完整的事实回答失败。
             # 仅筛结构有效草稿；依赖关系依旧由 finalize_qa_analysis 严格把关。
             drafts = data.get("analyses")
@@ -178,6 +223,9 @@ class RunError(BaseModel):
     message: str
 
 class RunResult(BaseModel):
+    _qa_report_candidates: list[dict] = PrivateAttr(default_factory=list)
+    _qa_report_dimensions: list[str] = PrivateAttr(default_factory=list)
+    _qa_report_supplied: bool = PrivateAttr(default=False)
     # Never serialized: draft model interpretations cannot escape before verification.
     _qa_analysis_candidates: list[dict] = PrivateAttr(default_factory=list)
     run_id: str

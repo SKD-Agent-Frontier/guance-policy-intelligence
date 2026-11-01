@@ -53,6 +53,74 @@ def _route_targets(result):
     return route.get("targets", route.get("planids"))
 
 
+def _qa_report_contract(result):
+    structured = result.structured or {}
+    dimensions = structured.get("dimensions")
+    blocks = structured.get("blocks")
+    coverage = structured.get("coverage")
+    if (structured.get("schema_version") != "qa-report/1"
+            or not isinstance(dimensions, list) or not dimensions
+            or any(not isinstance(dimension, str) or not dimension for dimension in dimensions)
+            or not isinstance(blocks, list) or not blocks
+            or not isinstance(coverage, dict)
+            or coverage.get("status") not in {"complete", "partial"}):
+        return False
+    verification = structured.get("verification")
+    if (not isinstance(verification, dict)
+            or verification.get("facts") != "semantic_reviewed_against_quotes"
+            or verification.get("blocks") != "model_reviewed_evidence_linked_semantics_not_proven"):
+        return False
+    if (not isinstance(coverage.get("covered"), list)
+            or not isinstance(coverage.get("missing"), list)
+            or any(not isinstance(item, str) for item in coverage["covered"] + coverage["missing"])
+            or set(coverage["covered"]) | set(coverage["missing"]) != set(dimensions)
+            or set(coverage["covered"]) & set(coverage["missing"])):
+        return False
+    report_meta = result.meta.get("qa_report") or {}
+    expected_status = ("complete" if not coverage["missing"]
+                       and not report_meta.get("withdrawn", 0)
+                       and not report_meta.get("declared_insufficient") else "partial")
+    if coverage["status"] != expected_status:
+        return False
+
+    refs = {ref.chunk_id for ref in result.evidence_refs}
+    covered, mapped_claims, block_ids = set(), set(), set()
+    for block in blocks:
+        indexes = block.get("supporting_claim_indexes")
+        chunk_ids = block.get("supporting_chunk_ids")
+        title_path = block.get("title_path")
+        if (not isinstance(block.get("id"), str) or not block["id"]
+                or block["id"] in block_ids
+                or not isinstance(title_path, list) or not 1 <= len(title_path) <= 2
+                or any(not isinstance(title, str) or not title for title in title_path)
+                or not isinstance(block.get("text"), str) or not block["text"]
+                or block.get("dimension") not in dimensions
+                or block.get("kind") not in {"fact", "analysis"}
+                or block.get("verification") != "model_reviewed_evidence_linked"
+                or not isinstance(indexes, list) or not indexes
+                or not isinstance(chunk_ids, list) or not chunk_ids
+                or any(not isinstance(chunk_id, str) for chunk_id in chunk_ids)
+                or not set(chunk_ids) <= refs):
+            return False
+        if any(type(index) is not int or index < 0 or index >= len(result.claims)
+               for index in indexes):
+            return False
+        if len(set(indexes)) != len(indexes):
+            return False
+        block_ids.add(block["id"])
+        minimum = 1 if block["kind"] == "fact" else 2
+        if len(indexes) < minimum:
+            return False
+        claim_chunks = {chunk for index in indexes for chunk in result.claims[index].chunk_ids}
+        if not claim_chunks or not claim_chunks <= refs or claim_chunks != set(chunk_ids):
+            return False
+        covered.add(block["dimension"])
+        mapped_claims.update(indexes)
+    if covered != set(coverage["covered"]):
+        return False
+    return bool(mapped_claims) and all(result.claims[index].chunk_ids for index in mapped_claims)
+
+
 def _case_checks(name, task_type, result, settings, targets, dimensions, json_compatible, refs_valid):
     quotes = _quote_counts(result)
     expected_targets = targets or None
@@ -73,7 +141,11 @@ def _case_checks(name, task_type, result, settings, targets, dimensions, json_co
             and bool(result.claims) and bool(result.evidence_refs)
         )
     if task_type == "qa":
-        checks["qa_has_no_structured_payload"] = result.structured is None
+        report_meta = result.meta.get("qa_report") or {}
+        if report_meta.get("received", 0):
+            checks["qa_report_contract"] = _qa_report_contract(result)
+        else:
+            checks["qa_legacy_without_report"] = result.structured is None
     elif task_type == "extract":
         structured = result.structured or {}
         elements = [claim.model_dump() for claim in result.claims]

@@ -27,7 +27,8 @@ _TRAILING_COMMA = re.compile(r",(\s*[}\]])")
 
 REPAIR_SYSTEM_PROMPT = (
     "你是 JSON 格式修复器。只修复格式与字段类型，不改变、增加或删除任何回答内容、"
-    "结论、引用、编号与原文；不得合并多个 JSON 对象，不得编造内容；"
+    "结论、引用、编号、report 维度/段落/依赖索引与原文；原输出含 report 时必须原样保留，"
+    "未包含时不得添加；不得合并多个 JSON 对象，不得编造内容；"
     "无法安全修复时输出 {\"unrecoverable\": true}。只输出一个 JSON 对象，不要解释或 Markdown。"
     "输出结构：{\"answer\": 字符串, \"claims\": [{\"text\": 字符串, "
     "\"chunk_ids\": [字符串], \"quotes\": [字符串]}], \"insufficient\": 布尔值}。"
@@ -298,6 +299,15 @@ def _matches_strict(original: dict, parsed: AgentOutput) -> bool:
     flag = original.get("insufficient")
     if isinstance(flag, bool) and flag != parsed.insufficient:
         return False
+    if "report" in original:
+        # 报告块与其支持 Claim 的映射是事实展示边界的一部分，必须逐字段保真。
+        # 直接比较原始对象也会拒绝 schema 未知字段被 Pydantic 静默丢弃的情况。
+        parsed_report = (parsed.report.model_dump(mode="json")
+                         if getattr(parsed, "report", None) is not None else None)
+        if original.get("report") != parsed_report:
+            return False
+    elif getattr(parsed, "report", None) is not None:
+        return False
     return True
 
 
@@ -310,6 +320,12 @@ def repair_preserves_content(raw: str, parsed: AgentOutput) -> bool:
     strict = _strict_json_object(raw)
     if strict is not None:
         return _matches_strict(strict, parsed)
+    # 宽松抽取器只理解 answer/claims，无法证明报告的块顺序、类型、依赖和维度
+    # 没有变化。遇到损坏 JSON 中的 report 字段就拒绝模型修复。
+    if re.search(r'"report"\s*:', raw or ""):
+        return False
+    if getattr(parsed, "report", None) is not None:
+        return False
     structure = _tolerant_structure(raw)
     if structure is None:
         return False                    # 无法还原原结构，不做模型修复

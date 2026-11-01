@@ -121,6 +121,32 @@ async def test_repair_rejected_when_insufficient_flag_flipped(env):
     assert outcome.final_output == raw
 
 
+@pytest.mark.asyncio
+async def test_tolerant_repair_cannot_rewrite_a_report(env):
+    broken = ('{"answer":"简述","claims":[],"report":{"dimensions":["维度"],'
+              '"blocks":[]},"insufficient": }')
+    repaired = ('{"answer":"简述","claims":[],"report":{"dimensions":["其他"],'
+                '"blocks":[]},"insufficient":false}')
+    rt = FakeRuntime(repaired)
+    outcome, meta = await _recover_qa_output(_outcome(broken), env[0], rt,
+                                             time.monotonic() + 30)
+    assert len(rt.calls) == 1
+    assert meta["output_parse"]["repair_rejected"] == "content_changed"
+    assert outcome.final_output == broken
+
+
+@pytest.mark.asyncio
+async def test_deterministic_repair_with_report_fails_closed_when_raw_report_is_tolerant(env):
+    raw = ('{"answer":"简述","claims":[],"report":{"dimensions":["维度"],'
+           '"blocks":[],},"insufficient":false}')
+    rt = FakeRuntime(RECOVERED)
+    outcome, meta = await _recover_qa_output(_outcome(raw), env[0], rt,
+                                             time.monotonic() + 30)
+    assert rt.calls == []
+    assert meta["output_parse"]["repair_rejected"] == "content_changed"
+    assert outcome.final_output == raw
+
+
 def test_guard_rejects_when_declared_claims_are_dropped():
     raw = ('{"answer":"回答","claims":[{"text":"结论一","chunk_ids":["c-1"]},'
            '{"text":"结论二","chunk_ids":["c-2"]}], "insufficient": true}')
@@ -155,6 +181,23 @@ def test_guard_accepts_unicode_escape_repair():
     """原输出里的 \\uXXXX 转义在修复后按同一文本比对，不应被误杀。"""
     parsed = parse_agent_output('{"answer":"原文","claims":[],"insufficient":false}')
     assert repair_preserves_content('{"answer":"\\u539f\\u6587","claims":[]}', parsed)
+
+
+def test_guard_compares_report_payload_and_dependencies_exactly():
+    raw = ('{"answer":"简述","claims":[{"text":"事实","chunk_ids":["c-1"],'
+           '"quotes":["原句"]}],"insufficient":false,"report":{"dimensions":["维度"],'
+           '"blocks":[{"id":"b1","title_path":["标题"],"dimension":"维度",'
+           '"kind":"fact","text":"事实段","supporting_claim_indexes":[0]}]}}')
+    parsed = parse_agent_output(raw)
+    assert repair_preserves_content(raw, parsed)
+
+    changed = parsed.model_copy(deep=True)
+    changed.report.blocks[0].supporting_claim_indexes = [1]
+    assert not repair_preserves_content(raw, changed)
+
+    extra = raw.replace('"dimensions":["维度"]',
+                        '"dimensions":["维度"],"unrecognized":"must-not-disappear"')
+    assert not repair_preserves_content(extra, parsed)
 
 
 def test_broken_wrapper_with_two_inner_objects_is_ambiguous(env):

@@ -33,6 +33,7 @@ from .output import (
     rebuild_trusted_answer,
 )
 from .qa_analysis import finalize_qa_analysis
+from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .routing import RouteDecision, decide
 from .runner import ExecOutcome, execute
 from .runtime import Runtime
@@ -237,6 +238,8 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
                if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
         part.claims = [claim for claim in part.claims
                        if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]
+        if part._qa_report_supplied:
+            prune_report(part, ctx, "object_scope_filter")
         if not part.claims and part.status == "completed":
             part.status = "completed"
         obj["status"] = part.status if part.status != "completed" else "ok"
@@ -290,6 +293,71 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     result.claims, result.evidence_refs = claims, list(refs.values())
     result.dropped_chunk_ids = []
     result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)
+    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)
+                    if part._qa_report_supplied and task.task_type == "qa"]
+    if report_parts:
+        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。
+        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。
+        result._qa_report_supplied = True
+        result._qa_report_dimensions = []
+        result._qa_report_candidates = []
+        seen_dimensions, seen_ids = set(), set()
+        for index, (obj, part) in enumerate(runs):
+            if not part._qa_report_supplied:
+                dimension = f"{obj['label']}（未提供结构化报告）"
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+                continue
+            dimension_map = {
+                dimension: f"{obj['label']} / {dimension}"
+                for dimension in part._qa_report_dimensions
+            }
+            for dimension in dimension_map.values():
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+            for candidate in part._qa_report_candidates:
+                block = dict(candidate)
+                block_id = f"{index}:{obj['planid']}:{block['id']}"
+                while block_id in seen_ids:
+                    block_id = "_" + block_id
+                seen_ids.add(block_id)
+                block["id"] = block_id
+                block["dimension"] = dimension_map[block["dimension"]]
+                path = list(block["title_path"])
+                path[0] = f"{obj['label']} / {path[0]}"
+                block["title_path"] = path[:2]
+                result._qa_report_candidates.append(block)
+        covered_objects = {obj["label"] for obj, _ in runs}
+        for obj in objects:
+            if obj["label"] not in covered_objects:
+                dimension = f"{obj['label']}（未取得证据）"
+                if dimension not in seen_dimensions:
+                    result._qa_report_dimensions.append(dimension)
+                    seen_dimensions.add(dimension)
+        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。
+        declared_insufficient = any(
+            "本次证据不足，以上结论可能不完整" in part.warnings
+            for _, _, part in report_parts)
+        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。
+        result.answer = SAFE_EMPTY_ANSWER
+        result.meta["qa_report"] = {
+            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)
+                            for _, _, part in report_parts),
+            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",
+            "semantic_review": "pending", "objects_without_report": [
+                obj["label"] for obj, part in runs if not part._qa_report_supplied],
+            "declared_insufficient": declared_insufficient,
+        }
+        if (len(result._qa_report_dimensions) > 8
+                or len(result._qa_report_candidates) > 12):
+            result._qa_report_candidates = []
+            result.meta["qa_report"]["aggregation_limit_exceeded"] = True
+            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")
+        if result.meta["qa_report"]["objects_without_report"]:
+            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")
+        prune_report(result, ctx, "multi_object_aggregation")
     missing = [o for o in objects if o.get("status") != "ok"]
     if missing:
         result.warnings.append("以下对象未取得证据：" + "；".join(
@@ -354,6 +422,10 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
             except TimeoutError:
                 result.warnings.append("核验超出本次运行时限，未完成逐条核验")
                 result.evidence_status = "insufficient"
+                if task.task_type == "qa" and result._qa_report_supplied:
+                    result.meta["verification_incomplete"] = True
+                    result.claims = []
+                    result.evidence_refs = []
         if module is None:
             if task.task_type == "qa":
                 enforce_literal_result(result, ctx)
@@ -361,6 +433,26 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime) -> RunResult:
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
     result = finalize_qa_analysis(result, task.question)
+    if task.task_type == "qa" and result._qa_report_supplied:
+        remaining = max(deadline - time.monotonic(), 0.05)
+        try:
+            result = await asyncio.wait_for(
+                finalize_report(result, ctx, rt, deadline), timeout=remaining)
+        except TimeoutError:
+            result.meta["verification_incomplete"] = True
+            result._qa_report_candidates = []
+            result.structured = {
+                "schema_version": "qa-report/1",
+                "dimensions": list(result._qa_report_dimensions), "blocks": [],
+                "coverage": {"covered": [], "missing": list(result._qa_report_dimensions),
+                             "status": "partial"},
+                "verification": {"facts": "not_reviewed", "blocks": "not_reviewed"},
+            }
+            result.answer = SAFE_EMPTY_ANSWER
+            result.evidence_status = "insufficient"
+            result.meta.setdefault("qa_report", {}).update(
+                reason="semantic_review_timeout", semantic_review="timeout", retained=0)
+            result.warnings.append("报告语义审核超出本次运行时限，已撤回报告段落")
     try:
         rt.finish(result, ctx)
     except OSError as exc:
@@ -615,6 +707,12 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
             if dropped > 0:
                 meta["output_parse"]["analyses_dropped"] = dropped
         if deterministic:
+            if (getattr(parsed, "report", None) is not None
+                    and not repair_preserves_content(outcome.final_output, parsed)):
+                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")
+                rt.log("qa_output_repair_failed", classification=classification,
+                       result="content_changed")
+                return outcome, meta
             meta["output_parse"]["deterministic_repair"] = deterministic
             rt.log("qa_output_parse_repaired", classification=classification,
                    method=deterministic)

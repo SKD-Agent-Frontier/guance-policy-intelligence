@@ -41,15 +41,24 @@ def test_build_agent_uses_effective_prompt():
 def test_qa_output_budget_guidance_is_in_effective_prompt():
     for structured in (False, True):
         prompt = effective_prompt(structured)
-        assert "既定输出预算" in prompt
-        assert "3–5 项最相关且有本轮证据支持的措施" in prompt
-        assert "保留其中的条件、单位和适用范围" in prompt
-        assert "明确说明已覆盖的范围及未覆盖的部分" in prompt
-        assert "不要在生成后删减 claims 或引文" in prompt
-        assert "chunk_ids" in prompt and "逐字引文" in prompt
+        assert "研究目标和需要回答的维度" in prompt
+        assert "围绕尚缺的维度选择检索词" in prompt
+        assert "事实、分析与出处" in prompt
+        assert "supporting_claim_indexes" in prompt
+        assert "研究型问题必须提供 `report`" in prompt
+        assert "综合分析至少依赖两条相关事实 Claim" in prompt
+        assert "不要把分析伪装成原文事实" in prompt
+        assert "不得对所有多维问题统一设定" in prompt
+        assert "`insufficient` 设为 `true`" in prompt
+        assert "必须与本轮工具返回的元数据完全一致" in prompt
+        assert "在 `report.dimensions` 保留每个研究维度" in prompt
+        assert "不要在生成后删除 Claim、引文或依赖" in prompt
+        assert "chunk_ids" in prompt and "逐字片段" in prompt
         if structured:
             assert "只输出一个 JSON 对象" not in prompt
         else:
             assert "只输出一个 JSON 对象，不加其他文字" in prompt
+            assert '"supporting_claim_indexes":[0]' in prompt
+            assert '"kind":"fact"' in prompt and "kind 只能是 fact 或 analysis" in prompt
         digest = sha256(prompt.encode()).hexdigest()[:8]
         assert prompt_version(structured) == f"qa:{'schema' if structured else 'json'}@{digest}"
