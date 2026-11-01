@@ -264,6 +264,40 @@ describe("PolicyCatalog", () => {
     expect(screen.queryByText("政策P-1", { selector: ".catalog-prose" })).not.toBeInTheDocument();
   });
 
+  it("keeps the printed policy index in preview but removes it from full reading pages", async () => {
+    const user = userEvent.setup();
+    const text = [
+      "目 录", "前 言................................5",
+      "第一章 发展基础....................6",
+      "第一节 发展现状....................6",
+      "第二章 总体要求...................13",
+      "前 言", "真实政策正文。", "第一章 发展基础",
+    ].join("\n");
+    const tocEnd = text.indexOf("前 言\n真实政策正文");
+    catalog.detail.mockResolvedValue({
+      ...detailResponse("P-1", "福建省“十四五”全民医疗保障专项规划", []),
+      policy: {
+        ...detailResponse("P-1", "福建省“十四五”全民医疗保障专项规划", []).policy,
+        printed_toc: [0, tocEnd],
+      },
+    } as never);
+    catalog.content.mockResolvedValue(contentResponse("P-1", 0, text, text.length) as never);
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    const card = screen.getByRole("button", { name: /数字经济政策/ });
+    await user.hover(card);
+    const preview = await screen.findByRole("complementary", { name: "政策详情预览" });
+    await waitFor(() => expect(preview.querySelectorAll(".catalog-toc-line").length).toBeGreaterThan(2));
+    expect(preview.querySelector(".catalog-toc-depth-1")).toHaveTextContent("第一节 发展现状");
+    expect(preview.querySelector(".catalog-toc-line")?.textContent).not.toMatch(/\.{3,}\d+/);
+    await user.click(card);
+    const reader = await screen.findByRole("article", { name: "政策原文正文" });
+    await waitFor(() => expect(within(reader).getByText("真实政策正文。")).toBeVisible());
+    expect(reader.querySelectorAll(".catalog-toc-line")).toHaveLength(0);
+    expect(within(reader).queryByText("目 录")).not.toBeInTheDocument();
+    expect(within(reader).getByRole("heading", { name: "第一章 发展基础" })).toBeInTheDocument();
+  });
+
   it("opens a standalone original view and restores the search on return", async () => {
     const user = userEvent.setup();
     render(<PolicyCatalog />);
