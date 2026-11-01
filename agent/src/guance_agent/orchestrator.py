@@ -673,11 +673,38 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             await _summarize_historical(
                 result, task, rt, deadline,
                 analyze=intent_meta.get("primary") == "analyze", prepend=True)
-        planids = {ref.planid for ref in result.evidence_refs}
-        if (not has_analysis and len(planids) >= 2
+        if (not has_analysis
                 and intent_meta.get("primary") in {"compare", "synthesize"}):
-            await _summarize_historical(
+            added = await _summarize_historical(
                 result, task, rt, deadline, compare=True, prepend=True)
+            summary_text = result.meta.pop("_research_summary_text", None)
+            if added and summary_text:
+                required = result.meta.get("qa_report_required_dimensions")
+                dimension = (str(required[0]) if isinstance(required, list) and required
+                             else "综合判断")
+                signatures = [(claim.text, tuple(claim.chunk_ids))
+                              for claim in result.claims
+                              if claim.quotes and claim.chunk_ids][:8]
+                if len(signatures) >= 2:
+                    result._qa_report_candidates.append({
+                        "id": "comparison-summary",
+                        "title_path": ["共同点与差异"],
+                        "dimension": dimension, "kind": "analysis",
+                        "text": summary_text[:1200],
+                        "support_signatures": signatures,
+                    })
+                    if dimension not in result._qa_report_dimensions:
+                        result._qa_report_dimensions.append(dimension)
+                    meta = result.meta.setdefault("qa_report", {})
+                    meta["received"] = int(meta.get("received", 0)) + 1
+                    try:
+                        result = await asyncio.wait_for(
+                            finalize_report(result, ctx, rt, deadline),
+                            timeout=max(deadline - time.monotonic(), 0.05))
+                    except TimeoutError:
+                        result.meta["comparison_summary_review_timeout"] = True
+                    if summary_text not in (result.answer or ""):
+                        result.answer = summary_text + "\n\n" + (result.answer or "")
     # Recovery from token-cap truncation is allowed to publish only the
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
@@ -1111,6 +1138,7 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
         result.answer = summary + "\n\n" + result.answer
     else:
         result.answer = summary
+    result.meta["_research_summary_text"] = summary
     result.meta["historical_summary_generated"] = True
     return True
 
