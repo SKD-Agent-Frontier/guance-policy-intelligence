@@ -48,6 +48,19 @@ export function policyHeading(
 function normalizeDocumentTitle(title: string): string {
   return normalizeHeadingText(title).replace(/[“”‘’"'《》<>（）()·—－:：，,、]/g, "");
 }
+/** Match a title attached directly to front-matter prose by OCR, without
+ * changing the archived source or matching an unrelated in-body title. */
+function leadingSourceTitle(line: string, title: string): string | null {
+  const expected = normalizeDocumentTitle(title);
+  if (expected.length < 8) return null;
+  for (let index = 1; index <= Math.min(line.length, title.length + 24); index++) {
+    const actual = normalizeDocumentTitle(line.slice(0, index));
+    if (actual === expected) return line.slice(index).trimStart();
+    if (actual.length > expected.length || !expected.startsWith(actual)) return null;
+  }
+  return null;
+}
+
 const DATE_STAMP = /^[（(]?\s*(?:19|20)\d{2}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?\s*[）)]?$/;
 const APPROVAL_LINE = /^[（(]?\s*(?:19|20)\d{2}\s*年.*(?:审议通过|批准|通过|印发|公布|发布|会议)[^。；;]*[）)]?$/;
 function originalDateLine(line: string): boolean {
@@ -400,6 +413,23 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
       }
       index++;
       continue;
+    }
+
+    // A few OCR files join the original title, "前言", and the first long
+    // paragraph without any line break. Recover only an exact title prefix
+    // followed by a recognizable preface; keep every body character visible.
+    if (documentLead && !leadTitleFound && documentTitle && leadLineCount <= 2) {
+      const remainder = leadingSourceTitle(line.trim(), documentTitle);
+      const preface = remainder?.match(/^(前\s*言|序\s*言)([\s\S]*)$/);
+      if (preface && preface[2].trim()) {
+        flushProse();
+        blocks.push(<PolicyHeading level={2} key={key++}>{preface[1].replace(/\s/g, "")}</PolicyHeading>);
+        showRecoveredProse(preface[2].trimStart());
+        leadTitleFound = true;
+        documentLead = false;
+        index++;
+        continue;
+      }
     }
 
     // The metadata title is already displayed as a centered H1 in reader mode.
