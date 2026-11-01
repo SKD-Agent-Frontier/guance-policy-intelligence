@@ -3,8 +3,34 @@ import { apiBaseUrl } from "../api/config";
 
 /** Whitelisted local media basename; never render remote or arbitrary file paths. */
 const IMAGE_LINK = /^\s*!\[([^\]]*)\]\(\s*media\/([A-Za-z0-9_.-]+)(?:\s+"[^"]*")?\s*\)\s*$/i;
-const HEADING = /^\s*(#{1,6})\s+(.+)$/;
+const MARKDOWN_HEADING = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/;
 const SECTION = /^(?:第[一二三四五六七八九十百千0-9]+[章节篇部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十0-9]+[）)]|\d+[、．.]\s*|[-*•]\s+)/;
+type HeadingLevel = 2 | 3 | 4 | 5 | 6;
+
+/** H1 belongs to the document title; source heading levels start from H2. */
+export function policyHeading(line: string): { level: HeadingLevel; text: string } | null {
+  const source = line.trim();
+  const markdown = MARKDOWN_HEADING.exec(source);
+  if (markdown) return { level: Math.min(6, markdown[1].length + 1) as HeadingLevel, text: markdown[2] };
+  // OCR/PDF hard-wrapped sentences can begin with numbering: don't turn entire
+  // paragraphs into headings unless the line itself is heading-like.
+  if (source.length > 56 || /[。！？；;](?![”’"'）)]?$)/.test(source)) return null;
+  if (/^第[一二三四五六七八九十百千0-9]+[编篇部章]/.test(source)) return { level: 2, text: source };
+  if (/^第[一二三四五六七八九十百千0-9]+节/.test(source)) return { level: 3, text: source };
+  if (/^[一二三四五六七八九十百千]+[、．.]\s*\S/.test(source)) return { level: 3, text: source };
+  if (/^[（(][一二三四五六七八九十百千0-9]+[）)]\s*\S/.test(source)) return { level: 4, text: source };
+  if (/^\d+(?:\.\d+)*[、．.]\s*\S/.test(source)) return { level: 5, text: source };
+  if (/^(?:专栏|附表|附件)\s*[一二三四五六七八九十百千0-9]+\s*\S/.test(source)) return { level: 4, text: source };
+  return null;
+}
+
+function PolicyHeading({ level, children }: { level: HeadingLevel; children: string }) {
+  if (level === 2) return <h2 className="catalog-heading">{children}</h2>;
+  if (level === 3) return <h3 className="catalog-heading">{children}</h3>;
+  if (level === 4) return <h4 className="catalog-heading">{children}</h4>;
+  if (level === 5) return <h5 className="catalog-heading">{children}</h5>;
+  return <h6 className="catalog-heading">{children}</h6>;
+}
 const RULE = /^:?-{3,}:?$/;
 
 function tableCells(line: string): string[] {
@@ -105,10 +131,10 @@ export function PolicyRichText({ text, planid, softWrap = false }: {
       continue;
     }
 
-    const heading = HEADING.exec(line);
+    const heading = policyHeading(line);
     if (heading) {
       flushProse();
-      blocks.push(<div className={`catalog-markdown-heading level-${heading[1].length}`} key={key++}>{heading[2]}</div>);
+      blocks.push(<PolicyHeading level={heading.level} key={key++}>{heading.text}</PolicyHeading>);
       index++;
       continue;
     }
