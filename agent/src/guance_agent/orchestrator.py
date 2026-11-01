@@ -682,9 +682,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         # Synthesis is a draft only; supplementary facts must pass fresh checks.
         # Both share the original task deadline and preserve the existing result
         # when the remaining budget is insufficient.
-        await draft_verified_report(result, task.question, rt, deadline)
+        # Resolve one evidence gap BEFORE synthesizing the report so added
+        # verified claims can support its draft and final semantic review.
         await supplement_one(result, task, s, ctx, rt, deadline,
                              _execute_once, _recover_qa_output)
+        await draft_verified_report(result, task.question, rt, deadline)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)
         try:
