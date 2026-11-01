@@ -711,7 +711,7 @@ export function PolicyCatalog({
       </div>
       </>}
 
-      {reading && <button type="button" className="catalog-reader-back" onClick={onBackToTopics ?? closePolicy}><ArrowLeft size={17} />返回检索结果</button>}
+      {reading && <button type="button" className="catalog-reader-back" onClick={onBackToTopics ?? closePolicy}><ArrowLeft size={17} />{onBackToTopics ? "返回专题" : "返回检索结果"}</button>}
 
         {selectedPlanId && (
           <DetailContainer className={`catalog-detail ${reading ? "catalog-reader-document" : "catalog-preview"}`} aria-label={reading ? "政策原文正文" : "政策详情预览"} aria-busy={detailLoading || contentLoading}
