@@ -721,6 +721,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
     finalize_recovered_qa_answer(result, task.question)
+    if (task.task_type == "qa" and ctx is not None
+            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+        # Semantic report review may remove claims and refs after the first
+        # coverage calculation. Completion must use the final surviving set.
+        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
     if task.task_type == "qa":
         deliver_research(result, task.question)
     resolution = result.meta.get("qa_context_resolution")
@@ -765,6 +770,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             result.error = RunError(code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
             result.warnings.append("研究运行时无法完成任务契约验收")
             result.meta["research_runtime_error"] = type(exc).__name__
+    if (task.task_type == "qa" and ctx is not None
+            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
+        # Save after quote/number checks, scope filtering and report review;
+        # empty turns still establish a boundary for later pronoun follow-ups.
+        rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
     try:
         rt.finish(result, ctx)
     except OSError as exc:
@@ -1097,6 +1107,11 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
 
 async def _run_controlled_qa(task, s, ctx, rt, deadline):
     """Keep all existing QA parse, quote, number and report audit gates."""
+    # Read inside the session execution lock, not only at Runtime.prepare(),
+    # so queued turns see the previous turn's most recent persisted state.
+    store = getattr(rt, "context_store", None)
+    if store is not None:
+        ctx.trusted_turns = store.load()
     resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
                                   getattr(ctx, "route", None))
     ctx.qa_context_resolution = public_resolution(resolution)
@@ -1124,9 +1139,6 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
     result = build_result(task, outcome, ctx, rt.meta)
     if parse_meta:
         result.meta.update(parse_meta)
-    turn = build_trusted_turn(task.question, ctx, result)
-    if turn and result.status == "completed":
-        rt.save_trusted_turn(turn)
     return result
 
 
