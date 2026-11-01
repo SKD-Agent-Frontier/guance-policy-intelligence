@@ -86,7 +86,7 @@ def finalize_recovered_qa_answer(result: RunResult, question: str) -> None:
     # All surviving factual claims must be tied to registered output refs.
     refs = {ref.chunk_id: ref for ref in result.evidence_refs}
     if any(not claim.chunk_ids or not claim.quotes
-           or not set(claim.chunk_ids) <= refs for claim in result.claims):
+           or not set(claim.chunk_ids) <= set(refs) for claim in result.claims):
         return
     outline, missing = verified_qa_outline(result.claims, question)
     refs_by_document = {}
