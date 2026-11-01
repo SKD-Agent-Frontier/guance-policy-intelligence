@@ -653,6 +653,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* A flattened OCR paragraph must remain comfortable to scan; indentation
+   belongs to document prose, never tables or the printed preview index. */
+.catalog-reader-document .catalog-rich-text .catalog-prose:not(.catalog-toc-line) {
+  text-indent: 2em;
+}
 .catalog-rich-text .catalog-heading {
   color: #241c19;
   font-family: var(--font-display, SimSun, serif);
@@ -690,22 +695,33 @@
   border-radius: 6px;
 }
 .catalog-rich-text .catalog-markdown-table {
+  /* Let actual content determine column widths rather than distributing all
+     columns equally; very wide tables scroll inside their own container. */
   width: 100%;
-  min-width: 460px;
+  min-width: 620px;
+  table-layout: auto;
   border-collapse: collapse;
   font-size: .92em;
   line-height: 1.65;
 }
 .catalog-markdown-table th,
 .catalog-markdown-table td {
-  min-width: 74px;
+  min-width: 108px;
+  height: auto;
   padding: 11px 13px;
   border-bottom: 1px solid #ece8e6;
   border-right: 1px solid #efebe8;
   text-align: left;
   vertical-align: top;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+.catalog-markdown-table tr > :first-child {
+  min-width: 220px;
+}
+.catalog-markdown-table th:only-child {
+  min-width: 0;
 }
 .catalog-markdown-table tr > :last-child { border-right: 0; }
 .catalog-markdown-table tbody tr:last-child td { border-bottom: 0; }
@@ -753,7 +769,7 @@
   margin-bottom: 1em;
 }
 @media (max-width: 720px) {
-  .catalog-rich-text .catalog-markdown-table { min-width: 420px; }
+  .catalog-rich-text .catalog-markdown-table { min-width: 620px; }
   .catalog-reader-document .catalog-rich-text { font-size: 16px; }
 }
 
