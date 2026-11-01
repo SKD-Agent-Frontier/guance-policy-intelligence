@@ -75,8 +75,10 @@ def requested_area(decision, question: str) -> str | None:
     )
     if region and region.group() in question:
         return region.group()
-    if 1 <= len(candidate) <= 8 and candidate in question and candidate == question:
-        return candidate
+    cleaned = re.sub(r"^(?:请|给出|查询|介绍|分析|研究|说明|关于|找出)+", "", candidate)
+    if (cleaned in question and re.fullmatch(
+            r"[\u4e00-\u9fff]{2,6}(?:省|市|自治区|自治州|区|县)", cleaned)):
+        return cleaned
     return None
 
 
