@@ -120,4 +120,7 @@ def followup_gap(result, question: str) -> str | None:
                or (label not in ANALYTICAL and any(
                    _matching(fact, label) for fact in facts))]
     missing = [label for label in wanted if label not in present]
-    return missing[0] if missing else None
+    # Analytical gaps (e.g. "地区差异") are not useful literal RAG queries.
+    # Prefer an explicit missing factual dimension for the one extra read.
+    factual = [label for label in missing if label not in ANALYTICAL]
+    return (factual or missing)[0] if missing else None
