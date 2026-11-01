@@ -18,9 +18,10 @@ export function policyHeading(
   line: string, originalHints: readonly OriginalHeadingHint[] = [],
 ): { level: HeadingLevel; text: string } | null {
   const source = line.trim();
-  // 序言 is a top-level section even when source HTML style hints differ.
-  if (/^序\s*言$/.test(source.replace(/^#{1,6}\s*/, ""))) {
-    return { level: 2, text: "序言" };
+  // Prefaces are top-level sections even when source HTML hints differ.
+  const preface = source.replace(/^#{1,6}\s*/, "");
+  if (/^(?:序|前)\s*言$/.test(preface)) {
+    return { level: 2, text: preface };
   }
   const normalized = normalizeHeadingText(source.replace(/^#{1,6}\s*/, ""));
   const original = originalHints.find(hint => normalizeHeadingText(hint.text) === normalized
@@ -80,7 +81,7 @@ function sectionHeading(
     && Math.abs(section.start - absoluteOffset) <= 3
     && normalizeHeadingText(section.path.split(/\s+\/\s+/).at(-1) ?? "") === normalized);
   if (!matched) return null;
-  if (/^序\s*言$/.test(cleaned)) return { level: 2, text: "序言" };
+  if (/^(?:序|前)\s*言$/.test(cleaned)) return { level: 2, text: cleaned };
   return {
     level: Math.max(2, Math.min(6, matched.level + 1)) as HeadingLevel,
     text: cleaned,
