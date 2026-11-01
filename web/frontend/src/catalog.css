@@ -277,7 +277,8 @@
   line-height: 1.6;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .catalog-highlight {
   color: #b22924;
