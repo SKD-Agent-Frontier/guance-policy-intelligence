@@ -1,6 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { PolicyRichText, policyHeading } from "./PolicyRichText";
+
+afterEach(cleanup);
 
 describe("policy heading hierarchy", () => {
   it.each([
@@ -30,7 +32,7 @@ describe("policy heading hierarchy", () => {
   it("keeps 序言 at the same level as 第一篇 even if HTML suggests a smaller heading", () => {
     expect(policyHeading("序言", [{ text: "序言", level: 4 }])).toEqual({ level: 2, text: "序言" });
     expect(policyHeading("第一篇 经济发展")?.level).toBe(2);
-    render(<PolicyRichText planid="P-1" text={"序言\\n第一篇 经济发展"}
+    render(<PolicyRichText planid="P-1" text={"序言\n第一篇 经济发展"}
       originalHints={[{ text: "序言", level: 4 }]} />);
     expect(screen.getByRole("heading", { name: "序言", level: 2 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "第一篇 经济发展", level: 2 })).toBeInTheDocument();
