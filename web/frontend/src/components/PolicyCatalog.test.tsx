@@ -268,10 +268,10 @@ describe("PolicyCatalog", () => {
   });
 
   it("reflows policy prose visually but keeps explicit paragraphs and section headings", () => {
-    expect(reflowPolicyReaderText("建设新能源产业集群。发展高\\n性能镁合金、镁系材料\\n和配套产业。\\n\\n三、自然条件优势明显\\n海西州气候冷凉，\\n气温可随地理高度变化。"))
-      .toBe("建设新能源产业集群。发展高性能镁合金、镁系材料和配套产业。\\n\\n三、自然条件优势明显\\n海西州气候冷凉，气温可随地理高度变化。");
-    expect(reflowPolicyReaderText("## 第二章 发展目标\\n第一条 推进工作\\n\\n开展具体任务。"))
-      .toBe("## 第二章 发展目标\\n第一条 推进工作\\n\\n开展具体任务。");
+    expect(reflowPolicyReaderText("建设新能源产业集群。发展高\n性能镁合金、镁系材料\n和配套产业。\n\n三、自然条件优势明显\n海西州气候冷凉，\n气温可随地理高度变化。"))
+      .toBe("建设新能源产业集群。发展高性能镁合金、镁系材料和配套产业。\n\n三、自然条件优势明显\n海西州气候冷凉，气温可随地理高度变化。");
+    expect(reflowPolicyReaderText("## 第二章 发展目标\n第一条 推进工作\n\n开展具体任务。"))
+      .toBe("## 第二章 发展目标\n第一条 推进工作\n\n开展具体任务。");
   });
 
   it("shows missing metadata as unavailable and reads the original in Unicode code-point pages", async () => {
