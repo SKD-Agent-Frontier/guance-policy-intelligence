@@ -4,7 +4,7 @@ import { Home } from "./components/Home";
 import { Sidebar } from "./components/Sidebar";
 import { ConversationView } from "./components/ConversationView";
 import { PolicyCatalog } from "./components/PolicyCatalog";
-import { TopicsPage } from "./components/TopicsPage";
+import { TopicsPage, type TopicSelection } from "./components/TopicsPage";
 import { addPolicyToTopic, loadTopicCollections, newTopicCollection, removePolicyFromTopic, saveTopicCollections, TOPIC_STORAGE_KEY, type TopicCollection, type TopicPolicy } from "./topicStore";
 import { isRealMode, type DemoScenario } from "./api/client";
 import { useConversations } from "./hooks/useConversations";
@@ -25,6 +25,7 @@ const scenarioOptions: { value: DemoScenario; label: string }[] = [
 export default function App() {
   const { sessions, activeId, active, selectConversation, newConversation, setMode, send, runAdvanced, retry, regenerate, editAndResend, restartPreparation, updateAdvancedDraft, openAdvanced } = useConversations();
   const [page, setPage] = useState<Page>("home");
+  const [topicSelection, setTopicSelection] = useState<TopicSelection>(null);
   const [topicCollections, setTopicCollections] = useState<TopicCollection[]>(loadTopicCollections);
   const topicsRef = useRef(topicCollections);
   const [topicSaveError, setTopicSaveError] = useState(false);
@@ -206,6 +207,7 @@ export default function App() {
       {page === "topics" && <div className="page-body page-body-topics"><TopicsPage
         collections={topicCollections} onCreate={createTopic} onAddPolicy={addToTopic}
         onRemovePolicy={removeFromTopic} onDelete={deleteTopic} onOpenPolicy={openPolicyFromTopics}
+        selection={topicSelection} onSelectionChange={setTopicSelection}
       /></div>}
       {topicSaveError && <div className="topic-storage-error" role="alert">专题保存失败：请检查浏览器本地存储空间或权限。</div>}
     </div>
