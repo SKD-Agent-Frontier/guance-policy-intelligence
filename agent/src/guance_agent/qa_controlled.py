@@ -172,13 +172,15 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     rejected_topic = 0
     used = set()
     for hit in found:
-        if len(evidence) >= read_limit or deadline - time.monotonic() < 52:
+        if (len(evidence) >= read_limit or read_attempts >= read_limit
+                or deadline - time.monotonic() < 52):
             break
         cid = hit["chunk_id"]
         if cid in used:
             continue
         if scope is not None and hit["planid"] not in scope:
             continue
+        read_attempts += 1
         reply = json.loads(await _call(
             ctx, "kb_read", ctx.kb.read, hit["planid"], None,
             READ_CHARS, chunk_id=cid, offset=0,
@@ -214,6 +216,7 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         "topic_filter": "digital_economy" if subject_terms else None,
         "unrelated_read_rejected": rejected_topic,
         "accepted_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
+        "read_attempts": read_attempts,
     }
     return evidence
 
@@ -261,7 +264,8 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
         rt.log("qa_controlled_retrieval_error", kind=type(exc).__name__)
         return ExecOutcome(None, "RAG_BACKEND_ERROR")
 
-    rt.meta["qa_controlled_retrieval"] = {
+    record_key = "qa_supplement_retrieval" if focus else "qa_controlled_retrieval"
+    rt.meta[record_key] = {
         "search_count": sum(call.get("name") == "kb_search"
                             for call in ctx.tool_calls),
         "read_limit": MAX_READS if requirements(task.question)["needs_report"]
@@ -299,15 +303,15 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
         )
         raw = getattr(response.choices[0].message, "content", None) or ""
         telemetry = _usage(response)
-        rt.meta["llm"] = {**telemetry, "parse": "pending"}
+        rt.meta["qa_supplement_llm" if focus else "llm"] = {**telemetry, "parse": "pending"}
         return ExecOutcome(raw, None, telemetry=telemetry)
     except (APITimeoutError, TimeoutError):
-        rt.meta["llm"] = {"model_calls": 1, "parse": "failed",
-                          "failure": "MODEL_TIMEOUT"}
+        rt.meta["qa_supplement_llm" if focus else "llm"] = {
+            "model_calls": 1, "parse": "failed", "failure": "MODEL_TIMEOUT"}
         return ExecOutcome(None, "MODEL_TIMEOUT")
     except (APIConnectionError, RateLimitError, APIStatusError):
-        rt.meta["llm"] = {"model_calls": 1, "parse": "failed",
-                          "failure": "MODEL_UNAVAILABLE"}
+        rt.meta["qa_supplement_llm" if focus else "llm"] = {
+            "model_calls": 1, "parse": "failed", "failure": "MODEL_UNAVAILABLE"}
         return ExecOutcome(None, "MODEL_UNAVAILABLE")
 
 def finalize_controlled_facts(result) -> None:
