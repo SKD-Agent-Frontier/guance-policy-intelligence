@@ -675,7 +675,6 @@ export function PolicyCatalog({
           {hasSearched && <div className="catalog-results-heading">
             <div>
               <strong>{list ? `${matchedLabel} ${list.matched_documents} 篇` : "政策列表"}</strong>
-              {list?.query.q && <small>字面匹配结果不等于全部语义相关政策。</small>}
             </div>
             {list && <span className="catalog-page-count">第 {list.page} / {Math.max(list.total_pages, 1)} 页</span>}
           </div>}
