@@ -1215,6 +1215,12 @@ textarea:focus-visible {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.conversation-heading-mark img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
 .conversation-eyebrow {
   color: #817772;
   font-size: 11px;

@@ -208,6 +208,54 @@ describe("conversation simplification and original source reader", () => {
     expect(onEditAndResend).toHaveBeenCalledWith("u1", "修改后的研究问题");
   });
 
+  it("shows the product mark and a single working retry icon on failed research", () => {
+    const onRetry = vi.fn();
+    const onRegenerate = vi.fn();
+    const conversation: Conversation = {
+      ...conversationFixture(),
+      preparation: null,
+      messages: [
+        { id: "user1", kind: "user", text: "什么是数字经济？" },
+        { id: "error1", kind: "error", code: "OUTPUT_PARSE", text: "模型输出无法解析为约定结构" },
+      ],
+    };
+    const { container } = render(
+      <ConversationView conversation={conversation} onModeChange={vi.fn()} onSend={vi.fn()}
+        onAdvancedSubmit={vi.fn()} onRetry={onRetry} onRegenerate={onRegenerate}
+        onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()}
+        onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />,
+    );
+    const brand = container.querySelector<HTMLImageElement>(".conversation-heading-mark img");
+    expect(brand).toHaveAttribute("src", "/guance-mark.svg");
+    const error = screen.getByRole("alert");
+    expect(error.querySelectorAll(".retry-inline")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "重试" })).not.toBeInTheDocument();
+    const retryIcon = screen.getByRole("button", { name: "重试本次研究" });
+    expect(retryIcon.closest(".message-actions")).not.toBeNull();
+    fireEvent.click(retryIcon);
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onRegenerate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a single retry icon for incomplete result messages", () => {
+    const onRetry = vi.fn();
+    const onRegenerate = vi.fn();
+    const base = completedConversation();
+    const conversation: Conversation = {
+      ...base,
+      messages: base.messages.map((message) => message.kind === "result"
+        ? { ...message, result: { ...message.result, status: "failed" as const } } : message),
+    };
+    render(<ConversationView conversation={conversation} onModeChange={vi.fn()} onSend={vi.fn()}
+      onAdvancedSubmit={vi.fn()} onRetry={onRetry} onRegenerate={onRegenerate}
+      onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()}
+      onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+    expect(document.querySelectorAll(".result-message > .retry-inline")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "重试本次研究" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onRegenerate).not.toHaveBeenCalled();
+  });
+
   it("copies assistant rendered content, not the message-action labels", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
