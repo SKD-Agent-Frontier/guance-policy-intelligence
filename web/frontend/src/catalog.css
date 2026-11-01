@@ -277,7 +277,8 @@
   line-height: 1.6;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .catalog-highlight {
   color: #b22924;
@@ -346,11 +347,14 @@
 }
 .catalog-preview {
   position: fixed;
-  top: 88px;
+  top: 0;
   right: 24px;
+  bottom: 0;
   z-index: 20;
   width: min(480px, calc(100vw - 100px));
-  max-height: calc(100svh - 112px);
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
   overscroll-behavior: contain;
 }
 .catalog-preview-read,
@@ -369,14 +373,24 @@
   margin-top: 12px;
 }
 .catalog-reader-back {
-  width: min(960px, 100%);
-  margin: 0 auto 24px;
+  /* Keep the exit action reachable throughout long policy documents, beneath
+     the global sticky navigation, without removing it from normal flow. */
+  position: sticky;
+  top: 64px;
+  z-index: 4;
+  width: 100%;
+  min-height: 46px;
+  margin: -16px 0 24px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #e8e7e6);
+  background: #fff;
 }
 .catalog-reader-document {
   position: static;
-  width: min(960px, 100%);
+  width: 100%;
+  max-width: none;
   max-height: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   overflow: visible;
   border: 0;
@@ -389,7 +403,19 @@
   font-size: clamp(24px, 2.6vw, 34px);
   line-height: 1.5;
 }
+.policy-reader {
+  /* Full-width reading canvas, aligned to the back control and page padding. */
+  width: 100%;
+  max-width: none;
+}
+
+.catalog-reader-document .catalog-original {
+  width: 100%;
+}
+
 .catalog-reader-document .catalog-original-text {
+  width: 100%;
+  max-width: none;
   max-height: none;
   min-height: 0;
   margin-top: 20px;
@@ -398,8 +424,8 @@
   border: 0;
   border-radius: 0;
   background: #fff;
-  font-size: 16px;
-  line-height: 2;
+  font-size: 17px;
+  line-height: 1.95;
 }
 .policy-reader:focus {
   outline: none;
@@ -537,6 +563,10 @@
     grid-column: span 2;
   }
 }
+@media (max-width: 768px) {
+  .catalog-reader-back { top: 56px; }
+}
+
 @media (max-width: 720px) {
   .catalog-page {
     padding: 16px 14px 42px;
@@ -576,4 +606,130 @@
   .catalog-content-pagination span {
     font-size: 10px;
   }
+}
+
+.catalog-applied-filters {
+  width: 100%;
+  max-width: 1160px;
+  margin: 16px auto;
+}
+
+
+/* Policy-source formatting: headings, source tables and local media. */
+.catalog-rich-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #39302c;
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.catalog-rich-text .catalog-prose {
+  margin: 0 0 .9em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.catalog-rich-text .catalog-heading {
+  color: #241c19;
+  font-family: var(--font-display, SimSun, serif);
+  line-height: 1.6;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.catalog-rich-text h2.catalog-heading {
+  margin: 1.75em 0 .8em;
+  font-size: 1.6em;
+}
+.catalog-rich-text h3.catalog-heading {
+  margin: 1.55em 0 .7em;
+  font-size: 1.35em;
+}
+.catalog-rich-text h4.catalog-heading {
+  margin: 1.35em 0 .55em;
+  font-size: 1.16em;
+}
+.catalog-rich-text h5.catalog-heading {
+  margin: 1.15em 0 .5em;
+  font-size: 1.06em;
+}
+.catalog-rich-text h6.catalog-heading {
+  margin: 1em 0 .45em;
+  font-size: 1em;
+}
+.catalog-rich-text .catalog-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin: 14px 0 20px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid #e7e2de;
+  border-radius: 6px;
+}
+.catalog-rich-text .catalog-markdown-table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  font-size: .92em;
+  line-height: 1.65;
+}
+.catalog-markdown-table th,
+.catalog-markdown-table td {
+  min-width: 74px;
+  padding: 11px 13px;
+  border-bottom: 1px solid #ece8e6;
+  border-right: 1px solid #efebe8;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.catalog-markdown-table tr > :last-child { border-right: 0; }
+.catalog-markdown-table tbody tr:last-child td { border-bottom: 0; }
+.catalog-markdown-table thead th {
+  background: #f7f5f3;
+  color: #473c37;
+  font-weight: 600;
+}
+.catalog-markdown-table tbody tr:nth-child(even) { background: #fdfcfc; }
+.catalog-media-figure {
+  width: fit-content;
+  max-width: 100%;
+  margin: 18px auto 24px;
+  text-align: center;
+}
+.catalog-media-figure img {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.catalog-media-figure figcaption {
+  margin-top: 7px;
+  color: #80746e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.catalog-media-missing {
+  margin: 18px 0;
+  padding: 12px 14px;
+  border: 1px dashed #d8cdc8;
+  border-radius: 5px;
+  color: #796b65;
+  background: #faf7f5;
+  font-size: 13px;
+}
+.catalog-reader-document .catalog-rich-text {
+  font-size: 17px;
+  line-height: 1.95;
+}
+.catalog-reader-document .catalog-rich-text .catalog-prose {
+  margin-bottom: 1em;
+}
+@media (max-width: 720px) {
+  .catalog-rich-text .catalog-markdown-table { min-width: 420px; }
+  .catalog-reader-document .catalog-rich-text { font-size: 16px; }
 }

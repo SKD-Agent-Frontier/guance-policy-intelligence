@@ -6,7 +6,7 @@ import re
 import threading
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from .compare_resolution import CompareResolveRequest, resolve_compare
 from .policy_catalog import (
@@ -270,6 +270,35 @@ async def get_policy_content(
         _raise_parameter(exc)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="未找到该政策") from exc
+
+
+@router.get("/policies/{planid}/heading-hints")
+async def get_policy_heading_hints(request: Request, planid: str):
+    """Optional heading hints from an original HTML; evidence text stays frozen."""
+    _reject_unknown_query(request, set())
+    service = await _catalog(request)
+    try:
+        return await asyncio.to_thread(service.heading_hints, planid)
+    except InvalidParameter as exc:
+        _raise_parameter(exc)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="未找到该政策") from exc
+
+
+@router.get("/policies/{planid}/media/{filename}")
+async def get_policy_media(request: Request, planid: str, filename: str):
+    """Serve referenced original images only; never allow arbitrary file reads."""
+    _reject_unknown_query(request, set())
+    service = await _catalog(request)
+    try:
+        path, mime = await asyncio.to_thread(service.resolve_media, planid, filename)
+    except InvalidParameter as exc:
+        _raise_parameter(exc)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="原文图片暂不可用") from exc
+    return FileResponse(path, media_type=mime,
+                        headers={"Cache-Control": "private, max-age=3600",
+                                 "X-Content-Type-Options": "nosniff"})
 
 
 @router.post("/research/resolve-compare")

@@ -79,6 +79,15 @@ export const catalogClient = {
     );
   },
 
+  headingHints(planid: string, signal?: AbortSignal): Promise<{ source: string; headings: Array<{ text: string; level: number }> }> {
+    if (!isRealMode) return Promise.resolve({ source: "unavailable", headings: [] });
+    return requestJson<{ source: string; headings: Array<{ text: string; level: number }> }>(
+      `/api/policies/${encodeURIComponent(planid)}/heading-hints`,
+      { method: "GET" },
+      { signal, timeoutMs: API_REQUEST_TIMEOUT_MS },
+    );
+  },
+
   content(
     planid: string,
     offset = 0,

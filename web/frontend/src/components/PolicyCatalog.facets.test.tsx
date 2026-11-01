@@ -175,7 +175,7 @@ async function readyCatalog() {
   render(<PolicyCatalog />);
   await screen.findByText("当前库共有 3 篇政策文献");
   const panel = await screen.findByRole("region", { name: "政策维度筛选" });
-  await userEvent.setup().click(within(panel).getByRole("button", { name: "按维度查找" }));
+  await userEvent.setup().click(within(panel).getByRole("button", { name: "按维度检索" }));
   await within(panel).findByRole("button", { name: /年份未知/ });
   return panel;
 }
@@ -297,7 +297,7 @@ describe("PolicyCatalog facet integration", () => {
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期：unclassified");
     expect(screen.getByLabelText("已应用筛选条件")).not.toHaveTextContent("fyp_status");
 
-    await user.click(within(fypRow()).getByRole("button", { name: "其它 1" }));
+    await user.click(within(fypRow()).getByRole("button", { name: "其他 1" }));
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ fyp_status: "unclassified", year: "unknown", ...pin }), expect.any(AbortSignal)));
     expect(screen.getByLabelText("已应用筛选条件")).toHaveTextContent("规划期状态：未提供");
 
@@ -305,7 +305,7 @@ describe("PolicyCatalog facet integration", () => {
     await waitFor(() => expect(catalog.list).toHaveBeenLastCalledWith(expect.objectContaining({ plantype: "unclassified", fyp_status: "unclassified", ...pin }), expect.any(AbortSignal)));
     expect(catalog.list.mock.calls.at(-1)?.[0]).not.toHaveProperty("plantype_status");
 
-    expect(within(plantypeRow()).queryByRole("button", { name: "其它 0" })).not.toBeInTheDocument();
+    expect(within(plantypeRow()).queryByRole("button", { name: "其他 0" })).not.toBeInTheDocument();
   });
 
   it("pins repeated facet requests and does not restart the one-row bootstrap list after applying filters", async () => {
@@ -343,7 +343,7 @@ describe("PolicyCatalog facet integration", () => {
     render(<PolicyCatalog />);
 
     expect(await screen.findByText("当前库共有 3 篇政策文献")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "按维度查找" }));
+    await user.click(screen.getByRole("button", { name: "按维度检索" }));
     expect(await screen.findByText(/维度筛选暂不可用/)).toBeVisible();
     await user.type(screen.getByLabelText("关键词字面检索"), "数字经济");
     await user.type(screen.getByLabelText("地区精确筛选"), "北京市");

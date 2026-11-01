@@ -38,6 +38,7 @@ class PolicyItem(BaseModel):
     admin_level: str
     region_code: str | None
     region_status: str | None
+    preview: str | None = Field(default=None, description="检索结果卡片的可读摘要，非证据原文")
     matches: list[MatchSnippet] = Field(default_factory=list)
 
 

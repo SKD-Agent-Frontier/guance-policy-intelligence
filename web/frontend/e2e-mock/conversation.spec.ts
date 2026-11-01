@@ -481,7 +481,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(preview).toBeVisible();
   await expect(preview).toContainText("十四五");
   await expect(preview).not.toContainText("第十四个五年规划");
-  await expect(page.getByRole("region", { name: "政策原文" }).locator("pre")).not.toBeEmpty();
+  await expect(page.getByRole("region", { name: "政策原文" }).locator(".catalog-rich-text")).not.toBeEmpty();
   await page.screenshot({ path: join(directory, "catalog-hover-preview.png"), fullPage: true });
   await policyCard.click();
   await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
@@ -492,6 +492,12 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect.poll(() => page.locator(".global-topbar").evaluate((header) => header.getBoundingClientRect().top)).toBe(0);
+  // The back action must remain pinned just beneath the sticky global navigation
+  // even while the policy text is scrolled to the end.
+  const stickyBack = page.getByRole("button", { name: "返回检索结果" });
+  await expect(stickyBack).toHaveCSS("position", "sticky");
+  await expect.poll(() => stickyBack.evaluate((button) => Math.round(button.getBoundingClientRect().top))).toBe(64);
+  await expect(stickyBack).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.getByRole("region", { name: "政策原文" })).toBeVisible();
   expect(contentRequests[0]?.searchParams.get("limit")).toBe("4000");
@@ -526,6 +532,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
   await expect(page.getByRole("searchbox")).toHaveCount(0);
   await page.screenshot({ path: join(directory, "policy-reader-mobile.png"), fullPage: true });
+  await expect(page.getByRole("button", { name: "返回检索结果" })).toHaveCSS("top", "56px");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.route("**/api/research/prepare", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prep("qa", "needs_clarification", 0, "移动端 Mock API 追问", ["确认选项"])) });

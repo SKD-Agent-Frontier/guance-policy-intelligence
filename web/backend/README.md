@@ -39,7 +39,21 @@ RAG_STORE_PROJECT=<restored-rag-runtime-directory>
 RAG_MODE=bm25
 ```
 
-`RAG_STORE_PROJECT` 应指向已恢复的运行库目录；`RAG_MODE` 支持 `bm25`、`dense` 或 `hybrid`。配置和检索资源的初始化、预热及关闭方式见 [Agent 集成指南](../../agent/INTEGRATION.md)。不要将私有配置或运行库提交到仓库。
+`RAG_STORE_PROJECT` 应指向已恢复的运行库目录；`RAG_MODE` 支持 `bm25`、`dense` 或 `hybrid`。
+
+### 政策正文图片与 HTML 格式（只读）
+
+文献阅读器的文字证据仍来自 RAG 当前发布快照。表格由快照中的 Markdown 表格语法渲染；图片按政策编号与文件名查找干净语料的 `media/`，标题优先参照同一文献的原始 HTML（存在时仅提取结构化标题提示）。**不编辑、修复、重新保存任何原始 HTML、图片、Markdown 或冻结快照**。
+
+默认只读查找仓库 `语料库/Agent标准引用库/{corpus,edge_cases}/{planid}/`；如果干净语料与应用分离，可在启动 Web API 之前设置：
+
+```powershell
+$env:GUANCE_POLICY_CLEAN_ROOT = '<clean-corpus-root-containing-corpus-and-edge_cases>'
+$env:GUANCE_POLICY_ORIGINAL_ROOT = '<original-html-root-containing-corpus-and_edge_cases>'
+```
+
+`GUANCE_POLICY_ORIGINAL_ROOT` 未指定时复用 `GUANCE_POLICY_CLEAN_ROOT`。如果已发布库中单独保存了图片，可选 `GUANCE_POLICY_MEDIA_ROOT` 指向其只读根目录。接口只接受当前政策 Markdown 明确引用的图片，并验证文件类型与所属目录；没有原图或 HTML 时分别显示缺图提示、回退到 Markdown/中文编号层级，不伪造格式和图片。HTML 不会作为可执行内容直接进入前端；RAG 引用、正文码点偏移和分页规则完全不变。
+配置和检索资源的初始化、预热及关闭方式见 [Agent 集成指南](../../agent/INTEGRATION.md)。不要将私有配置或运行库提交到仓库。
 
 ## （三）配置跨域
 

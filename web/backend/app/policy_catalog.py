@@ -12,12 +12,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+from .policy_format import read_original_html_headings
+from .policy_preview import search_preview
+
 PLANID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+IMAGE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,160}\Z")
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".gif": "image/gif", ".webp": "image/webp"}
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_QUERY_CHARS = 100
 MAX_FILTER_CHARS = 50
 MAX_PAGE_SIZE = 100
@@ -93,6 +101,7 @@ class CatalogSnapshot:
     revision: int
     partial: bool | None
     records: tuple[PolicyRecord, ...]
+    media_roots: tuple[Path, ...] = ()
 
     @property
     def total_documents(self) -> int:
@@ -289,8 +298,22 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
             conn.rollback()
         finally:
             conn.close()
+    # Only read from existing clean corpus / frozen media, never mutate sources.
+    # The clean corpus may be mounted separately from the restored RAG runtime.
+    clean_root = os.environ.get("GUANCE_POLICY_CLEAN_ROOT", "").strip()
+    configured_media = os.environ.get("GUANCE_POLICY_MEDIA_ROOT", "").strip()
+    repo_root = Path(__file__).resolve().parents[3]
+    media_roots = tuple(dict.fromkeys(
+        p.resolve() for p in (
+            *((Path(clean_root),) if clean_root else ()),
+            *((Path(configured_media),) if configured_media else ()),
+            repo_root / "语料库" / "Agent标准引用库",
+            prepared,
+        )
+    ))
     return CatalogSnapshot(generation_id=generation, revision=revision,
-                           partial=manifest.get("partial"), records=tuple(records))
+                           partial=manifest.get("partial"), records=tuple(records),
+                           media_roots=media_roots)
 
 
 class PolicyCatalogService:
@@ -366,7 +389,9 @@ class PolicyCatalogService:
                           "admin_level": self._admin_level(record),
                           "region_code": mapping.get("region_code") if mapping else None,
                           "region_status": mapping.get("region_status") if mapping else None,
-                          "matches": matches})
+                          "matches": matches,
+                          "preview": search_preview(record.body, record.title, filters["q"])
+                          if filters["q"] else None})
         return {"dataset": self.dataset(), "query": {**query,
                 "match_mode": "literal" if filters["q"] is not None else None},
                 "matched_documents": total, "page": page, "page_size": page_size,
@@ -609,6 +634,58 @@ class PolicyCatalogService:
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
                 "text": record.body[offset:end]}
+
+    def heading_hints(self, planid: str) -> dict:
+        """Read matching original HTML for presentation hints only (never writes)."""
+        planid = self._check_planid(planid)
+        if planid not in self._by_planid:
+            raise LookupError("未找到该政策")
+        root_override = (os.environ.get("GUANCE_POLICY_ORIGINAL_ROOT")
+                         or os.environ.get("GUANCE_POLICY_CLEAN_ROOT"))
+        root = (Path(root_override) if root_override
+                else Path(__file__).resolve().parents[3] / "语料库" / "Agent标准引用库")
+        return read_original_html_headings(root, planid)
+
+    def resolve_media(self, planid: str, filename: str) -> tuple[Path, str]:
+        """Resolve only an image the selected policy's frozen text actually cites."""
+        planid = self._check_planid(planid)
+        record = self._by_planid.get(planid)
+        if record is None:
+            raise LookupError("未找到该政策")
+        if not isinstance(filename, str) or not IMAGE_NAME.fullmatch(filename) or ".." in filename:
+            raise InvalidParameter("图片文件名无效")
+        mime = IMAGE_TYPES.get(Path(filename).suffix.lower())
+        if mime is None:
+            raise InvalidParameter("不支持的图片类型")
+        reference = re.compile(r'!\[[^\]\n]{0,200}\]\s*\(\s*media/' + re.escape(filename)
+                               + r'(?:\s+"[^"]*")?\s*\)', re.IGNORECASE)
+        if not reference.search(record.body):
+            raise LookupError("原文没有引用此图片")
+        for root in self.snapshot.media_roots:
+            root = root.resolve()
+            candidates = (
+                root / "corpus" / planid / "media" / filename,
+                root / "edge_cases" / planid / "media" / filename,
+                root / planid / "media" / filename,
+                root / "snapshots" / planid / "media" / filename,
+            )
+            for candidate in candidates:
+                path = candidate.resolve()
+                if not path.is_relative_to(root) or not path.is_file():
+                    continue
+                if path.stat().st_size > MAX_IMAGE_BYTES:
+                    raise InvalidParameter("图片文件过大")
+                with path.open("rb") as source:
+                    signature = source.read(16)
+                valid = ((mime == "image/png" and signature.startswith(b"\x89PNG\r\n\x1a\n"))
+                         or (mime == "image/jpeg" and signature.startswith(b"\xff\xd8\xff"))
+                         or (mime == "image/gif" and signature.startswith((b"GIF87a", b"GIF89a")))
+                         or (mime == "image/webp" and signature[:4] == b"RIFF"
+                             and signature[8:12] == b"WEBP"))
+                if not valid:
+                    raise InvalidParameter("图片格式无效")
+                return path, mime
+        raise LookupError("图片原件未发布")
 
     # ---- 内部校验与匹配 -------------------------------------------------
     @staticmethod

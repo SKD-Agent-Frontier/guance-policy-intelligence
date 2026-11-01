@@ -5,6 +5,11 @@ import { isRealMode } from "../api/client";
 import { ApiError } from "../api/http";
 import { extractPolicyVersionPin } from "../api/policyFacets";
 import { PolicyFacetsPanel } from "./PolicyFacetsPanel";
+import { PolicyRichText, type OriginalHeadingHint } from "./PolicyRichText";
+import { TopicPicker } from "./TopicPicker";
+import { builtInThemes, tagsForPolicy } from "../policyTopics";
+import type { TopicCollection, TopicPolicy } from "../topicStore";
+import "../topics.css";
 import { usePolicyCatalogFacets } from "../hooks/usePolicyCatalogFacets";
 import type {
   PolicyContentResponse,
@@ -55,6 +60,29 @@ function formatPeriod(fyp: string | null | undefined, year: number | null | unde
     : "未提供";
 }
 
+/**
+ * Reflow source hard-wraps in the full-page reader without changing stored text.
+ * Explicit blank lines and section/list headings remain paragraph boundaries.
+ */
+export function reflowPolicyReaderText(text: string): string {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const sectionStart = /^(?:#{1,6}\s*|第[一二三四五六七八九十百千0-9]+[章节篇部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十0-9]+[）)]|\d+[、．.]\s*|[-*•]\s+)/;
+  const output: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { output.push(""); continue; }
+    const last = output.length ? output[output.length - 1] : "";
+    if (!last || sectionStart.test(line) || sectionStart.test(last) ||
+        /[。！？；;：:]$/.test(last) || /^\d+$/.test(last) || /^\d+$/.test(line)) {
+      output.push(line);
+    } else {
+      const gap = /[A-Za-z0-9]$/.test(last) && /^[A-Za-z0-9]/.test(line) ? " " : "";
+      output[output.length - 1] = last + gap + line;
+    }
+  }
+  return output.join("\n");
+}
+
 function highlightLiteral(text: string, query: string | null | undefined): React.ReactNode {
   if (!query) return text;
 
@@ -102,7 +130,18 @@ function hasNewFilters(filters: PolicyFacetFilters) {
   return NEW_FILTER_KEYS.some(key => filters[key] !== undefined);
 }
 
-export function PolicyCatalog() {
+type TopicActions = {
+  collections?: TopicCollection[];
+  onCreateTopic?: (name: string) => string | null;
+  onAddPolicy?: (topicId: string, policy: TopicPolicy) => void;
+  requestedPolicyId?: string | null;
+  onBackToTopics?: () => void;
+};
+
+export function PolicyCatalog({
+  collections = [], onCreateTopic, onAddPolicy,
+  requestedPolicyId = null, onBackToTopics,
+}: TopicActions = {}) {
   const [filters, setFilters] = useState<Filters>({ q: "", area: "", fyp: "", plantype: "" });
   const [appliedFilters, setAppliedFilters] = useState<Filters>({});
   const appliedFiltersRef = useRef<Filters>({});
@@ -117,6 +156,7 @@ export function PolicyCatalog() {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [originalHints, setOriginalHints] = useState<OriginalHeadingHint[]>([]);
   const [detail, setDetail] = useState<PolicyDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -138,6 +178,25 @@ export function PolicyCatalog() {
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const returnPlanId = useRef<string | null>(null);
+  const openedRequestedPolicy = useRef<string | null>(null);
+
+  // HTML is only a formatting reference; failed or missing originals never
+  // affect the published Markdown evidence or pagination.
+  useEffect(() => {
+    setOriginalHints([]);
+    if (!selectedPlanId || !reading || typeof catalogClient.headingHints !== "function") return;
+    const controller = new AbortController();
+    void catalogClient.headingHints(selectedPlanId, controller.signal)
+      .then(response => {
+        if (!controller.signal.aborted && Array.isArray(response.headings)) {
+          setOriginalHints(response.headings.filter(hint =>
+            typeof hint.text === "string" && hint.text.length < 140
+            && Number.isInteger(hint.level) && hint.level >= 2 && hint.level <= 6));
+        }
+      })
+      .catch(() => { /* original HTML is optional */ });
+    return () => controller.abort();
+  }, [selectedPlanId, reading]);
 
   const loadList = useCallback(async (params: CatalogParams, showResults = true) => {
     listController.current?.abort();
@@ -302,6 +361,14 @@ export function PolicyCatalog() {
     void loadContent(planid, 0);
   };
 
+  // Deep-link from the thematic library directly to the full original text.
+  // The catalog remains the single source of truth for current published text.
+  useEffect(() => {
+    if (!requestedPolicyId || openedRequestedPolicy.current === requestedPolicyId) return;
+    openedRequestedPolicy.current = requestedPolicyId;
+    openPolicy(requestedPolicyId, true);
+  }, [requestedPolicyId]);
+
   const closePolicy = () => {
     cancelPreviewTimer();
     setReading(false);
@@ -433,6 +500,21 @@ export function PolicyCatalog() {
   };
 
   const policy = detail?.policy;
+  const addPolicyToCollection = (id: string) => {
+    if (!policy || !onAddPolicy) return;
+    onAddPolicy(id, {
+      planid: policy.planid,
+      title: policy.title?.trim() || `政策 ${policy.planid}`,
+      area: policy.area,
+      fyp: policy.fyp,
+      plantype_label: policy.plantype_label,
+      generation_id: detail?.dataset.generation_id ?? null,
+    });
+  };
+  const policyTags = policy ? tagsForPolicy(policy.planid) : [];
+  const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
+  const contentPage = content ? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1 : 1;
+  const contentPageCount = content ? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE)) : 1;
   const DetailContainer = reading ? "article" : "aside";
   const matchedLabel = list?.query.q
     ? "字面匹配"
@@ -485,8 +567,9 @@ export function PolicyCatalog() {
     <main ref={mainRef} tabIndex={-1} className={reading ? "catalog-page policy-reader" : "catalog-page"} aria-label={reading ? "政策原文阅读" : "政策文献目录"}>
       {!reading && <>
       <header className="catalog-header">
-        <div>
-          <h1>政策文献目录</h1>
+        <div className="library-heading">
+          <p className="library-heading-kicker">POLICY LIBRARY</p>
+          <h1 className="library-heading-title">政策文献目录</h1>
         </div>
         {(!isRealMode || dataset?.source === "demo_synthetic") && <span className="catalog-demo-badge">演示目录数据</span>}
       </header>
@@ -628,7 +711,17 @@ export function PolicyCatalog() {
                     <span>{metadata(item.area)}</span><span>{formatPeriod(item.fyp, item.year)}</span><span>{metadata(item.plantype_label)}</span>
                   </span>
                   <span className="catalog-policy-id">planid：{item.planid}</span>
-                  {item.matches.map((match, index) => <span className="catalog-snippet" key={`${match.field}-${match.offset}-${index}`}>{highlightLiteral(match.snippet, list.query.q)}</span>)}
+                  {(() => {
+                    // A single human-readable body preview, never the duplicated title
+                    // hit. Keep the original matches/offsets intact in the API result.
+                    const snippet = item.preview ?? item.matches.find((match) => match.field === "body")?.snippet;
+                    const visible = snippet?.replace(/\s+/g, " ").trim();
+                    return visible && visible !== "..." && visible !== "…" ? (
+                      <span className="catalog-snippet">
+                        {highlightLiteral(visible, list.query.q)}
+                      </span>
+                    ) : null;
+                  })()}
                 </button>
               ))}
             </div>
@@ -649,7 +742,7 @@ export function PolicyCatalog() {
       </div>
       </>}
 
-      {reading && <button type="button" className="catalog-reader-back" onClick={closePolicy}><ArrowLeft size={17} />返回检索结果</button>}
+      {reading && <button type="button" className="catalog-reader-back" onClick={onBackToTopics ?? closePolicy}><ArrowLeft size={17} />{onBackToTopics ? "返回专题" : "返回检索结果"}</button>}
 
         {selectedPlanId && (
           <DetailContainer className={`catalog-detail ${reading ? "catalog-reader-document" : "catalog-preview"}`} aria-label={reading ? "政策原文正文" : "政策详情预览"} aria-busy={detailLoading || contentLoading}
@@ -671,6 +764,13 @@ export function PolicyCatalog() {
                 {list && detail && !sameVersion(list.dataset, detail.dataset) && (
                   <p className="catalog-version-note">政策信息与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                 )}
+                {(onAddPolicy && onCreateTopic) && <div className="catalog-add-to-topic">
+                  <TopicPicker planid={policy.planid} collections={collections}
+                    onCreate={onCreateTopic} onAdd={addPolicyToCollection} />
+                  {visibleTopics.length > 0 && <span className="catalog-system-topic" title="根据标题推断的系统主题分类">
+                    主题：{visibleTopics.map((topic) => topic.name).join(" · ")}
+                  </span>}
+                </div>}
                 {!reading && <>
                 <dl className="catalog-metadata">
                   <div><dt>地区</dt><dd>{metadata(policy.area)}</dd></div>
@@ -694,12 +794,12 @@ export function PolicyCatalog() {
                 </section>
                 </>}
                 <section className="catalog-original" aria-label="政策原文">
-                  <div className="catalog-original-heading"><h3>政策原文</h3><span>{content ? `${content.offset} / ${content.total_chars} 字` : "按页读取"}</span></div>
+                  <div className="catalog-original-heading"><h3>政策原文</h3><span>{content ? `${content.total_chars} 字` : "按页读取"}</span></div>
                   {contentLoading && <p className="catalog-status" role="status">正在读取原文…</p>}
                   {contentError && (
                     <div className="catalog-error" role="alert"><p>{contentError}</p><button type="button" onClick={() => void loadContent(selectedPlanId, pageOffsets[pageCursor] ?? 0)}>重试</button></div>
                   )}
-                  {content && <pre className="catalog-original-text">{content.text}</pre>}
+                  {content && <PolicyRichText text={content.text} planid={content.planid} softWrap={reading} originalHints={originalHints} />}
                   {content && list && !sameVersion(list.dataset, content.dataset) && (
                     <p className="catalog-version-note">原文与检索时的数据版本不同，请返回目录重新检索后核对。</p>
                   )}
@@ -708,7 +808,7 @@ export function PolicyCatalog() {
                       <button type="button" onClick={() => changeContentPage(-1)} disabled={contentLoading || pageCursor === 0}>
                         <ArrowLeft size={14} /> 上一页
                       </button>
-                      <span>{content.offset}–{content.offset + Array.from(content.text).length} / {content.total_chars}</span>
+                      <span aria-label="原文页码">第 {contentPage} / {contentPageCount} 页</span>
                       <button type="button" onClick={() => changeContentPage(1)} disabled={contentLoading || !content.has_more || content.text.length === 0}>
                         下一页 <ArrowRight size={14} />
                       </button>
