@@ -481,7 +481,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(preview).toBeVisible();
   await expect(preview).toContainText("十四五");
   await expect(preview).not.toContainText("第十四个五年规划");
-  await expect(page.getByRole("region", { name: "政策原文" }).locator("pre")).not.toBeEmpty();
+  await expect(page.getByRole("region", { name: "政策原文" }).locator(".catalog-rich-text")).not.toBeEmpty();
   await page.screenshot({ path: join(directory, "catalog-hover-preview.png"), fullPage: true });
   await policyCard.click();
   await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
