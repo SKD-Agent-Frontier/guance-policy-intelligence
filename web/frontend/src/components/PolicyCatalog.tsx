@@ -711,7 +711,17 @@ export function PolicyCatalog({
                     <span>{metadata(item.area)}</span><span>{formatPeriod(item.fyp, item.year)}</span><span>{metadata(item.plantype_label)}</span>
                   </span>
                   <span className="catalog-policy-id">planid：{item.planid}</span>
-                  {item.matches.map((match, index) => <span className="catalog-snippet" key={`${match.field}-${match.offset}-${index}`}>{highlightLiteral(match.snippet, list.query.q)}</span>)}
+                  {(() => {
+                    // A single human-readable body preview, never the duplicated title
+                    // hit. Keep the original matches/offsets intact in the API result.
+                    const snippet = item.preview ?? item.matches.find((match) => match.field === "body")?.snippet;
+                    const visible = snippet?.replace(/\\s+/g, " ").trim();
+                    return visible && visible !== "..." && visible !== "…" ? (
+                      <span className="catalog-snippet">
+                        {highlightLiteral(visible, list.query.q)}
+                      </span>
+                    ) : null;
+                  })()}
                 </button>
               ))}
             </div>
