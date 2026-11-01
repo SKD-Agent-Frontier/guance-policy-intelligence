@@ -78,8 +78,10 @@ jobs:
           cache-dependency-path: web/frontend/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Run intercepted browser flows without calling Qwen or live RAG
-        run: npm run test:e2e:mock
+      - name: Current-UI intercepted Playwright smoke (staging only)
+        # The 10 legacy e2e-mock flows assume removed top-level mode tabs and
+        # remain separately tracked for migration; do not mark them as passed.
+        run: npx playwright test --config playwright.mock.config.ts e2e-mock/staging-smoke.spec.ts
       - name: Upload browser traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
