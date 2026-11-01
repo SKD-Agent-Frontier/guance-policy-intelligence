@@ -358,7 +358,7 @@ describe("PolicyCatalog", () => {
     await waitFor(() => expect(readingPage).toHaveBeenLastCalledWith("P-1", 2, 4000, expect.any(AbortSignal)));
     expect(within(reader).getByLabelText("原文页码")).toHaveTextContent("第 2 / 2 页");
 
-    await user.click(within(reader).getByRole("button", { name: /返回检索结果/ }));
+    await user.click(screen.getByRole("button", { name: /返回检索结果/ }));
     await user.hover(screen.getByRole("button", { name: /数字经济政策/ }));
     const preview = await screen.findByRole("complementary", { name: "政策详情预览" });
     await user.click(within(preview).getByRole("button", { name: "第二章 发展目标" }));
