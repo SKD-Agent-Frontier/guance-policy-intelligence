@@ -92,6 +92,11 @@ def deliver_research(result, question: str) -> None:
         body = result.answer
         heading = "## 研究发现与分析\n\n"
     else:
+        quote_check = result.meta.get("quote_verification") or {}
+        if (not isinstance(quote_check, dict)
+                or quote_check.get("unverified") != 0
+                or result.meta.get("verification_incomplete")):
+            return
         checked = [claim for claim in result.claims
                    if claim.quotes and claim.chunk_ids
                    and set(claim.chunk_ids) <= set(refs)]
