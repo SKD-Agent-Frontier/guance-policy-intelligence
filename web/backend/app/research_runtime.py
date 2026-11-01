@@ -147,7 +147,7 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
         if task.task_type == "organize" and task.targets is None:
             return ResearchPlanner.fallback(plan, resolution.get("message"), reason_code="organize_fallback")
         return ResearchPlanner.with_catalog_documents(
-            contract, plan, [],
+            contract, plan, trusted if resolution.get("status") == "insufficient" else [],
             status="needs_clarification" if resolution.get("status") == "needs_clarification" else "insufficient",
             message=resolution.get("message") or "当前发布目录不能确认足够的研究对象。",
             reason_code=_discovery_reason(resolution.get("reason")),
