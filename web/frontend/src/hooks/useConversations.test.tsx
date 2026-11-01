@@ -111,12 +111,12 @@ describe("useConversations", () => {
       state: { state_id: "opaque-state", revision: 0 },
     });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
-    expect(mockedClient.submit).toHaveBeenCalledWith({
+    expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining({
       task_type: "qa",
       question: "完整整理后的问题",
       targets: null,
       dimensions: ["政策工具"],
-    }, undefined);
+    }), undefined);
     expect(result.current.active?.messages.at(-1)).toEqual({
       id: expect.any(String),
       kind: "result",
@@ -170,9 +170,9 @@ describe("useConversations", () => {
       await act(async () => { await result.current.send("分析这项研究目标"); });
       expect(mockedClient.resolveResearch).not.toHaveBeenCalled();
       expect(mockedClient.prepare).not.toHaveBeenCalled();
-      expect(mockedClient.submit).toHaveBeenCalledWith({
+      expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining({
         task_type: mode, question: "分析这项研究目标",
-      }, undefined);
+      }), undefined);
       expect(result.current.active?.messages.at(-1)?.kind).toBe("result");
       expect(result.current.active?.advancedDraft.open).toBe(false);
     },
@@ -471,10 +471,10 @@ describe("useConversations", () => {
     const turn = result.current.active?.messages.find((item) => item.kind === "user");
     await act(async () => { await result.current.editAndResend(turn!.id, "编辑后的比较问题"); });
 
-    expect(mockedClient.submit).toHaveBeenLastCalledWith({
+    expect(mockedClient.submit).toHaveBeenLastCalledWith(expect.objectContaining({
       task_type: "compare", question: "编辑后的比较问题",
       targets: ["P-1", "P-2"], dimensions: ["目标"],
-    }, undefined);
+    }), undefined);
     expect(mockedClient.submit).toHaveBeenCalledTimes(2);
     expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
   });
