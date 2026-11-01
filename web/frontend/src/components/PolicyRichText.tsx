@@ -55,7 +55,7 @@ function originalDateLine(line: string): boolean {
 
 function isDocumentTitle(line: string, title?: string): boolean {
   const source = line.trim().replace(/^#{1,6}\s*/, "").replace(/\s*#+\s*$/, "");
-  if (!source || /^第[一二三四五六七八九十百千\\d]+[编篇章章节]/.test(source)) return false;
+  if (!source || /^第[一二三四五六七八九十百千\d]+[编篇章章节]/.test(source)) return false;
   // Exact metadata title takes precedence even when it is unusually long.
   if (title && normalizeDocumentTitle(source) === normalizeDocumentTitle(title)) return true;
   if (source.length > 130) return false;
@@ -222,14 +222,17 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
   documentTitle?: string | null; firstPage?: boolean;
   sections?: readonly PolicySection[]; textOffset?: number;
 }) {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
-  // Maintain exact Unicode code-point line positions for authoritative
-  // chapter matching even when a page begins at a nonzero source offset.
+  // Split lines without discarding CRLF/CR boundaries: published offsets are
+  // Unicode code points of the *original* source, not normalized text.
+  const fragments = text.split(/(\r\n|\n|\r)/);
+  const lines: string[] = [];
   const linePositions: number[] = [];
   let cursor = textOffset;
-  for (const line of lines) {
+  for (let index = 0; index < fragments.length; index += 2) {
+    const line = fragments[index];
+    lines.push(line);
     linePositions.push(cursor);
-    cursor += Array.from(line).length + 1;
+    cursor += Array.from(line).length + Array.from(fragments[index + 1] ?? "").length;
   }
   const blocks: React.ReactNode[] = [];
   let prose: string[] = [];
