@@ -96,7 +96,12 @@ async def execute(agent, task: TaskRequest, ctx: RunContext, rt: Runtime, deadli
                     original_is_enabled = tool.is_enabled
 
                     async def can_use_tool(run_context, tool_agent, *, original=original_is_enabled):
-                        if (state["finalizing"] and not state["dispatch_pending"]):
+                        # The SDK selects visible tools BEFORE invoking the
+                        # model-input filter. Disable them at tool-eligibility
+                        # time, not only after a finalization flag is set.
+                        final_turn = (model_calls >= max_turns - 1
+                                      or deadline - time.monotonic() <= 70.0)
+                        if final_turn and not state["dispatch_pending"]:
                             return False
                         if isinstance(original, bool):
                             return original
