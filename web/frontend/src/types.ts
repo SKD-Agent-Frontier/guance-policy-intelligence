@@ -33,6 +33,7 @@ export interface PreparationToken {
 export interface ResearchPreparationRequest {
   mode: TaskType;
   message: string;
+  autonomous?: boolean;
   state?: PreparationToken;
 }
 
