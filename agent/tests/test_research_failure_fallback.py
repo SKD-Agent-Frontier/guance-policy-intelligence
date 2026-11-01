@@ -1,6 +1,6 @@
 """QA model-failure fallback cannot fabricate research conclusions."""
-from types import SimpleNamespace
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,9 +8,8 @@ from guance_agent.research_fallback import (
     recover_empty_search_failure,
     recover_read_excerpts,
 )
-from guance_agent.research_quality import requirements, evaluate
+from guance_agent.research_quality import evaluate, requirements
 from guance_agent.schemas import EvidenceRef, RunError, RunResult
-
 
 TEXT = "推动工业结构调整，发展特色产业，支持产业集群建设。"
 
