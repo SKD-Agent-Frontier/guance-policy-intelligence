@@ -185,3 +185,61 @@ async def test_followup_adds_only_fresh_verified_facts(monkeypatch):
     assert "新增有效措施" in [c.text for c in result.claims]
     assert "chunk-3" in {r.chunk_id for r in result.evidence_refs}
     assert result.meta["research_supplement"]["added_claims"] == 1
+
+
+def test_simple_single_facet_qa_credits_verified_facts_without_a_report():
+    result = _result()
+    question = "这些政策的主要措施有哪些？"
+    quality = evaluate(result, question)
+    assert quality["needs_report"] is False
+    assert quality["missing_dimensions"] == []
+    assert quality["factual_answer_coverage"] is True
+    assert quality["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_real_rag_supplement_uses_fresh_bounded_reads_not_legacy_agent(monkeypatch):
+    result = _result()
+    part = _result()
+    part.claims = [Claim(text="新检索的可引用措施", chunk_ids=["fresh"],
+                         quotes=["新检索的可引用措施"])]
+    part.evidence_refs = [_ref("fresh")]
+    seen = []
+
+    async def controlled(task, settings, ctx, rt, deadline, *, focus, exclude_chunks):
+        seen.append((focus, exclude_chunks, task.question))
+        rt.meta["qa_controlled_retrieval"] = {"read_chunks": ["fresh"]}
+        return ExecOutcome("{}", None)
+
+    async def should_not_run(*args):
+        raise AssertionError("Old agent tool loop must not run for real-RAG supplement")
+
+    async def recover(outcome, *args, **kwargs):
+        return outcome, None
+
+    async def noop(*args):
+        return None
+
+    monkeypatch.setattr(supplement, "execute_controlled", controlled)
+    monkeypatch.setattr(supplement, "build_result", lambda *args: part)
+    monkeypatch.setattr(supplement, "verify_quotes", noop)
+    monkeypatch.setattr(supplement, "verify_numbers", noop)
+    monkeypatch.setattr(supplement, "enforce_literal_result", lambda *args: None)
+    monkeypatch.setattr(supplement, "finalize_controlled_facts", lambda *args: None)
+
+    original_question = "分析政策优势"
+    task = SimpleNamespace(task_type="qa", question=original_question,
+                           model_copy=lambda update: SimpleNamespace(
+                               task_type="qa", question=update["question"]))
+    ctx = SimpleNamespace(route=SimpleNamespace(kind="open"), scope=None)
+    rt = SimpleNamespace(hooks=SimpleNamespace(turns=0),
+                         meta={"qa_execution_mode": "bounded_retrieval"})
+    s = SimpleNamespace(kb_backend="rag", max_turns=8, max_input_chars=4000)
+    await supplement.supplement_one(
+        result, task, s, ctx, rt, time.monotonic() + 160,
+        should_not_run, recover,
+    )
+    assert seen == [("政策优势", frozenset({"chunk-1", "chunk-2"}), original_question)]
+    assert result.meta["research_supplement"]["status"] == "verified_facts_added"
+    assert [c.text for c in result.claims][-1] == "新检索的可引用措施"
+    assert ctx.scope is None
