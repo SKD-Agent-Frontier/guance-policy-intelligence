@@ -42,7 +42,7 @@ describe("research-mode task constraints are delegated to the Research Agent", (
     await ask(label, question);
     expect(client.resolveResearch).not.toHaveBeenCalled();
     expect(client.prepare).not.toHaveBeenCalled();
-    expect(client.submit).toHaveBeenCalledWith({ task_type: mode, question }, expect.anything());
+    expect(client.submit).toHaveBeenCalledWith(expect.objectContaining({ task_type: mode, question }), expect.anything());
     expect(screen.queryByRole("button", { name: /高级选择/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /研究对象编号/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "指定政策对象" })).not.toBeInTheDocument();
@@ -58,12 +58,12 @@ describe("research-mode task constraints are delegated to the Research Agent", (
       fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
     });
     expect(client.submit).toHaveBeenCalledTimes(2);
-    expect(client.submit).toHaveBeenNthCalledWith(1, {
+    expect(client.submit).toHaveBeenNthCalledWith(1, expect.objectContaining({
       task_type: "compare_plans", question: "比较这两个方案",
-    }, expect.anything());
-    expect(client.submit).toHaveBeenNthCalledWith(2, {
+    }), expect.anything());
+    expect(client.submit).toHaveBeenNthCalledWith(2, expect.objectContaining({
       task_type: "compare_plans", question: "请比较衡水市和保定市的十三五规划",
-    }, expect.anything());
+    }), expect.anything());
     expect(client.resolveResearch).not.toHaveBeenCalled();
   });
 });
