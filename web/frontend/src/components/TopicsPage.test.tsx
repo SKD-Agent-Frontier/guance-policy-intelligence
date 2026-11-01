@@ -23,6 +23,22 @@ describe("TopicsPage", () => {
     expect(onOpenPolicy).toHaveBeenCalledWith(expect.any(String));
   });
 
+  it("keeps the return action, heading and description together for sticky scrolling", () => {
+    const { container } = render(<TopicsPage collections={[]} onCreate={() => null}
+      onAddPolicy={vi.fn()} onRemovePolicy={vi.fn()} onDelete={vi.fn()} onOpenPolicy={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(builtInThemes[0].name) }));
+    const pinned = container.querySelector<HTMLElement>(".topics-detail-sticky-header");
+    expect(pinned).not.toBeNull();
+    expect(within(pinned!).getByRole("button", { name: "返回全部专题" })).toBeInTheDocument();
+    expect(within(pinned!).getByRole("heading", { name: builtInThemes[0].name })).toBeInTheDocument();
+    expect(within(pinned!).getByText(builtInThemes[0].description)).toBeInTheDocument();
+    expect(screen.queryByText("系统主题分类 · 标题归类")).not.toBeInTheDocument();
+    expect(pinned!.querySelector(".topics-document-tools, .topics-documents")).toBeNull();
+    expect(container.querySelector(".topics-detail > .topics-document-tools")).not.toBeNull();
+    fireEvent.click(within(pinned!).getByRole("button", { name: "返回全部专题" }));
+    expect(container.querySelector(".topics-detail-sticky-header")).toBeNull();
+  });
+
   it("creates a personal topic, adds a policy, and removes it", () => {
     function Harness() {
       const [collections, setCollections] = useState<TopicCollection[]>([]);
