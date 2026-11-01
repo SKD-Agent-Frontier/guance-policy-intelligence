@@ -453,6 +453,22 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                                 research_runtime.set_step_status("discover", "partial", reason)
                                 research_runtime.transition("insufficient", reason)
                                 result = _discovery_result(task, rt, reason)
+                                # Discovery is not a research conclusion; expose only
+                                # verified identity and coverage, never synthesize a
+                                # comparison claim from an anchor without peers.
+                                result.structured["research_discovery"] = {
+                                    "status": discovery.status,
+                                    "reason_code": discovery.reason_code,
+                                    "documents": [
+                                        {"planid": doc.planid, "title": doc.title,
+                                         "area": doc.area, "fyp": doc.fyp}
+                                        for doc in research_runtime.plan.documents
+                                        if doc.source_verified
+                                    ],
+                                    "subject_gaps": list(research_runtime.plan.coverage.subject_gaps),
+                                    "coverage_limited_subjects": list(
+                                        research_runtime.plan.coverage.coverage_limited_subjects),
+                                }
                             else:
                                 discovered_plan = research_runtime.plan
                                 requested_subjects = list(dict.fromkeys(
