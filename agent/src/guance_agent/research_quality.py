@@ -53,8 +53,13 @@ def evaluate(result, question: str) -> dict:
     blocks = [block for block in blocks if isinstance(block, dict)
               and block.get("verification") == "model_reviewed_evidence_linked"]
     refs = {ref.chunk_id for ref in result.evidence_refs}
-    verified_claims = [claim for claim in result.claims if claim.chunk_ids
-                       and claim.quotes and set(claim.chunk_ids) <= refs]
+    quote_check = result.meta.get("quote_verification") or {}
+    quotes_verified = (isinstance(quote_check, dict)
+                       and quote_check.get("unverified") == 0
+                       and not result.meta.get("verification_incomplete"))
+    verified_claims = [claim for claim in result.claims if quotes_verified
+                       and claim.chunk_ids and claim.quotes
+                       and set(claim.chunk_ids) <= refs]
     analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
     covered = [label for label in required["dimensions"] if any(
         _matching(block, label) and (
