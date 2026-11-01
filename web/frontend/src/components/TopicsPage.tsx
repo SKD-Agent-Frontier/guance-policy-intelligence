@@ -70,7 +70,7 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
       <div className="topics-detail-topline">
         <div><span>{theme ? "系统主题分类 · 标题归类" : "我的专题 · 本地保存"}</span>
           <h2>{theme?.name || personal?.name}</h2>
-          <p>{theme?.description || "你亲自选择的政策文献集合，独立于系统主题分类。"}</p>
+          {theme && <p>{theme.description}</p>}
         </div>
         {personal && <button className="topics-destructive" type="button" onClick={() => {
           if (window.confirm(`确定删除专题“${personal.name}”？该操作不会删除政策库中的原文。`)) {
@@ -104,8 +104,8 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         <div className="topics-grid">
           {builtInThemes.map((item) => <button type="button" className="topics-card" key={item.id}
             onClick={() => showSelection({ kind: "public", id: item.id })}>
-            <span className="topics-card-symbol">◈</span><strong>{item.name}</strong>
-            <span>{item.description}</span><small>{item.count} 篇文献 <span aria-hidden="true">↗</span></small>
+            <span className="topics-card-heading"><span className="topics-card-symbol" aria-hidden="true">◈</span><strong>{item.name}</strong></span>
+            <span className="topics-card-description">{item.description}</span><small>{item.count} 篇文献 <span aria-hidden="true">↗</span></small>
           </button>)}
         </div>
       </section>
@@ -114,8 +114,8 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         {collections.length ? <div className="topics-grid topics-grid-personal">
           {collections.map((topic) => <button type="button" key={topic.id} className="topics-card topics-personal-card"
             onClick={() => showSelection({ kind: "personal", id: topic.id })}>
-            <FolderPlus size={21} aria-hidden="true" /><strong>{topic.name}</strong>
-            <span>个人研究资料集合</span><small>{topic.policies.length} 篇文献 <span aria-hidden="true">↗</span></small>
+            <span className="topics-card-heading"><FolderPlus size={21} aria-hidden="true" /><strong>{topic.name}</strong></span>
+            <span className="topics-card-description">个人研究资料集合</span><small>{topic.policies.length} 篇文献 <span aria-hidden="true">↗</span></small>
           </button>)}
         </div> : <div className="topics-empty">尚未创建个人专题。可以点击上方“新建专题”，也可以直接从文献预览添加。</div>}
         <p className="topics-note">个人专题目前仅保存在此浏览器的本地存储中，清理浏览器数据或更换设备可能导致记录丢失；尚不支持云端同步。</p>
