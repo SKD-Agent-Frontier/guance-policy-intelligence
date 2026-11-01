@@ -292,5 +292,5 @@ def test_explicit_qa_facets_prevent_false_complete_even_without_report():
     runtime.transition("executing")
     evaluation = runtime.finish(result, SimpleNamespace(evidence=Evidence()))
     assert evaluation.status != "completed"
-    assert "dimension:适用范围" in evaluation.required
+    assert "dimension:适用范围" in evaluation.required_units
     assert "research_dimension_uncovered:适用范围" in evaluation.gaps
