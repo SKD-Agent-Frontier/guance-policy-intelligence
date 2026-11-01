@@ -714,13 +714,12 @@
   line-height: 1.4;
 }
 .catalog-media-missing {
-  margin: 18px 0;
-  padding: 12px 14px;
-  border: 1px dashed #d8cdc8;
-  border-radius: 5px;
-  color: #796b65;
-  background: #faf7f5;
-  font-size: 13px;
+  margin: 7px 0 10px;
+  padding: 2px 0 2px 11px;
+  border-left: 2px solid #d8cdc8;
+  color: #8b817d;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .catalog-reader-document .catalog-rich-text {
   font-size: 17px;
