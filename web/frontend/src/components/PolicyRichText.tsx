@@ -151,6 +151,19 @@ function inlineContent(source: string): React.ReactNode {
   return nodes.length ? nodes : source;
 }
 
+/** Source PDF page numbers and dotted TOC leaders are presentation artifacts,
+ * not content-heading hierarchy. They remain untouched in the evidence source. */
+const PDF_PAGE_MARK = /^\s*[—－-]\s*\d{1,4}\s*[—－-]\s*$/;
+const DOTTED_TOC_ROW = /^(.{2,100}?)[.．·…]{4,}\s*\d{1,4}\s*$/;
+function collapsedNumericTable(line: string): boolean {
+  // OCR can flatten an entire indicators table into prose. We cannot safely
+  // reconstruct numerical columns without the original HTML/PDF table.
+  if (line.length < 220 || line.includes("|")) return false;
+  const numbers = (line.match(/(?:^|[\s（(])\d+(?:\.\d+)?(?=[\s）),，—－]|$)/g) ?? []).length;
+  const markers = (line.match(/(?:预期性|约束性|累计|地区生产总值|（%）|\(%\))/g) ?? []).length;
+  return numbers >= 12 && markers >= 4;
+}
+
 function tableLike(line: string): boolean {
   return line.trim().startsWith("|") && (line.match(/(?<!\\)\|/g)?.length ?? 0) >= 3;
 }
@@ -308,6 +321,29 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
     if (image) {
       flushProse();
       blocks.push(<PolicyImage key={`${planid}:${image[2]}:${key++}`} planid={planid} alt={image[1]} name={image[2]} />);
+      index++;
+      continue;
+    }
+
+    if (PDF_PAGE_MARK.test(line.trim())) {
+      flushProse();
+      index++;
+      continue;
+    }
+    const toc = DOTTED_TOC_ROW.exec(line.trim());
+    if (toc) {
+      flushProse();
+      blocks.push(<p key={key++} className="catalog-source-toc-entry">{toc[1].trim()}</p>);
+      index++;
+      continue;
+    }
+    if (collapsedNumericTable(line)) {
+      flushProse();
+      blocks.push(<div key={key++} className="catalog-table-scroll catalog-table-unparsed"
+        role="region" aria-label="原文指标表格（结构不完整）" tabIndex={0}>
+        <p className="catalog-table-warning">原文中的表格列结构未完整保留，以下为原始文字，未重排指标数值。</p>
+        <pre>{line}</pre>
+      </div>);
       index++;
       continue;
     }
