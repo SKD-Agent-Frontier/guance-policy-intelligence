@@ -102,6 +102,14 @@ def test_search_queries_are_bounded_and_sent_context_excludes_history():
     assert len(messages[1]["content"]) < TOTAL_EVIDENCE_CHARS + 1100
 
 
+def test_explicit_opportunity_challenge_dimension_adds_concrete_facets():
+    queries = search_queries(
+        "与北京市其他远郊区县相比，密云区在'十一五'期间面临的发展机遇和挑战有什么独特之处？")
+    assert "发展机遇" in queries
+    assert "面临挑战" in queries
+    assert len(queries) <= 4
+
+
 @pytest.mark.asyncio
 async def test_real_rag_path_uses_controlled_qa_without_sdk_tool_loop(env, monkeypatch):
     settings, origin = env
