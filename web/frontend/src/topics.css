@@ -72,7 +72,8 @@
 .catalog-add-to-topic{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 0 14px}
 .catalog-add-to-topic .topic-picker-popover{right:auto;left:0}
 .catalog-preview .catalog-add-to-topic{padding:6px 0 14px}
-.catalog-reader-document .catalog-add-to-topic{margin:0 0 10px}
+.catalog-reader-document .catalog-add-to-topic{margin:0;padding:0;margin-left:auto}
+.catalog-reader-document .catalog-add-to-topic .topic-picker-popover{left:auto;right:0}
 @media(max-width:980px){.topics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.topics-page{padding:24px 17px 70px}.topics-grid{grid-template-columns:1fr}.topics-page-header{align-items:flex-start;flex-direction:column;gap:14px}.topics-document{align-items:flex-start;flex-direction:column}.topic-picker-popover{right:auto;left:0}.topics-detail-topline{flex-direction:column}}
 
