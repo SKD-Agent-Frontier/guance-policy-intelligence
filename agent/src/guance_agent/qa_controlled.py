@@ -25,6 +25,23 @@ READ_CHARS = 1800
 TOTAL_EVIDENCE_CHARS = 8500
 REQUEST_TIMEOUT = 50.0
 
+# Only apply a semantic topical gate when the user explicitly names this
+# subject. Broad facet queries (e.g. "产业扶持") otherwise admit irrelevant funds.
+DIGITAL_SUBJECT_TERMS = (
+    "数字经济", "数字产业", "数字化", "数据要素", "大数据", "数字技术",
+    "数字基础设施", "信息基础设施", "人工智能", "智能制造",
+)
+
+
+def _subject_terms(question: str) -> tuple[str, ...]:
+    return DIGITAL_SUBJECT_TERMS if "数字经济" in question else ()
+
+
+def _subject_score(text: str, terms: tuple[str, ...]) -> int:
+    if not terms:
+        return 0
+    return sum(4 if term == "数字经济" else 1 for term in terms if term in text)
+
 CONCEPTS = (
     "产业结构调整", "数字经济", "人工智能", "基础设施建设", "产业扶持",
     "人才培养", "发展目标", "产业发展", "重点措施", "政策措施",
@@ -108,6 +125,11 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     queries = search_queries(task.question, getattr(decision, "sub_query", None))
     if focus:
         queries = list(dict.fromkeys([focus[:70]] + queries))[:MAX_QUERIES]
+    elif scope is None and "数字经济" in task.question:
+        # Keep the broad subject retrieval but tie each requested facet to it.
+        queries = ["数字经济"] + [
+            "数字经济 " + q for q in queries if q != "数字经济"
+        ][:MAX_QUERIES - 1]
     for query in queries:
         if deadline - time.monotonic() < 55:
             break
@@ -131,11 +153,15 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
             if hit["chunk_id"] not in seen_chunks and hit["chunk_id"] not in exclude_chunks:
                 seen_chunks.add(hit["chunk_id"])
                 found.append(hit)
+    subject_terms = _subject_terms(task.question)
     if scope is None:
-        # For open-topic research choose distinct documents first, with stable
-        # within-retrieval ranking for the rest.
+        # Relevance before diversity. A keyword like "人才培养" must not make an
+        # unrelated tourism fund outrank a document about digital-economy policy.
+        ranked = sorted(found, key=lambda hit: -_subject_score(
+            " ".join(str(hit.get(field) or "") for field in
+                     ("title", "section_path", "content")), subject_terms))
         primary, secondary, seen_documents = [], [], set()
-        for hit in found:
+        for hit in ranked:
             if hit["planid"] not in seen_documents:
                 primary.append(hit)
                 seen_documents.add(hit["planid"])
@@ -143,6 +169,7 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
                 secondary.append(hit)
         found = primary + secondary
     evidence = []
+    rejected_topic = 0
     used = set()
     for hit in found:
         if len(evidence) >= read_limit or deadline - time.monotonic() < 52:
@@ -162,6 +189,13 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         if reply["status"] != "ok":
             continue
         passage = reply["data"]
+        if subject_terms and not _subject_score(
+                " ".join((str(hit.get("title") or ""),
+                          str(hit.get("section_path") or ""),
+                          str(hit.get("content") or ""),
+                          str(passage.get("content") or ""))), subject_terms):
+            rejected_topic += 1
+            continue
         # Never pretend a catalog/index response or a different chunk is evidence.
         if (passage.get("is_index") or not passage.get("content")
                 or not any(span.get("chunk_id") == cid for span in passage.get("chunks", []))):
@@ -175,6 +209,12 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
             "section_path": passage.get("section_path") or hit["section_path"],
             "text": passage["content"],
         })
+    ctx._qa_search_diagnostics = {
+        "queries": queries, "candidate_count": len(found),
+        "topic_filter": "digital_economy" if subject_terms else None,
+        "unrelated_read_rejected": rejected_topic,
+        "accepted_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
+    }
     return evidence
 
 
@@ -229,6 +269,7 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
         "read_chunks": [item["chunk_id"] for item in evidence],
         "read_planids": list(dict.fromkeys(item["planid"] for item in evidence)),
         "evidence_chars": sum(len(item["text"]) for item in evidence),
+        "diagnostics": getattr(ctx, "_qa_search_diagnostics", {}),
     }
     if not evidence:
         if getattr(ctx, "_controlled_retrieval_error", None) == "timeout":
