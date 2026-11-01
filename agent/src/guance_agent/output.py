@@ -63,6 +63,63 @@ def rebuild_trusted_answer(result, ctx, reason: str) -> None:
         result.answer = insufficient_message(ctx.tool_calls if ctx else [])
 
 
+def finalize_recovered_qa_answer(result: RunResult, question: str) -> None:
+    """Render only verified facts after a truncated JSON claims-only recovery.
+
+    This is intentionally AFTER quote/number verification and report pruning.
+    It does not ask another model, interpret claims, or promote partial work to
+    verified completion. Other QA paths preserve their original model report.
+    """
+    if (result.task_type != "qa" or result.error is not None
+            or result.meta.get("verification_incomplete")
+            or result._qa_report_supplied or not result.claims):
+        return
+    parse = result.meta.get("output_parse") or {}
+    single_recovered = parse.get("recovery") == "complete_claims_only"
+    object_recovered = any(
+        entry.get("recovery") == "complete_claims_only"
+        for entry in parse.get("objects", [])
+        if isinstance(entry, dict)
+    )
+    if not single_recovered and not object_recovered:
+        return
+    # All surviving factual claims must be tied to registered output refs.
+    refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+    if any(not claim.chunk_ids or not claim.quotes
+           or not set(claim.chunk_ids) <= refs for claim in result.claims):
+        return
+    outline, missing = verified_qa_outline(result.claims, question)
+    refs_by_document = {}
+    for claim in result.claims:
+        for chunk_id in claim.chunk_ids:
+            ref = refs[chunk_id]
+            refs_by_document.setdefault(ref.planid, ref)
+    sources = [
+        f"《{ref.title}》·{ref.area or '地区未标注'}·{ref.fyp or '时期未标注'}"
+        f"·planid={ref.planid}·{ref.section_path}"
+        for ref in refs_by_document.values()
+    ]
+    result.answer = (
+        "本轮模型输出截断，以下为已经通过原文核验的政策事实整理；"
+        "尚未完成的解释、比较与综合判断不包含在内。\n\n"
+        + outline
+        + ("\n\n引用来源（具体事实与引句见下方证据）：\n"
+           + "\n".join(f"- {source}" for source in sources) if sources else "")
+    )
+    result.evidence_status = "insufficient"
+    result.meta["answer_rebuilt"] = "truncated_verified_claims"
+    result.meta["report_outline"] = {
+        "source": "verified_claims", "coverage_missing": missing,
+        "rebuild_reason": "truncated_output",
+    }
+    result.structured["qa_recovery"] = {
+        "source": "verified_claims", "status": "partial",
+        "claim_count": len(result.claims),
+        "source_planids": list(refs_by_document),
+        "unverified_analysis_included": False,
+    }
+
+
 def finalize_qa_retrieval(result: RunResult, task: TaskRequest) -> RunResult:
     """证据核验完成后，根据最终声明分类问答检索故障。"""
     if task.task_type != "qa" or result.status != "completed" or result.error is not None:
