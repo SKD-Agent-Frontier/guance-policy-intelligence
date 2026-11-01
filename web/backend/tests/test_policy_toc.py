@@ -82,3 +82,15 @@ def test_jian_22455_toc_without_printed_page_numbers_is_hidden_only_in_reader():
 def test_unmarked_sections_are_not_mistaken_for_a_printed_index():
     text = "目 录\n第一章 发展目标\n第一节 总体要求\n\n第一章 发展目标\n实际正文。"
     assert printed_toc_range(text) is None
+
+
+def test_short_dotted_leaders_with_page_numbers_still_match():
+    body = (
+        "目 录\n"
+        "第一章 总体要求··32\n"
+        "第一节 发展目标..34\n"
+        "\n第一章 总体要求\n实际正文。\n"
+    )
+    span = printed_toc_range(body)
+    assert span is not None
+    assert body[span[1]:].startswith("第一章 总体要求\n实际正文。")
