@@ -14,6 +14,7 @@ import time
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from .client import thinking_off
+from .evidence_coverage import multi_document_required
 from .qa_context import normalize_period
 from .research_quality import requirements
 from .runner import ExecOutcome
@@ -138,7 +139,8 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         if raw_fyp in task.question:
             fyp = raw_fyp
 
-    research = requirements(task.question)["needs_report"]
+    research = requirements(task.question)["needs_report"] or multi_document_required(
+        task.question)
     read_limit = MAX_READS if research else SIMPLE_READS
     groups = []
     retrieval_question = query_question or task.question
@@ -188,6 +190,17 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
             else:
                 secondary.append(hit)
         found = primary + secondary
+    # For a multi-document scope, put one candidate per target document before
+    # overflowing one document: a high lexical score must not hide document B.
+    if scope is not None and len(scope) > 1:
+        first_per_doc, rest = {}, []
+        for hit in found:
+            planid = hit["planid"]
+            if planid in scope and planid not in first_per_doc:
+                first_per_doc[planid] = hit
+            else:
+                rest.append(hit)
+        found = list(first_per_doc.values()) + rest
     evidence = []
     rejected_topic = 0
     rejected_scope = 0
@@ -277,6 +290,10 @@ def messages_for(task, evidence: list[dict], context_note: str | None = None,
         budget -= length
     parts.append(f"本次最多输出 {fact_budget or claim_budget(task.question)} 条 claims；"
                  "每条 quote 必须从同一来源片段逐字复制连续原句。")
+    if multi_document_required(task.question):
+        parts.append("本题涉及多篇政策：至少为两篇不同 planid 的文献提供 claim，"
+                     "在 answer 中分别说明各文献事实与共同点/差异；"
+                     "不足两篇时明确说明覆盖缺口，不得用一篇冒充多篇归纳。")
     parts.append("只输出规定的 JSON，不得在 answer 中写任何未被 claims 支撑的政策判断。")
     return [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": "\n".join(parts)}]

@@ -14,6 +14,7 @@ from .business.services import BusinessServices
 from .client import thinking_off
 from .config import ConfigurationError, Settings
 from .context import RunContext
+from .evidence_coverage import build_coverage
 from .extract import build_messages, retrieve
 from .format_recovery import (
     REPAIRABLE,
@@ -674,6 +675,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                 research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
     finalize_controlled_facts(result)
+    if task.task_type == "qa" and ctx is not None:
+        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
     result = finalize_qa_retrieval(result, task)
     if not result.meta.get("execution_recovery"):
         result = finalize_qa_analysis(result, task.question)
@@ -687,6 +690,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         # verified claims can support its draft and final semantic review.
         await supplement_one(result, task, s, ctx, rt, deadline,
                              _execute_once, _recover_qa_output)
+        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
         await draft_verified_report(result, task.question, rt, deadline)
     if task.task_type == "qa" and result._qa_report_supplied:
         remaining = max(deadline - time.monotonic(), 0.05)

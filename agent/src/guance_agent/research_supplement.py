@@ -15,16 +15,30 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
     """Use the same scoped QA tools and verification gates; never replace a good run."""
     meta = {"attempted": False, "status": "not_needed"}
     result.meta["research_supplement"] = meta
+    coverage = result.meta.get("evidence_coverage") or {}
+    action = coverage.get("next_action") or {}
+    route_kind = getattr(ctx.route, "kind", None) if ctx is not None else None
+    route_planids = list(getattr(ctx.route, "planids", ()) or ()) if ctx is not None else []
+    multi_scope = route_kind == "objects" and len(route_planids) > 1
     if (task.task_type != "qa" or result.status != "completed"
             or result.error or ctx is None or not result.claims
-            or getattr(ctx.route, "kind", None) != "open"
+            or (route_kind != "open" and not multi_scope)
             or result.meta.get("verification_incomplete")):
         meta["status"] = "ineligible"
         return
-    gap = followup_gap(result, task.question)
+    gap = action.get("query") or followup_gap(result, task.question)
     if gap is None:
         return
+    target_planid = action.get("target_planid")
     meta["gap"] = gap
+    meta["target_planid"] = target_planid
+    meta["coverage_before"] = {
+        "status": coverage.get("status"),
+        "missing_dimensions": coverage.get("missing_dimensions"),
+        "missing_planids": coverage.get("missing_planids"),
+        "multi_document_required": coverage.get("multi_document_required"),
+        "multi_document_satisfied": coverage.get("multi_document_satisfied"),
+    }
     if (deadline - time.monotonic() < 95 or
             rt.hooks.turns >= s.max_turns - 1 or
             len(task.question) > s.max_input_chars - 200):
@@ -47,6 +61,11 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         deadline - (85 if controlled_mode else 40),
         time.monotonic() + (35 if controlled_mode else 48),
     )
+    previous_scope = getattr(ctx, "scope", None)
+    if target_planid:
+        # Supplement must stay inside the measured missing document; never
+        # let a global search satisfy a document-specific coverage gap.
+        ctx.scope = (target_planid,)
     try:
         # Real-RAG QA uses the same bounded program-side retrieval as the
         # initial answer. The legacy SDK path remains for mock/backward tests.
@@ -104,6 +123,8 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         meta["status"] = "unavailable"
         meta["reason"] = type(exc).__name__
         return
+    finally:
+        ctx.scope = previous_scope
     existing = {(claim.text, tuple(claim.chunk_ids)) for claim in result.claims}
     additions = [claim for claim in part.claims if claim.quotes and claim.chunk_ids
                  and (claim.text, tuple(claim.chunk_ids)) not in existing]
