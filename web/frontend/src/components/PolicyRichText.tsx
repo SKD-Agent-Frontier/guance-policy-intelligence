@@ -56,7 +56,7 @@ function isDocumentTitle(line: string, title?: string): boolean {
   if (!source || source.length > 130 || /^第[一二三四五六七八九十百千\d]+[编篇章章节]/.test(source)) return false;
   if (title && normalizeDocumentTitle(source) === normalizeDocumentTitle(title)) return true;
   // Source title can differ from metadata (e.g. abbreviated document name).
-  return source.length >= 12 && /(?:规划纲要|发展规划|实施方案|工作报告|意见|通知|发展纲要)$/.test(source)
+  return source.length >= 12 && /(?:纲要|规划|报告|通知|方案|意见|办法|条例|决定)$/.test(source)
     && !/[。？！；;]$/.test(source);
 }
 
@@ -192,6 +192,11 @@ export function PolicyRichText({ text, planid, softWrap = false, originalHints =
         flushProse();
         leadTitleFound = true;
         leadLineCount++;
+        // The metadata title is already H1 above the toolbar. Only source
+        // titles that differ materially need an additional original H1.
+        if (normalizeDocumentTitle(plain) !== normalizeDocumentTitle(documentTitle ?? "")) {
+          blocks.push(<h1 className="catalog-source-title" key={key++}>{plain}</h1>);
+        }
         index++;
         continue;
       }
