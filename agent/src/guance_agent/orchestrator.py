@@ -657,8 +657,11 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                 research_runtime.set_step_status("verify", "completed")
     result.task_type = task.task_type
     result = finalize_qa_retrieval(result, task)
-    result = finalize_qa_analysis(result, task.question)
-    if task.task_type == "qa" and ctx is not None and result.status == "completed":
+    if not result.meta.get("execution_recovery"):
+        result = finalize_qa_analysis(result, task.question)
+    if (task.task_type == "qa" and ctx is not None
+            and result.status == "completed"
+            and not result.meta.get("execution_recovery")):
         # Synthesis is a draft only; supplementary facts must pass fresh checks.
         # Both share the original task deadline and preserve the existing result
         # when the remaining budget is insufficient.
