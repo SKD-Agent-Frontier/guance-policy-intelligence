@@ -83,6 +83,15 @@ class TrustedContextStore:
         temp.replace(self.path)
 
 
+def _as_payload(value) -> dict:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    return {name: getattr(value, name) for name in (
+        "text", "chunk_ids", "quotes", "dimension",
+        "chunk_id", "planid", "title", "area", "fyp", "source",
+    ) if hasattr(value, name)}
+
+
 def build_trusted_turn(question: str, ctx, result) -> dict:
     """Persist final quote-verified source identities, never merely-read hits.
 
@@ -92,6 +101,8 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
     question = current_question(question)
     documents: dict[str, dict] = {}
     chunks: list[str] = []
+    verified_facts: list[dict] = []
+    verified_refs: dict[str, dict] = {}
     registry = getattr(ctx, "evidence", None)
     final_refs = {ref.chunk_id: ref for ref in getattr(result, "evidence_refs", ())}
     quote_check = getattr(result, "meta", {}).get("quote_verification") or {}
@@ -114,13 +125,29 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
                         or ref.planid != final_ref.planid):
                     continue
                 chunks.append(chunk_id)
+                verified_refs.setdefault(chunk_id, _as_payload(final_ref))
                 documents.setdefault(ref.planid, {
                     "planid": ref.planid,
                     "title": getattr(ref, "title", "") or "",
                     "area": getattr(ref, "area", None),
                     "fyp": getattr(ref, "fyp", None),
                 })
+            verified_facts.append(_as_payload(claim))
     resolution = getattr(ctx, "qa_context_resolution", None) or {}
+    structured = getattr(result, "structured", None) or {}
+    delivered_blocks = []
+    if (isinstance(structured, dict)
+            and structured.get("schema_version") == "qa-report/1"
+            and structured.get("verification", {}).get("facts")
+            == "semantic_reviewed_against_quotes"):
+        delivered_blocks = [
+            {"title_path": list(block.get("title_path") or []),
+             "dimension": block.get("dimension"),
+             "kind": block.get("kind"), "text": block.get("text"),
+             "supporting_claim_indexes": list(block.get("supporting_claim_indexes") or [])}
+            for block in structured.get("blocks") or []
+            if isinstance(block, dict)
+        ][:12]
     return {
         "version": 1,
         "question": (question or "")[:MAX_QUESTION_CHARS],
@@ -130,6 +157,17 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
         "evidence_status": getattr(result, "evidence_status", "none"),
         "resolution_status": resolution.get("status"),
         "requested_constraints": resolution.get("requested_constraints"),
+        # Final, quote-verified facts are safe to reuse for a later
+        # summarize/analyze turn.  They are never mixed with an unverified
+        # historical answer or a merely-read hit.
+        "verified_facts": verified_facts[:16] if trusted else [],
+        "evidence_refs": list(verified_refs.values())[:24],
+        "quote_verification": ({
+            key: quote_check.get(key) for key in
+            ("checked", "approved", "rejected", "unverified")
+        } if trusted else {}),
+        "delivered_blocks": delivered_blocks,
+        "intent": getattr(ctx, "research_intent", None),
     }
 
 

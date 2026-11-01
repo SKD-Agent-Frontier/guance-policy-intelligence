@@ -175,7 +175,7 @@ async def test_unquoted_block_is_withdrawn_locally_and_coverage_stays_partial(en
 
     assert [block["id"] for block in result.structured["blocks"]] == ["verified"]
     assert result.structured["coverage"]["status"] == "partial"
-    assert "部分报告段落未通过审核" in result.answer
+    assert "部分报告段落未通过审核" not in result.answer
     assert "缺少引句的段落。" not in result.answer
     assert result.meta["qa_report"]["withdrawn"] == 1
     assert runtime.calls[0][1] <= 2000

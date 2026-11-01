@@ -1,7 +1,15 @@
 """工具契约与对外结果，不依赖 Agent SDK。"""
 from typing import Literal
 
-from pydantic import BaseModel, Field, PrivateAttr, StrictInt, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    StrictInt,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
@@ -113,6 +121,17 @@ class Claim(BaseModel):
     # 提取时模型只给定位线索，不给引文；引文由程序从原文截取后写回 quotes
     anchors: list[str] = Field(default_factory=list)
 
+    @field_validator("chunk_ids", "quotes", "anchors", mode="before")
+    @classmethod
+    def _coerce_claim_lists(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, tuple):
+            return list(value)
+        return value
+
 class QABlock(BaseModel):
     id: str = Field(min_length=1)
     title_path: list[str] = Field(min_length=1, max_length=2)
@@ -184,6 +203,16 @@ class AgentOutput(BaseModel):
                 data["insufficient"] = False
             if "report" not in data:
                 data["report"] = None
+            # One malformed claim must not discard every other verified fact.
+            raw_claims = data.get("claims")
+            if isinstance(raw_claims, list):
+                valid_claims = []
+                for raw in raw_claims:
+                    try:
+                        valid_claims.append(Claim.model_validate(raw))
+                    except (ValidationError, ValueError, TypeError):
+                        continue
+                data["claims"] = valid_claims
             # analyses 是可选增值能力：单条格式错误不能使已完整的事实回答失败。
             # 仅筛结构有效草稿；依赖关系依旧由 finalize_qa_analysis 严格把关。
             drafts = data.get("analyses")

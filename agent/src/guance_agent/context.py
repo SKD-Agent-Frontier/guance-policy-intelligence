@@ -236,6 +236,7 @@ class RunContext:
     trusted_turns: list[dict] = field(default_factory=list)
     qa_context_resolution: dict | None = None
     qa_followup: dict | None = None
+    research_intent: dict | None = None
 
     def verified_scoped_document(self):
         """Only a catalog-verified single-document research scope can fix filters.

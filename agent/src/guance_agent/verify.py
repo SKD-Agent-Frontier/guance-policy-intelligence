@@ -172,6 +172,7 @@ async def verify_quotes(result, ctx) -> int:
     generated_quotes = sum(len(claim.quotes) for claim in result.claims)
 
     checked = approved_count = rejected = unverified = removed_claims = removed_quotes = 0
+    anchor_repaired = 0
     kept_claims = []
     failures = []
 
@@ -216,7 +217,23 @@ async def verify_quotes(result, ctx) -> int:
                 category, context = _classify_rejected_quote(
 
                     ctx, claim, quote, base_reason, source_cache)
-
+                # A model quote can be a paraphrase while its anchor is a real
+                # exact phrase.  Re-locate a complete sentence deterministically;
+                # it is accepted only if the SAME verifier approves it.
+                getter = getattr(ctx.kb, "get_chunk_source", None)
+                repaired = (locate_quotes(claim, ctx, getter)
+                            if claim.anchors and getter is not None
+                            and checked < budget else None)
+                if repaired is not None and repaired != quote:
+                    checked += 1
+                    repaired_ok, _ = await _check_quote(checker, ctx, claim, repaired)
+                    if repaired_ok:
+                        claim.quotes[quote_index] = repaired
+                        approved.append(repaired)
+                        approved_count += 1
+                        rejected -= 1
+                        anchor_repaired += 1
+                        continue
                 failures.append(_quote_failure(
 
                     ctx, claim_index, quote_index, claim, quote, "rejected",
@@ -249,8 +266,9 @@ async def verify_quotes(result, ctx) -> int:
         "removed_claims": removed_claims,
         "removed_quotes": removed_quotes,
         "failure_categories": categories,
-
     }
+    if anchor_repaired:
+        result.meta["quotes_anchor_repaired"] = anchor_repaired
 
     result.meta["quote_diagnostics"] = failures[:DIAGNOSTIC_LIMIT]
 

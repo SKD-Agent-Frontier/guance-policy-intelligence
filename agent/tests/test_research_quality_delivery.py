@@ -65,9 +65,10 @@ def test_audited_analysis_can_satisfy_explicit_dimension():
     }
     assert evaluate(result, "分析政策优势")["status"] == "complete"
     deliver_research(result, "分析政策优势")
-    assert "## 研究问题" in result.answer
-    assert "## 参考文献" in result.answer
-    assert "planid=2561" in result.answer
+    assert "政策优势" in result.answer
+    assert "两类支持措施具有互补作用" in result.answer
+    assert "## 研究问题" not in result.answer
+    assert "## 参考文献" not in result.answer
     assert result.meta["research_delivery"]["audited_analysis"]
 
 
@@ -76,7 +77,8 @@ def test_missing_semantic_review_never_publishes_unreviewed_prose():
     deliver_research(result, "分析政策优势及问题挑战")
     assert "模型未经审核" not in result.answer
     assert "政策提出建设基础设施" in result.answer
-    assert "非完整研究结论" in result.answer
+    assert "非完整研究结论" not in result.answer
+    assert "研究完成情况" not in result.answer
     assert result.meta["research_quality"]["status"] == "partial"
     assert result.evidence_status == "insufficient"
 

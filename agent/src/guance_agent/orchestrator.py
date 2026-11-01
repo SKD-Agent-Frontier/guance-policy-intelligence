@@ -40,8 +40,10 @@ from .qa_context import build_trusted_turn, public_resolution, resolve_followup
 from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .qa_report_verification import SAFE_EMPTY_ANSWER, finalize_report, prune_report
 from .research_contract import TaskContract
-from .research_delivery import deliver_research, draft_verified_report
+from .research_delivery import add_analysis_block, deliver_research, draft_verified_report
 from .research_fallback import recover_empty_search_failure, recover_read_excerpts
+from .research_history import build_historical_state, latest_verified_turn
+from .research_intent import classify_intent, intent_payload
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_runtime import ResearchRuntime
 from .research_supplement import supplement_one
@@ -274,14 +276,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
             part.meta.update(parse_meta)
         # 证据隔离：只保留确实引自本对象的结论，防止跨对象借证据
         own = {cid for cid in (c for claim in part.claims for c in claim.chunk_ids)
-               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}
-        part.claims = [claim for claim in part.claims
-                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]
-        if part._qa_report_supplied:
-            prune_report(part, ctx, "object_scope_filter")
-        if not part.claims and part.status == "completed":
-            part.status = "completed"
-        obj["status"] = part.status if part.status != "completed" else "ok"
+               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}        part.claims = [claim for claim in part.claims                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]        if part._qa_report_supplied:            prune_report(part, ctx, "object_scope_filter")        if not part.claims and part.status == "completed":            part.status = "completed"        obj["status"] = part.status if part.status != "completed" else "ok"
         obj["error_code"] = part.error.code if part.error else None
         if part.status == "completed" and part.claims:
             obj["claims"] = len(part.claims)
@@ -329,77 +324,7 @@ async def _run_objects(task, s, ctx, rt, decision, deadline):
     result = runs[0][1].model_copy(deep=True)
     if aggregate_meta:
         result.meta.update(aggregate_meta)
-    result.claims, result.evidence_refs = claims, list(refs.values())
-    result.dropped_chunk_ids = []
-    result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)
-    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)
-                    if part._qa_report_supplied and task.task_type == "qa"]
-    if report_parts:
-        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。
-        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。
-        result._qa_report_supplied = True
-        result._qa_report_dimensions = []
-        result._qa_report_candidates = []
-        seen_dimensions, seen_ids = set(), set()
-        for index, (obj, part) in enumerate(runs):
-            if not part._qa_report_supplied:
-                dimension = f"{obj['label']}（未提供结构化报告）"
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-                continue
-            dimension_map = {
-                dimension: f"{obj['label']} / {dimension}"
-                for dimension in part._qa_report_dimensions
-            }
-            for dimension in dimension_map.values():
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-            for candidate in part._qa_report_candidates:
-                block = dict(candidate)
-                block_id = f"{index}:{obj['planid']}:{block['id']}"
-                while block_id in seen_ids:
-                    block_id = "_" + block_id
-                seen_ids.add(block_id)
-                block["id"] = block_id
-                block["dimension"] = dimension_map[block["dimension"]]
-                path = list(block["title_path"])
-                path[0] = f"{obj['label']} / {path[0]}"
-                block["title_path"] = path[:2]
-                result._qa_report_candidates.append(block)
-        covered_objects = {obj["label"] for obj, _ in runs}
-        for obj in objects:
-            if obj["label"] not in covered_objects:
-                dimension = f"{obj['label']}（未取得证据）"
-                if dimension not in seen_dimensions:
-                    result._qa_report_dimensions.append(dimension)
-                    seen_dimensions.add(dimension)
-        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。
-        declared_insufficient = any(
-            "本次证据不足，以上结论可能不完整" in part.warnings
-            for _, _, part in report_parts)
-        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。
-        result.answer = SAFE_EMPTY_ANSWER
-        result.meta["qa_report"] = {
-            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)
-                            for _, _, part in report_parts),
-            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",
-            "semantic_review": "pending", "objects_without_report": [
-                obj["label"] for obj, part in runs if not part._qa_report_supplied],
-            "declared_insufficient": declared_insufficient,
-        }
-        if (len(result._qa_report_dimensions) > 8
-                or len(result._qa_report_candidates) > 12):
-            result._qa_report_candidates = []
-            result.meta["qa_report"]["aggregation_limit_exceeded"] = True
-            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")
-        if result.meta["qa_report"]["objects_without_report"]:
-            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")
-        prune_report(result, ctx, "multi_object_aggregation")
-    missing = [o for o in objects if o.get("status") != "ok"]
-    if missing:
-        result.warnings.append("以下对象未取得证据：" + "；".join(
+    result.claims, result.evidence_refs = claims, list(refs.values())    result.dropped_chunk_ids = []    result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)                    if part._qa_report_supplied and task.task_type == "qa"]    if report_parts:        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。        result._qa_report_supplied = True        result._qa_report_dimensions = []        result._qa_report_candidates = []        seen_dimensions, seen_ids = set(), set()        for index, (obj, part) in enumerate(runs):            if not part._qa_report_supplied:                dimension = f"{obj['label']}（未提供结构化报告）"                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)                continue            dimension_map = {                dimension: f"{obj['label']} / {dimension}"                for dimension in part._qa_report_dimensions            }            for dimension in dimension_map.values():                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)            for candidate in part._qa_report_candidates:                block = dict(candidate)                block_id = f"{index}:{obj['planid']}:{block['id']}"                while block_id in seen_ids:                    block_id = "_" + block_id                seen_ids.add(block_id)                block["id"] = block_id                block["dimension"] = dimension_map[block["dimension"]]                path = list(block["title_path"])                path[0] = f"{obj['label']} / {path[0]}"                block["title_path"] = path[:2]                result._qa_report_candidates.append(block)        covered_objects = {obj["label"] for obj, _ in runs}        for obj in objects:            if obj["label"] not in covered_objects:                dimension = f"{obj['label']}（未取得证据）"                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。        declared_insufficient = any(            "本次证据不足，以上结论可能不完整" in part.warnings            for _, _, part in report_parts)        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。        result.answer = SAFE_EMPTY_ANSWER        result.meta["qa_report"] = {            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)                            for _, _, part in report_parts),            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",            "semantic_review": "pending", "objects_without_report": [                obj["label"] for obj, part in runs if not part._qa_report_supplied],            "declared_insufficient": declared_insufficient,        }        if (len(result._qa_report_dimensions) > 8                or len(result._qa_report_candidates) > 12):            result._qa_report_candidates = []            result.meta["qa_report"]["aggregation_limit_exceeded"] = True            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")        if result.meta["qa_report"]["objects_without_report"]:            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")        prune_report(result, ctx, "multi_object_aggregation")    missing = [o for o in objects if o.get("status") != "ok"]    if missing:        result.warnings.append("以下对象未取得证据：" + "；".join(
             f"{o['label']}({o.get('status')})" for o in missing))
     llms = [o["llm"] for o in objects if o.get("llm")]
     if llms:
@@ -655,7 +580,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                         "per_call": calls,
                         "parse": "ok" if result.status == "completed" else "failed",
                     }
-            if result.status == "completed" and module is None:
+            if (result.status == "completed" and module is None
+                    and not result.meta.get("historical_reuse")):
                 try:
                     await asyncio.wait_for(verify_quotes(result, ctx),
                                            timeout=max(deadline - time.monotonic(), 0.05))
@@ -685,7 +611,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         result = finalize_qa_analysis(result, task.question)
     if (task.task_type == "qa" and ctx is not None
             and result.status == "completed"
-            and not result.meta.get("execution_recovery")):
+            and not result.meta.get("execution_recovery")
+            and not result.meta.get("historical_reuse")):
         # Synthesis is a draft only; supplementary facts must pass fresh checks.
         # Both share the original task deadline and preserve the existing result
         # when the remaining budget is insufficient.
@@ -696,8 +623,13 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         if (ctx is not None
                 and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
             result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
-        await draft_verified_report(result, task.question, rt, deadline)
-    if task.task_type == "qa" and result._qa_report_supplied:
+        intent_meta = result.meta.get("research_intent") or {}
+        await draft_verified_report(
+            result, task.question, rt, deadline,
+            force=bool(intent_meta.get("need_report")),
+            intent=intent_meta.get("primary"))
+    if (task.task_type == "qa" and result._qa_report_supplied
+            and not result.meta.get("historical_reuse")):
         remaining = max(deadline - time.monotonic(), 0.05)
         try:
             result = await asyncio.wait_for(
@@ -717,6 +649,25 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
             result.meta.setdefault("qa_report", {}).update(
                 reason="semantic_review_timeout", semantic_review="timeout", retained=0)
             result.warnings.append("报告语义审核超出本次运行时限，已撤回报告段落")
+    if (task.task_type == "qa" and result._qa_report_supplied
+            and not result.meta.get("historical_reuse")):
+        intent_meta = result.meta.get("research_intent") or {}
+        if intent_meta.get("primary") in {"organize", "analyze", "compare", "synthesize"}:
+            remaining = max(deadline - time.monotonic(), 0.05)
+            if await add_analysis_block(result, task.question, rt, deadline):
+                try:
+                    result = await asyncio.wait_for(
+                        finalize_report(result, ctx, rt, deadline), timeout=remaining)
+                except TimeoutError:
+                    result.meta["analysis_add_timeout"] = True
+        report_blocks = ((result.structured or {}).get("blocks") or []
+                         if isinstance(result.structured, dict) else [])
+        has_analysis = any(block.get("kind") == "analysis" for block in report_blocks)
+        if (not has_analysis
+                and intent_meta.get("primary") in {"organize", "analyze"}):
+            await _summarize_historical(
+                result, task, rt, deadline,
+                analyze=intent_meta.get("primary") == "analyze", prepend=True)
     # Recovery from token-cap truncation is allowed to publish only the
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
@@ -726,7 +677,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         # Semantic report review may remove claims and refs after the first
         # coverage calculation. Completion must use the final surviving set.
         result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
-    if task.task_type == "qa":
+    if task.task_type == "qa" and not result.meta.get("historical_reuse"):
         deliver_research(result, task.question)
     resolution = result.meta.get("qa_context_resolution")
     if (task.task_type == "qa" and isinstance(resolution, dict)
@@ -1042,18 +993,7 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
             payload = None
         if isinstance(payload, dict) and isinstance(payload.get("analyses"), list):
             dropped = len(payload["analyses"]) - len(parsed.analyses)
-            if dropped > 0:
-                meta["output_parse"]["analyses_dropped"] = dropped
-        if deterministic:
-            if (getattr(parsed, "report", None) is not None
-                    and not repair_preserves_content(outcome.final_output, parsed)):
-                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")
-                rt.log("qa_output_repair_failed", classification=classification,
-                       result="content_changed")
-                return outcome, meta
-            meta["output_parse"]["deterministic_repair"] = deterministic
-            rt.log("qa_output_parse_repaired", classification=classification,
-                   method=deterministic)
+            if dropped > 0:                meta["output_parse"]["analyses_dropped"] = dropped        if deterministic:            if (getattr(parsed, "report", None) is not None                    and not repair_preserves_content(outcome.final_output, parsed)):                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")                rt.log("qa_output_repair_failed", classification=classification,                       result="content_changed")                return outcome, meta            meta["output_parse"]["deterministic_repair"] = deterministic            rt.log("qa_output_parse_repaired", classification=classification,                   method=deterministic)
             return replace(outcome, final_output=parsed), meta
         return outcome, meta
     if classification == "incomplete_json" and cap_reached:
@@ -1105,6 +1045,161 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
     return replace(outcome, final_output=repaired), meta
 
 
+async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = False,
+                                prepend: bool = False) -> bool:
+    """One bounded editorial summary over already-reviewed prior research."""
+    remaining = deadline - time.monotonic()
+    if remaining < 25 or rt.hooks.turns >= rt.settings.max_turns:
+        return False
+    blocks = (result.structured or {}).get("blocks") if isinstance(result.structured, dict) else []
+    material = []
+    for block in blocks or []:
+        if isinstance(block, dict) and block.get("text"):
+            material.append({"heading": " / ".join(block.get("title_path") or []),
+                             "kind": block.get("kind"), "text": block.get("text")})
+    if not material:
+        material = [{"heading": "已核验政策事实", "kind": "fact", "text": claim.text}
+                    for claim in result.claims]
+    instruction = (
+        "请把下面已经核验、且已经通过报告审核的研究成果，"
+        + ("归纳其发展思路、重点与事实之间的关系，形成一段连贯、克制的分析。"
+           if analyze else
+           "压缩成一段连贯、简洁的中文总结。")
+        + "只能使用给定内容，不得增加新的政策事实、数字、政策名称、因果或效果判断；"
+        "不要输出 Markdown 标题，不要罗列原子事实，不要写内部状态或免责声明。"
+        "用 3–6 句话说明研究结论和少量关键依据。\n"
+    )
+    prompt = instruction + json.dumps(
+        {"question": task.question[:500], "material": material}, ensure_ascii=False)
+    timeout = min(25.0, float(rt.settings.llm_request_timeout), remaining - 5)
+    if timeout <= 3:
+        return False
+    try:
+        summary = await asyncio.wait_for(rt.complete_text([
+            {"role": "system", "content": "你是政策研究总结编辑，只做证据范围内的事实压缩与归纳。"},
+            {"role": "user", "content": prompt},
+        ], max_tokens=700, timeout=timeout), timeout=timeout)
+    except Exception:  # noqa: BLE001 - keep audited fallback
+        return False
+    summary = (summary or "").strip()
+    if len(summary) < 8:
+        return False
+    if prepend and (result.answer or "").strip():
+        result.answer = summary + "\n\n" + result.answer
+    else:
+        result.answer = summary
+    result.meta["historical_summary_generated"] = True
+    return True
+
+
+async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent):
+    """Answer a summarize/analyze turn from the latest verified research state.
+
+    This is deliberately not a fresh retrieval: the user asked for an operation
+    on prior work.  The existing report reviewer still has to approve every
+    synthesized block against the previously verified facts.
+    """
+    from .research_quality import evaluate
+
+    historical_result, historical_ctx = build_historical_state(ctx, task, prior)
+    if historical_result is None:
+        return None
+    planids = [doc.get("planid") for doc in prior.get("documents") or []
+               if isinstance(doc, dict) and doc.get("planid")]
+    ctx.scope = tuple(planids) or None
+    ctx.evidence = historical_ctx.evidence
+    ctx.qa_context_resolution = {
+        "status": "continued",
+        "previous_question": str(prior.get("question") or "")[:1000],
+        "documents": list(prior.get("documents") or []),
+        "inherited_planids": planids,
+        "reason": "复用上一轮已核验研究成果",
+        "clarification": None,
+        "requested_constraints": None,
+    }
+    rt.meta["qa_context_resolution"] = ctx.qa_context_resolution
+    historical_result.meta["research_intent"] = intent_payload(intent)
+    historical_result.meta["historical_reuse"] = True
+    historical_result.meta["qa_execution_mode"] = "historical_synthesis"
+
+    drafted = await draft_verified_report(
+        historical_result, task.question, rt, deadline,
+        force=True, intent=intent.primary)
+    if drafted:
+        remaining = max(deadline - time.monotonic(), 0.05)
+        try:
+            historical_result = await asyncio.wait_for(
+                finalize_report(historical_result, historical_ctx, rt, deadline),
+                timeout=remaining)
+        except TimeoutError:
+            historical_result.meta["verification_incomplete"] = True
+            historical_result._qa_report_candidates = []
+            historical_result.structured = None
+        if historical_result._qa_report_supplied:
+            remaining = max(deadline - time.monotonic(), 0.05)
+            if await add_analysis_block(historical_result, task.question, rt, deadline):
+                try:
+                    historical_result = await asyncio.wait_for(
+                        finalize_report(historical_result, historical_ctx, rt, deadline),
+                        timeout=remaining)
+                except TimeoutError:
+                    pass
+
+    blocks = ((historical_result.structured or {}).get("blocks")
+              if isinstance(historical_result.structured, dict) else None)
+    if not blocks:
+        # A failed synthesis must fall back to already verified prior material,
+        # never to an unverified raw answer.  This still supports the summary
+        # request, but is explicitly not a newly audited analysis.
+        prior_blocks = [block for block in (prior.get("delivered_blocks") or [])
+                        if isinstance(block, dict)]
+        if prior_blocks:
+            lines = ["根据上一轮已核验的研究成果，整理如下："]
+            for block in prior_blocks[:8]:
+                title = " · ".join(str(part) for part in block.get("title_path") or [])
+                if title:
+                    lines.append(title + "：" + str(block.get("text") or ""))
+                else:
+                    lines.append(str(block.get("text") or ""))
+            historical_result.answer = "\n".join(lines)
+        else:
+            historical_result.answer = (
+                "根据上一轮已核验的政策事实，可归纳为：\n"
+                + "\n".join(f"- {claim.text}" for claim in historical_result.claims))
+        historical_result.structured = None
+        historical_result.meta["research_report_draft"] = "historical_fallback"
+        historical_result._qa_report_supplied = False
+    else:
+        historical_result._qa_report_supplied = True
+        analysis_blocks = ((historical_result.structured or {}).get("blocks") or []
+                           if isinstance(historical_result.structured, dict) else [])
+        if (intent.primary == "summarize"
+                or (intent.primary == "analyze"
+                    and not any(block.get("kind") == "analysis"
+                                for block in analysis_blocks))):
+            await _summarize_historical(
+                historical_result, task, rt, deadline,
+                analyze=intent.primary == "analyze")
+
+    quality = evaluate(historical_result, task.question)
+    historical_result.meta["research_quality"] = quality
+    historical_result.meta["research_completion"] = {
+        "status": quality.get("status"),
+        "gaps": list(quality.get("gaps") or []),
+        "covered_planids": list(quality.get("covered_planids") or planids),
+        "missing_planids": list(quality.get("missing_planids") or []),
+        "verified_claim_count": quality.get("verified_claim_count", 0),
+        "reason": "historical_verified_research",
+    }
+    historical_result.meta["research_delivery"] = {
+        "format": "evidence_linked_report" if blocks else "historical_summary",
+        "status": quality.get("status"),
+        "audited_analysis": bool(blocks),
+        "source_planids": planids,
+    }
+    return historical_result
+
+
 async def _run_controlled_qa(task, s, ctx, rt, deadline):
     """Keep all existing QA parse, quote, number and report audit gates."""
     # Read inside the session execution lock, not only at Runtime.prepare(),
@@ -1112,6 +1207,36 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
     store = getattr(rt, "context_store", None)
     if store is not None:
         ctx.trusted_turns = store.load()
+    prior = latest_verified_turn(getattr(ctx, "trusted_turns", []) or [])
+    intent = classify_intent(task.question, prior)
+    ctx.research_intent = intent_payload(intent)
+    rt.meta["research_intent"] = ctx.research_intent
+
+    if prior and intent.use_history and intent.primary in {
+            "summarize", "analyze", "organize", "synthesize"}:
+        historical = await _run_historical_research(task, ctx, rt, deadline, prior, intent)
+        if historical is not None:
+            return historical
+
+    if intent.primary == "summarize" and prior is None:
+        outcome = ExecOutcome(json.dumps({
+            "answer": "当前会话还没有可总结的已核验研究成果。请先完成一轮政策检索，"
+                      "或明确要总结的政策文献。",
+            "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        return result
+    if intent.compare_without_new_object:
+        outcome = ExecOutcome(json.dumps({
+            "answer": "请明确要与哪一个地区或哪一篇政策比较；当前会话只确认了上一轮的"
+                      "研究对象，不能把旧政策当作其他地区的证据。",
+            "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "bounded_retrieval"
+        return result
+
     resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
                                   getattr(ctx, "route", None))
     ctx.qa_context_resolution = public_resolution(resolution)

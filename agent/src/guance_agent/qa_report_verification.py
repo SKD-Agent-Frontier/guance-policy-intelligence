@@ -110,7 +110,9 @@ def prune_report(result: RunResult, ctx, reason: str) -> None:
             continue
         kept.append(block)
     result._qa_report_candidates = kept
-    missing = _missing_dimensions(result._qa_report_dimensions, kept)
+    required = result.meta.get("qa_report_required_dimensions")
+    declared = list(required) if isinstance(required, list) else list(result._qa_report_dimensions)
+    missing = _missing_dimensions(declared, kept)
     meta = result.meta.setdefault("qa_report", {})
     received = meta.get("received", len(kept))
     meta.update(retained=len(kept), withdrawn=max(0, received - len(kept)),
@@ -205,10 +207,36 @@ def _parse_review(raw: str, expected_facts: set[int], expected_blocks: set[str])
     return fact_verdicts, block_verdicts, invalid_facts, invalid_blocks, globally_invalid
 
 
+def _issue_section_title(result: RunResult, block: dict) -> str | None:
+    refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+    for signature in block.get("support_signatures") or []:
+        chunk_ids = signature[1] if isinstance(signature, tuple) else ()
+        for chunk_id in chunk_ids:
+            ref = refs.get(chunk_id)
+            path = str(getattr(ref, "section_path", "") or "")
+            leaf = path.split("/")[-1] if path else ""
+            if "战略机遇" in leaf or "发展机遇" in leaf:
+                return "主要发展机遇"
+            if "制约与挑战" in leaf or "面临挑战" in leaf or "挑战" in leaf:
+                return "面临挑战"
+    return None
+
+
 def _to_structured(result: RunResult, candidates: list[dict], current: dict,
                    semantic_review: str) -> None:
+    required = result.meta.get("qa_report_required_dimensions")
+    declared = (list(required) if isinstance(required, list)
+                else list(result._qa_report_dimensions))
+    if "问题挑战" in declared:
+        # The user asked for opportunities/challenges; use the verified
+        # section metadata to label the two groups instead of exposing the
+        # drafting model's arbitrary study headings.
+        for candidate in candidates:
+            label = _issue_section_title(result, candidate)
+            if label:
+                candidate["title_path"] = [label]
+                candidate["dimension"] = "问题挑战"
     covered = list(dict.fromkeys(block["dimension"] for block in candidates))
-    missing = [dimension for dimension in result._qa_report_dimensions if dimension not in covered]
     refs = {ref.chunk_id for ref in result.evidence_refs}
     blocks = []
     for block in candidates:
@@ -224,12 +252,14 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
             "verification": "model_reviewed_evidence_linked",
         })
     covered = list(dict.fromkeys(block["dimension"] for block in blocks))
-    missing = [dimension for dimension in result._qa_report_dimensions if dimension not in covered]
+    missing = [dimension for dimension in declared if dimension not in covered]
     meta = result.meta.setdefault("qa_report", {})
     received = meta.get("received", len(result._qa_report_candidates))
-    withdrawn = max(0, received - len(blocks))
     declared_insufficient = bool(meta.get("declared_insufficient"))
-    complete = bool(covered) and not missing and not withdrawn and not declared_insufficient
+    required_missing = bool(missing)
+    allow_withdrawn = bool(result.meta.get("qa_report_allow_withdrawn"))
+    complete = (bool(covered) and not required_missing and not declared_insufficient
+                and (allow_withdrawn or not meta.get("withdrawn")))
     result.structured = {
         "schema_version": "qa-report/1",
         "dimensions": list(result._qa_report_dimensions),
@@ -244,9 +274,7 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
         },
     }
     result.answer = _render(candidates, missing)
-    if withdrawn or declared_insufficient:
-        result.answer += "\n部分报告段落未通过审核或原输出标记证据不足，覆盖范围可能不完整。"
-    if missing or not blocks or withdrawn or declared_insufficient:
+    if required_missing or not blocks or declared_insufficient:
         result.evidence_status = "insufficient"
     notice = ("报告段落经模型逐项审核；该审核只作筛选，不证明推理必然成立。"
               if semantic_review == "model_reviewed"

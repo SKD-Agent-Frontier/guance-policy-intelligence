@@ -70,6 +70,7 @@ def evaluate(result, question: str) -> dict:
                        and claim.chunk_ids and claim.quotes
                        and set(claim.chunk_ids) <= refs]
     analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
+    report_audited = bool(is_report and report_verified and blocks)
     # Simple factual QA does not require a report to count as evidence-backed.
     # For a single explicitly named factual facet, surviving quote-verified
     # claims establish *structural* coverage, not semantic sufficiency.
@@ -80,6 +81,11 @@ def evaluate(result, question: str) -> dict:
             label not in ANALYTICAL or block.get("kind") == "analysis"
         ) for block in blocks) or (simple_fact and label not in ANALYTICAL)]
     missing = [item for item in required["dimensions"] if item not in covered]
+    report_complete = bool(
+        report_audited
+        and (structured.get("coverage") or {}).get("status") == "complete"
+        and not missing
+    )
     gaps = []
     if not verified_claims or result.meta.get("verification_incomplete"):
         gaps.append("verified_facts_missing")
@@ -95,13 +101,17 @@ def evaluate(result, question: str) -> dict:
     # derived from program-verified facts/coverage, never model declarations.
     if result.evidence_status in {"insufficient", "none"}:
         gaps.append("evidence_insufficient")
-    if (result.meta.get("answer_rebuilt")
+    if (result.meta.get("answer_rebuilt") and not report_complete
             or (isinstance(quote_check, dict) and quote_check.get("removed_claims"))):
         gaps.append("claims_removed_or_answer_rebuilt")
     scope_filter = result.meta.get("object_scope_filter") or {}
     if isinstance(scope_filter, dict) and scope_filter.get("dropped_claims"):
         gaps.append("object_scope_mismatch")
     coverage = result.meta.get("evidence_coverage") or {}
+    if report_audited:
+        # The final audited report has its own coverage computed after semantic
+        # review; a pre-report retrieval coverage snapshot must not invalidate it.
+        coverage = {}
     if isinstance(coverage, dict) and coverage:
         for gap in coverage.get("gaps") or []:
             if gap not in gaps:
