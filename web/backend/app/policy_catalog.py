@@ -655,6 +655,61 @@ class PolicyCatalogService:
                 "total_chars": total, "has_more": end < total,
                 "text": record.body[offset:end]}
 
+    @staticmethod
+    def _reading_boundary(body: str, target: int) -> int:
+        """Find a repeatable nearby paragraph/line boundary for a display page.
+
+        This is a *view* boundary only; read_content() and all evidence offsets
+        retain their original code-point semantics.
+        """
+        total = len(body)
+        if target <= 0:
+            return 0
+        if target >= total:
+            return total
+        low, high = max(0, target - 480), min(total, target + 480)
+        nearby = body[low:high]
+        paragraphs = [low + match.end()
+                      for match in re.finditer(r"\\r?\\n(?:[ \\t]*\\r?\\n)+", nearby)]
+        if paragraphs:
+            return min(paragraphs, key=lambda pos: (abs(pos - target), pos < target))
+        # Hard-wrapped rows are the next safest boundary. If the entire window
+        # is one huge line, use the exact target rather than skipping text.
+        newlines = [low + i + 1 for i, char in enumerate(nearby) if char == "\\n"]
+        if newlines:
+            return min(newlines, key=lambda pos: (abs(pos - target), pos < target))
+        return target
+
+    def read_display_page(self, planid: str, *, page: int, page_chars: int = 4000) -> dict:
+        """Present complete nearby paragraphs without mutating frozen content.
+
+        Nominal pages use fixed code-point positions, actual display slices use
+        deterministic boundaries. Adjacent pages therefore neither omit nor
+        duplicate characters.
+        """
+        planid = self._check_planid(planid)
+        record = self._by_planid.get(planid)
+        if record is None:
+            raise LookupError("未找到该政策")
+        if type(page_chars) is not int or not 500 <= page_chars <= 10000:
+            raise InvalidParameter("page_chars 必须在 500–10000 范围")
+        total = len(record.body)
+        page_count = max(1, (total + page_chars - 1) // page_chars)
+        if type(page) is not int or page < 1 or page > page_count:
+            raise InvalidParameter("页码超出正文范围")
+        nominal_start, nominal_end = (page - 1) * page_chars, min(page * page_chars, total)
+        start = self._reading_boundary(record.body, nominal_start)
+        end = self._reading_boundary(record.body, nominal_end)
+        if end < start or end - start > MAX_CONTENT_LIMIT:
+            # This can only occur for an unusual source; keep exact boundaries.
+            start, end = nominal_start, nominal_end
+        return {
+            "dataset": self._legacy_dataset(), "planid": record.planid,
+            "title": record.title, "offset": start, "limit": end - start,
+            "total_chars": total, "has_more": end < total,
+            "text": record.body[start:end], "page": page, "page_count": page_count,
+        }
+
     def heading_hints(self, planid: str) -> dict:
         """Read matching original HTML for presentation hints only (never writes)."""
         planid = self._check_planid(planid)
