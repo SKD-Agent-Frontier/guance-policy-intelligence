@@ -72,17 +72,15 @@ def _missing_dimensions(dimensions: list[str], candidates: list[dict]) -> list[s
 
 def _render(candidates: list[dict], missing: list[str]) -> str:
     if not candidates:
-        suffix = ("以下维度本轮未形成经核验的内容：" + "、".join(missing) + "。"
-                  if missing else "")
-        return SAFE_EMPTY_ANSWER + ("\n" + suffix if suffix else "")
+        return SAFE_EMPTY_ANSWER
     lines = []
     for block in candidates:
         for depth, title in enumerate(block["title_path"], start=2):
             lines.append("#" * depth + " " + title)
         lines.append(block["text"])
         lines.append("")
-    if missing:
-        lines.append("以下维度本轮未形成经核验的内容：" + "、".join(missing) + "。")
+    # Coverage gaps are internal diagnostics; never append a technical
+    # "missing dimension" sentence to the user-facing research answer.
     return "\n".join(lines).strip()
 
 
