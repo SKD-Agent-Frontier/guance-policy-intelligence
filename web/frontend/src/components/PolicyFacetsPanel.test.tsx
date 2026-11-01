@@ -53,7 +53,7 @@ function renderPanel(initial: PolicyFacetFilters = {}, data = facets) {
 describe("PolicyFacetsPanel compact behavior", () => {
   it("starts closed and reveals four dimension rows inline on click, without a region row", async () => {
     renderPanel();
-    const toggle = screen.getByRole("button", { name: "按维度查找" });
+    const toggle = screen.getByRole("button", { name: "按维度检索" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("heading", { name: "时间（参考年份）" })).not.toBeInTheDocument();
     await userEvent.setup().click(toggle);
@@ -67,7 +67,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
 
   it("opens on hover, closes on leave and can be explicitly closed with a click", async () => {
     renderPanel();
-    const toggle = screen.getByRole("button", { name: "按维度查找" });
+    const toggle = screen.getByRole("button", { name: "按维度检索" });
     const panel = screen.getByRole("region", { name: "政策维度筛选" });
     fireEvent.mouseEnter(panel);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -81,7 +81,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
 
   it("shows missing values as 其他 at the end and hides zero-count 其他", async () => {
     renderPanel();
-    await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "按维度检索" }));
     const rows = (heading: string) => within(screen.getByRole("heading", { name: heading }).parentElement!);
     const fyp = rows("规划时期");
     expect(fyp.getAllByRole("button").at(-1)).toHaveTextContent("其他");
@@ -98,7 +98,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
       },
     };
     renderPanel({}, custom);
-    await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "按维度检索" }));
     const row = within(screen.getByRole("heading", { name: "行政级别" }).parentElement!);
     expect(row.getAllByRole("button").at(-1)).toHaveTextContent("其他");
   });
@@ -106,7 +106,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
   it("keeps distinct year, fyp and type filters", async () => {
     const { onChange } = renderPanel();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "按维度查找" }));
+    await user.click(screen.getByRole("button", { name: "按维度检索" }));
     await user.click(screen.getByRole("button", { name: "2021 1" }));
     expect(onChange).toHaveBeenLastCalledWith({ year: 2021 });
     await user.click(screen.getByRole("button", { name: "十四五 1" }));
@@ -117,7 +117,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
 
   it("preserves legacy region code cleanup when administrative level changes", async () => {
     const { onChange } = renderPanel({ province_code: "110000000000", county_code: "110101000000" });
-    await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "按维度检索" }));
     await userEvent.setup().click(screen.getByRole("button", { name: "国家级 2" }));
     expect(onChange).toHaveBeenLastCalledWith({
       admin_level: "national", province_code: undefined, prefecture_code: undefined,
@@ -129,7 +129,7 @@ describe("PolicyFacetsPanel compact behavior", () => {
     render(<PolicyFacetsPanel filters={{}} facets={null} regions={null} status="unavailable"
       errorMessage="维度筛选暂不可用" onChange={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.queryByText("维度筛选暂不可用")).not.toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "按维度查找" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "按维度检索" }));
     expect(screen.getByText("维度筛选暂不可用")).toBeVisible();
   });
 });
