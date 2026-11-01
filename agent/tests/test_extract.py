@@ -37,7 +37,7 @@ def test_covered_dimension_is_not_missing():
     r = result_with([claim("量化目标")], [{"status": "ok"}])
     missing = _missing_dimensions(r, task(task_type="extract"))
     assert [m["dimension"] for m in missing] == ["适用对象", "政策工具", "责任主体", "期限", "资金规模"]
-    assert {m["reason"] for m in missing} == {"not_in_document"}
+    assert {m["reason"] for m in missing} == {"not_retrieved"}
 
 
 def test_all_failed_tools_mean_not_retrieved():
@@ -51,7 +51,7 @@ def test_custom_dimensions_replace_defaults():
     r = result_with([claim("人才培养")], [{"status": "ok"}])
     missing = _missing_dimensions(r, task(task_type="extract",
                                           dimensions=["人才培养", "财政支持"]))
-    assert missing == [{"dimension": "财政支持", "reason": "not_in_document"}]
+    assert missing == [{"dimension": "财政支持", "reason": "not_retrieved"}]
 
 
 def test_documents_are_deduplicated_by_planid():
