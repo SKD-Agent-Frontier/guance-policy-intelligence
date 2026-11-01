@@ -30,7 +30,9 @@ export function policyHeading(
   if (markdown) return { level: Math.min(6, markdown[1].length + 1) as HeadingLevel, text: markdown[2] };
   // OCR/PDF hard-wrapped sentences can begin with numbering: don't turn entire
   // paragraphs into headings unless the line itself is heading-like.
-  if (source.length > 56 || /[。！？；;](?![”’"'）)]?$)/.test(source)) return null;
+  // Numbered body paragraphs frequently begin with 一、 or （一）.
+  // Without a verified structure position, never promote a full sentence.
+  if (source.length > 48 || /[。！？；;，,：:]/.test(source)) return null;
   if (/^第[一二三四五六七八九十百千0-9]+[编篇部章]/.test(source)) return { level: 2, text: source };
   if (/^第[一二三四五六七八九十百千0-9]+节/.test(source)) return { level: 3, text: source };
   if (/^[一二三四五六七八九十百千]+[、．.]\s*\S/.test(source)) return { level: 3, text: source };
