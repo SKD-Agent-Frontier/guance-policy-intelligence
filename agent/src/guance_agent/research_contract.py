@@ -65,7 +65,8 @@ class TaskContract(StrictModel):
             min_documents=(2 if task_type in ("compare", "compare_plans") else
                            1 if task_type == "extract" else 0),
             min_summarized_documents=2 if task_type == "organize" else 0,
-            min_subjects=1 if task_type in ("extract", "compare", "compare_plans") else 0,
+            min_subjects=(2 if task_type in ("compare", "compare_plans")
+                          else 1 if task_type == "extract" else 0),
             required_scheme_fields=(
                 ["advantages", "limitations", "applicability"] if task_type == "compare_plans" else []),
         )
