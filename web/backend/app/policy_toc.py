@@ -13,16 +13,18 @@ _CHAPTER = re.compile(
     r"[（(][一二三四五六七八九十0-9]+[）)]|"
     r"[一二三四五六七八九十]+[、．.])"
 )
-_LEADER = re.compile(r"[.．·•…⋯。﹒:：]{2,}\s*[0-9０-９]{1,3}\s*$")
+_LEADER = re.compile(r"[.．·•…⋯。﹒:：]{4,}\s*[0-9０-９]{0,3}\s*$")
 _ATTACHED = re.compile(r"(?:[一-龥）)]|[）)]\s+)[0-9０-９]{1,3}\s*$")
 _PAPER_PAGE = re.compile(r"^\s*[-—－]\s*\d{1,4}\s*[-—－]\s*$")
 
 
 def printed_toc_range(body: str) -> tuple[int, int] | None:
-    """Return the source TOC range or None if recognition is uncertain.
+    """Find a printed index without mistaking real chapter text for a TOC.
 
-    A chapter heading elsewhere in the document must never trigger this.
-    The heading and >=2 numbered TOC entries must appear near one another.
+    Some PDF extractions drop printed page numbers while leaving dotted
+    leaders intact. Two nearby leader-bearing entries plus an explicit
+    目录 heading are still strong evidence; without that heading we require
+    four complete numbered entries. Return original code-point offsets.
     """
     if not body:
         return None
@@ -60,7 +62,12 @@ def printed_toc_range(body: str) -> tuple[int, int] | None:
             last = candidate
         if last == first:
             return None
-        start = offsets[heading]
+        start_line = heading
+        # Single detached PDF page number immediately ahead of 目录 belongs
+        # to front matter, not policy prose.
+        if heading > 0 and re.fullmatch(r"[0-9０-９]{1,3}", rows[heading - 1].strip()):
+            start_line -= 1
+        start = offsets[start_line]
     else:
         candidates = [i for i, row in enumerate(rows[:140]) if entry(row)]
         if len(candidates) < 4:
