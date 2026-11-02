@@ -110,17 +110,29 @@ def evaluate(result, question: str) -> dict:
     scope_filter = result.meta.get("object_scope_filter") or {}
     if isinstance(scope_filter, dict) and scope_filter.get("dropped_claims"):
         gaps.append("object_scope_mismatch")
+    # The audited report only proves individual blocks were reviewed. It may
+    # still lack a required document after claim pruning; final coverage must
+    # remain an independent completion gate.
     coverage = result.meta.get("evidence_coverage") or {}
-    if report_audited:
-        # The final audited report has its own coverage computed after semantic
-        # review; a pre-report retrieval coverage snapshot must not invalidate it.
-        coverage = {}
     if isinstance(coverage, dict) and coverage:
         for gap in coverage.get("gaps") or []:
             if gap not in gaps:
                 gaps.append("coverage:" + gap)
         if coverage.get("status") == "insufficient":
             gaps.append("evidence_coverage_insufficient")
+    # For requested cross-document comparisons, a reviewed analytical block
+    # must itself rely on verified facts from distinct policy identities.
+    from .evidence_coverage import multi_document_required
+
+    if multi_document_required(question):
+        chunk_planids = {ref.chunk_id: ref.planid for ref in result.evidence_refs}
+        cross_document_analysis = any(
+            len({chunk_planids.get(cid) for cid in block.get("supporting_chunk_ids") or []
+                 if chunk_planids.get(cid)}) >= 2
+            for block in analytical_blocks
+        )
+        if required["needs_analysis"] and not cross_document_analysis:
+            gaps.append("cross_document_analysis_missing")
     if result.status != "completed" or result.error is not None:
         gaps.append("execution_not_completed")
     gaps = list(dict.fromkeys(gaps))
