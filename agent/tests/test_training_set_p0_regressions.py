@@ -54,3 +54,36 @@ def test_scope_survives_failed_continuation_but_not_scope_change():
     ctx.qa_context_resolution = {"status": "scope_changed", "documents": [doc]}
     stopped = build_trusted_turn("那河北省的政策呢？", ctx, no_facts)
     assert resolve_followup("其中有何举措？", [stopped])["status"] == "ambiguous"
+
+
+
+def test_failed_continuation_does_not_erase_verified_research_history():
+    from guance_agent.research_history import latest_verified_turn
+
+    doc = {"planid": "1831", "title": "临朐规划"}
+    verified = {
+        "documents": [doc],
+        "verified_facts": [{"text": "事实", "chunk_ids": ["c"], "quotes": ["原文"]}],
+        "evidence_refs": [{"chunk_id": "c", "planid": "1831"}],
+        "quote_verification": {"approved": 1, "unverified": 0},
+    }
+    failed = {"resolution_status": "continued", "context_documents": [doc],
+              "verified_facts": [], "evidence_refs": []}
+    assert latest_verified_turn([verified, failed]) is verified
+    switched = {"resolution_status": "scope_changed", "context_documents": []}
+    assert latest_verified_turn([verified, switched]) is None
+    other = {"resolution_status": "continued",
+             "context_documents": [{"planid": "2561"}]}
+    assert latest_verified_turn([verified, other]) is None
+
+
+def test_missing_named_subject_can_be_recovered_from_exact_read_sentence():
+    from guance_agent.qa_controlled import verbatim_claims_from_evidence
+
+    task = SimpleNamespace(question="关于不锈钢加工业的具体发展目标和量化指标是什么？")
+    passage = "大力发展不锈钢加工，预计形成年加工能力15万吨以上。"
+    evidence = [{"chunk_id": "c1", "text": passage}]
+    claims = verbatim_claims_from_evidence(task, evidence, None)
+    assert len(claims) == 1
+    assert claims[0].text == passage
+    assert claims[0].quotes == [passage]

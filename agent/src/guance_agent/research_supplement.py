@@ -19,15 +19,15 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
     coverage = result.meta.get("evidence_coverage") or {}
     action = coverage.get("next_action") or {}
     route_kind = getattr(ctx.route, "kind", None) if ctx is not None else None
-    route_planids = list(getattr(ctx.route, "planids", ()) or ()) if ctx is not None else []
-    multi_scope = route_kind == "objects" and len(route_planids) > 1
     if (task.task_type != "qa" or result.status != "completed"
-            or result.error or ctx is None or not result.claims
-            or (route_kind != "open" and not multi_scope)
+            or result.error or ctx is None
+            or (not result.claims and not extract_targets(task.question))
+            or route_kind not in {"open", "objects"}
             or result.meta.get("verification_incomplete")):
         meta["status"] = "ineligible"
         return
-    gap = action.get("query") or followup_gap(result, task.question)
+    gap = (action.get("query") or followup_gap(result, task.question)
+           or next(iter(extract_targets(task.question)), None))
     if gap is None:
         return
     target_planid = action.get("target_planid")
@@ -63,6 +63,9 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         time.monotonic() + (35 if controlled_mode else 48),
     )
     previous_scope = getattr(ctx, "scope", None)
+    if target_planid and previous_scope and target_planid not in previous_scope:
+        meta["status"] = "out_of_scope_gap"
+        return
     if target_planid:
         # Supplement must stay inside the measured missing document; never
         # let a global search satisfy a document-specific coverage gap.

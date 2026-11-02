@@ -12,23 +12,43 @@ from .schemas import Claim, EvidenceRef, RunResult, TaskRequest
 
 
 def latest_verified_turn(turns: list[dict] | None) -> dict | None:
-    """Only the immediately latest turn may be reused.
+    """Read through failed continuations, but never cross a topic/scope change.
 
-    An unanswered/empty boundary must not resurrect an older policy from the
-    same session just because a pronoun follow-up occurs later.
+    A failed follow-up may lose its claims, not its previously established
+    document identity. Only an earlier *verified* result may be reused;
+    unverified intervening answers are never promoted to trusted evidence.
     """
     if not turns:
         return None
-    turn = turns[-1]
-    quote_meta = turn.get("quote_verification") if isinstance(turn, dict) else None
-    quote_ok = (isinstance(quote_meta, dict)
-                and quote_meta.get("approved", 0) > 0
-                and quote_meta.get("unverified") == 0)
-    if (isinstance(turn, dict)
-            and quote_ok
-            and turn.get("verified_facts")
-            and turn.get("evidence_refs")):
-        return turn
+    allowed: set[str] | None = None
+    for turn in reversed(turns):
+        if not isinstance(turn, dict):
+            return None
+        quote_meta = turn.get("quote_verification")
+        quote_ok = (isinstance(quote_meta, dict)
+                    and quote_meta.get("approved", 0) > 0
+                    and quote_meta.get("unverified") == 0)
+        verified = (quote_ok and turn.get("verified_facts")
+                    and turn.get("evidence_refs"))
+        if verified:
+            document_ids = {str(doc.get("planid")) for doc in turn.get("documents", [])
+                            if isinstance(doc, dict) and doc.get("planid")}
+            if allowed is not None and (not document_ids or
+                                        not document_ids <= allowed):
+                return None
+            return turn
+        # A failed, explicitly continued research turn is a recoverable gap.
+        # scope_changed/new_topic/ambiguous are hard history boundaries.
+        if turn.get("resolution_status") != "continued":
+            return None
+        identities = {str(doc.get("planid"))
+                      for doc in turn.get("context_documents", [])
+                      if isinstance(doc, dict) and doc.get("planid")}
+        if not identities:
+            return None
+        allowed = identities if allowed is None else allowed & identities
+        if not allowed:
+            return None
     return None
 
 

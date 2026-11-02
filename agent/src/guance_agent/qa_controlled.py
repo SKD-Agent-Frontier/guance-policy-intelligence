@@ -17,7 +17,7 @@ from .client import thinking_off
 from .evidence_coverage import multi_document_required
 from .qa_context import normalize_period
 from .research_quality import INTENT_TERMS, requirements
-from .research_targets import extract_targets
+from .research_targets import extract_targets, mentions_subject
 from .runner import ExecOutcome
 from .schemas import Claim
 from .tools import _call
@@ -382,7 +382,9 @@ def verbatim_coverage_claims(result, task, evidence: list[dict], ctx) -> list[Cl
         terms = INTENT_TERMS.get(label, ())
         if terms and not any(term in existing for term in terms):
             missing_terms.extend(terms)
-    if not missing_terms:
+    missing_subjects = [subject for subject in extract_targets(task.question)
+                        if not mentions_subject(existing, subject)]
+    if not missing_terms and not missing_subjects:
         return []
     seen = {claim.text.strip() for claim in result.claims}
     added = []
@@ -390,7 +392,9 @@ def verbatim_coverage_claims(result, task, evidence: list[dict], ctx) -> list[Cl
         for sentence in re.split(r"(?<=[。；;！？!?])\s*", str(item.get("text") or "")):
             sentence = sentence.strip()
             if (not 12 <= len(sentence) <= 300 or sentence in seen
-                    or not any(term in sentence for term in missing_terms)):
+                    or not (any(term in sentence for term in missing_terms)
+                            or any(mentions_subject(sentence, subject)
+                                   for subject in missing_subjects))):
                 continue
             seen.add(sentence)
             added.append(Claim(text=sentence, chunk_ids=[item["chunk_id"]],
