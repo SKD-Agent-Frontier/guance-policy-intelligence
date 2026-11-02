@@ -6,6 +6,7 @@ self-declared dimensions are never considered the user's requirements.
 from __future__ import annotations
 
 import re
+
 from .research_targets import extract_targets, mentions_subject, wants_numbers
 
 # Restrict inference to dimensions *explicitly named* in the user's request.

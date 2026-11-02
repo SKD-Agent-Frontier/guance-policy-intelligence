@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .routing import current_question, parse_areas
 from .research_targets import extract_targets
+from .routing import current_question, parse_areas
 
 INTENTS = (
     "fact_lookup", "organize", "summarize", "analyze",
