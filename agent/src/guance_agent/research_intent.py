@@ -176,7 +176,7 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
     # isolated quotes with no actual answer. Keep this independent of subject:
     # firefighting, elderly care or other policy topics follow the same route.
     if (len(text) <= 60 and re.fullmatch(
-            r"[\u4e00-\u9fffA-Za-z0-9“”‘’《》（）()·\\s]{2,60}"
+            r"[\u4e00-\u9fffA-Za-z0-9“”‘’《》（）()·\s]{2,60}"
             r"(?:相关政策|政策梳理|政策汇总|政策概览)", text)):
         return ResearchIntent("organize", need_report=True,
                               reason="topic_only_policy_overview")
