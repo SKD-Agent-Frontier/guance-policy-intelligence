@@ -39,7 +39,7 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         "multi_document_required": coverage.get("multi_document_required"),
         "multi_document_satisfied": coverage.get("multi_document_satisfied"),
     }
-    if (deadline - time.monotonic() < 95 or
+    if (deadline - time.monotonic() < 70 or
             rt.hooks.turns >= s.max_turns - 1 or
             len(task.question) > s.max_input_chars - 200):
         meta["status"] = "skipped_budget"
@@ -53,12 +53,12 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
                        and rt.meta.get("qa_execution_mode") == "bounded_retrieval")
     # In real-RAG research, preserve a meaningful window for report drafting
     # and semantic review after this single supplemental attempt.
-    if controlled_mode and deadline - time.monotonic() < 120:
+    if controlled_mode and deadline - time.monotonic() < 75:
         meta["status"] = "skipped_budget"
         meta["attempted"] = False
         return
     followup_deadline = min(
-        deadline - (85 if controlled_mode else 40),
+        deadline - (35 if controlled_mode else 40),
         time.monotonic() + (35 if controlled_mode else 48),
     )
     previous_scope = getattr(ctx, "scope", None)

@@ -5,6 +5,9 @@ self-declared dimensions are never considered the user's requirements.
 """
 from __future__ import annotations
 
+import re
+from .research_targets import extract_targets, mentions_subject, wants_numbers
+
 # Restrict inference to dimensions *explicitly named* in the user's request.
 INTENT_TERMS = {
     "政策目标": ("政策目标", "发展目标", "主要目标"),
@@ -83,6 +86,17 @@ def evaluate(result, question: str) -> dict:
             label not in ANALYTICAL or block.get("kind") == "analysis"
         ) for block in blocks) or (simple_fact and label not in ANALYTICAL)]
     missing = [item for item in required["dimensions"] if item not in covered]
+    subjects = list(extract_targets(question))
+    claim_texts = [claim.text + " " + " ".join(claim.quotes)
+                   for claim in verified_claims]
+    numeric = wants_numbers(question)
+    missing_subjects, missing_numeric_subjects = [], []
+    for subject in subjects:
+        matching = [text for text in claim_texts if mentions_subject(text, subject)]
+        if not matching:
+            missing_subjects.append(subject)
+        elif numeric and not any(re.search(r"\d", text) for text in matching):
+            missing_numeric_subjects.append(subject)
     report_complete = bool(
         report_audited
         and (structured.get("coverage") or {}).get("status") == "complete"
@@ -98,6 +112,8 @@ def evaluate(result, question: str) -> dict:
     if required["needs_analysis"] and not analytical_blocks:
         gaps.append("audited_analysis_missing")
     gaps.extend("dimension_uncovered:" + label for label in missing)
+    gaps.extend("subject_uncovered:" + name for name in missing_subjects)
+    gaps.extend("subject_numeric_missing:" + name for name in missing_numeric_subjects)
 
     # Round 4: execution success is not research completion. These checks are
     # derived from program-verified facts/coverage, never model declarations.
@@ -142,6 +158,9 @@ def evaluate(result, question: str) -> dict:
               "partial" if verified_claims else "insufficient")
     return {
         "status": status, "required_dimensions": required["dimensions"],
+        "required_subjects": subjects,
+        "missing_subjects": missing_subjects,
+        "missing_numeric_subjects": missing_numeric_subjects,
         "covered_dimensions": covered, "missing_dimensions": missing,
         "needs_analysis": required["needs_analysis"],
         "needs_report": required["needs_report"], "gaps": gaps,
@@ -161,6 +180,13 @@ def followup_gap(result, question: str) -> str | None:
     """Select one explicit unanswered dimension before the final report review."""
     if not result.claims or result.meta.get("verification_incomplete"):
         return None
+    for subject in extract_targets(question):
+        matching = [claim.text for claim in result.claims
+                    if claim.quotes and claim.chunk_ids
+                    and mentions_subject(claim.text, subject)]
+        if not matching or (wants_numbers(question)
+                            and not any(re.search(r"\d", item) for item in matching)):
+            return subject
     wanted = requirements(question)["dimensions"]
     if not wanted:
         return None

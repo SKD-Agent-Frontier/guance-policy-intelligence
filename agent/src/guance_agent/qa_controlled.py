@@ -17,6 +17,7 @@ from .client import thinking_off
 from .evidence_coverage import multi_document_required
 from .qa_context import normalize_period
 from .research_quality import INTENT_TERMS, requirements
+from .research_targets import extract_targets
 from .runner import ExecOutcome
 from .schemas import Claim
 from .tools import _call
@@ -90,7 +91,7 @@ def claim_budget(question: str) -> int:
         return 8
     if any(marker in question for marker in MULTI_FACT_MARKERS):
         return 6
-    if len(requirements(question)["dimensions"]) >= 2:
+    if len(requirements(question)["dimensions"]) >= 2 or len(extract_targets(question)) >= 2:
         return 6
     return 3
 
@@ -99,8 +100,8 @@ def search_queries(question: str, sub_query: str | None = None) -> list[str]:
     """Choose a subject plus explicit evidence facets, not generic filler."""
     topic = [term for term in CONCEPTS if term in question
              and term not in {"政策意义", "积极作用", "局限", "挑战"}]
-    # Keep specific subject terms first and then diversify the requested facets.
-    selected = []
+    # Search explicitly named objects before generic policy dimensions.
+    selected = list(extract_targets(question))[:MAX_QUERIES]
     for term in topic:
         if term not in selected and not any(term in q for q in selected):
             selected.append(term)
@@ -174,9 +175,9 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     area = requested_area(decision, task.question) if scope is None else None
     fyp = None
     if scope is None and len(getattr(decision, "fyps", ()) or ()) == 1:
-        raw_fyp = decision.fyps[0]
-        if raw_fyp in task.question:
-            fyp = raw_fyp
+        # “十一五” has already been normalized by the route parser.
+        # Never test that canonical value against raw colloquial wording.
+        fyp = decision.fyps[0]
 
     intent_meta = getattr(ctx, "research_intent", None) or {}
     research = (requirements(task.question)["needs_report"]

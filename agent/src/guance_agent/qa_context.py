@@ -19,7 +19,7 @@ MAX_QUESTION_CHARS = 1000
 FOLLOWUP_MARKERS = (
     "其中", "该", "这个", "上述", "它", "其", "那", "这份", "这一",
     "第", "部分", "具体", "怎么说的", "怎么说", "类似措施", "前面", "刚才",
-    "上一轮", "此政策", "该政策", "这份政策",
+    "上一轮", "此政策", "该政策", "这份政策", "那", "这些", "以上", "前三轮", "继续",
 )
 
 REGION_TERMS = (
@@ -167,6 +167,12 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
             ("checked", "approved", "rejected", "unverified")
         } if trusted else {}),
         "delivered_blocks": delivered_blocks,
+        # Only identities from a previously confirmed continuation, not claims.
+        # A new topic or explicit scope change must clear this carry-forward.
+        "context_documents": (
+            list(resolution.get("documents") or [])[:4]
+            if resolution.get("status") == "continued" else []
+        ),
         "intent": getattr(ctx, "research_intent", None),
     }
 
@@ -276,6 +282,11 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
         return base
     documents = [doc for doc in prior.get("documents", [])
                  if isinstance(doc, dict) and doc.get("planid")]
+    if not documents and prior.get("resolution_status") == "continued":
+        # Failed evidence acquisition must not erase confirmed research scope.
+        # This carries an identity only; no unverified answer is reused.
+        documents = [doc for doc in prior.get("context_documents", [])
+                     if isinstance(doc, dict) and doc.get("planid")]
     if not documents:
         previous_question = str(prior.get("question") or "")
         if any(marker in question for marker in FOLLOWUP_MARKERS):

@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 
 from .routing import current_question, parse_areas
+from .research_targets import extract_targets
 
 INTENTS = (
     "fact_lookup", "organize", "summarize", "analyze",
@@ -34,7 +35,7 @@ _ANALYZE = re.compile(
     r"换个角度|深入|展开分析|意味着|如何理解"
 )
 _COMPARE = re.compile(
-    r"比较|对比|相比|差异|异同|共同点|共同做法|共同思路|不同点|"
+    r"比较(?!优势)|对比|相比|差异|异同|共同点|共同做法|共同思路|不同点|"
     r"区别于|另一个地区|其他地区|其他区县|相比之"
 )
 _SYNTHESIZE = re.compile(
@@ -95,6 +96,18 @@ def intent_payload(intent: ResearchIntent) -> dict:
     }
 
 
+def requires_fresh_evidence(question: str) -> bool:
+    """A new evidence need must bypass history-only report synthesis."""
+    text = current_question(question)
+    if re.search(r"只(?:总结|归纳|整理|使用).{0,12}(?:已有|上述|以上|历史)", text):
+        return False
+    if re.search(r"原文|引用|量化|指标|数据|具体|项目|产值|产量|"
+                 r"目标|新(?:的|增)|另外|补充|查找|检索|"
+                 r"多少|分别|对比|比较(?!优势)|相比|差异|区别|不同", text):
+        return True
+    return bool(extract_targets(text))
+
+
 def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIntent:
     """Classify the *operation* requested by the latest user turn.
 
@@ -110,6 +123,7 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
     areas = parse_areas(text)
     prior = has_prior_facts(prior_turn)
     history_cue = bool(_HISTORY_CUES.search(text))
+    safe_history = prior and not requires_fresh_evidence(text)
 
     # Explicit new geography/period means retrieval is required; a history-only
     # summary must not silently borrow the old policy for a new place.
@@ -134,8 +148,7 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
             )
         return ResearchIntent(
             primary, secondary=secondary,
-            use_history=prior and not explicit_new_scope and (
-                history_cue or primary == "synthesize"),
+            use_history=False,  # cross-object research must read current evidence
             need_report=True, reason="multi_document_operation_cue",
         )
 
@@ -145,7 +158,7 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
                           if scores[label] or (label == "analyze" and "分析" in text))
         return ResearchIntent(
             "summarize", secondary=secondary,
-            use_history=prior and (history_cue or not explicit_new_scope),
+            use_history=safe_history and (history_cue or not explicit_new_scope),
             need_report=False,
             reason="explicit_summary_cue",
         )
@@ -160,14 +173,14 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
     if scores["analyze"]:
         return ResearchIntent(
             "analyze", secondary=("organize",) if scores["organize"] else (),
-            use_history=prior and (history_cue or not explicit_new_scope),
+            use_history=safe_history and (history_cue or not explicit_new_scope),
             need_report=True, reason="explicit_analysis_cue",
         )
 
     if scores["organize"]:
         return ResearchIntent(
             "organize", secondary=("analyze",) if "分析" in text else (),
-            use_history=prior and not explicit_new_scope and (
+            use_history=safe_history and not explicit_new_scope and (
                 history_cue or "帮我" in text or "一下" in text),
             need_report=True, reason="explicit_organization_cue",
         )
@@ -184,7 +197,7 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
     # "总结/概括" with no other cue and prior work is still a summary.
     if prior and history_cue and _SUMMARIZE.search(text):
         return ResearchIntent("summarize", use_history=True, reason="history_summary")
-    if prior and re.search(r"展开讲讲|详细说说|换个角度|继续", text):
+    if safe_history and re.search(r"展开讲讲|详细说说|换个角度|继续", text):
         return ResearchIntent("analyze", use_history=True, need_report=True,
                               reason="history_followup_analysis")
     return ResearchIntent("fact_lookup", use_history=False,

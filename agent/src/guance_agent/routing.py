@@ -35,7 +35,7 @@ PERIOD_ALIAS = {
 LEAD_NOISE = ("我想了解一下", "我想了解", "我想知道", "我们想了解", "我们想",
               "请概括", "请介绍", "请说明", "请分析", "请查询", "请查找", "请问", "请",
               "概括", "简述", "介绍一下", "介绍一下", "介绍", "说明", "分析",
-              "比较", "对照", "围绕", "针对", "对于", "关于", "以及",
+              "比较", "对照", "围绕", "针对", "对于", "关于", "以及", "从", "由",
               "想了解", "想知道", "了解", "查询", "查找", "研究", "梳理", "总结",
               "我想", "我们", "我想问", "想",
               "期间", "年度", "时期", "阶段",
@@ -101,7 +101,8 @@ def parse_areas(text: str) -> tuple[str, ...]:
     for raw in AREA.findall(PERIOD.sub(" ", value)):
         if raw.startswith(COLLECTIVE_AREA_PREFIX):
             continue
-        name = _trim_area(raw)
+        # Keep true three-character names (e.g. 从江县) intact.
+        name = _trim_area(raw) if len(raw) > 3 else raw
         # 「地区」是泛指，不是行政区名
         # “城市更新”“产业园区”等不是具体行政区，不能被强制作为检索过滤条件。
         generic = ("地区", "地市", "城市", "上市", "园区", "社区", "景区", "校区",
