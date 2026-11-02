@@ -1270,8 +1270,6 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
         historical_result._qa_report_supplied = False
     else:
         historical_result._qa_report_supplied = True
-        analysis_blocks = ((historical_result.structured or {}).get("blocks") or []
-                           if isinstance(historical_result.structured, dict) else [])
 
     # Historical answers are reviewed, then their final surviving sources
     # are covered against the current request (including comparisons).
