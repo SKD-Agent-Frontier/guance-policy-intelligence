@@ -730,9 +730,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         areas = "、".join(constraints.get("areas") or []) or "未指定地区"
         periods = "、".join(constraints.get("periods") or []) or "未指定时期"
         result.answer = (
-            f"本轮已按新的研究范围（{areas}，{periods}）重新检索，但知识库中没有"
-            "找到与该地区、时期同时匹配的可引用政策原文；未取得证据不代表相关政策不存在。"
-            "上一轮的沧州对象未被混入本轮证据。"
+            f"本轮未能取得与所请求范围（{areas}，{periods}）相匹配的可核验政策原文，"
+            "因此暂时无法依据目标文献回答。可以补充政策篇名或选择此前引用的具体文献继续研究。"
         )
         result.evidence_status = "insufficient"
         result.warnings.append("多轮范围变更后未找到匹配的新研究对象，已按新范围安全拒答。")
