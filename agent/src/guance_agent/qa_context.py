@@ -210,15 +210,31 @@ def normalize_period(fyp: str | None) -> str | None:
     return _normalize_prior_fyp(fyp)
 
 
+def _normalized_title(value: str) -> str:
+    """Treat typographic quotes/spaces as punctuation, not document identity."""
+    return re.sub(r"[^\u4e00-\u9fffA-Za-z0-9]+", "", str(value or "")).lower()
+
+
+def _explicit_document_matches(question: str, documents: list[dict]) -> list[dict]:
+    normalized_question = _normalized_title(question)
+    return [
+        doc for doc in documents
+        if len(_normalized_title(doc.get("title") or "")) >= 8
+        and _normalized_title(doc["title"]) in normalized_question
+    ]
+
+
 def _question_names_document(question: str, documents: list[dict]) -> list[dict]:
-    matched = []
-    for document in documents:
-        title = str(document.get("title") or "")
-        area = str(document.get("area") or "")
-        fyp = str(document.get("fyp") or "")
-        if (title and title in question) or (area and area in question) or (fyp and fyp in question):
-            matched.append(document)
-    return matched
+    # A full verified title is a stronger locator than a shared planning period.
+    by_title = _explicit_document_matches(question, documents)
+    if by_title:
+        return by_title
+    by_area = [doc for doc in documents
+               if doc.get("area") and str(doc["area"]) in question]
+    if by_area:
+        return by_area
+    return [doc for doc in documents
+            if doc.get("fyp") and str(doc["fyp"]) in question]
 
 
 def _clarification(documents: list[dict]) -> str:
@@ -280,13 +296,20 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
                      if _normalize_prior_fyp(doc.get("fyp"))}
     explicit_areas = _mentioned_regions(question, route)
     explicit_periods = _mentioned_periods(question)
+    named_titles = _explicit_document_matches(question, documents)
+    # A verified title is an explicit document reference even when the catalog
+    # area stores only a district (e.g. '顺庆区') and the user says '南充市'.
+    # Do not misclassify the parent city present in that same trusted title
+    # as a change of research scope.
+    title_areas = [str(doc.get("title") or "") for doc in named_titles]
     # A synthesized subject prefix may repeat the previous area/period. Only
     # genuinely new constraints may trigger a scope change; otherwise the old
     # research object leaks back into the reported new scope.
     new_areas = [area for area in explicit_areas
                  if area not in prior_areas
                  and not any(area in prior_area or prior_area in area
-                             for prior_area in prior_areas if prior_area)]
+                             for prior_area in prior_areas if prior_area)
+                 and not any(area in title for title in title_areas)]
     new_periods = [period for period in explicit_periods
                    if period not in prior_periods]
     area_changed = bool(new_areas)
@@ -316,7 +339,7 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
                              if details else None),
         }
 
-    if not any(marker in question for marker in FOLLOWUP_MARKERS):
+    if not named_titles and not any(marker in question for marker in FOLLOWUP_MARKERS):
         return {
             **base,
             "status": "new_topic",
@@ -357,7 +380,8 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
         "previous_question": previous_question,
         "documents": documents,
         "inherited_planids": inherited,
-        "retrieval_query": (previous_question[:500] + " " + question)[:700],
+        "retrieval_query": (question[:700] if named_titles else
+                            (previous_question[:500] + " " + question)[:700]),
         "context_note": context_note,
         "reason": "延续上一轮已确认研究对象：" + str(document.get("planid")),
     }
