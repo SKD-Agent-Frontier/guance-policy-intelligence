@@ -1323,6 +1323,19 @@ async def _run_controlled_qa(task, s, ctx, rt, deadline):
     store = getattr(rt, "context_store", None)
     if store is not None:
         ctx.trusted_turns = store.load()
+    # Not every turn calls for a source retrieval. Role framing, capability
+    # explanation and unsupported institutional certifications need an honest,
+    # task-specific response, not a generic "no policy fact" fallback.
+    from .qa_boundary import boundary_reply
+
+    boundary = boundary_reply(task.question)
+    if boundary is not None:
+        outcome = ExecOutcome(json.dumps({
+            "answer": boundary, "claims": [], "insufficient": True,
+        }, ensure_ascii=False), None)
+        result = build_result(task, outcome, ctx, rt.meta)
+        result.meta["qa_execution_mode"] = "boundary_response"
+        return result
     prior = latest_verified_turn(getattr(ctx, "trusted_turns", []) or [])
     intent = classify_intent(task.question, prior)
     ctx.research_intent = intent_payload(intent)

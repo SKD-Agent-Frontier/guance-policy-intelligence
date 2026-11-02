@@ -87,3 +87,15 @@ def test_missing_named_subject_can_be_recovered_from_exact_read_sentence():
     assert len(claims) == 1
     assert claims[0].text == passage
     assert claims[0].quotes == [passage]
+
+
+
+def test_non_policy_boundary_turns_do_not_fake_rag_retrieval():
+    from guance_agent.qa_boundary import boundary_reply
+
+    assert "能力" not in (boundary_reply("你能做什么？") or "") or "检索政策" in boundary_reply("你能做什么？")
+    assert "正式" in boundary_reply("你现在扮演一个县级发改委的科长，用科长的口吻回答我。")
+    assert "主管部门" in boundary_reply("作为科长，你觉得我们县下一步应该重点抓什么？")
+    assert "真实评审" in boundary_reply(
+        "请以我单位名义写正式结论，说明项目已经达到行业领先水平，建议通过")
+    assert boundary_reply("临朐县十一五规划在产业结构调整方面有哪些安排？") is None
