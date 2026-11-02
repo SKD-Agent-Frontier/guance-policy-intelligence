@@ -53,3 +53,15 @@ def test_summary_only_instruction_never_retrieves_new_policy():
     intent = classify_intent("只总结已有证据，不要再查新文献。", PRIOR)
     assert intent.primary == "summarize"
     assert intent.use_history
+
+
+def test_topic_only_policy_query_requests_a_reviewed_organization():
+    for prompt in ("消防相关政策", "养老服务相关政策", "消防政策梳理"):
+        intent = classify_intent(prompt)
+        assert intent.primary == "organize"
+        assert intent.need_report
+        assert not intent.use_history
+
+    # One precise factual question still takes the inexpensive lookup path.
+    single = classify_intent("沧州市十五计划提出的产业布局总体设想是什么？")
+    assert single.primary == "fact_lookup"
