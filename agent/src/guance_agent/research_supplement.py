@@ -8,6 +8,7 @@ from .literal_keywords import enforce_literal_result
 from .output import build_result
 from .qa_controlled import execute_controlled, finalize_controlled_facts
 from .research_quality import followup_gap
+from .research_targets import extract_targets
 from .verify import verify_numbers, verify_quotes
 
 
@@ -39,7 +40,7 @@ async def supplement_one(result, task, s, ctx, rt, deadline, execute_once, recov
         "multi_document_required": coverage.get("multi_document_required"),
         "multi_document_satisfied": coverage.get("multi_document_satisfied"),
     }
-    if (deadline - time.monotonic() < 70 or
+    if (deadline - time.monotonic() < (70 if extract_targets(task.question) else 95) or
             rt.hooks.turns >= s.max_turns - 1 or
             len(task.question) > s.max_input_chars - 200):
         meta["status"] = "skipped_budget"
