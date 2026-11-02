@@ -178,5 +178,20 @@ export function prepareAnswerBody(answer: string | null | undefined, claims: Cla
     blocks.push(`${"#".repeat(level)} ${normalizeHeading(section.heading)}\n\n${body}`);
   }
 
+  if (!blocks.length && sections.length > 0) {
+    // Some reviewed reports legitimately organize the answer as atomic fact
+    // sections. Do not blank the whole research body merely because every
+    // paragraph is also shown in the evidence list; keep the report text.
+    return source
+      .split("\n")
+      .filter((line) => {
+        const trimmed = line.trim();
+        return trimmed && !AGENT_NOTE_LINE.test(trimmed) && !STATUS_LINE.test(trimmed)
+          && !containsInternalStatus(trimmed);
+      })
+      .join("\n")
+      .trim();
+  }
+
   return blocks.join("\n\n").trim();
 }

@@ -131,6 +131,25 @@ describe("prepareAnswerBody", () => {
     expect(body).toContain("不代表政策中不存在该项内容");
   });
 
+  it("keeps report body when every report section duplicates claim text", () => {
+    const body = prepareAnswerBody([
+      "## 农业领域",
+      "",
+      "推进农业科技进步。",
+      "",
+      "## 工业领域",
+      "",
+      "强力启动高新技术产业。",
+    ].join("\n"), [
+      claim("推进农业科技进步。", ["a"], ["推进农业科技进步"]),
+      claim("强力启动高新技术产业。", ["b"], ["强力启动高新技术产业"]),
+    ]);
+
+    expect(body).toContain("## 农业领域");
+    expect(body).toContain("推进农业科技进步。");
+    expect(body).toContain("## 工业领域");
+  });
+
   it("treats raw delivery codes as internal status", () => {
     expect(containsInternalStatus("claims_removed_or_answer_rebuilt")).toBe(true);
     expect(containsInternalStatus("research_quality")).toBe(true);
