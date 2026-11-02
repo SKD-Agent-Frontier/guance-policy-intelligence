@@ -315,7 +315,13 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
                        if semantic_review == "model_reviewed" else "not_reviewed"),
         },
     }
-    result.answer = _render(candidates, missing)
+    # Render only the validated, source-safe blocks. Candidate text rejected by
+    # local source checks must not survive solely in the readable answer.
+    accepted_ids = {block["id"] for block in blocks}
+    result.answer = _render(
+        [candidate for candidate in candidates if candidate["id"] in accepted_ids],
+        missing,
+    )
     if required_missing or not blocks or declared_insufficient:
         result.evidence_status = "insufficient"
     elif complete:
