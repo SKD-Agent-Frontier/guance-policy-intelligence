@@ -711,6 +711,7 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     if task.task_type == "qa" and not result.meta.get("historical_reuse"):
         deliver_research(result, task.question)
     if task.task_type == "qa" and result.status == "completed":
+        _remove_internal_empty_answer(result)
         _append_unrepresented_source_facts(result)
     resolution = result.meta.get("qa_context_resolution")
     if (task.task_type == "qa" and isinstance(resolution, dict)
@@ -1139,6 +1140,27 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
     result.meta["_research_summary_text"] = summary
     result.meta["historical_summary_drafted"] = True
     return True
+
+
+def _remove_internal_empty_answer(result) -> None:
+    """Never expose the internal empty-report sentinel as user-facing prose."""
+    answer = result.answer or ""
+    if SAFE_EMPTY_ANSWER not in answer:
+        return
+    report_meta = result.meta.get("qa_report") or {}
+    # A timeout/invalid review is fail-closed: no report prose may leak just
+    # because a sentinel was replaced with fallback facts.
+    if (report_meta.get("semantic_review") != "model_reviewed"
+            or result.meta.get("verification_incomplete")):
+        return
+    cleaned = answer.replace(SAFE_EMPTY_ANSWER, "").strip()
+    if cleaned:
+        result.answer = cleaned
+    elif result.claims:
+        result.answer = "\n".join("- " + claim.text for claim in result.claims)
+    else:
+        result.answer = "本轮未取得可核验的政策原文事实。"
+    result.meta["internal_empty_answer_removed"] = True
 
 
 def _append_unrepresented_source_facts(result) -> None:
