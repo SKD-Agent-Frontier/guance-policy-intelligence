@@ -145,3 +145,66 @@ def test_semantic_review_pruning_requires_fresh_final_source_coverage():
     assert completion["status"] == "partial"
     assert completion["covered_planids"] == ["23132"]
     assert "45100" not in completion["covered_planids"]
+
+
+def test_audited_report_cannot_override_missing_final_document():
+    """An audited block from A cannot declare A+B research complete."""
+    question = "请比较两篇政策的共同点与差异"
+    ref_a = _ref("c1", "A", "政策A")
+    ref_b = _ref("c2", "B", "政策B")
+    result = _result([_claim("c1", "两篇共同点涉及产业措施")], [ref_a])
+    ctx = _ctx([ref_a, ref_b], kind="open")
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    assert result.meta["evidence_coverage"]["status"] == "partial"
+    result.structured = {
+        "schema_version": "qa-report/1",
+        "dimensions": ["地区差异"],
+        "blocks": [{
+            "id": "a-only", "kind": "analysis",
+            "dimension": "地区差异", "title_path": ["共同点与差异"],
+            "text": "两篇共同点涉及产业措施",
+            "supporting_claim_indexes": [0], "supporting_chunk_ids": ["c1"],
+            "verification": "model_reviewed_evidence_linked",
+        }],
+        "coverage": {"status": "complete", "covered": ["地区差异"], "missing": []},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+    }
+    quality = evaluate(result, question)
+    assert quality["status"] == "partial"
+    assert quality["covered_planids"] == ["A"]
+    assert "cross_document_analysis_missing" in quality["gaps"]
+    assert any("multiple_documents" in item for item in quality["gaps"])
+
+
+def test_cross_document_analysis_must_cite_distinct_surviving_policies():
+    question = "请比较两篇政策的共同点与差异"
+    refs = [_ref("c1", "A", "政策A"), _ref("c2", "B", "政策B")]
+    result = _result([
+        _claim("c1", "政策A涉及共同点"),
+        _claim("c2", "政策B涉及共同点"),
+    ], refs)
+    ctx = _ctx(refs)
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    assert result.meta["evidence_coverage"]["status"] == "complete"
+    result.structured = {
+        "schema_version": "qa-report/1",
+        "dimensions": ["地区差异"],
+        "blocks": [{
+            "id": "comparison", "kind": "analysis",
+            "dimension": "地区差异", "title_path": ["共同点与差异"],
+            "text": "两篇政策的共同点是各自采取了一项措施",
+            "supporting_claim_indexes": [0],
+            "supporting_chunk_ids": ["c1"],
+            "verification": "model_reviewed_evidence_linked",
+        }],
+        "coverage": {"status": "complete", "covered": ["地区差异"], "missing": []},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+    }
+    quality = evaluate(result, question)
+    assert quality["status"] == "partial"
+    assert "cross_document_analysis_missing" in quality["gaps"]
+    result.structured["blocks"][0]["supporting_claim_indexes"] = [0, 1]
+    result.structured["blocks"][0]["supporting_chunk_ids"] = ["c1", "c2"]
+    quality = evaluate(result, question)
+    assert quality["status"] == "complete"
+    assert quality["covered_planids"] == ["A", "B"]
