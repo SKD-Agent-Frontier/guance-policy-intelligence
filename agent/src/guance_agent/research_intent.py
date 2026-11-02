@@ -172,6 +172,15 @@ def classify_intent(question: str, prior_turn: dict | None = None) -> ResearchIn
             need_report=True, reason="explicit_organization_cue",
         )
 
+    # Topic-only policy queries request an organized overview, not a list of
+    # isolated quotes with no actual answer. Keep this independent of subject:
+    # firefighting, elderly care or other policy topics follow the same route.
+    if (len(text) <= 60 and re.fullmatch(
+            r"[\u4e00-\u9fffA-Za-z0-9“”‘’《》（）()·\\s]{2,60}"
+            r"(?:相关政策|政策梳理|政策汇总|政策概览)", text)):
+        return ResearchIntent("organize", need_report=True,
+                              reason="topic_only_policy_overview")
+
     # "总结/概括" with no other cue and prior work is still a summary.
     if prior and history_cue and _SUMMARIZE.search(text):
         return ResearchIntent("summarize", use_history=True, reason="history_summary")
