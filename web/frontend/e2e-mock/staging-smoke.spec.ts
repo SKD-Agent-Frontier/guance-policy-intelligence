@@ -61,7 +61,7 @@ async function mockQA(page: Page, result: Record<string, unknown>) {
   });
 }
 
-test("current UI sends QA and labels fact-only research as partial", async ({ page }) => {
+test("current UI shows fact-only research under one 研究结果 title without partial disclaimers", async ({ page }) => {
   await mockQA(page, partialResult());
   await page.goto("/");
   await expect(page.getByRole("textbox", { name: "研究需求" })).toBeVisible();
@@ -69,9 +69,12 @@ test("current UI sends QA and labels fact-only research as partial", async ({ pa
     "分析沧州市十五计划中的产业发展措施",
   );
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByRole("heading", { name: "研究结果（部分）" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "研究结果" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "研究结果（部分）" })).toHaveCount(0);
   await expect(page.getByText("该规划提出加强产业基础设施建设。").first()).toBeVisible();
-  await expect(page.getByText("尚未完成的研究分析不得视为结论。", { exact: false })).toBeVisible();
+  await expect(page.getByText("尚未完成的研究分析不得视为结论。", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("## 已核验政策事实", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "查看原文" })).toBeVisible();
   await expect(page.locator('button[data-chunk-id="chunk-staging"]').first()).toBeVisible();
 });
 

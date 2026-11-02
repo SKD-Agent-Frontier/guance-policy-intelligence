@@ -36,7 +36,7 @@ def _number(index: int) -> str:
     return str(index)
 
 
-def _category(claim: Claim, question: str) -> str:
+def _category(claim: Claim, question: str, refs_by_id: dict | None = None) -> str:
     dimension = (claim.dimension or "").strip()
     for label, aliases in _CATEGORIES:
         if any(alias in dimension for alias in aliases):
@@ -47,6 +47,20 @@ def _category(claim: Claim, question: str) -> str:
     for label, aliases in _CATEGORIES:
         if any(alias in text for alias in aliases):
             return label
+    # Section metadata is program-provided evidence (e.g. “(一)战略机遇”),
+    # not model prose; use it when the claim itself has no explicit label.
+    if refs_by_id:
+        paths = [
+            str(getattr(refs_by_id[chunk_id], "section_path", "") or "")
+            for chunk_id in claim.chunk_ids if chunk_id in refs_by_id
+        ]
+        # Prefer the leaf section: a parent heading may contain both
+        # “发展机遇与挑战”, while the leaf says only “(二)制约与挑战”.
+        leaf_paths = [" ".join(path.split("/")[-1:]) for path in paths if path]
+        for source in (leaf_paths, paths):
+            for label, aliases in _CATEGORIES:
+                if any(alias in text for text in source for alias in aliases):
+                    return label
     if dimension and len(dimension) <= 30 and "\n" not in dimension:
         return dimension
     return "其他已核验事实"
@@ -114,7 +128,8 @@ def _short_heading(text: str) -> str:
     return head[:36] + ("…" if len(head) > 36 else "")
 
 
-def verified_qa_outline(claims: list[Claim], question: str) -> tuple[str, list[str]]:
+def verified_qa_outline(claims: list[Claim], question: str,
+                        refs: list | None = None) -> tuple[str, list[str]]:
     """Return a structured summary and dimensions without evidence.
 
     The summary only reports categories in *surviving* facts; it is not a
@@ -123,9 +138,10 @@ def verified_qa_outline(claims: list[Claim], question: str) -> tuple[str, list[s
     if not claims:
         return "本轮缺少可核验的政策事实，暂不能完成分项归纳。", []
 
+    refs_by_id = {ref.chunk_id: ref for ref in refs or ()}
     groups: dict[str, list[Claim]] = OrderedDict()
     for claim in claims:
-        groups.setdefault(_category(claim, question), []).append(claim)
+        groups.setdefault(_category(claim, question, refs_by_id), []).append(claim)
 
     required = ["主要发展机遇", "面临挑战"] if "机遇" in question and "挑战" in question else []
     missing = [label for label in required if not groups.get(label)]

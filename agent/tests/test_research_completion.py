@@ -66,7 +66,8 @@ def test_removed_claims_force_partial_and_delivery_explains_gap():
     assert "claims_removed_or_answer_rebuilt" in quality["gaps"]
     deliver_research(result, "某政策的产业扶持是什么")
     assert result.meta["research_completion"]["status"] == "partial"
-    assert "## 研究完成情况" in result.answer
+    assert "研究完成情况" not in result.answer
+    assert "claims_removed_or_answer_rebuilt" not in result.answer
 
 
 def test_scope_mismatch_removes_wrong_policy_claims():
@@ -93,7 +94,8 @@ def test_multi_document_coverage_gap_blocks_complete_and_is_delivered():
     assert any(gap.startswith("coverage:multiple_documents") for gap in quality["gaps"])
     deliver_research(result, "请整理两篇政策的主要内容")
     assert result.meta["research_completion"]["status"] == "partial"
-    assert "多文献要求" in result.answer
+    assert "多文献要求" not in result.answer
+    assert "coverage:multiple_documents" not in result.answer
 
 
 def test_correct_single_document_completion_stays_complete():
@@ -105,7 +107,7 @@ def test_correct_single_document_completion_stays_complete():
         result, "某政策的产业扶持是什么？", ctx)
     quality = evaluate(result, "某政策的产业扶持是什么？")
     assert quality["status"] == "complete"
-    assert "## 研究完成情况" not in (deliver_research(result, "某政策的产业扶持是什么？") or result.answer)
+    assert "研究完成情况" not in (deliver_research(result, "某政策的产业扶持是什么？") or result.answer)
 
 
 def test_no_claims_is_insufficient_not_complete():
@@ -143,3 +145,91 @@ def test_semantic_review_pruning_requires_fresh_final_source_coverage():
     assert completion["status"] == "partial"
     assert completion["covered_planids"] == ["23132"]
     assert "45100" not in completion["covered_planids"]
+
+
+def test_audited_report_cannot_override_missing_final_document():
+    """An audited block from A cannot declare A+B research complete."""
+    question = "请比较两篇政策的共同点与差异"
+    ref_a = _ref("c1", "A", "政策A")
+    ref_b = _ref("c2", "B", "政策B")
+    result = _result([_claim("c1", "两篇共同点涉及产业措施")], [ref_a])
+    ctx = _ctx([ref_a, ref_b], kind="open")
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    assert result.meta["evidence_coverage"]["status"] == "partial"
+    result.structured = {
+        "schema_version": "qa-report/1",
+        "dimensions": ["地区差异"],
+        "blocks": [{
+            "id": "a-only", "kind": "analysis",
+            "dimension": "地区差异", "title_path": ["共同点与差异"],
+            "text": "两篇共同点涉及产业措施",
+            "supporting_claim_indexes": [0], "supporting_chunk_ids": ["c1"],
+            "verification": "model_reviewed_evidence_linked",
+        }],
+        "coverage": {"status": "complete", "covered": ["地区差异"], "missing": []},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+    }
+    quality = evaluate(result, question)
+    assert quality["status"] == "partial"
+    assert quality["covered_planids"] == ["A"]
+    assert "cross_document_analysis_missing" in quality["gaps"]
+    assert any("multiple_documents" in item for item in quality["gaps"])
+
+
+def test_cross_document_analysis_must_cite_distinct_surviving_policies():
+    question = "请比较两篇政策的共同点与差异"
+    refs = [_ref("c1", "A", "政策A"), _ref("c2", "B", "政策B")]
+    result = _result([
+        _claim("c1", "政策A涉及共同点"),
+        _claim("c2", "政策B涉及共同点"),
+    ], refs)
+    ctx = _ctx(refs)
+    result.meta["evidence_coverage"] = build_coverage(result, question, ctx)
+    assert result.meta["evidence_coverage"]["status"] == "complete"
+    result.structured = {
+        "schema_version": "qa-report/1",
+        "dimensions": ["地区差异"],
+        "blocks": [{
+            "id": "comparison", "kind": "analysis",
+            "dimension": "地区差异", "title_path": ["共同点与差异"],
+            "text": "两篇政策的共同点是各自采取了一项措施",
+            "supporting_claim_indexes": [0],
+            "supporting_chunk_ids": ["c1"],
+            "verification": "model_reviewed_evidence_linked",
+        }],
+        "coverage": {"status": "complete", "covered": ["地区差异"], "missing": []},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+    }
+    quality = evaluate(result, question)
+    assert quality["status"] == "partial"
+    assert "cross_document_analysis_missing" in quality["gaps"]
+    result.structured["blocks"][0]["supporting_claim_indexes"] = [0, 1]
+    result.structured["blocks"][0]["supporting_chunk_ids"] = ["c1", "c2"]
+    quality = evaluate(result, question)
+    assert quality["status"] == "complete"
+    assert quality["covered_planids"] == ["A", "B"]
+
+
+def test_comparison_block_from_only_one_policy_not_delivered():
+    """An audited single-policy block cannot masquerade as a comparison."""
+    from guance_agent.qa_report_verification import _to_structured
+
+    a = _ref("c1", "A", "A规划")
+    b = _ref("c2", "B", "B规划")
+    result = _result([_claim("c1", "A政策措施"), _claim("c2", "B政策措施")],
+                     [a, b])
+    result.meta["research_intent"] = {"primary": "compare"}
+    result._qa_report_dimensions = ["地区差异"]
+    result._qa_report_candidates = []
+    first = result.claims[0]
+    signature = (first.text, tuple(first.chunk_ids))
+    candidate = {
+        "id": "single-source-analysis",
+        "dimension": "地区差异",
+        "kind": "analysis", "text": "A与B没有共同点",
+        "title_path": ["两地差异"], "support_signatures": [signature],
+    }
+    _to_structured(result, [candidate], {signature: (0, first)}, "model_reviewed")
+    assert not result.structured["blocks"]
+    assert result.structured["coverage"]["status"] == "partial"
+    assert "A与B没有共同点" not in result.answer

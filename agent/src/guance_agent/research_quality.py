@@ -10,9 +10,10 @@ INTENT_TERMS = {
     "政策目标": ("政策目标", "发展目标", "主要目标"),
     "政策措施": ("政策措施", "支持措施", "扶持措施", "政策工具"),
     "地区差异": ("地区差异", "区域差异", "政策差异", "异同", "对比", "比较",
-                  "差异", "共同点", "区别"),
+                  "差异", "共同点", "区别", "不同", "分别", "相比", "双方", "两地", "各自"),
     "政策优势": ("政策优势", "优势"),
-    "问题挑战": ("问题挑战", "挑战", "不足", "难点"),
+    "发展机遇": ("发展机遇", "战略机遇", "机遇"),
+    "问题挑战": ("问题挑战", "挑战", "不足", "难点", "瓶颈", "制约", "困难"),
     "演变趋势": ("演变", "变化趋势", "发展趋势", "政策变化"),
     "产业发展方向": ("产业发展方向", "产业布局", "产业发展重点"),
     "重点措施": ("重点措施", "主要措施", "主要部署", "措施"),
@@ -24,7 +25,8 @@ INTENT_TERMS = {
     "政策局限": ("局限", "局限性", "制约因素"),
     "政策建议": ("政策建议", "对策建议", "改进建议"),
 }
-ANALYTICAL = frozenset({"地区差异", "政策优势", "问题挑战", "演变趋势", "政策建议", "政策作用", "政策局限", "政策意义"})
+ANALYTICAL = frozenset({"地区差异", "政策优势", "发展机遇", "问题挑战", "演变趋势",
+                        "政策建议", "政策作用", "政策局限", "政策意义"})
 ANALYSIS_WORDS = ("分析", "研究", "研判", "评估", "报告", "比较", "对比", "异同",
                   "归纳", "共同点", "差异", "区别", "综合")
 
@@ -70,6 +72,7 @@ def evaluate(result, question: str) -> dict:
                        and claim.chunk_ids and claim.quotes
                        and set(claim.chunk_ids) <= refs]
     analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
+    report_audited = bool(is_report and report_verified and blocks)
     # Simple factual QA does not require a report to count as evidence-backed.
     # For a single explicitly named factual facet, surviving quote-verified
     # claims establish *structural* coverage, not semantic sufficiency.
@@ -80,6 +83,11 @@ def evaluate(result, question: str) -> dict:
             label not in ANALYTICAL or block.get("kind") == "analysis"
         ) for block in blocks) or (simple_fact and label not in ANALYTICAL)]
     missing = [item for item in required["dimensions"] if item not in covered]
+    report_complete = bool(
+        report_audited
+        and (structured.get("coverage") or {}).get("status") == "complete"
+        and not missing
+    )
     gaps = []
     if not verified_claims or result.meta.get("verification_incomplete"):
         gaps.append("verified_facts_missing")
@@ -95,12 +103,16 @@ def evaluate(result, question: str) -> dict:
     # derived from program-verified facts/coverage, never model declarations.
     if result.evidence_status in {"insufficient", "none"}:
         gaps.append("evidence_insufficient")
-    if (result.meta.get("answer_rebuilt")
-            or (isinstance(quote_check, dict) and quote_check.get("removed_claims"))):
+    if ((result.meta.get("answer_rebuilt") and not report_complete)
+            or (isinstance(quote_check, dict) and quote_check.get("removed_claims")
+                and not report_complete)):
         gaps.append("claims_removed_or_answer_rebuilt")
     scope_filter = result.meta.get("object_scope_filter") or {}
     if isinstance(scope_filter, dict) and scope_filter.get("dropped_claims"):
         gaps.append("object_scope_mismatch")
+    # The audited report only proves individual blocks were reviewed. It may
+    # still lack a required document after claim pruning; final coverage must
+    # remain an independent completion gate.
     coverage = result.meta.get("evidence_coverage") or {}
     if isinstance(coverage, dict) and coverage:
         for gap in coverage.get("gaps") or []:
@@ -108,6 +120,19 @@ def evaluate(result, question: str) -> dict:
                 gaps.append("coverage:" + gap)
         if coverage.get("status") == "insufficient":
             gaps.append("evidence_coverage_insufficient")
+    # For requested cross-document comparisons, a reviewed analytical block
+    # must itself rely on verified facts from distinct policy identities.
+    from .evidence_coverage import multi_document_required
+
+    if multi_document_required(question):
+        chunk_planids = {ref.chunk_id: ref.planid for ref in result.evidence_refs}
+        cross_document_analysis = any(
+            len({chunk_planids.get(cid) for cid in block.get("supporting_chunk_ids") or []
+                 if chunk_planids.get(cid)}) >= 2
+            for block in analytical_blocks
+        )
+        if required["needs_analysis"] and not cross_document_analysis:
+            gaps.append("cross_document_analysis_missing")
     if result.status != "completed" or result.error is not None:
         gaps.append("execution_not_completed")
     gaps = list(dict.fromkeys(gaps))

@@ -53,7 +53,8 @@ def rebuild_trusted_answer(result, ctx, reason: str) -> None:
     if result.claims:
         question = getattr(ctx, "question", "") if ctx else ""
         if getattr(result, "task_type", "qa") == "qa" and needs_outline(question):
-            result.answer, missing = verified_qa_outline(result.claims, question)
+            result.answer, missing = verified_qa_outline(
+                result.claims, question, result.evidence_refs)
             result.meta["report_outline"] = {
                 "source": "verified_claims", "coverage_missing": missing,
                 "rebuild_reason": reason,
@@ -90,7 +91,8 @@ def finalize_recovered_qa_answer(result: RunResult, question: str) -> None:
     if any(not claim.chunk_ids or not claim.quotes
            or not set(claim.chunk_ids) <= set(refs) for claim in result.claims):
         return
-    outline, missing = verified_qa_outline(result.claims, question)
+    outline, missing = verified_qa_outline(result.claims, question,
+                                           result.evidence_refs)
     refs_by_document = {}
     for claim in result.claims:
         for chunk_id in claim.chunk_ids:

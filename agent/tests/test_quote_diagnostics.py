@@ -78,6 +78,21 @@ async def test_exact_quote_passes_and_retention_metrics():
 
 
 @pytest.mark.asyncio
+async def test_anchor_relocates_exact_sentence_after_paraphrased_quote():
+    source = "推进农业科技进步，扩大农业产业化经营。"
+    ref = _ref()
+    claim = Claim(text="推进农业科技进步", chunk_ids=["c1"],
+                  quotes=["推进农业科技发展"], anchors=["农业科技进步"])
+    result = _result(claim)
+    ctx = _ctx([ref], {"c1": source})
+    assert await verify_quotes(result, ctx) == 0
+    assert len(result.claims) == 1
+    assert result.claims[0].quotes == ["推进农业科技进步，扩大农业产业化经营。"]
+    assert result.meta["quotes_anchor_repaired"] == 1
+    assert result.meta["quote_verification"]["approved"] == 1
+
+
+@pytest.mark.asyncio
 async def test_whitespace_difference_is_snapped_and_approved():
     source = "推进农业科技进步，扩大农业产业化经营。"
     claim = Claim(text="推进农业科技进步", chunk_ids=["c1"],
@@ -202,4 +217,4 @@ def test_messages_carry_budget_and_exact_quote_instruction():
     messages = messages_for(task, evidence)
     user = messages[1]["content"]
     assert "最多输出 8 条 claims" in user
-    assert "逐字复制连续原句" in user
+    assert "text 必须是原文直引" in user

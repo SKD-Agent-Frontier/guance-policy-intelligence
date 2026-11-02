@@ -11,6 +11,8 @@ import re
 from hashlib import sha256
 from pathlib import Path
 
+from .routing import current_question
+
 MAX_TURNS = 8
 MAX_QUESTION_CHARS = 1000
 
@@ -81,14 +83,26 @@ class TrustedContextStore:
         temp.replace(self.path)
 
 
+def _as_payload(value) -> dict:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    return {name: getattr(value, name) for name in (
+        "text", "chunk_ids", "quotes", "dimension",
+        "chunk_id", "planid", "title", "area", "fyp", "source",
+    ) if hasattr(value, name)}
+
+
 def build_trusted_turn(question: str, ctx, result) -> dict:
     """Persist final quote-verified source identities, never merely-read hits.
 
     Empty turns deliberately act as a boundary: after an unanswered scope change,
     a later pronoun cannot resurrect an older document from the same session.
     """
+    question = current_question(question)
     documents: dict[str, dict] = {}
     chunks: list[str] = []
+    verified_facts: list[dict] = []
+    verified_refs: dict[str, dict] = {}
     registry = getattr(ctx, "evidence", None)
     final_refs = {ref.chunk_id: ref for ref in getattr(result, "evidence_refs", ())}
     quote_check = getattr(result, "meta", {}).get("quote_verification") or {}
@@ -111,13 +125,29 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
                         or ref.planid != final_ref.planid):
                     continue
                 chunks.append(chunk_id)
+                verified_refs.setdefault(chunk_id, _as_payload(final_ref))
                 documents.setdefault(ref.planid, {
                     "planid": ref.planid,
                     "title": getattr(ref, "title", "") or "",
                     "area": getattr(ref, "area", None),
                     "fyp": getattr(ref, "fyp", None),
                 })
+            verified_facts.append(_as_payload(claim))
     resolution = getattr(ctx, "qa_context_resolution", None) or {}
+    structured = getattr(result, "structured", None) or {}
+    delivered_blocks = []
+    if (isinstance(structured, dict)
+            and structured.get("schema_version") == "qa-report/1"
+            and structured.get("verification", {}).get("facts")
+            == "semantic_reviewed_against_quotes"):
+        delivered_blocks = [
+            {"title_path": list(block.get("title_path") or []),
+             "dimension": block.get("dimension"),
+             "kind": block.get("kind"), "text": block.get("text"),
+             "supporting_claim_indexes": list(block.get("supporting_claim_indexes") or [])}
+            for block in structured.get("blocks") or []
+            if isinstance(block, dict)
+        ][:12]
     return {
         "version": 1,
         "question": (question or "")[:MAX_QUESTION_CHARS],
@@ -127,10 +157,22 @@ def build_trusted_turn(question: str, ctx, result) -> dict:
         "evidence_status": getattr(result, "evidence_status", "none"),
         "resolution_status": resolution.get("status"),
         "requested_constraints": resolution.get("requested_constraints"),
+        # Final, quote-verified facts are safe to reuse for a later
+        # summarize/analyze turn.  They are never mixed with an unverified
+        # historical answer or a merely-read hit.
+        "verified_facts": verified_facts[:16] if trusted else [],
+        "evidence_refs": list(verified_refs.values())[:24],
+        "quote_verification": ({
+            key: quote_check.get(key) for key in
+            ("checked", "approved", "rejected", "unverified")
+        } if trusted else {}),
+        "delivered_blocks": delivered_blocks,
+        "intent": getattr(ctx, "research_intent", None),
     }
 
 
 def _mentioned_regions(question: str, route) -> list[str]:
+    question = current_question(question)
     candidates = [term for term in REGION_TERMS if term in question]
     for area in getattr(route, "areas", ()) or ():
         value = str(area or "")
@@ -146,12 +188,12 @@ def _mentioned_regions(question: str, route) -> list[str]:
 
 def _mentioned_periods(question: str) -> list[str]:
     found = []
-    remaining = question
+    remaining = current_question(question)
     for marker, normalized in sorted(PERIOD_ALIASES, key=lambda item: -len(item[0])):
         if marker in remaining:
             found.append(normalized)
             remaining = remaining.replace(marker, "")
-    return found
+    return list(dict.fromkeys(found))
 
 
 def _normalize_prior_fyp(fyp: str | None) -> str | None:
@@ -168,15 +210,31 @@ def normalize_period(fyp: str | None) -> str | None:
     return _normalize_prior_fyp(fyp)
 
 
+def _normalized_title(value: str) -> str:
+    """Treat typographic quotes/spaces as punctuation, not document identity."""
+    return re.sub(r"[^\u4e00-\u9fffA-Za-z0-9]+", "", str(value or "")).lower()
+
+
+def _explicit_document_matches(question: str, documents: list[dict]) -> list[dict]:
+    normalized_question = _normalized_title(question)
+    return [
+        doc for doc in documents
+        if len(_normalized_title(doc.get("title") or "")) >= 8
+        and _normalized_title(doc["title"]) in normalized_question
+    ]
+
+
 def _question_names_document(question: str, documents: list[dict]) -> list[dict]:
-    matched = []
-    for document in documents:
-        title = str(document.get("title") or "")
-        area = str(document.get("area") or "")
-        fyp = str(document.get("fyp") or "")
-        if (title and title in question) or (area and area in question) or (fyp and fyp in question):
-            matched.append(document)
-    return matched
+    # A full verified title is a stronger locator than a shared planning period.
+    by_title = _explicit_document_matches(question, documents)
+    if by_title:
+        return by_title
+    by_area = [doc for doc in documents
+               if doc.get("area") and str(doc["area"]) in question]
+    if by_area:
+        return by_area
+    return [doc for doc in documents
+            if doc.get("fyp") and str(doc["fyp"]) in question]
 
 
 def _clarification(documents: list[dict]) -> str:
@@ -200,6 +258,7 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
     """
     # The latest turn is authoritative even if it has no accepted sources.
     # Never skip an unsuccessful scope change to resurrect an older document.
+    question = current_question(question)
     prior = next((turn for turn in reversed(turns or [])
                   if isinstance(turn, dict)), None)
     base = {
@@ -237,18 +296,34 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
                      if _normalize_prior_fyp(doc.get("fyp"))}
     explicit_areas = _mentioned_regions(question, route)
     explicit_periods = _mentioned_periods(question)
-    area_changed = any(area not in prior_areas and
-                       not any(area in prior_area or prior_area in area
-                               for prior_area in prior_areas if prior_area)
-                       for area in explicit_areas)
-    period_changed = any(period not in prior_periods for period in explicit_periods)
+    named_titles = _explicit_document_matches(question, documents)
+    # A verified title is an explicit document reference even when the catalog
+    # area stores only a district (e.g. '顺庆区') and the user says '南充市'.
+    # Do not misclassify the parent city present in that same trusted title
+    # as a change of research scope.
+    title_areas = [str(doc.get("title") or "") for doc in named_titles]
+    # A synthesized subject prefix may repeat the previous area/period. Only
+    # genuinely new constraints may trigger a scope change; otherwise the old
+    # research object leaks back into the reported new scope.
+    new_areas = [area for area in explicit_areas
+                 if area not in prior_areas
+                 and not any(area in prior_area or prior_area in area
+                             for prior_area in prior_areas if prior_area)
+                 and not any(area in title for title in title_areas)]
+    new_periods = [period for period in explicit_periods
+                   if period not in prior_periods]
+    area_changed = bool(new_areas)
+    period_changed = bool(new_periods)
+    # If the area changed, the current turn may legitimately restate the same
+    # period; it is part of the new scope and must not be reported as stale.
+    requested_periods = explicit_periods if area_changed else new_periods
 
     if area_changed or period_changed:
         details = []
         if area_changed:
-            details.append("地区 " + "/".join(explicit_areas))
+            details.append("地区 " + "/".join(new_areas))
         if period_changed:
-            details.append("时期 " + "/".join(explicit_periods))
+            details.append("时期 " + "/".join(new_periods))
         return {
             **base,
             "status": "scope_changed",
@@ -256,15 +331,15 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
             "documents": documents,
             "reason": "用户显式更换研究范围：" + "；".join(details),
             "requested_constraints": {
-                "areas": explicit_areas,
-                "periods": explicit_periods,
+                "areas": new_areas,
+                "periods": requested_periods,
             },
             "context_note": ("用户本轮显式更换了研究范围（" + "；".join(details)
                              + "），不得沿用上一轮研究对象；请按新范围重新检索。"
                              if details else None),
         }
 
-    if not any(marker in question for marker in FOLLOWUP_MARKERS):
+    if not named_titles and not any(marker in question for marker in FOLLOWUP_MARKERS):
         return {
             **base,
             "status": "new_topic",
@@ -305,7 +380,8 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
         "previous_question": previous_question,
         "documents": documents,
         "inherited_planids": inherited,
-        "retrieval_query": (previous_question[:500] + " " + question)[:700],
+        "retrieval_query": (question[:700] if named_titles else
+                            (previous_question[:500] + " " + question)[:700]),
         "context_note": context_note,
         "reason": "延续上一轮已确认研究对象：" + str(document.get("planid")),
     }

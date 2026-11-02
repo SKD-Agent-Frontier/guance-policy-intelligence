@@ -22,6 +22,26 @@ FACTS = [
 ]
 
 
+def test_outline_uses_verified_section_metadata_when_claim_dimension_is_blank():
+    claims = [
+        Claim(text="密云县利用奥运会契机发展绿色食品和旅游产业。",
+              chunk_ids=["c1"], quotes=["利用奥运会契机发展绿色食品和旅游产业"]),
+        Claim(text="密云县山地多平地少导致建设用地有限。",
+              chunk_ids=["c2"], quotes=["山地多平地少导致建设用地有限"]),
+    ]
+    refs = [
+        SimpleNamespace(chunk_id="c1",
+                        section_path="发展背景 / 二、发展机遇与挑战制约 / (一)战略机遇"),
+        SimpleNamespace(chunk_id="c2",
+                        section_path="发展背景 / 二、发展机遇与挑战制约 / (二)制约与挑战"),
+    ]
+    answer, missing = verified_qa_outline(claims, QUESTION, refs)
+    assert "一、主要发展机遇" in answer
+    assert "二、面临挑战" in answer
+    assert "本轮尚未取得足以支持这一方面的原文证据" not in answer
+    assert missing == []
+
+
 def _result(claims=None) -> RunResult:
     return RunResult(
         run_id="run", session_id="session", status="completed",
