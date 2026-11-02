@@ -276,6 +276,14 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
         chunk_ids = list(dict.fromkeys(chunk for claim in claims for chunk in claim.chunk_ids))
         if not set(chunk_ids) <= refs:
             continue
+        # A cross-policy interpretation must be supported by distinct actual
+        # policy sources, not just two claims from the same document.
+        intent = result.meta.get("research_intent") or {}
+        if (block["kind"] == "analysis" and intent.get("primary") == "compare"):
+            planids = {ref.planid for ref in result.evidence_refs
+                       if ref.chunk_id in chunk_ids}
+            if len(planids) < 2:
+                continue
         blocks.append({
             "id": block["id"], "title_path": list(block["title_path"]),
             "dimension": block["dimension"], "kind": block["kind"], "text": block["text"],
