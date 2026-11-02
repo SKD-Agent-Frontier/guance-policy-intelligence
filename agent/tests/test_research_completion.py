@@ -208,3 +208,28 @@ def test_cross_document_analysis_must_cite_distinct_surviving_policies():
     quality = evaluate(result, question)
     assert quality["status"] == "complete"
     assert quality["covered_planids"] == ["A", "B"]
+
+
+def test_comparison_block_from_only_one_policy_not_delivered():
+    """An audited single-policy block cannot masquerade as a comparison."""
+    from guance_agent.qa_report_verification import _to_structured
+
+    a = _ref("c1", "A", "A规划")
+    b = _ref("c2", "B", "B规划")
+    result = _result([_claim("c1", "A政策措施"), _claim("c2", "B政策措施")],
+                     [a, b])
+    result.meta["research_intent"] = {"primary": "compare"}
+    result._qa_report_dimensions = ["地区差异"]
+    result._qa_report_candidates = []
+    first = result.claims[0]
+    signature = (first.text, tuple(first.chunk_ids))
+    candidate = {
+        "id": "single-source-analysis",
+        "dimension": "地区差异",
+        "kind": "analysis", "text": "A与B没有共同点",
+        "title_path": ["两地差异"], "support_signatures": [signature],
+    }
+    _to_structured(result, [candidate], {signature: (0, first)}, "model_reviewed")
+    assert not result.structured["blocks"]
+    assert result.structured["coverage"]["status"] == "partial"
+    assert "A与B没有共同点" not in result.answer
