@@ -275,3 +275,52 @@ def test_unanswered_scope_change_blocks_resurrection_of_old_policy(tmp_path):
     assert resolution["status"] == "ambiguous"
     assert resolution["inherited_planids"] == []
     assert "上一轮未确认" in resolution["clarification"]
+
+
+def test_explicitly_named_verified_policy_outweighs_parent_city_scope_change():
+    """Regression: viewed Shunqing policy must not vanish on a named follow-up."""
+    docs = [
+        {"planid": "SHUNQING", "title": "南充市顺庆区“十四五”消防事业发展规划",
+         "area": "顺庆区", "fyp": "第十四个五年规划"},
+        {"planid": "ZIYANG", "title": "资阳市“十四五”消防事业发展规划",
+         "area": "资阳市", "fyp": "第十四个五年规划"},
+        {"planid": "ZHEJIANG", "title": "浙江省消防事业发展“十四五”规划",
+         "area": "浙江省", "fyp": "第十四个五年规划"},
+    ]
+    turns = [_turn("消防相关政策", *docs)]
+    question = "南充市顺庆区‘十四五’消防事业发展规划主要讲了哪些内容？"
+    # The route may have extracted the parent city; trusted title identity wins.
+    resolution = resolve_followup(
+        question, turns, SimpleNamespace(areas=("南充市",),
+                                         fyps=("第十四个五年规划",)),
+    )
+    assert resolution["status"] == "continued"
+    assert resolution["inherited_planids"] == ["SHUNQING"]
+    assert resolution["requested_constraints"] is None
+    assert resolution["retrieval_query"] == question
+    assert "南充市顺庆区" in resolution["context_note"]
+
+
+def test_named_policy_followup_does_not_resurrect_unrelated_prior_and_still_switches():
+    docs = [
+        {"planid": "SHUNQING", "title": "南充市顺庆区“十四五”消防事业发展规划",
+         "area": "顺庆区", "fyp": "第十四个五年规划"},
+        {"planid": "ZIYANG", "title": "资阳市“十四五”消防事业发展规划",
+         "area": "资阳市", "fyp": "第十四个五年规划"},
+    ]
+    turns = [_turn("消防相关政策", *docs)]
+    # An explicit different city must still change the scope.
+    resolution = resolve_followup(
+        "请比较南充市顺庆区‘十四五’消防事业发展规划与成都市消防政策",
+        turns, SimpleNamespace(areas=("南充市", "成都市"), fyps=()),
+    )
+    assert resolution["status"] == "scope_changed"
+    assert resolution["inherited_planids"] == []
+    assert resolution["requested_constraints"]["areas"] == ["成都市"]
+    # Merely repeating a shared planning period is not enough to pick a
+    # document when the user did not identify any of the previous sources.
+    vague = resolve_followup(
+        "其中十四五消防政策讲了什么？", turns,
+        SimpleNamespace(areas=(), fyps=()),
+    )
+    assert vague["status"] == "ambiguous"
