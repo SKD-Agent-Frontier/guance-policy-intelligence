@@ -72,7 +72,6 @@ def evaluate(result, question: str) -> dict:
                        and claim.chunk_ids and claim.quotes
                        and set(claim.chunk_ids) <= refs]
     analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
-    report_audited = bool(is_report and report_verified and blocks)
     # Simple factual QA does not require a report to count as evidence-backed.
     # For a single explicitly named factual facet, surviving quote-verified
     # claims establish *structural* coverage, not semantic sufficiency.
