@@ -106,6 +106,35 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
             return JSONResponse(status_code=503, content={"detail": "服务尚未就绪"})
         return {"status": "ok", "service": "guance-web-api"}
 
+    @application.get("/api/readiness")
+    async def business_readiness():
+        """Configuration-level business readiness without calling the model.
+
+        /api/health is process/KB warmup liveness for existing probes.
+        Only a real RAG backend and a configured model can be declared ready
+        to serve policy QA; real model reachability requires a separate canary.
+        """
+        settings_now = application.state.settings
+        model_ok = bool(
+            settings_now is not None
+            and settings_now.llm_base_url.strip()
+            and settings_now.llm_api_key.strip()
+            and settings_now.llm_model.strip()
+        )
+        kb_ok = bool(
+            application.state.ready and settings_now is not None
+            and settings_now.kb_backend == "rag"
+        )
+        ready = model_ok and kb_ok
+        return JSONResponse(status_code=200 if ready else 503, content={
+            "status": "ready" if ready else "not_ready",
+            "checks": {
+                "model": "configured" if model_ok else "unconfigured",
+                "knowledge_base": "real_ready" if kb_ok else "not_real_ready",
+            },
+            "note": "配置就绪不等于真实模型连通或问答验收通过",
+        })
+
     @application.post("/api/research/prepare")
     async def prepare_research(payload: ResearchPrepareRequest):
         if not application.state.ready:

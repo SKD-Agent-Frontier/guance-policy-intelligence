@@ -91,7 +91,11 @@ async function runRealResearch(page: Page, info: TestInfo, mode: "qa" | "organiz
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/");
   await expect(page.locator(".global-env-badge")).toHaveText("Real");
-  if (mode === "organize") await page.getByRole("tab", { name: "文献梳理" }).click();
+  if (mode === "organize") {
+    await page.getByRole("button", { name: "更多功能" }).click();
+    await page.getByRole("button", { name: "研究模式", exact: false }).click();
+    await page.getByRole("group", { name: "可选研究模式" }).getByRole("button", { name: "文献梳理" }).click();
+  }
   const runResponses: Response[] = [];
   const onResponse = (response: Response) => {
     if (response.url().endsWith("/api/runs") && response.request().method() === "POST") runResponses.push(response);
@@ -104,7 +108,7 @@ async function runRealResearch(page: Page, info: TestInfo, mode: "qa" | "organiz
   if (prepared.status === "blocked") {
     await expect(page.locator(".prep-blocked")).toBeVisible();
     await writeFile(info.outputPath(`${mode}-summary.json`), JSON.stringify({ prepare_statuses: statuses, ready: false, blocked: true }, null, 2));
-    return;
+    expect(prepared.status, "a normal business-success case must not pass when blocked").toBe("ready");
   }
 
   expect(prepared.status).toBe("ready");
@@ -114,7 +118,7 @@ async function runRealResearch(page: Page, info: TestInfo, mode: "qa" | "organiz
   expect(runResponse.status(), "run HTTP status").toBe(200);
   const result = (await runResponse.json()) as RunResponse;
   expect(result.task_type).toBe(mode);
-  await expect(page.getByText("正式研究结果").last()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".result-message").last()).toBeVisible({ timeout: 20_000 });
   const resultMessage = page.locator(".result-message").last();
   await expect(resultMessage.locator(".result-status-row")).toBeVisible();
   expect(await page.locator(".global-env-badge").innerText()).toBe("Real");
@@ -130,11 +134,17 @@ async function runRealResearch(page: Page, info: TestInfo, mode: "qa" | "organiz
     result_visible: true,
   };
   await writeFile(info.outputPath(`${mode}-summary.json`), JSON.stringify(runSummary, null, 2));
+  expect(runSummary.research_business_success, "HTTP 200 + a rendered card is not business success").toBe(true);
+  if (mode === "qa") {
+    expect(runSummary.citation_verified, "QA must return verified evidence").toBe(true);
+    expect(runSummary.claim_count, "QA must contain a cited policy fact").toBeGreaterThan(0);
+    expect(runSummary.evidence_ref_count, "QA must cite real policy references").toBeGreaterThan(0);
+  }
 
   let citationOpened = false;
   if (result.evidence_refs.length > 0 && await resultMessage.locator(".result-citation").count()) {
     await resultMessage.locator(".result-citation").first().click();
-    await expect(resultMessage.locator('.message-evidence-panel [aria-label="证据详情"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "返回研究对话" })).toBeVisible();
     citationOpened = true;
     await page.screenshot({ path: info.outputPath(`${mode}-evidence.png`), fullPage: true });
   }

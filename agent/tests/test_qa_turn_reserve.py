@@ -195,3 +195,56 @@ class _ErrorModel(Model):
     async def stream_response(self, *args, **kwargs):
         raise NotImplementedError
         yield  # pragma: no cover
+
+
+class PersistentSearchModel(Model):
+    """The model prefers searching forever unless runtime asks it to read."""
+
+    def __init__(self):
+        self.calls = 0
+        self.visible = []
+
+    async def get_response(self, system_instructions, input, model_settings, tools,
+                           output_schema, handoffs, tracing, **kwargs):
+        names = {getattr(tool, "name", None) for tool in tools}
+        self.visible.append(names)
+        if "kb_search" in names:
+            output = [ResponseFunctionToolCall(
+                type="function_call", name="kb_search", call_id=f"search_{self.calls}",
+                arguments=json.dumps({"query": "农业", "area": None,
+                                      "fyp": None, "top_k": 8}),
+            )]
+        elif "kb_read" in names:
+            output = [ResponseFunctionToolCall(
+                type="function_call", name="kb_read", call_id=f"read_{self.calls}",
+                arguments=json.dumps({"planid": "TEST-001", "section_idx": 0}),
+            )]
+        else:
+            output = [ResponseOutputMessage(
+                id=f"message_{self.calls}", type="message", role="assistant",
+                status="completed", content=[ResponseOutputText(
+                    type="output_text", annotations=[],
+                    text=json.dumps({"answer": "证据不足", "claims": [],
+                                     "insufficient": True}))],
+            )]
+        self.calls += 1
+        return ModelResponse(output=output, usage=Usage(requests=1),
+                             response_id=f"response_{self.calls}")
+
+    async def stream_response(self, *args, **kwargs):
+        raise NotImplementedError
+        yield  # pragma: no cover
+
+
+async def test_qa_prevents_search_only_bloat_without_blocking_source_read(env):
+    settings, task = env
+    settings = replace(settings, max_turns=8)
+    model = PersistentSearchModel()
+    outcome, ctx, rt = await execute_task(settings, task, model)
+    assert outcome.error_code is None
+    assert model.calls <= 4
+    assert [item["name"] for item in ctx.tool_calls][:2] == ["kb_search", "kb_search"]
+    assert "kb_search" not in model.visible[2]
+    assert "kb_read" in model.visible[2]
+    assert "kb_search" not in model.visible[3]
+    assert rt.meta["qa_read_before_more_search"] is True

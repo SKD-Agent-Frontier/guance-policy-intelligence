@@ -12,6 +12,7 @@ import type {
   RunResult,
 } from "../types";
 import { AnswerOutline } from "./AnswerOutline";
+import { groupClaimsByDocument, prepareAnswerBody, type DocumentEvidenceGroup } from "./resultDisplay";
 import "./results.css";
 
 interface ResultsProps {
@@ -91,8 +92,10 @@ function AnswerFallback({ result, onEvidence }: ResultsProps) {
 
 function QAResults({ result, onEvidence }: ResultsProps) {
   const claims = result.claims ?? [];
+  const answerBody = prepareAnswerBody(result.answer, claims);
+  const documentGroups = groupClaimsByDocument(claims, result.evidence_refs);
   if (result.status !== "completed") {
-    // 失败不是“没有政策结论”。不展示空的研究结论卡片，避免误导。
+    // 失败不是“没有政策结论”。不展示空的研究结果卡片，避免误导。
     return <div className="results-content results-content--qa">
       <section className="results-notice" role="alert">
         <strong>本轮研究未完成</strong>
@@ -102,14 +105,14 @@ function QAResults({ result, onEvidence }: ResultsProps) {
   }
   return (
     <div className="results-content results-content--qa">
-      <Header title="研究结论" />
-      {result.answer && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><AnswerOutline text={result.answer} /></div>}
+      <Header title="研究结果" />
+      {answerBody && <div className="qa-answer"><div className="qa-answer-icon"><Sparkles aria-hidden="true" size={16} /></div><AnswerOutline text={answerBody} /></div>}
       {result.structured && "schema_version" in result.structured
         && result.structured.schema_version === "qa-analysis/1"
         && (result.structured as QAAnalysisResult).analyses.length > 0 && (
           <section className="qa-analysis" aria-label="研究分析">
             <h2>研究分析</h2>
-            <p className="qa-analysis-disclaimer">以下为基于已读事实的归纳或推理，不是政策原文，也不代表推理已获语义验证。</p>
+            <p className="qa-analysis-disclaimer">以下为基于已核验事实的分析，不是政策原文。</p>
             {(result.structured as QAAnalysisResult).analyses.map((analysis, index) => (
               <article className="qa-analysis-item" key={index}>
                 <span className="analysis-label">分析</span>
@@ -121,7 +124,6 @@ function QAResults({ result, onEvidence }: ResultsProps) {
                     const claim = claims[claimIndex];
                     return claim ? <div key={claimIndex} className="qa-analysis-support">
                       <span>事实 {claimIndex + 1}：{claim.text}</span>
-                      <CitationButtons claim={claim} onEvidence={onEvidence} compact />
                     </div> : null;
                   })}
                 </div>
@@ -130,12 +132,92 @@ function QAResults({ result, onEvidence }: ResultsProps) {
           </section>
         )}
       {claims.length > 0 ? (
-        <section className="qa-claims" aria-label="关联依据">
-          <div className="results-section-title"><span>依据与引句</span><span>{claims.length} 条结论</span></div>
-          {claims.map((claim, index) => <article className="qa-claim" key={`${index}-${claim.text}`}><span className="qa-claim-index">{String(index + 1).padStart(2, "0")}</span><Fact claim={claim} onEvidence={onEvidence} /></article>)}
+        <section className="qa-claims" aria-label="依据与引句">
+          <div className="results-section-title">
+            <span>依据与引句</span>
+            <span>{claims.length} 条事实 · {documentGroups.length} 篇文献</span>
+          </div>
+          <div className="qa-evidence-groups">
+            {documentGroups.map((group) => <DocumentEvidenceCard
+              key={group.planid ?? `unmatched-${group.claims[0]?.index ?? 0}`}
+              group={group}
+              onEvidence={onEvidence}
+            />)}
+          </div>
         </section>
-      ) : <div className="results-notice">当前没有可核验的结论。请结合证据状态与任务提示阅读回答。</div>}
+      ) : (!answerBody && <div className="results-notice">本轮没有可核验的政策事实。</div>)}
     </div>
+  );
+}
+
+/** One merged card per policy document: a single main original-text entry, every
+ * fact kept in the open list, and per-claim quotes / section / chunk locators in
+ * the expandable evidence detail. */
+function DocumentEvidenceCard({ group, onEvidence }: {
+  group: DocumentEvidenceGroup;
+  onEvidence: (chunkId: string) => void;
+}) {
+  const title = group.title || (group.planid ? "政策原文" : "未关联到具体文献");
+  const meta = [group.area, group.fyp].filter(Boolean).join(" · ");
+  const hasEvidence = group.claims.some(({ quotes, chunks }) => quotes.length > 0 || chunks.length > 0);
+  return (
+    <article className="qa-source-card" data-source-planid={group.planid ?? ""}>
+      <header className="qa-source-head">
+        <div className="qa-source-identity">
+          {group.planid ? <FileText aria-hidden="true" size={16} /> : <BookOpen aria-hidden="true" size={16} />}
+          <div>
+            <h3 className="qa-source-title">{title}</h3>
+            {meta && <p className="qa-source-meta">{meta}</p>}
+          </div>
+        </div>
+        {group.primaryChunkId ? (
+          <button className="result-citation qa-source-open" data-chunk-id={group.primaryChunkId}
+            data-primary-source={group.planid ?? "unmatched"} onClick={() => onEvidence(group.primaryChunkId!)}
+            type="button">
+            <BookOpen aria-hidden="true" size={14} /><span>查看原文</span>
+            <ArrowUpRight aria-hidden="true" size={13} />
+          </button>
+        ) : <span className="qa-source-missing">暂无关联原文</span>}
+      </header>
+      <ol className="qa-source-facts">
+        {group.claims.map(({ claim, index }) => (
+          <li className="qa-source-fact" key={`${index}-${claim.text}`}>
+            <span className="qa-source-fact-index">{String(index + 1).padStart(2, "0")}</span>
+            <div className="qa-source-fact-body">
+              <p>{claim.text}</p>
+              {claim.dimension && <span className="qa-source-fact-dimension">{claim.dimension}</span>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {hasEvidence && <details className="qa-source-evidence">
+        <summary>展开证据详情（{group.claims.length} 条）</summary>
+        <div className="qa-source-evidence-list">
+          {group.claims.map(({ claim, index, quotes, chunks }) => (
+            <div className="qa-source-evidence-item" key={`evidence-${index}-${claim.text}`}>
+              <span className="qa-source-evidence-label">事实 {index + 1}{claim.dimension ? ` · ${claim.dimension}` : ""}</span>
+              {quotes.length > 0
+                ? quotes.map((quote, quoteIndex) => (
+                  <blockquote key={`${quoteIndex}-${quote}`}><p>“{quote}”</p></blockquote>
+                ))
+                : <p className="qa-source-evidence-empty">该条事实暂未提供可展示的逐字引句。</p>}
+              {chunks.length > 0 && <div className="qa-source-chunks">
+                {chunks.map(({ chunkId, reference }) => reference
+                  ? <button className="qa-source-chunk" key={chunkId} onClick={() => onEvidence(chunkId)}
+                    title={`打开原文片段：${reference.section_path || "章节未标注"}`} type="button">
+                    <BookOpen aria-hidden="true" size={12} />
+                    <span>{reference.section_path || "原文片段"}</span>
+                    <code>{chunkId}</code>
+                  </button>
+                  : <span className="qa-source-chunk qa-source-chunk--missing" key={chunkId}>
+                    <code>{chunkId}</code>
+                  </span>)}
+              </div>}
+            </div>
+          ))}
+        </div>
+      </details>}
+    </article>
   );
 }
 

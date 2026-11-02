@@ -334,7 +334,36 @@ class ResearchRuntime:
         structured = structured if isinstance(structured, dict) else {}
         task_type: ResearchTaskType = self._contract.task_type
         if task_type == "qa":
-            pass
+            # Model-declared dimensions cannot replace original user requirements.
+            quality = (getattr(result, "meta", {}) or {}).get("research_quality")
+            quality = quality if isinstance(quality, dict) else {}
+            # Do not let a missing quality report erase user-specified QA
+            # dimensions or allow one verified fact to count as full delivery.
+            required_dimensions = list(dict.fromkeys([
+                *self._contract.completion.required_dimensions,
+                *(quality.get("required_dimensions") or []),
+            ]))
+            covered = set(quality.get("covered_dimensions") or [])
+            supported_by_claim = {claim.dimension for claim in trusted_claims
+                                  if claim.dimension and evidence_verified}
+            for dimension in required_dimensions:
+                unit = f"dimension:{dimension}"
+                required.append(unit)
+                if evidence_verified and (dimension in covered or dimension in supported_by_claim):
+                    satisfied.append(unit)
+                else:
+                    gaps.append(f"research_dimension_uncovered:{dimension}")
+            if quality:
+                for field, unit in (("needs_report", "audited_report"),
+                                    ("needs_analysis", "audited_analysis")):
+                    if quality.get(field):
+                        required.append(unit)
+                        count_field = ("audited_report_blocks" if field == "needs_report"
+                                       else "audited_analysis_blocks")
+                        if quality.get(count_field, 0) > 0:
+                            satisfied.append(unit)
+                        else:
+                            gaps.append(f"{unit}_missing")
         elif task_type == "extract":
             requested = list(self._contract.completion.required_dimensions)
             supported = {claim.dimension for claim in trusted_claims if claim.dimension}

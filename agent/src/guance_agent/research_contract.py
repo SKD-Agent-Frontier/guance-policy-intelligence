@@ -61,7 +61,7 @@ class TaskContract(StrictModel):
         if task_type == "extract" and not dimensions:
             dimensions = list(DIMENSIONS)
         completion = CompletionRequirements(
-            required_dimensions=dimensions if task_type in ("extract", "compare", "compare_plans") else [],
+            required_dimensions=dimensions if task_type in ("qa", "extract", "compare", "compare_plans") else [],
             min_documents=(2 if task_type in ("compare", "compare_plans") else
                            1 if task_type == "extract" else 0),
             min_summarized_documents=2 if task_type == "organize" else 0,

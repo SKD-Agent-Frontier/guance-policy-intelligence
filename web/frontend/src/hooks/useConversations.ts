@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { ApiError, researchClient, validatePreparationResponse } from "../api/client";
+import { ApiError, isRealMode, researchClient, validatePreparationResponse } from "../api/client";
 import type { DemoScenario } from "../data/demo";
 import { createAdvancedDraft, type AdvancedDraft, type Conversation, type ConversationMessage } from "../conversationTypes";
 import { summarizeConversationTitle } from "../conversationTitle";
@@ -28,6 +28,16 @@ function newId(prefix: string): string {
   if (prefix === "conversation") return `${prefix}-${nextConversationId++}`;
   if (prefix === "operation") return `${prefix}-${nextOperationId++}`;
   return `${prefix}-${nextMessageId++}`;
+}
+
+/** Random per-browser-conversation Agent session. Never use enumerable
+ * conversation-1 / conversation-2 identifiers as server session keys. */
+function freshAgentSessionId(): string {
+  const cryptoAPI = globalThis.crypto;
+  if (cryptoAPI?.randomUUID) return `guance-${cryptoAPI.randomUUID()}`;
+  if (!cryptoAPI?.getRandomValues) throw new Error("Secure session ID generation unavailable");
+  const bytes = cryptoAPI.getRandomValues(new Uint8Array(16));
+  return `guance-${Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function createConversation(mode: TaskType = "qa"): Conversation {
@@ -83,6 +93,7 @@ export function useConversations() {
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
   const generations = useRef(new Map<string, number>());
+  const agentSessionIds = useRef(new Map<string, string>());
   const operations = useRef(new Map<string, number>());
   const lastOperations = useRef(new Map<string, LastOperation>());
   // Keep the exact execution request associated with each assistant answer.
@@ -144,19 +155,31 @@ export function useConversations() {
   ) => {
     if (!isCurrent(conversationId, token)) return;
     setBusy(conversationId, "running");
-    lastOperations.current.set(conversationId, { kind: "execution", request, scenario, failed: false });
+    // The trusted backend stores conversational context by session_id.
+    // Keep one unguessable ID per UI conversation, including QA follow-ups.
+    // This is not a substitute for user authentication in public deployments.
+    let submitted = request;
     try {
-      const result = await researchClient.submit(request, scenario);
+      if (isRealMode) {
+        let sid = agentSessionIds.current.get(conversationId);
+        if (!sid) {
+          sid = freshAgentSessionId();
+          agentSessionIds.current.set(conversationId, sid);
+        }
+        submitted = { ...request, session_id: sid };
+      }
+      lastOperations.current.set(conversationId, { kind: "execution", request: submitted, scenario, failed: false });
+      const result = await researchClient.submit(submitted, scenario);
       if (!isCurrent(conversationId, token)) return;
       const answer = message("result", { result });
-      resultRequests.current.set(answer.id, { request, scenario });
+      resultRequests.current.set(answer.id, { request: submitted, scenario });
       appendMessage(conversationId, answer);
       // A failed RunResult already carries its error and status. Rendering
       // another "error" message would show the same failure twice.
       // Transport/prepare failures (without a RunResult) still emit one error.
       lastOperations.current.set(conversationId, {
         kind: "execution",
-        request,
+        request: submitted,
         scenario,
         failed: result.status === "failed" || result.status === "limit_reached",
       });
@@ -165,7 +188,7 @@ export function useConversations() {
       if (!isCurrent(conversationId, token)) return;
       const mapped = apiError(error, "execution");
       appendMessage(conversationId, message("error", { code: mapped.code, text: mapped.text }));
-      lastOperations.current.set(conversationId, { kind: "execution", request, scenario, failed: true });
+      lastOperations.current.set(conversationId, { kind: "execution", request: submitted, scenario, failed: true });
       setBusy(conversationId, "idle");
     }
   }, [appendMessage, isCurrent, setBusy]);
@@ -305,16 +328,16 @@ export function useConversations() {
     if (turn?.kind !== "user") return;
     const mode = userModes.current.get(turn.id) ?? conversation.mode;
     const retained = conversation.messages.slice(0, userIndex);
-    const prior = retained.filter((item) => item.kind === "preparation").at(-1);
-    const preparation = prior?.kind === "preparation" && prior.response.mode === mode
-      ? prior.response : null;
     lastOperations.current.delete(conversation.id);
+    // The server has no rewind primitive. A branch-edit must start a fresh
+    // trusted session and preparation token, never reuse invalid future state.
+    agentSessionIds.current.delete(conversation.id);
     updateConversation(conversation.id, (current) => ({
       ...current,
       title: retained.some((item) => item.kind === "user") ? current.title : "新对话",
       mode,
       messages: retained,
-      preparation,
+      preparation: null,
       busy: "idle",
       advancedDraft: createAdvancedDraft(),
     }));
@@ -350,6 +373,7 @@ export function useConversations() {
     if (saved) {
       const retained = conversation.messages.slice(0, index);
       lastOperations.current.delete(conversation.id);
+      agentSessionIds.current.delete(conversation.id);
       updateConversation(conversation.id, (current) => ({
         ...current, messages: retained, busy: "idle",
         preparation: (() => {
@@ -401,6 +425,7 @@ export function useConversations() {
     generations.current.set(conversationId, token + 1);
     operations.current.delete(conversationId);
     lastOperations.current.delete(conversationId);
+    agentSessionIds.current.delete(conversationId);
     updateConversation(conversationId, (conversation) => ({
       ...conversation,
       preparation: null,
@@ -433,6 +458,7 @@ export function useConversations() {
     generations.current.set(conversationId, (generations.current.get(conversationId) ?? 0) + 1);
     operations.current.delete(conversationId);
     lastOperations.current.delete(conversationId);
+    agentSessionIds.current.delete(conversationId);
     updateConversation(conversationId, (conversation) => ({
       ...conversation,
       mode,

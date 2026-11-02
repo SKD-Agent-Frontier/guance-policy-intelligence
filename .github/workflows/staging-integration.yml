@@ -1,0 +1,91 @@
+# TEMPORARY: staging-only integrated verification. Remove before promoting to main.
+# Live Qwen / real 506-corpus / browser E2E are NOT simulated by these checks.
+name: Staging Full Stack CI
+on:
+  push:
+    branches: ['integration/pr35-main-20261101']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest
+      - run: python -m ruff check .
+  rag:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag库/检索工程
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pydantic>=2,<3' 'pytest>=8'
+      - run: python -m pytest ci_tests -q
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt -e '../../agent[dev]'
+      - run: python -m pytest -q tests
+      - run: python -m ruff check --config ../../agent/pyproject.toml app tests
+      - name: Policy body quality advisory
+        run: python scripts/audit_policy_body_quality.py "../../语料库/Agent标准引用库"
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+  browser-mock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Current-UI intercepted Playwright smoke (staging only)
+        # The 10 legacy e2e-mock flows assume removed top-level mode tabs and
+        # remain separately tracked for migration; do not mark them as passed.
+        run: npx playwright test --config playwright.mock.config.ts e2e-mock/staging-smoke.spec.ts
+      - name: Upload browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-browser-traces
+          path: web/frontend/test-results-mock
+          if-no-files-found: ignore

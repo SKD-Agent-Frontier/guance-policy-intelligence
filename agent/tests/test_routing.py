@@ -108,3 +108,19 @@ def test_generic_city_park_and_market_terms_are_not_area_filters():
     assert parse_areas("研究产业园区的升级政策") == ()
     assert parse_areas("优化城市更新的资金政策") == ()
     assert parse_areas("数字经济市场分析") == ()
+
+
+def test_full_autonomous_county_name_is_not_truncated():
+    assert parse_areas("请概括长白朝鲜族自治县十五计划的工作重心") == ("长白朝鲜族自治县",)
+    assert parse_areas("那河北省的十五计划里类似措施有哪些？") == ("河北省",)
+
+
+def test_collective_suburb_is_not_a_hard_area_filter():
+    assert parse_areas("与北京市其他远郊区县相比，密云区面临什么机遇？") == (
+        "北京市", "密云区")
+
+
+def test_preparation_subject_prefix_does_not_leak_old_region_into_current_constraints():
+    composed = "研究对象：沧州市“十五”计；本轮问题：那河北省的十五计划里类似措施有哪些？"
+    assert parse_areas(composed) == ("河北省",)
+    assert parse_fyps(composed) == ("第十个五年计划",)

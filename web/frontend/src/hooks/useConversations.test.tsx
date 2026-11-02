@@ -16,6 +16,7 @@ vi.mock("../api/client", () => ({
     }
   },
   validatePreparationResponse: (response: unknown) => response,
+  isRealMode: true,
   researchClient: { prepare: vi.fn(), submit: vi.fn(), resolveCompare: vi.fn(), resolveResearch: vi.fn() },
 }));
 
@@ -90,6 +91,23 @@ describe("useConversations", () => {
     vi.clearAllMocks();
   });
 
+  it("reuses one unpredictable Agent session per conversation but not across conversations", async () => {
+    mockedClient.prepare.mockResolvedValue(preparation("ready"));
+    mockedClient.submit.mockResolvedValue(RESULT);
+    const { result } = renderHook(() => useConversations());
+    await act(async () => { await result.current.send("第一问"); });
+    await act(async () => { await result.current.send("那它的后续措施呢？"); });
+    const first = mockedClient.submit.mock.calls[0][0].session_id;
+    const second = mockedClient.submit.mock.calls[1][0].session_id;
+    expect(first).toMatch(/^guance-[a-f0-9-]{32,36}$/);
+    expect(second).toBe(first);
+    act(() => { result.current.newConversation(); });
+    await act(async () => { await result.current.send("独立的新问题"); });
+    const third = mockedClient.submit.mock.calls[2][0].session_id;
+    expect(third).toMatch(/^guance-[a-f0-9-]{32,36}$/);
+    expect(third).not.toBe(first);
+  });
+
   it("prepares without running, forwards only the revision token, then runs the ready request once", async () => {
     mockedClient.prepare
       .mockResolvedValueOnce(preparation("needs_clarification"))
@@ -111,12 +129,12 @@ describe("useConversations", () => {
       state: { state_id: "opaque-state", revision: 0 },
     });
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
-    expect(mockedClient.submit).toHaveBeenCalledWith({
+    expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining({
       task_type: "qa",
       question: "完整整理后的问题",
       targets: null,
       dimensions: ["政策工具"],
-    }, undefined);
+    }), undefined);
     expect(result.current.active?.messages.at(-1)).toEqual({
       id: expect.any(String),
       kind: "result",
@@ -170,9 +188,9 @@ describe("useConversations", () => {
       await act(async () => { await result.current.send("分析这项研究目标"); });
       expect(mockedClient.resolveResearch).not.toHaveBeenCalled();
       expect(mockedClient.prepare).not.toHaveBeenCalled();
-      expect(mockedClient.submit).toHaveBeenCalledWith({
+      expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining({
         task_type: mode, question: "分析这项研究目标",
-      }, undefined);
+      }), undefined);
       expect(result.current.active?.messages.at(-1)?.kind).toBe("result");
       expect(result.current.active?.advancedDraft.open).toBe(false);
     },
@@ -241,7 +259,7 @@ describe("useConversations", () => {
 
     expect(mockedClient.prepare).not.toHaveBeenCalled();
     expect(mockedClient.submit).toHaveBeenCalledTimes(1);
-    expect(mockedClient.submit).toHaveBeenCalledWith(request, undefined);
+    expect(mockedClient.submit).toHaveBeenCalledWith(expect.objectContaining(request), undefined);
   });
 
   it("does not hand off a message while an advanced run is already in progress", async () => {
@@ -471,10 +489,10 @@ describe("useConversations", () => {
     const turn = result.current.active?.messages.find((item) => item.kind === "user");
     await act(async () => { await result.current.editAndResend(turn!.id, "编辑后的比较问题"); });
 
-    expect(mockedClient.submit).toHaveBeenLastCalledWith({
+    expect(mockedClient.submit).toHaveBeenLastCalledWith(expect.objectContaining({
       task_type: "compare", question: "编辑后的比较问题",
       targets: ["P-1", "P-2"], dimensions: ["目标"],
-    }, undefined);
+    }), undefined);
     expect(mockedClient.submit).toHaveBeenCalledTimes(2);
     expect(result.current.active?.messages.filter((item) => item.kind === "user")).toHaveLength(1);
   });

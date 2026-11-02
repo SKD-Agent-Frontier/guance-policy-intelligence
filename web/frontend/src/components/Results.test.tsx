@@ -3,6 +3,41 @@ import { describe, expect, it } from "vitest";
 import { Results } from "./Results";
 import type { Claim, ComparisonResult, DocumentIdentityFallback, EvidenceRef, RunResult } from "../types";
 
+const makeEvidenceRef = (planid: string, chunkId: string, overrides: Partial<EvidenceRef> = {}): EvidenceRef => ({
+  planid,
+  chunk_id: chunkId,
+  parent_id: null,
+  title: `${planid} 政策`,
+  area: null,
+  fyp: null,
+  admin_level: null,
+  plantype_label: null,
+  section_idx: null,
+  section_path: "",
+  char_start: 0,
+  char_end: 10,
+  chunk_char_start: 0,
+  chunk_char_end: 10,
+  truncated: false,
+  source: "kb_read",
+  observed_ranges: [[0, 10]],
+  complete: true,
+  out_of_section: false,
+  document_id: null,
+  document_version_id: null,
+  generation_id: null,
+  source_hash: null,
+  section_id: null,
+  section_char_start: null,
+  section_char_end: null,
+  offset_basis: null,
+  offset_unit: null,
+  body_origin: null,
+  contract_version: null,
+  quality_warnings: [],
+  ...overrides,
+});
+
 const makeResult = (overrides: Partial<RunResult> = {}): RunResult => ({
   run_id: "run-current",
   session_id: "session-current",
@@ -48,7 +83,7 @@ describe("Results", () => {
     expect(html).not.toContain("支持金额");
   });
 
-  it("shows scoped QA analysis and linked original buttons as interpretation, not facts", () => {
+  it("shows scoped QA analysis as interpretation with one main source entry per document", () => {
     const facts: Claim[] = [
       { text: "政策甲提到产业园区", chunk_ids: ["A"], quotes: ["产业园区"], dimension: null, anchors: [] },
       { text: "政策乙提到企业改造", chunk_ids: ["B"], quotes: ["企业改造"], dimension: null, anchors: [] },
@@ -57,6 +92,10 @@ describe("Results", () => {
       task_type: "qa",
       answer: "事实列举",
       claims: facts,
+      evidence_refs: [
+        makeEvidenceRef("PA", "A", { title: "政策甲规划", area: "甲省", fyp: "十四五", section_path: "第一章" }),
+        makeEvidenceRef("PB", "B", { title: "政策乙规划", area: "乙省", fyp: "十四五", section_path: "第二章" }),
+      ],
       structured: {
         schema_version: "qa-analysis/1",
         analyses: [{
@@ -75,11 +114,12 @@ describe("Results", () => {
     })} onEvidence={noEvidence} />);
     expect(html).toContain("研究分析");
     expect(html).toContain("两项政策使用了不同的政策工具");
-    expect(html).toContain("不代表推理已获语义验证");
+    expect(html).toContain("不是政策原文");
     expect(html).toContain("事实 1：政策甲提到产业园区");
     expect(html).toContain("事实 2：政策乙提到企业改造");
-    expect(html).toContain("data-chunk-id=\"A\"");
-    expect(html).toContain("data-chunk-id=\"B\"");
+    expect(html.match(/data-primary-source=/g)).toHaveLength(2);
+    expect(html).toContain('data-chunk-id="A"');
+    expect(html).toContain('data-chunk-id="B"');
   });
 
   it("renders failed QA status without an empty conclusion", () => {
@@ -90,18 +130,145 @@ describe("Results", () => {
       evidence_status: "none",
     })} onEvidence={noEvidence} />);
     expect(html).toContain("本轮研究未完成");
-    expect(html).not.toContain("研究结论");
+    expect(html).not.toContain("<h1>");
   });
 
-  it("keeps plain QA layout unchanged without analysis", () => {
+  it("renders partial research with a single 研究结果 title and no internal status or disclaimers", () => {
+    const claim: Claim = {
+      text: "政策涉及基础设施建设",
+      chunk_ids: ["chunk-a"],
+      quotes: ["建设基础设施"],
+      dimension: null,
+      anchors: [],
+    };
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      evidence_status: "insufficient",
+      answer: [
+        "根据本轮已读政策原文，可提取以下具有逐字引文的事实。是否足以回应全部研究要求仍需单独评估：",
+        "- 政策涉及基础设施建设",
+        "",
+        "研究完成情况",
+        "",
+        "完成状态：部分完成",
+        "完成度缺口：claims_removed_or_answer_rebuilt",
+      ].join("\n"),
+      claims: [claim],
+      evidence_refs: [makeEvidenceRef("P-1", "chunk-a", {
+        title: "政策甲", area: "甲省", fyp: "十四五", section_path: "第一章",
+      })],
+      meta: {
+        research_quality: { status: "partial", gaps: ["claims_removed_or_answer_rebuilt"] },
+        research_completion: { status: "partial", gaps: ["claims_removed_or_answer_rebuilt"] },
+        research_delivery: { format: "evidence_linked_report", status: "partial", audited_analysis: false },
+      },
+    })} onEvidence={noEvidence} />);
+
+    expect(html).toContain("<h1>研究结果</h1>");
+    expect(html).not.toContain("研究结果（部分）");
+    expect(html).not.toContain("研究结论");
+    expect(html).not.toContain("仅展示已经核验");
+    expect(html).not.toContain("尚未完成的研究分析不得视为结论");
+    expect(html).not.toContain("根据本轮已读政策原文");
+    expect(html).not.toContain("研究完成情况");
+    expect(html).not.toContain("claims_removed_or_answer_rebuilt");
+    expect(html).not.toContain("research_quality");
+    expect(html).not.toContain("research_completion");
+    expect(html).not.toContain("partial");
+    // The fact is rendered once by its source group, not duplicated from the answer body.
+    expect(html.match(/政策涉及基础设施建设/g)).toHaveLength(1);
+    expect(html).toContain("查看原文");
+  });
+
+  it("renders source-excerpt recovery without partial labels or extra disclaimers", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      evidence_status: "insufficient",
+      answer: "以下仅为核验原文节选",
+      meta: {
+        execution_recovery: { source: "kb_read" },
+        research_delivery: { status: "partial", audited_analysis: false },
+      },
+    })} onEvidence={noEvidence} />);
+    expect(html).toContain("<h1>研究结果</h1>");
+    expect(html).not.toContain("研究结果（部分）");
+    expect(html).not.toContain("本轮仅取得可核验的政策原文节选");
+    expect(html).not.toContain("尚未形成完整研究结论");
+  });
+
+  it("keeps plain QA layout without analysis", () => {
     const html = renderToStaticMarkup(<Results result={makeResult({
       task_type: "qa",
       answer: "原有政策事实",
       claims: [],
       structured: null,
     })} onEvidence={noEvidence} />);
-    expect(html).toContain("研究结论");
+    expect(html).toContain("<h1>研究结果</h1>");
     expect(html).not.toContain("研究分析");
+  });
+
+  it("renders one primary original entry per planid and keeps per-claim evidence expandable", () => {
+    const claims: Claim[] = [
+      { text: "政策甲提出产业园区支持", chunk_ids: ["a-1"], quotes: ["支持产业园区建设。"], dimension: "支持方式", anchors: [] },
+      { text: "政策甲提出人才补贴", chunk_ids: ["a-2"], quotes: ["给予人才补贴。"], dimension: "支持对象", anchors: [] },
+      { text: "政策乙提出基础设施建设", chunk_ids: ["b-1"], quotes: ["加强基础设施建设。"], dimension: null, anchors: [] },
+    ];
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      answer: "",
+      claims,
+      evidence_refs: [
+        makeEvidenceRef("P-A", "a-1", { title: "政策甲规划", area: "甲省", fyp: "十四五", section_path: "第一章 支持方式" }),
+        makeEvidenceRef("P-A", "a-2", { title: "政策甲规划", area: "甲省", fyp: "十四五", section_path: "第二章 支持对象" }),
+        makeEvidenceRef("P-B", "b-1", { title: "政策乙意见", area: "乙省", fyp: "十四五", section_path: "第一章" }),
+      ],
+    })} onEvidence={noEvidence} />);
+
+    // One main original-text entry per document, not one per claim.
+    expect(html.match(/data-primary-source=/g)).toHaveLength(2);
+    expect(html.match(/data-source-planid="P-A"/g)).toHaveLength(1);
+    expect(html.match(/data-source-planid="P-B"/g)).toHaveLength(1);
+    expect(html.match(/data-chunk-id=/g)).toHaveLength(2);
+    expect(html).not.toContain('data-chunk-id="a-2"');
+
+    // Facts stay visible under their document; the expandable detail keeps each
+    // claim's quote, section path and chunk locator.
+    expect(html).toContain("政策甲提出产业园区支持");
+    expect(html).toContain("政策甲提出人才补贴");
+    expect(html).toContain("政策乙提出基础设施建设");
+    expect(html).toContain("展开证据详情（2 条）");
+    expect(html).toContain("支持产业园区建设。");
+    expect(html).toContain("给予人才补贴。");
+    expect(html).toContain("第二章 支持对象");
+    expect(html).toContain("a-2");
+  });
+
+  it("keeps real report headings and paragraphs while dropping engineering scaffolding", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({
+      task_type: "qa",
+      answer: [
+        "## 研究问题",
+        "",
+        "本轮研究关注产业园区支持政策。",
+        "",
+        "## 研究局限",
+        "",
+        "基于本轮已审查的证据；不代表已穷尽全部政策文献。",
+        "",
+        "## 研究完成情况",
+        "",
+        "完成状态：部分完成",
+      ].join("\n"),
+      claims: [],
+    })} onEvidence={noEvidence} />);
+
+    expect(html).toContain("研究问题");
+    expect(html).toContain("本轮研究关注产业园区支持政策。");
+    expect(html).toContain("研究局限");
+    expect(html).toContain("不代表已穷尽全部政策文献");
+    expect(html).not.toContain("研究完成情况");
+    expect(html).not.toContain("完成状态");
+    expect(html).not.toContain("## ");
   });
 
   it("withholds insufficient comparison analysis while retaining linked facts", () => {

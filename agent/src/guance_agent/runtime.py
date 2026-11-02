@@ -9,6 +9,7 @@ from agents import RunHooks, SQLiteSession, set_tracing_disabled
 from .agent import prompt_version
 from .client import get_client, thinking_off
 from .context import sanitize_error_detail, sanitize_error_fields
+from .qa_context import TrustedContextStore
 from .sessions import SessionForbidden, claim_session  # noqa: F401 (再导出)
 
 set_tracing_disabled(True)
@@ -48,6 +49,8 @@ class Runtime:
         self.settings, self.task = s, task
         self.started = perf_counter()
         self.session = None
+        self.context_store = None
+        self.trusted_turns: list[dict] = []
         self.log_error = None
         self.hooks = LogHooks(self)
         self.meta = dict(model=s.llm_model, prompt_version=prompt_version(s.structured_output, task.task_type),
@@ -71,7 +74,22 @@ class Runtime:
         self.session, created = open_session(
             self.settings, self.task.session_id, self.task.user_id)
         self.meta["session_created"] = created
+        # Session ownership has already been claimed above; the sidecar is keyed
+        # by that authorized session id, never used as authentication by itself.
+        self.context_store = TrustedContextStore(
+            self.settings.session_path, self.task.session_id)
+        self.trusted_turns = self.context_store.load()
+        self.meta["qa_context_available"] = bool(self.trusted_turns)
         self.log("run_start", **self.meta)
+
+    def save_trusted_turn(self, turn: dict | None):
+        """Persist only source identities from an actually executed turn."""
+        if not turn or self.context_store is None:
+            return
+        try:
+            self.context_store.append(turn)
+        except OSError as exc:
+            self.meta["qa_context_save_error"] = type(exc).__name__
 
     def log(self, stage, **values):
         event = dict(time=datetime.now(timezone.utc).isoformat(), run_id=self.task.run_id,

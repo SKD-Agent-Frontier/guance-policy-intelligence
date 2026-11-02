@@ -28,15 +28,20 @@ export function parseAnswerOutline(text: string): Row[] {
       flush();
       continue;
     }
-    // Markdown heading markers are stripped only when followed by a canonical
-    // Chinese outline marker. Do not interpret inline numbers in policy facts.
-    const normalized = line.replace(/^#{1,4}\s+(?=[一二三四五六七八九十百]+、|（[一二三四五六七八九十百]+）|[1-9]\d*、|（[1-9]\d*）)/, "");
+    // Markdown headings from report drafts keep their heading semantics. When a
+    // heading carries a canonical Chinese outline marker, the marker still wins
+    // so 一、/（一）/1、/（1）nest exactly as before.
+    const markdown = /^(#{1,4})\s+(.+?)\s*#*$/.exec(line);
+    const headingText = markdown ? markdown[2] : line;
     const match = headingPatterns
-      .map(({ level, pattern }) => ({ level, match: pattern.exec(normalized) }))
+      .map(({ level, pattern }) => ({ level, match: pattern.exec(headingText) }))
       .find(item => item.match);
     if (match?.match) {
       flush();
       rows.push({ level: match.level, prefix: match.match[1], text: match.match[2] });
+    } else if (markdown) {
+      flush();
+      rows.push({ level: Math.min(markdown[1].length, 4) as Level, text: headingText });
     } else {
       paragraph.push(line);
     }
@@ -51,7 +56,7 @@ export function AnswerOutline({ text }: { text: string }) {
     {rows.map((row, index) => {
       let child: ReactNode;
       if (row.level) {
-        const body = <><span className="qa-outline-marker">{row.prefix}</span><span>{row.text}</span></>;
+        const body = <>{row.prefix && <span className="qa-outline-marker">{row.prefix}</span>}<span>{row.text}</span></>;
         const cls = `qa-outline-heading qa-outline-level-${row.level}`;
         if (row.level === 1) child = <h2 className={cls}>{body}</h2>;
         else if (row.level === 2) child = <h3 className={cls}>{body}</h3>;

@@ -264,3 +264,33 @@ def test_same_region_policy_comparisons_keep_distinct_research_subjects():
         runtime.transition("planning")
         runtime.transition("discovering")
         runtime.accept_discovery(found.plan)
+
+
+def test_explicit_qa_facets_prevent_false_complete_even_without_report():
+    """F02: one verified fact cannot satisfy two user-requested QA facets."""
+    contract_ = contract("qa", dimensions=["成本", "适用范围"])
+    assert contract_.completion.required_dimensions == ["成本", "适用范围"]
+    runtime = ResearchRuntime(contract_, ResearchPlan.for_contract(contract_),
+                              time.monotonic() + 60)
+    ref = SimpleNamespace(chunk_id="chunk1", planid="p1", document_id=None,
+                          document_version_id=None, generation_id=None, source_hash=None)
+
+    class Evidence:
+        def ids(self):
+            return ["chunk1"]
+        def get(self, chunk_id):
+            return ref if chunk_id == "chunk1" else None
+
+    result = SimpleNamespace(
+        status="completed", error=None, answer="有据可查的事实",
+        evidence_status="verified",
+        claims=[SimpleNamespace(chunk_ids=["chunk1"], dimension="成本")],
+        evidence_refs=[ref], structured=None, warnings=[], meta={},
+    )
+    runtime.transition("planning")
+    runtime.transition("ready")
+    runtime.transition("executing")
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=Evidence()))
+    assert evaluation.status != "completed"
+    assert "dimension:适用范围" in evaluation.required_units
+    assert "research_dimension_uncovered:适用范围" in evaluation.gaps

@@ -12,8 +12,16 @@ from typing import Literal
 PLANID = re.compile(r"planid\s*[:：]?\s*([A-Za-z0-9_-]{2,32})", re.IGNORECASE)
 # 政策标题用书名号标注；只剥这一种最明确的写法
 TITLE = re.compile(r"《([^《》]{2,80})》")
-# 地区名必须带行政后缀，并排除「地区/各地/本市/全县」这类泛指
-AREA = re.compile(r"(?<![地该各本全])([\u4e00-\u9fa5]{2,4}(?:省|市(?!场)|区(?!域|块|间)|县|自治州|盟|旗))")
+# 地区名必须带行政后缀，并排除「地区/各地/本市/全县」这类泛指。
+# 自治县/自治州名称可达 8 个字以上（如“长白朝鲜族自治县”），不能用 2-4
+# 字前缀截断；最长后缀必须优先匹配，否则会误识别成“鲜族自治县”。
+AREA = re.compile(
+    r"(?<![地该各本全])"
+    r"([\u4e00-\u9fa5]{2,12}?(?:自治县|自治州|自治旗|省|市(?!场)|区(?!域|块|间)|县|盟|旗|州(?!市|县|区|省|州)))"
+)
+# 前端在追问时会合成“研究对象：…；本轮问题：…”。解析用户当前约束时只取
+# 当前问题，不能让旧研究对象回灌成本轮的新地区/新对象。
+CURRENT_QUESTION_MARKER = "本轮问题："
 # 规划期统一到 RAG 的规范期号口径
 PERIOD = re.compile(r"第?(十[一二三四五])(?:个)?五")
 # “十五”计划（2001—2005）不是“十五五”（2026—2030）。
@@ -24,10 +32,17 @@ PERIOD_ALIAS = {
     "十四": "第十四个五年规划", "十五": "第十五个五年规划",
 }
 # 地区名前面常粘着动词（比较大渡口区 / 与南平市），逐层剥掉再判定
-LEAD_NOISE = ("比较", "分析", "对照", "围绕", "针对", "对于", "关于", "以及",
-              "想了解", "了解", "查询", "查找", "介绍", "研究", "梳理", "总结", "请问",
+LEAD_NOISE = ("我想了解一下", "我想了解", "我想知道", "我们想了解", "我们想",
+              "请概括", "请介绍", "请说明", "请分析", "请查询", "请查找", "请问", "请",
+              "概括", "简述", "介绍一下", "介绍一下", "介绍", "说明", "分析",
+              "比较", "对照", "围绕", "针对", "对于", "关于", "以及",
+              "想了解", "想知道", "了解", "查询", "查找", "研究", "梳理", "总结",
+              "我想", "我们", "我想问", "想",
               "期间", "年度", "时期", "阶段",
-              "和", "与", "及", "在", "对", "较", "比")
+              "那么", "那", "这", "该", "此",
+              "和", "与", "及", "在", "对", "较", "比", "我")
+# “其他远郊区县”“其余地区”是集合指代，不是可过滤的单一行政区。
+COLLECTIVE_AREA_PREFIX = ("其他", "其它", "其余", "剩余", "各")
 MAX_QUERY = 200
 
 
@@ -58,6 +73,14 @@ def parse_titles(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(m.strip() for m in TITLE.findall(text or "") if m.strip()))
 
 
+def current_question(text: str) -> str:
+    """Return only the current turn after a preparation-layer context prefix."""
+    value = text or ""
+    if CURRENT_QUESTION_MARKER in value:
+        return value.rsplit(CURRENT_QUESTION_MARKER, 1)[1].strip()
+    return value
+
+
 def _trim_area(name: str) -> str:
     """剥掉粘在前面的常见动词/介词，保留真正的行政区名。"""
     changed = True
@@ -73,13 +96,16 @@ def _trim_area(name: str) -> str:
 def parse_areas(text: str) -> tuple[str, ...]:
     """提取明确的行政区名；泛指词和「地区」这类后缀不会命中。"""
     out = []
+    value = current_question(text)
     # 期号会和地名粘在一起（十四五期间甲市），先挖掉再提地名
-    for raw in AREA.findall(PERIOD.sub(" ", text or "")):
+    for raw in AREA.findall(PERIOD.sub(" ", value)):
+        if raw.startswith(COLLECTIVE_AREA_PREFIX):
+            continue
         name = _trim_area(raw)
         # 「地区」是泛指，不是行政区名
         # “城市更新”“产业园区”等不是具体行政区，不能被强制作为检索过滤条件。
         generic = ("地区", "地市", "城市", "上市", "园区", "社区", "景区", "校区",
-                   "片区", "街区", "辖区", "疫区")
+                   "片区", "街区", "辖区", "疫区", "远郊区", "近郊区")
         if len(name) >= 2 and not name.endswith(generic):
             out.append(name)
     return tuple(dict.fromkeys(out))
@@ -87,7 +113,7 @@ def parse_areas(text: str) -> tuple[str, ...]:
 
 def parse_fyps(text: str) -> tuple[str, ...]:
     """按原文出现顺序识别新旧规划期，避免把“十五”计划错归“十五五”。"""
-    value = text or ""
+    value = current_question(text)
     matches = [(match.start(), PERIOD_ALIAS[match.group(1)])
                for match in PERIOD.finditer(value)]
     matches.extend((match.start(), "第十个五年计划")
@@ -105,6 +131,7 @@ def strip_annotations(text: str) -> str:
 
 def decide(question: str, *, max_query: int = MAX_QUERY) -> RouteDecision:
     """把一个问题路由成「按对象取证」或「开放主题检索」。"""
+    question = current_question(question)
     planids, titles = parse_planids(question), parse_titles(question)
     areas, fyps = parse_areas(question), parse_fyps(question)
     sub_query = strip_annotations(question)

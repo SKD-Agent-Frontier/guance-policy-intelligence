@@ -232,3 +232,20 @@ class RunContext:
     literal_keyword: str | None = None
     literal_hit_ids: set[str] = field(default_factory=set)
     research: object | None = None
+    # Trusted identities from previous turns; never model-generated summaries.
+    trusted_turns: list[dict] = field(default_factory=list)
+    qa_context_resolution: dict | None = None
+    qa_followup: dict | None = None
+    research_intent: dict | None = None
+
+    def verified_scoped_document(self):
+        """Only a catalog-verified single-document research scope can fix filters.
+
+        An arbitrary model planid (or a multi-document plan) is never enough.
+        """
+        if not self.research or not self.scope or len(self.scope) != 1:
+            return None
+        plan = self.research.plan
+        return next((doc for doc in plan.documents
+                     if doc.planid == self.scope[0] and doc.source_verified), None)
+

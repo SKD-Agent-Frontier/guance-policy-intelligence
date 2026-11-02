@@ -117,7 +117,7 @@ describe("independent home composer and history conversations", () => {
     chooseMode("政策比较");
     await submitHome("比较浙江和江苏十四五的数字经济政策");
     expect(client.submit).toHaveBeenCalledWith(
-      { task_type: "compare", question: "比较浙江和江苏十四五的数字经济政策" }, expect.anything());
+      expect.objectContaining({ task_type: "compare", question: "比较浙江和江苏十四五的数字经济政策" }), expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent("比较浙江和江苏十四五的数字经济政策");
 
     fireEvent.click(screen.getByRole("button", { name: "管策智研首页" }));
@@ -157,7 +157,7 @@ describe("independent home composer and history conversations", () => {
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "发送消息" })); });
 
     expect(client.submit).toHaveBeenCalledWith(
-      { task_type: "compare", question }, expect.anything());
+      expect.objectContaining({ task_type: "compare", question }), expect.anything());
     expect(screen.getByRole("main", { name: "研究工作区" })).toHaveTextContent(question);
     expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
 

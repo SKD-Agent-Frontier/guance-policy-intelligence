@@ -123,7 +123,13 @@ class ResearchPreparationService:
 
             entry.previous = (entry.revision, entry.mode, request.message, None)  # Filled after response construction.
             entry.revision += 1
-            entry.clarification_count += 1
+            # A new autonomous QA turn after a ready result is a research
+            # question, NOT another clarification toward the five-turn limit.
+            new_qa_turn = (entry.mode == "qa" and entry.autonomous
+                           and entry.response is not None
+                           and entry.response.status == "ready")
+            if not new_qa_turn:
+                entry.clarification_count += 1
             entry.messages.append(request.message)
             self._apply_message(entry, request.message)
             response = self._render(entry, request.message, now)
@@ -448,7 +454,13 @@ class ResearchPreparationService:
                 if entry.area or entry.area_unrestricted or entry.time_text or entry.time_unrestricted or entry.dimensions:
                     entry.completed_questions.append(CompletedQuestion(question_id="scope", answer=message))
 
-        entry.question_text = self._compose_question(entry, message, initial)
+        # Do not replay original_request after the prior QA turn was ready:
+        # the latest question is the instruction, prior scope is context only.
+        if (entry.mode == "qa" and entry.autonomous and not initial
+                and entry.response is not None and entry.response.status == "ready"):
+            entry.question_text = self._qa_followup_question(entry, message)
+        else:
+            entry.question_text = self._compose_question(entry, message, initial)
 
     @staticmethod
     def _is_question(message: str) -> bool:
@@ -614,6 +626,44 @@ class ResearchPreparationService:
         text = re.sub(r"^(?:梳理|整理|归纳|研究|分析|查询|查找|了解)\s*", "", text)
         text = text.strip("和及与并")
         return None if text in {"政策", "政策梳理", "相关政策"} else text or None
+
+    @classmethod
+    def _qa_followup_question(cls, entry: _Entry, message: str) -> str:
+        """Current question wins. Only short demonstrative follow-ups inherit
+        a readable subject; never carry previous requested answer facets.
+        """
+        latest = message.strip()
+        # An explicit new area in the current turn always wins; prefixing the
+        # old subject would make the old region look like part of the new scope.
+        latest_areas = cls._areas(latest)
+        previous_areas = cls._areas((entry.area or "") + " " + (entry.area_text or ""))
+        if latest_areas and any(area not in previous_areas for area in latest_areas):
+            return latest
+        contextual = re.match(
+            r"^(?:那|那么|它|这|该|还有|再|继续|进一步|换成|改为|地区改为|地区改成|"
+            r"地区调整为|把地区改为|将地区改为|时间改为)",
+            latest,
+        )
+        if not contextual:
+            return latest
+        # The old question is used solely to recover its *subject*, not
+        # the request (e.g. old '人才培养' requirement).
+        subject = re.split(
+            r"有哪些|有什么|是什么|如何|怎么|怎样|为什么|为何|\?|？|，|,"
+            r"|(?<!规)划中|中的(?:主要|具体)?(?:要求|措施|政策)",
+            entry.original_request, maxsplit=1,
+        )[0].strip(" 。；;，,？?")
+        if not 4 <= len(subject) <= 70:
+            return latest
+        original_areas = cls._areas(subject)
+        if entry.area and original_areas and entry.area not in original_areas:
+            for area in original_areas:
+                subject = subject.replace(area, entry.area)
+        # Only repeat the compact subject when it is not already in the
+        # current turn. Explicit region changes always override old regions.
+        if subject in latest:
+            return latest
+        return f"研究对象：{subject}；本轮问题：{latest}"
 
     def _compose_question(self, entry: _Entry, message: str, initial: bool) -> str:
         if initial and entry.mode != "organize":
@@ -786,7 +836,12 @@ class ResearchPreparationService:
         if entry.area_text and any(separator in entry.area_text for separator in ("和", "、", "，", ",")):
             warnings.append("多地区要求保留为文字条件，不保证逐地区精确过滤")
         full_corpus_intent = None
-        for user_message in entry.messages:
+        active_messages = (
+            [latest_message] if entry.mode == "qa" and entry.autonomous
+            and entry.response is not None and entry.response.status == "ready"
+            else entry.messages
+        )
+        for user_message in active_messages:
             message_intent = self._full_corpus_intent(user_message)
             if message_intent is not None:
                 full_corpus_intent = message_intent
