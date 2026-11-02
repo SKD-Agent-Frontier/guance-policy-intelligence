@@ -670,11 +670,6 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                          if isinstance(result.structured, dict) else [])
         has_analysis = any(block.get("kind") == "analysis" for block in report_blocks)
         if (not has_analysis
-                and intent_meta.get("primary") in {"organize", "analyze"}):
-            await _summarize_historical(
-                result, task, rt, deadline,
-                analyze=intent_meta.get("primary") == "analyze", prepend=True)
-        if (not has_analysis
                 and intent_meta.get("primary") in {"compare", "synthesize"}):
             added = await _summarize_historical(
                 result, task, rt, deadline, compare=True, prepend=True)
@@ -704,8 +699,6 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                             timeout=max(deadline - time.monotonic(), 0.05))
                     except TimeoutError:
                         result.meta["comparison_summary_review_timeout"] = True
-                    if summary_text not in (result.answer or ""):
-                        result.answer = summary_text + "\n\n" + (result.answer or "")
     # Recovery from token-cap truncation is allowed to publish only the
     # surviving, quote-verified facts. Do it after all verification gates and
     # before ResearchRuntime assesses final completion.
@@ -719,17 +712,6 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
         deliver_research(result, task.question)
     if task.task_type == "qa" and result.status == "completed":
         _append_unrepresented_source_facts(result)
-        if (result.meta.get("research_intent") or {}).get("primary") in {
-                "compare", "synthesize"}:
-            planids = {ref.planid for ref in result.evidence_refs}
-            blocks = ((result.structured or {}).get("blocks")
-                      if isinstance(result.structured, dict) else [])
-            has_analysis = any(block.get("kind") == "analysis"
-                               for block in blocks or [])
-            if (len(planids) >= 2 and not has_analysis
-                    and result.claims):
-                await _summarize_historical(
-                    result, task, rt, deadline, compare=True, prepend=True)
     resolution = result.meta.get("qa_context_resolution")
     if (task.task_type == "qa" and isinstance(resolution, dict)
             and resolution.get("status") == "ambiguous"):
@@ -1099,7 +1081,10 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
 async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = False,
                                 compare: bool = False,
                                 prepend: bool = False) -> bool:
-    """One bounded editorial summary over already-reviewed prior research."""
+    """Draft a bounded summary for *subsequent* semantic review only.
+
+    Model-generated prose must not be inserted into a delivered answer here.
+    """
     remaining = deadline - time.monotonic()
     if remaining < 25 or rt.hooks.turns >= rt.settings.max_turns:
         return False
@@ -1150,12 +1135,10 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
     summary = (summary or "").strip()
     if len(summary) < 8:
         return False
-    if prepend and (result.answer or "").strip():
-        result.answer = summary + "\n\n" + result.answer
-    else:
-        result.answer = summary
+    # A draft is not evidence-linked analysis until finalize_report accepts it.
+    # Neither fresh QA nor historical results may publish this text directly.
     result.meta["_research_summary_text"] = summary
-    result.meta["historical_summary_generated"] = True
+    result.meta["historical_summary_drafted"] = True
     return True
 
 
@@ -1289,20 +1272,17 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
         historical_result._qa_report_supplied = True
         analysis_blocks = ((historical_result.structured or {}).get("blocks") or []
                            if isinstance(historical_result.structured, dict) else [])
-        if (intent.primary == "summarize"
-                or (intent.primary == "analyze"
-                    and not any(block.get("kind") == "analysis"
-                                for block in analysis_blocks))):
-            await _summarize_historical(
-                historical_result, task, rt, deadline,
-                analyze=intent.primary == "analyze")
 
+    # Historical answers are reviewed, then their final surviving sources
+    # are covered against the current request (including comparisons).
+    historical_result.meta["evidence_coverage"] = build_coverage(
+        historical_result, task.question, historical_ctx)
     quality = evaluate(historical_result, task.question)
     historical_result.meta["research_quality"] = quality
     historical_result.meta["research_completion"] = {
         "status": quality.get("status"),
         "gaps": list(quality.get("gaps") or []),
-        "covered_planids": list(quality.get("covered_planids") or planids),
+        "covered_planids": list(quality.get("covered_planids") or []),
         "missing_planids": list(quality.get("missing_planids") or []),
         "verified_claim_count": quality.get("verified_claim_count", 0),
         "reason": "historical_verified_research",
@@ -1311,7 +1291,8 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
         "format": "evidence_linked_report" if blocks else "historical_summary",
         "status": quality.get("status"),
         "audited_analysis": bool(blocks),
-        "source_planids": planids,
+        "source_planids": list(dict.fromkeys(
+            ref.planid for ref in historical_result.evidence_refs)),
     }
     return historical_result
 
