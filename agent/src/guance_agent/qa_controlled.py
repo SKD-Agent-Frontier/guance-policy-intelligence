@@ -23,8 +23,13 @@ from .research_requirements import (
     is_broad_outline_parent,
     select_overview_facets,
 )
-from .research_targets import extract_targets, mentions_subject
-from .routing import current_question, parse_areas
+from .research_targets import (
+    extract_targets,
+    matches_retrieval_subject,
+    mentions_subject,
+    retrieval_subjects,
+)
+from .routing import current_question, parse_areas, task_text
 from .runner import ExecOutcome
 from .schemas import Claim
 from .tools import _call
@@ -63,6 +68,28 @@ def _subject_score(text: str, terms: tuple[str, ...]) -> int:
     if not terms:
         return 0
     return sum(4 if term == "数字经济" else 1 for term in terms if term in text)
+
+
+def rank_topic_candidates(hits: list[dict], question: str) -> list[dict]:
+    """Apply topic relevance before source diversity, with stable ties."""
+    subjects = retrieval_subjects(question)
+    terms = _subject_terms(question)
+
+    def score(hit):
+        text = " ".join(str(hit.get(field) or "") for field in ("title", "section_path", "content"))
+        return sum(matches_retrieval_subject(text, subject) for subject in subjects) + _subject_score(text, terms)
+
+    ranked = sorted(hits, key=lambda hit: -score(hit))
+    primary, secondary, unrelated, seen = [], [], [], set()
+    for hit in ranked:
+        if (subjects or terms) and not score(hit):
+            unrelated.append(hit)
+        elif hit["planid"] in seen:
+            secondary.append(hit)
+        else:
+            primary.append(hit)
+            seen.add(hit["planid"])
+    return primary + secondary + unrelated
 
 
 def _overview_request(question: str) -> bool:
@@ -205,6 +232,8 @@ anchors 是同一片段中的逐字短定位短语，便于程序在 quote 不�
 不能用它替代 quote，也不能写改写句。
 不要创造时间、数字、效果或政策身份。
 用户问已实现成果或历史回顾时，只摘录已有成果；不得把未来建设部署和目标当作已完成事实。
+保留适用人群、时间、条件及“以上”“以内”等数量边界。未读到不等于政策不存在。
+比较仅限已读文献的同一事项，不把普惠措施说成特定人群专享，也不把少量文献推广为各地普遍结论。
 追问中的‘其中’‘这些’沿用上下文问题的时间口径，不能擅自换成其他年份或未来目标。
 事实和分析分开：answer 只陈述已获证据能支持的简要事实，不夸大因果与覆盖。
 若无法从原文回答，输出 {"answer":"本轮政策原文不足以回答该问题",
@@ -253,6 +282,7 @@ def _comparison_topic_query(question: str) -> str | None:
 def search_queries(question: str, sub_query: str | None = None, *,
                    comparison_intent: bool = False) -> list[str]:
     """Choose a subject plus explicit evidence facets, not generic filler."""
+    question = task_text(question)
     topic = [term for term in CONCEPTS if term in question
              and term not in {"政策意义", "积极作用", "局限", "挑战"}]
     # Search explicitly named objects before generic policy dimensions.
@@ -274,6 +304,15 @@ def search_queries(question: str, sub_query: str | None = None, *,
             selected.append(term)
         if len(selected) >= MAX_QUERIES:
             break
+    subjects = retrieval_subjects(question)
+    concrete_queries = [query for query in selected if query in CONCEPTS
+                        and query not in {"政策措施", "重点措施", "发展目标", "政策意义",
+                                          "积极作用", "局限", "挑战", "补贴"}]
+    if subjects and not concrete_queries:
+        selected = list(dict.fromkeys([*subjects, *[
+            query if any(subject in query for subject in subjects) else f"{subjects[0]} {query}"
+            for query in selected
+        ]]))
     if not selected:
         requested = requirements(question)
         facets = []
@@ -282,7 +321,7 @@ def search_queries(question: str, sub_query: str | None = None, *,
         if facets:
             selected = list(dict.fromkeys(facets))[:MAX_QUERIES]
         else:
-            source = (sub_query or question).strip()
+            source = task_text(sub_query or question).strip()
             source = re.sub(r"[，。？！,?!：:；;（）()\\s]+", " ", source)
             selected = [source[:70].strip()] if source else []
     alternatives = []
@@ -607,17 +646,7 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
     if scope is None:
         # Relevance before diversity. A keyword like "人才培养" must not make an
         # unrelated tourism fund outrank a document about digital-economy policy.
-        ranked = sorted(found, key=lambda hit: -_subject_score(
-            " ".join(str(hit.get(field) or "") for field in
-                     ("title", "section_path", "content")), subject_terms))
-        primary, secondary, seen_documents = [], [], set()
-        for hit in ranked:
-            if hit["planid"] not in seen_documents:
-                primary.append(hit)
-                seen_documents.add(hit["planid"])
-            else:
-                secondary.append(hit)
-        found = primary + secondary
+        found = rank_topic_candidates(found, task.question)
     # For a multi-document scope, put one candidate per target document before
     # overflowing one document: a high lexical score must not hide document B.
     if scope is not None and len(scope) > 1:
@@ -771,6 +800,7 @@ def verbatim_coverage_claims(result, task, evidence: list[dict], ctx) -> list[Cl
     normal quote verifier in the caller.
     """
     required = requirements(task.question)["dimensions"]
+    subjects = retrieval_subjects(task.question)
     existing = " ".join(claim.text for claim in result.claims)
     missing_terms = []
     for label in required:
@@ -786,6 +816,8 @@ def verbatim_coverage_claims(result, task, evidence: list[dict], ctx) -> list[Cl
     for item in evidence:
         for sentence in re.split(r"(?<=[。；;！？!?])\s*", str(item.get("text") or "")):
             sentence = sentence.strip()
+            if subjects and not any(matches_retrieval_subject(sentence, subject) for subject in subjects):
+                continue
             if (not 12 <= len(sentence) <= 300 or sentence in seen
                     or not (any(term in sentence for term in missing_terms)
                             or any(mentions_subject(sentence, subject)

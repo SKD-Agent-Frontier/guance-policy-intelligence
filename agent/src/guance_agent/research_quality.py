@@ -49,9 +49,9 @@ ANALYSIS_WORDS = ("分析", "研究", "研判", "评估", "报告", "比较", "�
 
 
 def requirements(question: str, planned=None) -> dict:
-    from .routing import current_question
+    from .routing import task_text
 
-    text = current_question(question or "")
+    text = task_text(question or "")
     explicit = [label for label, terms in INTENT_TERMS.items()
                 if any(term in text for term in terms)]
     from .routing import parse_areas

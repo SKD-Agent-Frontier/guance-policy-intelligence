@@ -3,12 +3,11 @@ import time
 from dataclasses import replace
 
 import pytest
+from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
+from app.research_runtime import discover_run_plan
 from guance_agent.research_contract import ResearchPlan, TaskContract
 from guance_agent.research_planner import ResearchPlanner
 from guance_agent.schemas import TaskRequest
-
-from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
-from app.research_runtime import discover_run_plan
 
 
 def record(planid, area, fyp="第十三个五年规划", title=None, body="产业结构调整"):
@@ -45,6 +44,24 @@ def task(mode, targets, question="河北省产业结构研究", dimensions=None)
     return TaskRequest(run_id="run", session_id="session", question=question,
                        task_type=mode, targets=targets, dimensions=dimensions or [],
                        created_at="now")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prefix,exclusive", [("", False), ("仅使用江苏省文献，", True), ("只", False)])
+async def test_explicit_national_and_provincial_documents_respect_scope_intent(prefix, exclusive):
+    national = replace(record("national", "中华人民共和国", "第十四个五年规划", title="国家十四五规划纲要"), admin_level="国家级")
+    province = replace(record("province", "江苏省", "第十四个五年规划", title="江苏省十四五公共服务规划"), admin_level="省级")
+    question = "比较国家十四五规划纲要与江苏省十四五公共服务规划中高校毕业生就业措施。"
+    question = prefix + question
+    selected_task = task("qa", ["national", "province"], question)
+    contract = TaskContract.from_task(selected_task)
+    discovery = await discover_run_plan(selected_task, contract, ResearchPlanner.initial(contract),
+                                        time.monotonic() + 10, catalog(national, province))
+    if exclusive:
+        assert discovery.status != "ready"
+    else:
+        assert discovery.status == "ready", discovery.model_dump()
+        assert {doc.planid for doc in discovery.plan.documents} == {"national", "province"}
 
 
 @pytest.mark.asyncio

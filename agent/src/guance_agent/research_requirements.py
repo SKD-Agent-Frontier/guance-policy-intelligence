@@ -318,7 +318,7 @@ def normalize_requirements(question: str, planned=None) -> list[dict]:
     empty checklist.
     """
     deterministic = parse_requirements(question)
-    from .routing import parse_fyps
+    from .routing import TITLE, parse_fyps, task_text
 
     content_periods = list(parse_fyps(question or ""))
     allowed_content_periods = set(content_periods)
@@ -362,6 +362,11 @@ def normalize_requirements(question: str, planned=None) -> list[dict]:
                 kind = "source_citation"
             synthesis = kind in {"analysis", "output_section", "value_check"}
             subject = item["subject"].strip()[:160] if item.get("subject") else None
+            if (subject and kind in {"metric", "numeric_fact"}
+                    and (subject in TITLE.findall(question) or not task_text(subject))):
+                # Numeric evidence need not repeat its source document title.
+                # Document identity/scope is checked separately against refs.
+                subject = None
             if subject and re.search(
                     r"(?:规划纲要|发展规划|规划|计划|方案)(?:中|的|所列|第)|"
                     r"(?:第[一二三四五六七八九十0-9①②③④⑤]+项|文献中的|原文中的)",

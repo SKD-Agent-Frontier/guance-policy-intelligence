@@ -9,7 +9,7 @@ from typing import Literal
 
 # 只认带标签的编号。题干里 planid 是明确写出来的（形如 planid 10032），
 # 裸数字一律不认——训练集里 （2016）（2010）这类是年份，认成编号会拿错政策。
-PLANID = re.compile(r"planid\s*[:：]?\s*([A-Za-z0-9_-]{2,32})", re.IGNORECASE)
+PLANID = re.compile(r"planid\s*[=:：]?\s*([A-Za-z0-9_-]{2,32})", re.IGNORECASE)
 # 政策标题用书名号标注；只剥这一种最明确的写法
 TITLE = re.compile(r"《([^《》]{2,80})》")
 # 地区名必须带行政后缀，并排除「地区/各地/本市/全县」这类泛指。
@@ -34,6 +34,7 @@ PERIOD_ALIAS = {
 }
 # 地区名前面常粘着动词（比较大渡口区 / 与南平市），逐层剥掉再判定
 LEAD_NOISE = ("我想了解一下", "我想了解", "我想知道", "我们想了解", "我们想",
+              "改看", "改为", "换成", "换看", "转看", "只看", "仅看",
               "请概括", "请介绍", "请说明", "请分析", "请查询", "请查找", "请问", "请",
               "概括", "简述", "介绍一下", "介绍一下", "介绍", "说明", "分析",
               "比较", "对照", "围绕", "针对", "对于", "关于", "以及", "从", "由",
@@ -84,10 +85,24 @@ def current_question(text: str) -> str:
     return value
 
 
+def task_text(question: str) -> str:
+    """Separate the requested operation from explicit source identities."""
+    text = TITLE.sub(" ", current_question(question))
+    text = PLANID.sub(" ", text)
+    text = re.sub(r"[\u4e00-\u9fff]{2,12}(?:19|20)\d{2}年政府工作报告", " ", text)
+    # A reference to what a report says is not a request to write a report.
+    text = re.sub(r"(?:该|这份|上述|本)?报告(?=中|里|要求|提出|部署|载明|规定|提到|提及|所列)", "", text)
+    text = re.sub(r"[（(]\s*[）)]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _trim_area(name: str) -> str:
     """剥掉粘在前面的常见动词/介词，保留真正的行政区名。"""
+    name = re.sub(r"^.*(?:规划纲要|工作报告|规划|政策|文件)(?:与|和|以及)", "", name)
     changed = True
     while changed:
+        if len(name) <= 3:
+            break
         changed = False
         for noise in LEAD_NOISE:
             if name.startswith(noise) and len(name) - len(noise) >= 2:
