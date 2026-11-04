@@ -1,5 +1,12 @@
 export type TaskType = "qa" | "extract" | "organize" | "compare" | "compare_plans";
 
+export interface CitationReference {
+  planid: string;
+  title: string | null;
+  area: string | null;
+  fyp: string | null;
+}
+
 export interface ResearchResolution {
   status: "ready" | "needs_clarification";
   message: string;

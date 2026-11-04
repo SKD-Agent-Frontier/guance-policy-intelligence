@@ -45,9 +45,7 @@ function needsClarification(request: ResearchPreparationRequest): PreparationRes
 const client = vi.mocked(researchClient);
 
 function chooseMode(label: string) {
-  fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
-  fireEvent.click(screen.getByRole("button", { name: /研究模式/ }));
-  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.click(screen.getByRole("button", { name: `选择${label}` }));
 }
 
 function chooseTemplateCategory(label: string) {

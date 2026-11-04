@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, Check, ChevronRight, FileText, LayoutTemplate, Plus, X } from "lucide-react";
-import type { ResearchRequest, TaskType } from "../types";
+import { ArrowLeft, ArrowUp, BookMarked, ChevronRight, FileText, LayoutTemplate, Plus, X } from "lucide-react";
+import type { CitationReference, ResearchRequest, TaskType } from "../types";
+import { CitationPicker } from "./CitationPicker";
 import type { AdvancedDraft } from "../conversationTypes";
 import { promptTemplates } from "../promptTemplates";
 
@@ -10,7 +11,7 @@ type Props = {
   busy: boolean;
   onChange: (value: string) => void;
   onModeChange: (mode: TaskType) => void;
-  onSend: (message: string) => void;
+  onSend: (message: string, citations?: CitationReference[]) => void;
   /** Legacy props remain accepted while callers migrate; no advanced fields are rendered. */
   onAdvancedSubmit?: (request: ResearchRequest) => void;
   advancedDraft?: AdvancedDraft;
@@ -30,7 +31,7 @@ const modes: { id: TaskType; label: string }[] = [
   { id: "compare_plans", label: "多方案分析" },
 ];
 
-type MenuPanel = "root" | "modes" | "templates" | null;
+type MenuPanel = "root" | "citations" | "templates" | null;
 
 export function ResearchForm({
   mode,
@@ -39,10 +40,12 @@ export function ResearchForm({
   onChange,
   onModeChange,
   onSend,
+  onAdvancedSubmit,
   homeVariant = false,
 }: Props) {
   const [panel, setPanel] = useState<MenuPanel>(null);
   const [templateMode, setTemplateMode] = useState<TaskType>(mode);
+  const [selectedCitations, setSelectedCitations] = useState<CitationReference[]>([]);
   const composerRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,6 +63,8 @@ export function ResearchForm({
 
   useEffect(resize, [value]);
   useEffect(() => {
+    // External mode tabs may replace an untouched template with mode-specific input.
+    if (value && Object.values(promptTemplates).some(list => list.some(item => item.prompt === value))) onChange("");
     closeMenu();
     setTemplateMode(mode);
   }, [mode]);
@@ -97,16 +102,29 @@ export function ResearchForm({
   const send = () => {
     const message = value.trim();
     if (!busy && message && Array.from(message).length <= 4000) {
-      closeMenu();
-      onSend(message);
+      const citations = selectedCitations.length > 0 ? selectedCitations : undefined;
+      if (citations && (mode === "compare" || mode === "compare_plans") && onAdvancedSubmit) {
+        closeMenu();
+        onAdvancedSubmit({
+          task_type: mode,
+          question: message,
+          targets: citations.map(item => item.planid),
+        });
+      } else {
+        const citedMessage = citations
+          ? `${message}\n\n已引用文献：\n${citations.map(item => `- planid=${item.planid} 《${item.title ?? "未命名政策文献"}》`).join("\n")}`
+          : message;
+        closeMenu();
+        onSend(citedMessage, citations);
+      }
+      setSelectedCitations([]);
     }
   };
 
-  const selectMode = (next: TaskType) => {
+  const resetMode = () => {
     // Unedited examples are transient helper text, never part of a mode constraint.
-    if (next !== mode && promptTemplates[templateMode].some((item) => item.prompt === value)) onChange("");
-    onModeChange(next);
-    closeMenu();
+    if (mode !== "qa" && promptTemplates[templateMode].some((item) => item.prompt === value)) onChange("");
+    onModeChange("qa");
     textareaRef.current?.focus();
   };
 
@@ -152,7 +170,20 @@ export function ResearchForm({
       {mode !== "qa" && !homeVariant && (
         <div className="composer-current-mode">
           <span>{currentLabel}</span>
-          <button type="button" aria-label="恢复默认模式" title="恢复政策问答" disabled={busy} onClick={() => selectMode("qa")}><X size={12} /></button>
+          <button type="button" aria-label="恢复默认模式" title="恢复政策问答" disabled={busy} onClick={resetMode}><X size={12} /></button>
+        </div>
+      )}
+      {selectedCitations.length > 0 && (
+        <div className="citation-selected" role="group" aria-label="已引用文献">
+          {selectedCitations.map(citation => (
+            <span key={citation.planid} className="citation-chip">
+              <BookMarked size={13} aria-hidden="true" />
+              <span>{citation.title ?? "未命名政策文献"}</span>
+              <button type="button" aria-label={`移除引用 ${citation.title ?? "未命名政策文献"}`} disabled={busy} onClick={() => setSelectedCitations(current => current.filter(item => item.planid !== citation.planid))}>
+                <X size={11} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
         </div>
       )}
       {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
@@ -164,31 +195,34 @@ export function ResearchForm({
           id="research-extra-panel"
           ref={menuRef}
           role="region"
-          aria-label={panel === "root" ? "更多功能菜单" : panel === "modes" ? "研究模式选择" : "指令模板列表"}
+          aria-label={panel === "root" ? "更多功能菜单" : panel === "citations" ? "引用文献选择" : "指令模板列表"}
         >
           {panel === "root" ? (
             <div className="extra-menu-items">
-              <button type="button" className="extra-menu-item" onClick={() => setPanel("modes")}>
-                <FileText size={18} aria-hidden="true" /><span>研究模式</span><span className="extra-menu-current">{currentLabel}</span><ChevronRight size={16} aria-hidden="true" />
+              <button type="button" className="extra-menu-item" onClick={() => setPanel("citations")}>
+                <BookMarked size={18} aria-hidden="true" /><span>引用文献</span>
+                {selectedCitations.length > 0 && <span className="extra-menu-current">{selectedCitations.length} 篇</span>}
+                <ChevronRight size={16} aria-hidden="true" />
               </button>
               <button type="button" className="extra-menu-item" onClick={() => { setTemplateMode(mode); setPanel("templates"); }}>
                 <LayoutTemplate size={18} aria-hidden="true" /><span>指令模板</span><ChevronRight className="extra-menu-chevron" size={16} aria-hidden="true" />
               </button>
             </div>
-          ) : panel === "modes" ? (
+          ) : panel === "citations" ? (
             <>
               <header className="extra-panel-header">
                 <button type="button" aria-label="返回更多功能" onClick={() => setPanel("root")}><ArrowLeft size={17} /></button>
-                <strong>研究模式</strong>
+                <strong>引用文献</strong>
                 <button type="button" aria-label="关闭更多功能" onClick={closeMenu}><X size={17} /></button>
               </header>
-              <div className="extra-menu-items" role="group" aria-label="可选研究模式">
-                {modes.map(({ id, label }) => (
-                  <button type="button" key={id} className="extra-menu-item" aria-pressed={mode === id} onClick={() => selectMode(id)}>
-                    <span>{label}</span>{mode === id && <Check size={17} aria-hidden="true" />}
-                  </button>
+              <CitationPicker
+                selected={selectedCitations}
+                onToggle={(citation) => setSelectedCitations(current => (
+                  current.some(item => item.planid === citation.planid)
+                    ? current.filter(item => item.planid !== citation.planid)
+                    : current.length >= 8 ? current : [...current, citation]
                 ))}
-              </div>
+              />
             </>
           ) : (
             <>

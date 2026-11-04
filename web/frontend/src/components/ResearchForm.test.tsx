@@ -1,23 +1,52 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { catalogClient } from "../api/catalogClient";
+import { promptTemplates } from "../promptTemplates";
 import { ResearchForm } from "./ResearchForm";
 import type { TaskType } from "../types";
 
+vi.mock("../api/catalogClient", () => ({
+  catalogClient: { list: vi.fn() },
+}));
+
 function ControlledForm({
   onSend = vi.fn(),
+  onAdvancedSubmit = vi.fn(),
 }: {
   onSend?: (message: string) => void;
+  onAdvancedSubmit?: (request: unknown) => void;
 }) {
   const [mode, setMode] = useState<TaskType>("qa");
   const [value, setValue] = useState("");
-  return <ResearchForm mode={mode} value={value} busy={false}
-    onChange={setValue} onModeChange={setMode} onSend={onSend} />;
+  const modes: { id: TaskType; label: string }[] = [
+    { id: "qa", label: "政策问答" },
+    { id: "organize", label: "文献梳理" },
+    { id: "extract", label: "要素提取" },
+    { id: "compare", label: "政策比较" },
+    { id: "compare_plans", label: "多方案分析" },
+  ];
+  const changeMode = (next: TaskType) => {
+    if (next !== mode && promptTemplates[mode].some(item => item.prompt === value)) setValue("");
+    setMode(next);
+  };
+  return <div>
+    <div role="group" aria-label="研究模式">
+      {modes.map(({ id, label }) => (
+        <button type="button" key={id} aria-label={`选择${label}`} aria-pressed={mode === id} onClick={() => changeMode(id)}>{label}</button>
+      ))}
+    </div>
+    <ResearchForm mode={mode} value={value} busy={false}
+      onChange={setValue} onModeChange={setMode} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit as never} />;
+  </div>;
 }
 
-function openModes() {
+function selectMode(label: string) {
+  fireEvent.click(screen.getByRole("button", { name: `选择${label}` }));
+}
+
+function openMenu() {
   fireEvent.click(screen.getByRole("button", { name: "更多功能" }));
-  fireEvent.click(screen.getByRole("button", { name: /研究模式/ }));
 }
 
 function openTemplates() {
@@ -27,19 +56,102 @@ function openTemplates() {
 
 describe("ResearchForm plus menu", () => {
   afterEach(cleanup);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(catalogClient.list).mockResolvedValue({
+      dataset: {} as never,
+      query: {} as never,
+      matched_documents: 1,
+      page: 1,
+      page_size: 8,
+      total_pages: 1,
+      items: [{
+        planid: "18563",
+        title: "江西省十四五规划纲要",
+        area: "江西省",
+        fyp: "十四五",
+        plantype_label: "发展规划",
+        matches: [],
+      }],
+    });
+  });
 
-  it("shows one compact plus entry and keeps all five mode constraints inside it", () => {
+  it("uses visible mode tabs and keeps the plus menu for citations and templates", () => {
     const onSend = vi.fn();
     render(<ControlledForm onSend={onSend} />);
-    expect(screen.queryByRole("tablist", { name: "研究模式" })).not.toBeInTheDocument();
+    openMenu();
+    expect(screen.getByRole("region", { name: "更多功能菜单" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "引用文献" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "指令模板" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /研究模式/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "引用文献" }));
+    expect(screen.getByRole("region", { name: "引用文献选择" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关闭更多功能" }));
+    expect(screen.queryByRole("region", { name: "引用文献选择" })).not.toBeInTheDocument();
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("lets users select library documents and passes citations with the request", async () => {
+    const onSend = vi.fn();
+    render(<ControlledForm onSend={onSend} />);
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: "引用文献" }));
+    const result = await screen.findByRole("button", { name: /江西省十四五规划纲要/ });
+    fireEvent.click(result);
+    fireEvent.click(screen.getByRole("button", { name: "关闭更多功能" }));
+    expect(screen.getByRole("group", { name: "已引用文献" })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
+      target: { value: "江西数字经济发展要求是什么" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    expect(onSend).toHaveBeenCalledWith(
+      "江西数字经济发展要求是什么\n\n已引用文献：\n- planid=18563 《江西省十四五规划纲要》",
+      expect.arrayContaining([expect.objectContaining({ planid: "18563" })]),
+    );
+    expect(screen.queryByRole("group", { name: "已引用文献" })).not.toBeInTheDocument();
+  });
+
+  it("passes selected documents as explicit targets for comparison modes", async () => {
+    const onAdvancedSubmit = vi.fn();
+    render(<ControlledForm onAdvancedSubmit={onAdvancedSubmit} />);
+    selectMode("政策比较");
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: "引用文献" }));
+    const result = await screen.findByRole("button", { name: /江西省十四五规划纲要/ });
+    fireEvent.click(result);
+    fireEvent.click(screen.getByRole("button", { name: "关闭更多功能" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
+      target: { value: "比较数字经济发展目标" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+    expect(onAdvancedSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      task_type: "compare",
+      question: "比较数字经济发展目标",
+      targets: ["18563"],
+    }));
+  });
+
+  it("searches the catalog before showing citation results", async () => {
+    render(<ControlledForm />);
+    openMenu();
+    fireEvent.click(screen.getByRole("button", { name: "引用文献" }));
+    // eslint-disable-next-line no-console
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索引用文献" }), {
+      target: { value: "数字经济" },
+    });
+    await waitFor(() => expect(catalogClient.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ q: "数字经济", page_size: 8 }),
+      expect.any(AbortSignal),
+    ));
+    await screen.findByRole("button", { name: /江西省十四五规划纲要/ });
+  });
+
+  it("shows one compact plus entry and keeps mode switching outside nested menus", () => {
+    const onSend = vi.fn();
+    render(<ControlledForm onSend={onSend} />);
     expect(screen.getByRole("button", { name: "更多功能" })).toHaveAttribute("aria-expanded", "false");
-    openModes();
-    expect(screen.getByRole("region", { name: "研究模式选择" })).toBeInTheDocument();
-    for (const label of ["政策问答", "文献梳理", "要素提取", "政策比较", "多方案分析"])
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
-    expect(screen.getByText("政策比较")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "研究模式选择" })).not.toBeInTheDocument();
+    selectMode("政策比较");
+    expect(screen.getAllByText("政策比较").length).toBeGreaterThan(0);
     expect(onSend).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "恢复默认模式" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "恢复默认模式" }));
@@ -51,20 +163,20 @@ describe("ResearchForm plus menu", () => {
     render(<ControlledForm onSend={onSend} />);
     openTemplates();
     expect(screen.getByRole("region", { name: "指令模板列表" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
+    fireEvent.click(screen.getByRole("button", { name: /^政策比较$/ }));
     fireEvent.click(screen.getByRole("button", { name: /发展目标比较/ }));
     const input = screen.getByRole("textbox", { name: "研究需求" });
     expect(input).toHaveValue("比较浙江和江苏十四五数字经济发展目标的异同");
     expect(input).toHaveFocus();
     expect(screen.queryByRole("region", { name: "指令模板列表" })).not.toBeInTheDocument();
-    openModes();
-    expect(screen.getByRole("button", { name: "政策问答" })).toHaveAttribute("aria-pressed", "true");
+    selectMode("政策问答");
+    expect(screen.getByRole("button", { name: "选择政策问答" })).toHaveAttribute("aria-pressed", "true");
     expect(onSend).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "政策比较" }));
+    selectMode("政策比较");
     expect(input).toHaveValue("");
     fireEvent.change(input, { target: { value: "修改后比较政策支持措施" } });
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
-    expect(onSend).toHaveBeenCalledWith("修改后比较政策支持措施");
+    expect(onSend).toHaveBeenCalledWith("修改后比较政策支持措施", undefined);
   });
 
   it("preserves edited user text when changing mode", () => {
@@ -74,8 +186,7 @@ describe("ResearchForm plus menu", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "研究需求" }), {
       target: { value: "我手工修改的研究要求" },
     });
-    openModes();
-    fireEvent.click(screen.getByRole("button", { name: "要素提取" }));
+    selectMode("要素提取");
     expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("我手工修改的研究要求");
     expect(screen.queryByRole("textbox", { name: /政策编号|研究对象编号/ })).not.toBeInTheDocument();
   });
@@ -87,7 +198,7 @@ describe("ResearchForm plus menu", () => {
     expect(screen.getByRole("region", { name: "更多功能菜单" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("region", { name: "更多功能菜单" })).not.toBeInTheDocument();
-    openModes();
+    openMenu();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("region", { name: "研究模式选择" })).not.toBeInTheDocument();
   });

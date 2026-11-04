@@ -1219,6 +1219,10 @@
   width: min(800px, calc(100vw - 48px));
   padding: 14px;
 }
+.research-composer .research-extra-panel--citations {
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px;
+}
 .conversation-composer-wrap .research-composer .research-extra-panel {
   top: auto;
   bottom: calc(100% + 9px);
@@ -1245,6 +1249,111 @@
 .extra-menu-item[aria-pressed="true"] { color: #aa302b; font-weight: 600; }
 .extra-menu-current { margin-left: auto; color: #968e89; font-size: 11px; }
 .extra-menu-chevron { margin-left: auto; }
+.citation-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e5e0dc;
+  border-radius: 8px;
+  background: #fcfbfa;
+  color: #857b77;
+}
+.citation-search:focus-within { border-color: #d8a7a3; background: #fff; }
+.citation-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #4b423e;
+  font-size: 12px;
+}
+.citation-search input::placeholder { color: #b6ada9; }
+.citation-results {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.citation-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #4b423e;
+  text-align: left;
+  cursor: pointer;
+}
+.citation-result:hover,
+.citation-result:focus-visible { background: #f8f4f2; }
+.citation-result.is-selected {
+  border-color: #e9d3d0;
+  background: #fdf7f6;
+  color: #9f302b;
+}
+.citation-result-content {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.citation-result-content strong,
+.citation-result-content span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.citation-result-content strong { font-size: 12px; font-weight: 600; }
+.citation-result-content span { color: #857b77; font-size: 11px; }
+.citation-result.is-selected .citation-result-content span { color: #a6736f; }
+.citation-status {
+  margin: 4px 0;
+  color: #857b77;
+  font-size: 12px;
+}
+.citation-selected {
+  display: flex;
+  flex-wrap: wrap;
+  justify-self: start;
+  gap: 6px;
+  margin: 5px 0 0 6px;
+}
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 280px;
+  padding: 3px 5px 3px 8px;
+  border: 1px solid #e9d3d0;
+  border-radius: 14px;
+  background: #fdf7f6;
+  color: #9f302b;
+  font-size: 11px;
+}
+.citation-chip > span:not(button) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.citation-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.citation-chip button:hover { background: #f3e4e1; }
 .extra-panel-header {
   display: flex;
   align-items: center;

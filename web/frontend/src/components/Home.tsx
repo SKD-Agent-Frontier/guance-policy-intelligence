@@ -33,7 +33,7 @@ export function Home({ mode, value, busy, onChange, onModeChange, onSend, onAdva
           <p>从政策原文出发，梳理问题、发现依据。</p>
         </div>
         <div className="home-mode-tabs" role="group" aria-label="研究模式">
-          {modes.map(({ id, label, Icon }) => <button key={id} type="button" aria-label={`选择${label}`} aria-pressed={mode === id} className={mode === id ? "is-selected" : ""} onClick={() => onModeChange(id)}><Icon size={19} aria-hidden="true" /><span>{label}</span></button>)}
+        {modes.map(({ id, label, Icon }) => <button key={id} type="button" aria-label={`选择${label}`} aria-pressed={mode === id} className={mode === id ? "is-selected" : ""} onClick={() => onModeChange(id)}><Icon size={19} aria-hidden="true" /><span>{label}</span></button>)}
         </div>
         <ResearchForm mode={mode} value={value} busy={busy} onChange={onChange} onModeChange={onModeChange} onSend={onSend} onAdvancedSubmit={onAdvancedSubmit} advancedDraft={advancedDraft} onAdvancedDraftChange={onAdvancedDraftChange} onOpenCatalog={onOpenCatalog} enableTemplates homeVariant />
         <section className="home-examples" aria-label="示例问题"><h2>试试这样提问</h2>{examples.map((example) => <button key={example} type="button" onClick={() => { onModeChange("qa"); onChange(example); }}><span>{example}</span><ArrowRight size={18} aria-hidden="true" /></button>)}</section>

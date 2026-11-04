@@ -170,7 +170,7 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
           onChange={setDraft}
           onModeChange={onModeChange}
           onSend={(message) => { submittedDraft.current = message; setDraft(""); onSend(message); }}
-          onAdvancedSubmit={onAdvancedSubmit}
+          onAdvancedSubmit={(request) => { setDraft(""); onAdvancedSubmit(request); }}
           advancedDraft={conversation.advancedDraft}
           onAdvancedDraftChange={onAdvancedDraftChange}
           onOpenCatalog={onOpenCatalog}
