@@ -25,6 +25,7 @@ class Settings:
     max_turns: int = 12
     max_tool_calls: int = 20
     max_plan_revisions: int = 1
+    qa_engine: str = "controlled"
     max_history_items: int = 40
     run_timeout: float = 180
     tool_timeout: float = 60   # >= RAG 队列20s+执行30s，避免 Agent 先放弃而库线程仍在跑
@@ -60,6 +61,8 @@ class Settings:
             raise ValueError("KB_BACKEND 仅支持 mock、sample 或 rag")
         if self.rag_mode not in {"bm25", "dense", "hybrid"}:
             raise ValueError("RAG_MODE 仅支持 bm25、dense 或 hybrid")
+        if self.qa_engine not in {"controlled", "sdk"}:
+            raise ValueError("QA_ENGINE 仅支持 controlled 或 sdk")
         if self.kb_backend == "rag" and not self.rag_store_project.strip():
             raise ValueError(
                 "KB_BACKEND=rag 时必须设置 RAG_STORE_PROJECT，指向恢复后的运行库目录"

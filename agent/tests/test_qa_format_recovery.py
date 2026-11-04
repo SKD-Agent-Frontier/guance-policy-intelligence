@@ -39,7 +39,7 @@ class FakeRuntime:
     def log(self, stage, **values):
         self.logs.append((stage, values))
 
-    async def complete_text(self, messages, *, max_tokens, timeout):
+    async def complete_text(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         self.calls.append({"messages": messages, "max_tokens": max_tokens, "timeout": timeout})
         if isinstance(self.reply, Exception):
             raise self.reply

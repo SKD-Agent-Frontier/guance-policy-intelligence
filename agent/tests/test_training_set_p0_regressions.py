@@ -31,10 +31,13 @@ def test_new_facts_bypass_historical_only_path():
              "evidence_refs": [{"chunk_id": "c1"}],
              "quote_verification": {"approved": 1, "unverified": 0}}
     assert classify_intent("总结以上内容。", prior).use_history
-    for question in ("其中铝型材和不锈钢的量化指标是什么？请引用原文",
-                     "这些支持方式相比有什么不同？特别是大棚果和奶牛养殖"):
-        assert requires_fresh_evidence(question)
-        assert not classify_intent(question, prior).use_history
+    fresh_lookup = "其中铝型材和不锈钢的量化指标是什么？请引用原文"
+    comparison_expansion = "这些支持方式相比有什么不同？特别是大棚果和奶牛养殖"
+    assert requires_fresh_evidence(fresh_lookup)
+    assert not classify_intent(fresh_lookup, prior).use_history
+    assert requires_fresh_evidence(comparison_expansion)
+    intent = classify_intent(comparison_expansion, prior)
+    assert intent.use_history and intent.comparison_expansion
 
 
 def test_scope_survives_failed_continuation_but_not_scope_change():

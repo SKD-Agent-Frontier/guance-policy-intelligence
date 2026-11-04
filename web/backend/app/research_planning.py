@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from guance_agent.routing import current_question, parse_fyps
 from pydantic import BaseModel, ConfigDict, Field
 
 from .compare_resolution import _DIMENSIONS, _PROVINCES, resolve_compare
@@ -38,11 +39,26 @@ TITLE_REQUIRED_THEMES = frozenset({
 
 
 def _period(question: str) -> str | None:
+    question = current_question(question)
+
+    def canonical(value: str) -> str:
+        normalized = normalize_fyp(value)
+        if normalized in {"第十个五年规划", "第十个五年计划"}:
+            return "第十个五年计划"
+        return normalized
+
+    route_periods = list(dict.fromkeys(parse_fyps(question)))
+    if len(route_periods) == 1:
+        return canonical(route_periods[0])
+    if len(route_periods) > 1:
+        return None
     explicit = EXPLICIT_PERIOD.findall(question)
     names = ORDINAL.findall(question)
-    values = [normalize_fyp(value) for value in explicit + names]
+    values = [canonical(value) for value in explicit + names]
     if HISTORIC_SHORTHAND.search(question):
-        values.append(normalize_fyp("第十个五年规划"))
+        values.append(canonical("第十个五年规划"))
+    # The shared route parser also recognizes quoted shorthand such as
+    # “十五”期间, which is a historical plan rather than 十五五.
     unique = list(dict.fromkeys(values))
     return unique[0] if len(unique) == 1 else None
 
@@ -59,14 +75,19 @@ def _dimensions(question: str) -> list[str]:
 def _period_matches(record: PolicyRecord, period: str | None) -> bool:
     if not period:
         return True
-    meta = normalize_fyp(record.fyp)
-    if meta:
-        return meta == period
-    # 未标注规划期时，必须由题名明确确认，不能从正文中的偶然出现推断。
-    title = record.title or ""
-    alias = next((name for name in ORDINAL.findall(title)
-                  if normalize_fyp(name) == period), None)
-    return bool(alias or period in title)
+
+    def period_key(value: str | None) -> str | None:
+        normalized = normalize_fyp(value) if value else None
+        if normalized in {"第十个五年规划", "第十个五年计划"}:
+            return "第十个五年计划"
+        return normalized
+
+    wanted = period_key(period)
+    meta_period = period_key(record.fyp)
+    if meta_period:
+        return wanted is not None and meta_period == wanted
+    title_periods = {period_key(value) for value in parse_fyps(record.title or "")}
+    return wanted is not None and wanted in title_periods
 
 
 def _score(record: PolicyRecord, question: str, period: str | None) -> int:
@@ -136,10 +157,42 @@ def _prefecture_names(catalog: PolicyCatalogService, province: str) -> list[str]
                    if child["tier"] == "prefecture"})
 
 
+def _canonical_region_aliases(name: str) -> tuple[str, ...]:
+    """Derive common ethnicity-shortened names from an official area label."""
+    aliases = []
+    for suffix, short_suffix in (("自治县", "县"), ("自治州", "州")):
+        if not name.endswith(suffix):
+            continue
+        match = re.fullmatch(
+            rf"(?P<base>[\u4e00-\u9fff]{{2,8}}?)[\u4e00-\u9fff]{{1,5}}族{suffix}",
+            name,
+        )
+        if match:
+            aliases.append(match.group("base") + short_suffix)
+    return tuple(aliases)
+
+
 def _mentioned_areas(question: str, catalog: PolicyCatalogService) -> list[str]:
+    question = current_question(question)
     names = {node["name"] for node in catalog._region_nodes.values()
              if node["tier"] in ("county", "prefecture", "province")}
     names.update(rec.area for rec in catalog.snapshot.records if rec.area)
+    aliases: dict[str, set[str]] = {}
+    title_region = re.compile(
+        r"[\u4e00-\u9fa5]{2,12}?(?:自治县|自治州|自治旗|省|市|区|县|盟|旗|州)"
+    )
+    for record in catalog.snapshot.records:
+        canonical = _record_area(catalog, record)
+        if not canonical:
+            continue
+        for alias in _canonical_region_aliases(canonical):
+            aliases.setdefault(alias, set()).add(canonical)
+            if alias in question:
+                names.add(alias)
+        for alias in title_region.findall(record.title or ""):
+            aliases.setdefault(alias, set()).add(canonical)
+            if alias in question:
+                names.add(alias)
     # 最长地名优先，短名出现在长名之内时不再匹配。
     matches: list[tuple[int, str]] = []
     occupied: list[tuple[int, int]] = []
@@ -149,7 +202,14 @@ def _mentioned_areas(question: str, catalog: PolicyCatalogService) -> list[str]:
                 continue
             occupied.append(hit.span())
             matches.append((hit.start(), name))
-    return [name for _, name in sorted(matches)]
+    resolved = []
+    for _, name in sorted(matches):
+        mapped = aliases.get(name) or set()
+        # Historical administrative names in a verified policy title may map
+        # to the catalog's current canonical region (e.g. 密云县 -> 密云区).
+        # Ambiguous aliases stay literal so retrieval fails closed.
+        resolved.append(next(iter(mapped)) if len(mapped) == 1 else name)
+    return list(dict.fromkeys(resolved))
 
 
 def _ready(mode: Mode, question: str, records: list[PolicyRecord], dimensions: list[str],
@@ -186,7 +246,7 @@ def _unperioded_comparison_coverage(question: str, catalog: PolicyCatalogService
     topics = [item for item in TITLE_REQUIRED_THEMES if item in question]
     if not topics:
         return _clarify("请说明需要比较的政策主题；目前无法判断可比研究对象。")
-    topic = sorted(topics, key=lambda value: (-len(value), value))[0]
+    topic = min(topics, key=lambda value: (-len(value), value))
     selected: list[PolicyRecord] = []
     gaps: list[str] = []
     ambiguous: list[str] = []

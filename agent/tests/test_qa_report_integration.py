@@ -72,7 +72,7 @@ async def test_submit_reviews_verified_report_once_and_publishes_qa_report_1(env
     ])
     reviewed = []
 
-    async def review(self, messages, *, max_tokens, timeout):
+    async def review(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         payload = json.loads(messages[1]["content"].split("\n", 1)[1])
         reviewed.append((messages, max_tokens, timeout))
         return json.dumps({
@@ -104,7 +104,7 @@ async def test_submit_report_review_timeout_fails_closed_without_raw_report(env,
         _report_payload(hit),
     ])
 
-    async def timeout(self, messages, *, max_tokens, timeout):
+    async def timeout(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         raise TimeoutError
 
     monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
@@ -131,7 +131,7 @@ async def test_multiobject_report_marks_object_without_evidence_as_missing(env, 
                    ensure_ascii=False),
     ])
 
-    async def review(self, messages, *, max_tokens, timeout):
+    async def review(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         payload = json.loads(messages[1]["content"].split("\n", 1)[1])
         return json.dumps({
             "facts": [{"index": item["index"], "supported": True}
@@ -189,7 +189,7 @@ async def test_qa_report_retractions_happen_before_research_contract_evaluation(
         _report_payload(hit),
     ])
 
-    async def reject(self, messages, *, max_tokens, timeout):
+    async def reject(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         payload = json.loads(messages[1]["content"].split("\n", 1)[1])
         return json.dumps({
             "facts": [{"index": item["index"], "supported": False}

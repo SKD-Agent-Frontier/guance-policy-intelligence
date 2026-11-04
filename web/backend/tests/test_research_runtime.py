@@ -71,6 +71,28 @@ async def test_explicit_catalog_targets_become_trusted_plan_documents(mode, targ
 
 
 @pytest.mark.asyncio
+async def test_catalog_dimension_hints_cannot_drop_locked_contract_dimensions():
+    question = "在临朐县第十一个五年规划中，产业布局这条主线如何体现？"
+    selected_task = task(
+        "qa", None, question, dimensions=["产业布局这条主线"],
+    )
+    contract = TaskContract.from_task(selected_task)
+    plan = ResearchPlanner.initial(contract)
+    selected_catalog = catalog(record(
+        "linqu-11", "临朐县", fyp="第十一个五年规划",
+        title="临朐县国民经济和社会发展第十一个五年规划纲要",
+        body="围绕产业布局这条主线，优化产业结构并发展特色产业。",
+    ))
+
+    discovery = await discover_run_plan(
+        selected_task, contract, plan, time.monotonic() + 10, selected_catalog,
+    )
+
+    assert discovery.status == "ready"
+    assert discovery.plan.dimensions == ["产业布局这条主线"]
+
+
+@pytest.mark.asyncio
 async def test_missing_or_underfilled_catalog_targets_fail_closed():
     selected_catalog = catalog(record("h1", "衡水市"))
     qa = task("qa", ["absent"])

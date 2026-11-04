@@ -6,9 +6,15 @@ from pydantic import ValidationError
 from guance_agent.context import RunContext
 from guance_agent.kb import get_kb
 from guance_agent.output import build_result, rebuild_trusted_answer
-from guance_agent.qa_report_verification import finalize_report
+from guance_agent.qa_report_verification import (
+    _to_structured,
+    finalize_report,
+    prune_report,
+    review_requirement_support,
+)
+from guance_agent.research_quality import requirements
 from guance_agent.runner import ExecOutcome
-from guance_agent.schemas import AgentOutput, Claim, QABlock, QAReportDraft
+from guance_agent.schemas import AgentOutput, Claim, EvidenceRef, QABlock, QAReportDraft, RunResult
 from guance_agent.verify import verify_quotes
 
 
@@ -32,6 +38,193 @@ def report(claims, *, dimensions=None, blocks=None):
     return QAReportDraft(dimensions=dimensions, blocks=blocks)
 
 
+def _analysis_result(
+        question: str, planids: tuple[str, str],
+        source_areas: tuple[str, str] = ("密云区", "密云区")):
+    claims = [
+        Claim(text="十五期间已启动国家级生态县建设。", chunk_ids=["old-period"],
+              quotes=["十五期间已启动国家级生态县建设。"]),
+        Claim(text="十一五继续深化生态县建设并加强水源涵养。", chunk_ids=["new-period"],
+              quotes=["十一五继续深化生态县建设并加强水源涵养。"]),
+    ]
+    refs = [
+        EvidenceRef(planid=planids[index], chunk_id=chunk_id,
+                    title="密云县国民经济和社会发展第十一个五年规划纲要",
+                    area=source_areas[index], fyp="第十一个五年规划",
+                    admin_level=None, plantype_label=None, section_idx=1,
+                    section_path="生态建设", char_start=0, char_end=50, source="kb_read")
+        for index, chunk_id in enumerate(("old-period", "new-period"))
+    ]
+    result = RunResult(
+        run_id="run", session_id="session", status="completed", evidence_status="verified",
+        answer="", claims=claims, evidence_refs=refs, dropped_chunk_ids=[], error=None,
+        meta={"research_intent": {"primary": "compare"}, "research_question": question},
+        warnings=[], route={"areas": ["密云区"]},
+    )
+    candidates = [{
+        "id": "analysis", "title_path": ["对比分析"], "dimension": "综合判断",
+        "kind": "analysis", "text": "规划延续了生态县建设，并将生态优势转向产业发展。",
+        "support_signatures": [
+            (claim.text, tuple(claim.chunk_ids)) for claim in claims
+        ],
+    }]
+    current = {
+        (claim.text, tuple(claim.chunk_ids)): (index, claim)
+        for index, claim in enumerate(claims)
+    }
+    return result, candidates, current
+
+
+def test_same_document_period_comparison_allows_audited_analysis():
+    question = "与密云县'十五'期间相比，'十一五'规划中生态优势有哪些延续和新发展？"
+    result, candidates, current = _analysis_result(question, ("620", "620"))
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert [block["kind"] for block in result.structured["blocks"]] == ["analysis"]
+
+
+def test_single_region_topic_comparison_does_not_require_another_document():
+    question = "比较密云县规划中工业与农业的发展安排有何不同？"
+    result, candidates, current = _analysis_result(question, ("620", "620"))
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert [block["kind"] for block in result.structured["blocks"]] == ["analysis"]
+
+
+def test_same_document_topic_comparison_without_explicit_route_keeps_analysis():
+    question = "请比较规划中产业目标与农业支持方式有何不同？"
+    claims = [
+        Claim(text="产业目标是建设先进制造基地。", chunk_ids=["industry"],
+              quotes=["产业目标是建设先进制造基地。"]),
+        Claim(text="农业支持方式是建设示范基地。", chunk_ids=["agriculture"],
+              quotes=["农业支持方式是建设示范基地。"]),
+    ]
+    refs = [
+        EvidenceRef(planid="1831", chunk_id=chunk_id,
+                    title="同一规划", area=None, fyp="第十一个五年规划",
+                    admin_level=None, plantype_label=None, section_idx=index,
+                    section_path=path, char_start=0, char_end=30, source="kb_read")
+        for index, (chunk_id, path) in enumerate((
+            ("industry", "产业发展/工业"),
+            ("agriculture", "产业发展/农业"),
+        ), start=1)
+    ]
+    result = RunResult(
+        run_id="run", session_id="session", status="completed",
+        evidence_status="verified", answer="", claims=claims,
+        evidence_refs=refs, dropped_chunk_ids=[], error=None,
+        meta={"research_intent": {"primary": "compare"},
+              "research_question": question,
+              "qa_report_required_dimensions": ["地区差异"]},
+        warnings=[], route={},
+    )
+    candidates = [{
+        "id": "analysis", "title_path": ["比较分析"],
+        "dimension": "地区差异", "required_dimensions": ["地区差异"],
+        "kind": "analysis", "text": "产业侧重建设制造基地，农业侧重示范基地，支持方式不同。",
+        "support_signatures": [(claim.text, tuple(claim.chunk_ids)) for claim in claims],
+    }]
+    current = {
+        (claim.text, tuple(claim.chunk_ids)): (index, claim)
+        for index, claim in enumerate(claims)
+    }
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert [block["kind"] for block in result.structured["blocks"]] == ["analysis"]
+
+
+def test_same_document_comparison_rejects_analysis_without_both_periods_in_quotes():
+    question = "与密云县'十五'期间相比，'十一五'规划中生态优势有哪些延续和新发展？"
+    result, candidates, current = _analysis_result(question, ("620", "620"))
+    result.claims[0].quotes = ["国家级生态县建设已经启动。"]
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert result.structured["blocks"] == []
+
+
+@pytest.mark.parametrize(
+    "claim_text,analysis_text,kept",
+    [
+        ("新能源装备产业年销售收入目标为300万元。",
+         "规划目标年销售收入为300万元，高于用户提出的200万元门槛。", True),
+        ("新材料产业年销售收入目标未公开，固定资产投资额达到3亿元。",
+         "年销售收入目标未公开，固定资产投资额为3亿元。", False),
+    ],
+)
+def test_prune_allows_single_source_analysis_only_for_supported_value_check(
+        claim_text, analysis_text, kept):
+    question = "新能源装备产业年销售收入是否不少于200万元？"
+    claim = Claim(text=claim_text, chunk_ids=["c1"], quotes=[claim_text])
+    ref = EvidenceRef(
+        planid="p1", chunk_id="c1", title="示例规划", area="新河市",
+        fyp="十五五", admin_level=None, plantype_label=None, section_idx=1,
+        section_path="产业发展", char_start=0, char_end=len(claim_text),
+        source="kb_read",
+    )
+    result = RunResult(
+        run_id="r", session_id="s", status="completed", evidence_status="verified",
+        answer="", claims=[claim], evidence_refs=[ref], dropped_chunk_ids=[],
+        error=None, meta={"research_requirements": requirements(question)["units"]},
+        warnings=[], route={},
+    )
+    result._qa_report_supplied = True
+    result._qa_report_dimensions = []
+    result._qa_report_candidates = [{
+        "id": "threshold", "title_path": ["数值核验"],
+        "dimension": "数值核验", "kind": "analysis", "text": analysis_text,
+        "support_signatures": [(claim.text, tuple(claim.chunk_ids))],
+    }]
+
+    prune_report(result, None, "initial_filter")
+
+    assert bool(result._qa_report_candidates) is kept
+
+
+def test_cross_region_comparison_still_requires_distinct_source_documents():
+    question = "比较密云县与延庆县两地规划中的生态发展政策差异。"
+    result, candidates, current = _analysis_result(question, ("620", "621"))
+    result.route = {"areas": ["密云区", "延庆区"]}
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert result.structured["blocks"] == []
+
+
+def test_cross_region_analysis_requires_evidence_from_each_requested_area():
+    question = "比较密云县与延庆县两地规划中的生态发展政策差异。"
+    result, candidates, current = _analysis_result(question, ("620", "621"))
+    result.route = {"areas": ["密云区", "延庆区"]}
+    result.evidence_refs[1].area = "延庆区"
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert [block["kind"] for block in result.structured["blocks"]] == ["analysis"]
+
+
+def test_named_cross_region_comparison_fails_without_both_area_refs_even_without_route():
+    question = "比较密云县与延庆县两地规划中的生态发展政策差异。"
+    result, candidates, current = _analysis_result(question, ("620", "621"))
+    result.route = {}
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert result.structured["blocks"] == []
+
+
+def test_comparison_without_question_or_frozen_scope_fails_closed():
+    result, candidates, current = _analysis_result("", ("p1", "p2"),
+                                                   ("甲市", "乙市"))
+    result.route = {}
+
+    _to_structured(result, candidates, current, "model_reviewed")
+
+    assert result.structured["blocks"] == []
+
+
 class FakeRuntime:
     def __init__(self, settings, response):
         self.settings = settings
@@ -39,8 +232,8 @@ class FakeRuntime:
         self.response = response
         self.calls = []
 
-    async def complete_text(self, messages, *, max_tokens, timeout):
-        self.calls.append((messages, max_tokens, timeout))
+    async def complete_text(self, messages, *, max_tokens, timeout, purpose="text_completion"):
+        self.calls.append((messages, max_tokens, timeout, purpose))
         if isinstance(self.response, Exception):
             raise self.response
         return self.response
@@ -82,9 +275,35 @@ def test_report_dimensions_and_block_limits_are_validated():
         QAReportDraft(dimensions=[str(i) for i in range(9)], blocks=[])
     with pytest.raises(ValidationError):
         QAReportDraft(dimensions=["政策工具", "政策工具"], blocks=[])
-    with pytest.raises(ValidationError):
-        QABlock(id="x", title_path=["总"], dimension="政策工具", kind="analysis",
-                text="分析超过支持事实。", supporting_claim_indexes=[0])
+    block = QABlock(id="x", title_path=["总"], dimension="政策工具", kind="analysis",
+                    text="分析超过支持事实。", supporting_claim_indexes=[0])
+    assert block.supporting_claim_indexes == [0]
+
+
+def test_prune_still_rejects_single_fact_generic_analysis():
+    claim = Claim(text="工业目标包括先进制造。", chunk_ids=["c1"],
+                  quotes=["工业目标包括先进制造"])
+    ref = EvidenceRef(
+        planid="p1", chunk_id="c1", title="示例规划", area="新河市",
+        fyp="十五五", admin_level=None, plantype_label=None, section_idx=1,
+        section_path="产业发展", char_start=0, char_end=30, source="kb_read",
+    )
+    result = RunResult(
+        run_id="r", session_id="s", status="completed", evidence_status="verified",
+        answer="", claims=[claim], evidence_refs=[ref], dropped_chunk_ids=[],
+        error=None, meta={"research_requirements": []}, warnings=[], route={},
+    )
+    result._qa_report_supplied = True
+    result._qa_report_candidates = [{
+        "id": "analysis", "title_path": ["综合判断"],
+        "dimension": "综合判断", "kind": "analysis",
+        "text": "工业目标可以带动各方面发展。",
+        "support_signatures": [(claim.text, tuple(claim.chunk_ids))],
+    }]
+
+    prune_report(result, None, "initial_filter")
+
+    assert result._qa_report_candidates == []
 
 
 def test_pruning_reindexes_after_removing_fact_without_rebinding(env):
@@ -149,6 +368,40 @@ async def test_finalize_accepts_only_explicitly_supported_review_items(env):
     assert result.meta["qa_report"]["withdrawn"] == 1
     assert result.meta["qa_report"]["missing_dimensions"] == ["适用对象"]
     assert result.evidence_status == "insufficient"
+
+
+@pytest.mark.asyncio
+async def test_reviewed_requirement_support_maps_report_alias_to_frozen_dimension(env):
+    ctx = context(env)
+    ref = ctx.evidence.get(ctx.evidence.ids()[0])
+    claim = Claim(text="重点布局先进制造和现代服务业。",
+                  chunk_ids=[ref.chunk_id], quotes=["重点布局先进制造和现代服务业"])
+    draft = QAReportDraft(dimensions=["产业统筹布局"], blocks=[
+        QABlock(id="industry", title_path=["发展重点"], dimension="产业统筹布局",
+                kind="fact", text="产业重点发力方向包括先进制造和现代服务业。",
+                supporting_claim_indexes=[0]),
+    ])
+    result = build_result(env[1], ExecOutcome(AgentOutput(
+        answer="raw", claims=[claim], report=draft), None), ctx, {})
+    unit = {"id": "dimension:产业发展方向", "kind": "dimension",
+            "label": "产业发展方向", "phase": "evidence", "actionable": True}
+    result.meta.update(
+        research_question="请概括产业发展方向。",
+        research_requirements=[unit],
+        qa_report_required_dimensions=["产业发展方向"],
+        quote_verification={"checked": 1, "approved": 1, "unverified": 0},
+    )
+    runtime = FakeRuntime(env[0], json.dumps({
+        "facts": [{"index": 0, "supported": True}],
+        "blocks": [{"id": "industry", "supported": True}],
+        "requirement_support": {"supports": {unit["id"]: [0]}},
+    }, ensure_ascii=False))
+
+    await finalize_report(result, ctx, runtime, deadline=10**12)
+
+    assert result.structured["coverage"]["status"] == "complete"
+    assert result.structured["coverage"]["covered"] == ["产业发展方向"]
+    assert result.structured["blocks"][0]["required_dimensions"] == ["产业发展方向"]
 
 
 @pytest.mark.asyncio
@@ -275,6 +528,33 @@ async def test_review_budget_skip_makes_no_model_call(env):
 
 
 @pytest.mark.asyncio
+async def test_requirement_support_review_runs_directly_after_quote_verification(env):
+    from guance_agent.research_quality import requirements
+
+    ctx = context(env)
+    ref = ctx.evidence.get(ctx.evidence.ids()[0])
+    claim = Claim(text="甲市重点发展设施农业。", chunk_ids=[ref.chunk_id],
+                  quotes=["重点发展设施农业"])
+    result = build_result(env[1], ExecOutcome(AgentOutput(
+        answer="甲市重点发展设施农业。", claims=[claim]), None), ctx, {})
+    result.meta.update(
+        research_question="甲市产业发展重点是什么？",
+        research_requirements=requirements("甲市产业发展重点是什么？")["units"],
+        quote_verification={"checked": 1, "approved": 1, "unverified": 0},
+    )
+    requirement_id = result.meta["research_requirements"][0]["id"]
+    runtime = FakeRuntime(env[0], json.dumps({
+        "requirement_support": {"supports": {requirement_id: [0]}},
+    }, ensure_ascii=False))
+
+    await review_requirement_support(result, ctx, runtime, deadline=10**12)
+
+    assert result.meta["requirement_support_review"] == "completed"
+    assert result.meta["requirement_support"]["supports"] == {requirement_id: [0]}
+    assert runtime.calls[0][3] == "requirement_support_review"
+
+
+@pytest.mark.asyncio
 async def test_unbound_block_number_is_withdrawn_without_losing_same_dimension_peer(env):
     ctx = context(env)
     ref = ctx.evidence.get(ctx.evidence.ids()[0])
@@ -330,8 +610,8 @@ async def test_invalid_semantic_review_retries_once_and_only_publishes_valid_ver
                         "blocks": [{"id": "f", "supported": True}]})
 
     class SequentialRuntime(FakeRuntime):
-        async def complete_text(self, messages, *, max_tokens, timeout):
-            self.calls.append((messages, max_tokens, timeout))
+        async def complete_text(self, messages, *, max_tokens, timeout, purpose="text_completion"):
+            self.calls.append((messages, max_tokens, timeout, purpose))
             return "not JSON" if len(self.calls) == 1 else valid
 
     runtime = SequentialRuntime(env[0], None)

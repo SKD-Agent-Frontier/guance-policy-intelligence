@@ -1,5 +1,5 @@
 """Intent inference must change execution, not only label questions."""
-from guance_agent.research_intent import classify_intent
+from guance_agent.research_intent import classify_intent, intent_payload
 
 PRIOR = {
     "verified_facts": [{"text": "政策提出农业调整措施", "chunk_ids": ["c1"], "quotes": ["农业调整"]}],
@@ -49,10 +49,41 @@ def test_comparison_without_a_new_object_requests_clarification():
     assert intent.compare_without_new_object
 
 
+def test_comparison_followup_expands_history_unless_user_replaces_scope():
+    expanded = classify_intent("与其他区县比较", PRIOR)
+    replaced = classify_intent("改为只看石家庄市", PRIOR)
+
+    assert expanded.use_history
+    assert expanded.comparison_expansion
+    assert not expanded.replace_scope
+    assert intent_payload(expanded)["comparison_expansion"]
+    assert replaced.replace_scope
+
+
 def test_summary_only_instruction_never_retrieves_new_policy():
     intent = classify_intent("只总结已有证据，不要再查新文献。", PRIOR)
     assert intent.primary == "summarize"
     assert intent.use_history
+
+
+def test_bounded_summary_of_prior_target_survives_later_comparison_scope_expansion():
+    prior = {
+        **PRIOR,
+        "user_scope": {"areas": ["衡水市", "河北省"],
+                       "periods": ["第十三个五年规划"]},
+        "documents": [{"planid": "1116", "area": "衡水市",
+                       "fyp": "第十三个五年规划"},
+                      {"planid": "2210", "area": "河北省",
+                       "fyp": "第十三个五年规划"}],
+    }
+
+    same_scope = classify_intent("请将前三轮讨论内容整理成摘要，突出衡水市十三五发展目标", prior)
+    new_scope = classify_intent("改为只看石家庄市十三五规划，整理前三轮内容", prior)
+
+    assert same_scope.primary == "organize"
+    assert same_scope.use_history
+    assert not new_scope.use_history
+    assert new_scope.replace_scope
 
 
 def test_topic_only_policy_query_requests_a_reviewed_organization():

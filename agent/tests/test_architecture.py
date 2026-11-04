@@ -3,6 +3,8 @@ import ast
 
 from guance_agent.config import ROOT
 
+SDK_BOUNDARIES = {"tools", "agent", "runtime", "runner", "research_core"}
+
 
 def test_source_structure_and_dependencies():
     # 不再限制行数：行数不是复杂度的可靠代理，且会诱导为凑数字而牺牲可读性。
@@ -16,7 +18,8 @@ def test_source_structure_and_dependencies():
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.split(".")[0] == "agents":
-                    assert path.stem in {"tools", "agent", "runtime", "runner"}
+                    # research_core是独立SDK执行器；业务与证据模块仍不能直接依赖SDK。
+                    assert path.stem in SDK_BOUNDARIES
         # 依赖方向只约束模块级导入；函数内的延迟导入正是用来打破环的。
         for node in tree.body:
             if not (isinstance(node, ast.ImportFrom) and node.level == 1 and node.module):

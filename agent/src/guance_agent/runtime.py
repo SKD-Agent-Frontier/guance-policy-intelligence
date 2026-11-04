@@ -1,4 +1,5 @@
 """会话、客户端复用和本地脱敏运行日志。"""
+import asyncio
 import json
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -60,15 +61,85 @@ class Runtime:
     def client(self):
         return get_client(self.settings)
 
-    async def complete_text(self, messages, *, max_tokens: int, timeout: float) -> str:
-        """单次纯文本模型调用（无工具、无检索）；供受控的格式修复等场景使用。"""
-        response = await self.client.chat.completions.create(
-            model=self.settings.llm_model, messages=messages, max_tokens=max_tokens,
-            extra_body=thinking_off(self.settings), timeout=timeout)
-        content = getattr(getattr(response.choices[0], "message", None), "content", None)
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("empty_model_output")
-        return content
+    async def complete_text(self, messages, *, max_tokens: int, timeout: float,
+                            purpose: str = "text_completion") -> str:
+        """Call the text model and record privacy-safe per-purpose telemetry."""
+        started = perf_counter()
+        request_status = "failed"
+        input_tokens = output_tokens = None
+        finish_reason = None
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.settings.llm_model, messages=messages, max_tokens=max_tokens,
+                extra_body=thinking_off(self.settings), timeout=timeout)
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
+            if finish_reason not in {"stop", "length", "tool_calls", "content_filter", "function_call"}:
+                finish_reason = None
+            usage = getattr(response, "usage", None)
+            input_tokens = getattr(usage, "input_tokens", None)
+            if input_tokens is None:
+                input_tokens = getattr(usage, "prompt_tokens", None)
+            output_tokens = getattr(usage, "output_tokens", None)
+            if output_tokens is None:
+                output_tokens = getattr(usage, "completion_tokens", None)
+            content = getattr(getattr(response.choices[0], "message", None), "content", None)
+            if not isinstance(content, str) or not content.strip():
+                request_status = "empty_output"
+                raise ValueError("empty_model_output")
+            request_status = "completed"
+            return content
+        except (Exception, asyncio.CancelledError) as exc:
+            self._record_text_request(
+                purpose, request_status, started, input_tokens, output_tokens,
+                error=type(exc).__name__, finish_reason=finish_reason,
+            )
+            raise
+        finally:
+            if request_status == "completed":
+                self._record_text_request(
+                    purpose, request_status, started, input_tokens, output_tokens,
+                    finish_reason=finish_reason)
+
+    def _record_text_request(self, purpose, status, started, input_tokens,
+                             output_tokens, error=None, finish_reason=None):
+        entry = {
+            "purpose": str(purpose)[:64], "status": status,
+            "elapsed_ms": round((perf_counter() - started) * 1000),
+            "input_tokens": input_tokens, "output_tokens": output_tokens,
+        }
+        if error:
+            entry["error"] = error
+        if finish_reason is not None:
+            entry["finish_reason"] = finish_reason
+        requests = self.meta.setdefault("text_model_requests", [])
+        requests.append(entry)
+        aggregate = self.meta.setdefault("text_model_usage", {
+            "model_calls": 0, "successful_calls": 0, "failed_calls": 0,
+            "input_tokens": 0, "output_tokens": 0,
+            "calls_with_input_usage": 0, "calls_with_output_usage": 0,
+            "by_purpose": {},
+        })
+        aggregate["model_calls"] += 1
+        aggregate["successful_calls" if status == "completed" else "failed_calls"] += 1
+        if input_tokens is not None:
+            aggregate["input_tokens"] += int(input_tokens)
+            aggregate["calls_with_input_usage"] += 1
+        if output_tokens is not None:
+            aggregate["output_tokens"] += int(output_tokens)
+            aggregate["calls_with_output_usage"] += 1
+        per_purpose = aggregate["by_purpose"].setdefault(str(purpose)[:64], {
+            "model_calls": 0, "successful_calls": 0, "failed_calls": 0,
+            "input_tokens": 0, "output_tokens": 0,
+            "calls_with_input_usage": 0, "calls_with_output_usage": 0,
+        })
+        per_purpose["model_calls"] += 1
+        per_purpose["successful_calls" if status == "completed" else "failed_calls"] += 1
+        if input_tokens is not None:
+            per_purpose["input_tokens"] += int(input_tokens)
+            per_purpose["calls_with_input_usage"] += 1
+        if output_tokens is not None:
+            per_purpose["output_tokens"] += int(output_tokens)
+            per_purpose["calls_with_output_usage"] += 1
 
     def prepare(self):
         self.session, created = open_session(
@@ -146,10 +217,12 @@ class LogHooks(RunHooks):
 
     async def on_tool_start(self, context, agent, tool):
         self.calls += 1
-        if self.calls > self.rt.settings.max_tool_calls:
+        state = getattr(self, "core_state", None)
+        limit = 48 if state is not None else self.rt.settings.max_tool_calls
+        if self.calls > limit:
             self.rt.log("tool_rejected", tool=tool.name, calls=self.calls,
-                        limit=self.rt.settings.max_tool_calls)
-            raise ToolBudgetExceeded(f"已调用 {self.calls - 1} 次 / 上限 {self.rt.settings.max_tool_calls}")
+                        limit=limit)
+            raise ToolBudgetExceeded(f"已调用 {self.calls - 1} 次 / 上限 {limit}")
         self.starts[getattr(context, "tool_call_id", id(context))] = perf_counter()
         self.rt.log("tool_start", tool=tool.name)
 
@@ -166,6 +239,9 @@ class LogHooks(RunHooks):
 
     async def on_llm_start(self, context, agent, system_prompt, input_items):
         self.llm_started = perf_counter()
+        state = getattr(self, "core_state", None)
+        if state is not None:
+            state.begin_model_call()
 
     async def on_llm_end(self, context, agent, response):
         self.turns += 1
@@ -173,6 +249,9 @@ class LogHooks(RunHooks):
         call = {"input": getattr(usage, "input_tokens", None),
                 "output": getattr(usage, "output_tokens", None)}
         self.usage_per_call.append(call)
+        state = getattr(self, "core_state", None)
+        if state is not None:
+            state.finish_model_call(usage)
         self.rt.log("llm_end", turn=self.turns,
                     elapsed_ms=round((perf_counter() - self.llm_started) * 1000),
                     input_tokens=call["input"], output_tokens=call["output"])

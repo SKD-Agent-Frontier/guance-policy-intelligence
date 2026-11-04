@@ -1,6 +1,7 @@
 """CLI 与未来 Web 共用的唯一任务入口：只做校验、装配与转交。"""
 import re
 import time
+from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -8,11 +9,12 @@ from .business import get_module, register
 from .business.compare import PolicyComparisonModule, SchemeComparisonModule
 from .business.organize import OrganizeModule
 from .config import ConfigurationError, Settings, load_settings
-from .orchestrator import run_task
+from .orchestrator import run_sdk_task, run_task
 from .output import ERRORS, build_result
 from .research_contract import TaskContract
 from .research_planner import ResearchPlanner
 from .research_runtime import ResearchRuntime
+from .routing import decide
 from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
@@ -73,7 +75,7 @@ async def submit(question: str, session_id: str | None = None,
                  task_type: str = "qa",
                  dimensions: list[str] | None = None,
                  targets: list[str] | None = None,
-                 research_discoverer=None) -> RunResult:
+                 research_discoverer=None, research_scope_resolver=None) -> RunResult:
     task = _build_task(question, session_id, user_id, task_type, dimensions, targets)
     rt = None
     research_runtime = None
@@ -93,7 +95,17 @@ async def submit(question: str, session_id: str | None = None,
             result.task_type = task.task_type
             rt.finish(result, None)
             return result
-        contract = TaskContract.from_task(task)
+        decision = decide(task.question)
+        if research_scope_resolver is not None and task.task_type == "qa":
+            resolved_scope = research_scope_resolver(task.question)
+            if hasattr(resolved_scope, "__await__"):
+                resolved_scope = await resolved_scope
+            if isinstance(resolved_scope, dict):
+                areas = resolved_scope.get("areas")
+                if isinstance(areas, list) and areas:
+                    decision = replace(decision, areas=tuple(areas),
+                                       canonical_areas=tuple(areas))
+        contract = TaskContract.from_task(task, decision=decision)
         research_runtime = ResearchRuntime(
             contract,
             ResearchPlanner.initial(contract),
@@ -101,7 +113,14 @@ async def submit(question: str, session_id: str | None = None,
             max_revisions=getattr(s, "max_plan_revisions", 1),
         )
         rt.prepare()
+        if task.task_type == "qa" and s.qa_engine == "sdk":
+            return await run_sdk_task(
+                task, s, rt, initial_decision=decision,
+                research_discoverer=research_discoverer,
+                research_runtime=research_runtime,
+            )
         return await run_task(task, s, rt, research_discoverer=research_discoverer,
+                              initial_decision=decision,
                               research_runtime=research_runtime)
     except Exception as exc:
         if isinstance(exc, ConfigurationError):
@@ -112,6 +131,9 @@ async def submit(question: str, session_id: str | None = None,
             code = "INTERNAL"
         result = build_result(task, None, None, rt.meta if rt else {},
                               RunError(code=code, message=ERRORS[code]))
+        if code == "INTERNAL":
+            # Keep a useful failure type without exposing exception text or paths.
+            result.meta["execution_failure"] = {"type": type(exc).__name__}
         result.task_type = task.task_type
         if rt:
             if research_runtime is not None and "research" not in result.meta:

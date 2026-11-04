@@ -337,23 +337,68 @@ class ResearchRuntime:
             # Model-declared dimensions cannot replace original user requirements.
             quality = (getattr(result, "meta", {}) or {}).get("research_quality")
             quality = quality if isinstance(quality, dict) else {}
-            # Do not let a missing quality report erase user-specified QA
-            # dimensions or allow one verified fact to count as full delivery.
-            required_dimensions = list(dict.fromkeys([
-                *self._contract.completion.required_dimensions,
-                *(quality.get("required_dimensions") or []),
-            ]))
-            covered = set(quality.get("covered_dimensions") or [])
-            supported_by_claim = {claim.dimension for claim in trusted_claims
-                                  if claim.dimension and evidence_verified}
-            for dimension in required_dimensions:
-                unit = f"dimension:{dimension}"
-                required.append(unit)
-                if evidence_verified and (dimension in covered or dimension in supported_by_claim):
-                    satisfied.append(unit)
-                else:
-                    gaps.append(f"research_dimension_uncovered:{dimension}")
+            quality_units = quality.get("requirement_coverage")
+            if isinstance(quality_units, list):
+                trusted_indexes = {
+                    index for index, claim in enumerate(claims)
+                    if claim in trusted_claims
+                }
+                mapped_dimensions = set()
+                for item in quality_units:
+                    if not isinstance(item, dict) or not item.get("id"):
+                        continue
+                    unit = "requirement:" + str(item["id"])
+                    required.append(unit)
+                    if item.get("kind") == "dimension":
+                        mapped_dimensions.add(str(item.get("label") or ""))
+                    support_indexes = item.get("evidence_claim_indexes") or []
+                    support_valid = (not support_indexes
+                                     or any(index in trusted_indexes
+                                            for index in support_indexes
+                                            if type(index) is int))
+                    if (item.get("status") == "covered" and evidence_verified
+                            and support_valid):
+                        satisfied.append(unit)
+                    else:
+                        gaps.append(f"research_requirement_uncovered:{item['id']}")
+
+                # Preserve explicit task dimensions when the parser omitted a unit.
+                required_dimensions = list(dict.fromkeys([
+                    *self._contract.completion.required_dimensions,
+                    *(quality.get("required_dimensions") or []),
+                ]))
+                covered_dimensions = {
+                    str(item.get("label")) for item in quality_units
+                    if isinstance(item, dict) and item.get("kind") == "dimension"
+                    and item.get("status") == "covered"
+                }
+                for dimension in required_dimensions:
+                    if dimension in mapped_dimensions:
+                        continue
+                    unit = f"dimension:{dimension}"
+                    required.append(unit)
+                    if dimension in covered_dimensions and evidence_verified:
+                        satisfied.append(unit)
+                    else:
+                        gaps.append(f"research_dimension_uncovered:{dimension}")
+            else:
+                # Legacy results without itemized coverage cannot use a Claim's
+                # model-supplied dimension label as completion authority.
+                required_dimensions = list(dict.fromkeys([
+                    *self._contract.completion.required_dimensions,
+                    *(quality.get("required_dimensions") or []),
+                ]))
+                covered = set(quality.get("covered_dimensions") or [])
+                for dimension in required_dimensions:
+                    unit = f"dimension:{dimension}"
+                    required.append(unit)
+                    if evidence_verified and dimension in covered:
+                        satisfied.append(unit)
+                    else:
+                        gaps.append(f"research_dimension_uncovered:{dimension}")
             if quality:
+                if quality.get("status") in {"partial", "insufficient"}:
+                    gaps.append("research_quality_incomplete")
                 for field, unit in (("needs_report", "audited_report"),
                                     ("needs_analysis", "audited_analysis")):
                     if quality.get(field):

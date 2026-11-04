@@ -15,11 +15,18 @@ EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句�
 def quote_budget(result) -> int:
     """按任务类型选引句数量上限，不改变逐句核验的内容与已读范围要求。
 
-    比较可有八个对象、多个维度及每格多句原文，沿用 Extract 的 120 句上限，
+    比较可有八个对象，多轮汇总也会累积已核验事实，沿用 Extract 的 120 句上限，
     避免被 QA 的 20 句额度截断。未知类型仍用普通上限，不因此获得无限核验预算。
     """
-    return (EXTRACT_MAX_QUOTES if getattr(result, "task_type", "qa")
-            in ("extract", "compare", "compare_plans") else MAX_QUOTES)
+    task_type = getattr(result, "task_type", "qa")
+    meta = getattr(result, "meta", None) or {}
+    history_count = meta.get("historical_facts_rechecked", 0)
+    accumulated_summary = (task_type == "qa" and type(history_count) is int and history_count > 0)
+    research_core_count = (meta.get("research_core") or {}).get("facts_reread", 0)
+    research_core_batch = (task_type == "qa" and type(research_core_count) is int
+                           and 0 < research_core_count <= 96)
+    return (EXTRACT_MAX_QUOTES if task_type in ("extract", "compare", "compare_plans")
+            or accumulated_summary or research_core_batch else MAX_QUOTES)
 NUMBER = re.compile(r"\d+(?:\.\d+)?%?")
 # 模型爱用有序列表：行首的 "1." 与句中标点后的 "1）" "2、" 都不是数据，先去掉再抽数字
 LIST_MARKER = re.compile(

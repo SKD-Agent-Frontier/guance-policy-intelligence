@@ -1,7 +1,7 @@
 """自然语言模式规划离线回归：只选冻结目录中的真实对象，不调用模型。"""
 
 from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
-from app.research_planning import resolve_research
+from app.research_planning import _mentioned_areas, _period, resolve_research
 
 
 def record(planid, area, period="第十三个五年规划", title=None, body="产业结构调整，优化三次产业比重。"):
@@ -34,6 +34,42 @@ def catalog(*records, mapped=True):
 
 
 QUESTION = "与河北省其他地市相比，衡水市在“十三五”规划中提出的产业结构优化目标有什么特点？"
+
+
+def test_catalog_region_match_drops_sentence_lead_noise_without_prefix_rules():
+    store = catalog(record("hengshui", "衡水市"))
+
+    assert _mentioned_areas("我正在准备研究汇报，需要归纳衡水市十三五规划", store) == ["衡水市"]
+
+
+def test_period_parser_matches_route_for_historical_fifteen_shorthand():
+    assert _period("常德市‘十五’期间产业发展有什么重点？") == "第十个五年计划"
+    assert _period("长白县十五期间规划涉及哪些领域？") == "第十个五年计划"
+
+
+def test_historical_region_alias_resolves_to_current_catalog_region():
+    store = catalog(record(
+        "miyun-11", "密云区", title="密云县国民经济和社会发展第十一个五年规划纲要"))
+
+    assert _mentioned_areas("密云县十一五规划的产业部署", store) == ["密云区"]
+
+
+def test_unique_short_alias_for_autonomous_county_uses_catalog_canonical_area():
+    store = catalog(record(
+        "changbai-10", "长白朝鲜族自治县",
+        title="长白朝鲜族自治县国民经济和社会发展第十个五年计划纲要"))
+    question = "请将前三轮讨论的内容整理成摘要，分领域说明长白县‘十五’期间的发展重点。"
+
+    assert _mentioned_areas(question, store) == ["长白朝鲜族自治县"]
+
+
+def test_ambiguous_autonomous_county_short_alias_does_not_choose_a_catalog_area():
+    store = catalog(
+        record("changbai-korean", "长白朝鲜族自治县"),
+        record("changbai-other", "长白满族自治县"),
+    )
+
+    assert _mentioned_areas("研究长白县十五期间规划", store) == ["长白县"]
 
 
 def test_collective_prefecture_comparison_finds_anchor_and_true_peers():

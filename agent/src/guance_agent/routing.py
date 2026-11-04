@@ -27,6 +27,7 @@ PERIOD = re.compile(r"第?(十[一二三四五])(?:个)?五")
 # “十五”计划（2001—2005）不是“十五五”（2026—2030）。
 # 显式排除“十五届”等序数表达；第十五个五年规划由 PERIOD 负责识别。
 HISTORICAL_TENTH = re.compile(r'(?<![一二三四五六七八九十第])(?:[“"「])?十五(?:[”"」])?(?!五|届|大|中|个|年|岁)')
+HISTORICAL_PERIOD = re.compile(r"(?<![一二三四五六七八九十])第?([一二三四五六七八九])(?:个)?五(?!折|届|大|中)")
 PERIOD_ALIAS = {
     "十一": "第十一个五年规划", "十二": "第十二个五年规划", "十三": "第十三个五年规划",
     "十四": "第十四个五年规划", "十五": "第十五个五年规划",
@@ -54,6 +55,8 @@ class RouteDecision:
     planids: tuple[str, ...] = ()
     titles: tuple[str, ...] = ()
     areas: tuple[str, ...] = ()
+    # Populated only by the API's frozen policy-catalog resolver.
+    canonical_areas: tuple[str, ...] = ()
     fyps: tuple[str, ...] = ()
     sub_query: str = ""
     # 非空表示这一轮不能检索，必须如实告诉用户原因，不能假装检索过
@@ -106,7 +109,8 @@ def parse_areas(text: str) -> tuple[str, ...]:
         # 「地区」是泛指，不是行政区名
         # “城市更新”“产业园区”等不是具体行政区，不能被强制作为检索过滤条件。
         generic = ("地区", "地市", "城市", "上市", "园区", "社区", "景区", "校区",
-                   "片区", "街区", "辖区", "疫区", "远郊区", "近郊区")
+                   "片区", "街区", "辖区", "疫区", "远郊区", "近郊区",
+                   "同省", "本省", "该省", "全省", "各省")
         if len(name) >= 2 and not name.endswith(generic):
             out.append(name)
     return tuple(dict.fromkeys(out))
@@ -119,6 +123,9 @@ def parse_fyps(text: str) -> tuple[str, ...]:
                for match in PERIOD.finditer(value)]
     matches.extend((match.start(), "第十个五年计划")
                    for match in HISTORICAL_TENTH.finditer(value))
+    if any(term in value for term in ("规划", "计划", "时期", "期间")):
+        matches.extend((match.start(), f"第{match.group(1)}个五年计划")
+                       for match in HISTORICAL_PERIOD.finditer(value))
     return tuple(dict.fromkeys(period for _, period in sorted(matches)))
 
 

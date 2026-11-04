@@ -170,5 +170,13 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
     )
     dimensions = resolution.get("request", {}).get("dimensions") if resolution.get("request") else None
     if dimensions:
-        result = result.model_copy(update={"plan": result.plan.model_copy(update={"dimensions": dimensions})})
+        # Explicit dimensions are the locked completion criteria. Catalog
+        # hints may fill an empty plan, but cannot expand a user-specified list.
+        selected_dimensions = (
+            [*result.plan.dimensions, *dimensions]
+            if not contract.completion.required_dimensions else result.plan.dimensions
+        )
+        merged_dimensions = list(dict.fromkeys(selected_dimensions))
+        result = result.model_copy(update={"plan": result.plan.model_copy(
+            update={"dimensions": merged_dimensions})})
     return result

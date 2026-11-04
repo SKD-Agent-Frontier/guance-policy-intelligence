@@ -5,6 +5,8 @@ import pytest
 
 from guance_agent.evidence_coverage import build_coverage, multi_document_required
 from guance_agent.qa_controlled import messages_for
+from guance_agent.research_quality import requirements
+from guance_agent.research_requirements import claim_fingerprint, requirements_fingerprint
 from guance_agent.runner import ExecOutcome
 from guance_agent.schemas import Claim, TaskRequest
 
@@ -69,6 +71,27 @@ def test_read_but_unused_document_does_not_count():
     assert coverage["next_action"]["target_planid"] == "45100"
 
 
+def test_semantic_requirement_support_overrides_legacy_literal_dimension_gate():
+    ref = _ref("c1", "23132", "海西州规划")
+    result = _result([_claim("c1", "到2025年完成产业升级")], [ref])
+    question = "海西州规划的政策目标是什么？"
+    units = requirements(question)["units"]
+    result.meta["research_requirements"] = units
+    target_id = next(unit["id"] for unit in units if unit["kind"] == "dimension")
+    result.meta["requirement_support"] = {
+        "verification": "semantic_reviewed_against_quotes",
+        "claim_fingerprint": claim_fingerprint(result.claims),
+        "requirements_fingerprint": requirements_fingerprint(units),
+        "supports": {target_id: [0]},
+    }
+
+    coverage = build_coverage(result, question, _ctx([ref]))
+
+    assert coverage["status"] == "complete"
+    assert "政策目标" in coverage["covered_dimensions"]
+    assert "dimension_uncovered:政策目标" not in coverage["gaps"]
+
+
 def test_explicit_two_documents_missing_one_is_not_complete():
     refs = [_ref("c1", "A", "A规划"), _ref("c2", "B", "B规划")]
     claims = [_claim("c1", "A政策提出产业扶持措施")]
@@ -100,6 +123,29 @@ def test_missing_dimension_produces_concrete_next_action():
     assert "产业扶持" in coverage["missing_dimensions"] or "重点措施" in coverage["missing_dimensions"]
     assert coverage["next_action"]
     assert "A规划" in coverage["next_action"]["query"]
+
+
+def test_comparison_action_targets_only_the_missing_side():
+    question = "这些工业发展目标与农业领域的特色产业培育相比，支持方式有何不同？"
+    ref = _ref("c1", "1831", "示例规划")
+    claim = _claim("c1", "农业领域的特色产业培育采用标准化和产业化支持方式")
+    result = _result([claim], [ref])
+    units = requirements(question)["units"]
+    result.meta["research_requirements"] = units
+    relation = next(unit for unit in units if unit["kind"] == "comparison")
+    result.meta["requirement_support"] = {
+        "verification": "semantic_reviewed_against_quotes",
+        "claim_fingerprint": claim_fingerprint(result.claims),
+        "requirements_fingerprint": requirements_fingerprint(units),
+        "supports": {relation["right_requirement_id"]: [0]},
+    }
+
+    coverage = build_coverage(result, question, _ctx([ref], scope=("1831",)))
+
+    actions = coverage["next_actions"]
+    assert any(action["query"] == "工业发展目标" for action in actions)
+    assert not any("农业领域的特色产业培育" in action["query"] for action in actions)
+    assert any(relation["id"] in gap for gap in coverage["gaps"])
 
 
 def test_single_document_simple_question_does_not_require_two_documents():

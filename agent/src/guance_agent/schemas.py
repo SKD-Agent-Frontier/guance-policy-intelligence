@@ -116,6 +116,10 @@ class Claim(BaseModel):
     text: str
     chunk_ids: list[str]
     quotes: list[str] = Field(default_factory=list)
+    fact_ids: list[str] = Field(default_factory=list)
+    content_period: str | None = None
+    fact_status: Literal["achieved", "target", "ongoing", "unspecified"] = "unspecified"
+    time_anchor: str | None = None
     # 要素提取时填；qa 时为 None。有了它，现有三层校验可以原样复用。
     dimension: str | None = None
     # 提取时模型只给定位线索，不给引文；引文由程序从原文截取后写回 quotes
@@ -149,9 +153,10 @@ class QABlock(BaseModel):
             raise ValueError("事实索引必须是非负整数")
         if len(set(self.supporting_claim_indexes)) != len(self.supporting_claim_indexes):
             raise ValueError("事实索引不能重复")
-        minimum = 1 if self.kind == "fact" else 2
-        if len(self.supporting_claim_indexes) < minimum:
-            raise ValueError("事实块至少依赖 1 条事实；分析块至少依赖 2 条不同事实")
+        # A one-source value check is valid; prune_report applies the frozen
+        # requirement-specific gate and still rejects generic one-source analysis.
+        if not self.supporting_claim_indexes:
+            raise ValueError("报告块至少依赖 1 条事实")
         return self
 
 

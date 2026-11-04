@@ -63,7 +63,7 @@ async def test_qa_output_parse_recovered_without_retrieval(env, monkeypatch):
     async def broken_execute(agent, task, ctx, rt, deadline=None):
         return ExecOutcome('{"answer":"已恢复", "claims": }', None)
 
-    async def fake_complete(self, messages, *, max_tokens, timeout):
+    async def fake_complete(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         calls.append(messages)
         return json.dumps({"answer": "已恢复", "claims": [], "insufficient": True},
                           ensure_ascii=False)
@@ -87,7 +87,7 @@ async def test_qa_output_parse_fails_closed_after_one_repair(env, monkeypatch):
     async def broken_execute(agent, task, ctx, rt, deadline=None):
         return ExecOutcome('{"answer":"坏", "claims": }', None)
 
-    async def fake_complete(self, messages, *, max_tokens, timeout):
+    async def fake_complete(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         calls.append(messages)
         return '{"answer":"还是坏的"'
 
@@ -114,7 +114,7 @@ async def test_objects_route_repairs_at_most_once_per_run(env, monkeypatch):
     async def broken_execute(agent, task, ctx, rt, deadline=None):
         return ExecOutcome(broken, None)
 
-    async def fake_complete(self, messages, *, max_tokens, timeout):
+    async def fake_complete(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         calls.append(messages)
         return recovered
 
@@ -144,7 +144,7 @@ async def test_objects_route_keeps_each_object_parse_record(env, monkeypatch):
         seen["count"] += 1
         return ExecOutcome(valid if seen["count"] == 1 else broken, None)
 
-    async def fake_complete(self, messages, *, max_tokens, timeout):
+    async def fake_complete(self, messages, *, max_tokens, timeout, purpose="text_completion"):
         calls.append(messages)
         return recovered
 

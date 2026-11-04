@@ -294,3 +294,80 @@ def test_explicit_qa_facets_prevent_false_complete_even_without_report():
     assert evaluation.status != "completed"
     assert "dimension:适用范围" in evaluation.required_units
     assert "research_dimension_uncovered:适用范围" in evaluation.gaps
+
+
+def test_qa_runtime_uses_itemized_requirement_support_instead_of_dimension_labels():
+    task_contract = contract("qa", dimensions=["成本"])
+    runtime = ResearchRuntime(task_contract, ResearchPlan.for_contract(task_contract),
+                              time.monotonic() + 60)
+    ref = SimpleNamespace(chunk_id="chunk1", planid="p1", document_id=None,
+                          document_version_id=None, generation_id=None, source_hash=None)
+
+    class Evidence:
+        def ids(self):
+            return ["chunk1"]
+        def get(self, chunk_id):
+            return ref if chunk_id == "chunk1" else None
+
+    result = SimpleNamespace(
+        status="completed", error=None, answer="有据可查的回答",
+        evidence_status="verified",
+        claims=[SimpleNamespace(chunk_ids=["chunk1"], dimension="成本")],
+        evidence_refs=[ref], structured=None, warnings=[],
+        meta={"research_quality": {
+            "status": "partial", "required_dimensions": ["成本"],
+            "covered_dimensions": ["成本"],
+            "requirement_coverage": [{
+                "id": "metric:cost", "kind": "metric", "label": "成本",
+                "status": "missing", "phase": "evidence",
+                "evidence_claim_indexes": [],
+            }],
+            "needs_report": False, "needs_analysis": False,
+        }},
+    )
+    runtime.transition("planning")
+    runtime.transition("ready")
+    runtime.transition("executing")
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=Evidence()))
+
+    assert evaluation.status == "partial"
+    assert "requirement:metric:cost" in evaluation.required_units
+    assert "research_requirement_uncovered:metric:cost" in evaluation.gaps
+    assert result.meta["research"]["status"] == "partial"
+    assert result.status == "completed"
+
+
+def test_qa_runtime_accepts_all_verified_requirement_units():
+    task_contract = contract("qa")
+    runtime = ResearchRuntime(task_contract, ResearchPlan.for_contract(task_contract),
+                              time.monotonic() + 60)
+    ref = SimpleNamespace(chunk_id="chunk1", planid="p1", document_id=None,
+                          document_version_id=None, generation_id=None, source_hash=None)
+
+    class Evidence:
+        def ids(self):
+            return ["chunk1"]
+        def get(self, chunk_id):
+            return ref if chunk_id == "chunk1" else None
+
+    result = SimpleNamespace(
+        status="completed", error=None, answer="有据可查的回答",
+        evidence_status="verified",
+        claims=[SimpleNamespace(chunk_ids=["chunk1"], dimension=None)],
+        evidence_refs=[ref], structured=None, warnings=[],
+        meta={"research_quality": {
+            "status": "complete", "requirement_coverage": [{
+                "id": "subject:cost", "kind": "subject_fact", "label": "成本",
+                "status": "covered", "phase": "evidence",
+                "evidence_claim_indexes": [0],
+            }],
+            "needs_report": False, "needs_analysis": False,
+        }},
+    )
+    runtime.transition("planning")
+    runtime.transition("ready")
+    runtime.transition("executing")
+    evaluation = runtime.finish(result, SimpleNamespace(evidence=Evidence()))
+
+    assert evaluation.status == "completed"
+    assert evaluation.gaps == []

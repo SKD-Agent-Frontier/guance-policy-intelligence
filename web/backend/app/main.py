@@ -152,6 +152,17 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
         if not application.state.ready:
             return JSONResponse(status_code=503, content={"detail": "服务尚未就绪"})
         try:
+            async def scope_resolver(question):
+                try:
+                    catalog = await get_policy_catalog(request)
+                except HTTPException:
+                    return {}
+                from .research_planning import _mentioned_areas
+
+                # Normalize only names explicitly present in the user's text,
+                # using the trusted catalog's longest unique region names.
+                return {"areas": _mentioned_areas(question, catalog)}
+
             async def discoverer(task, contract, plan, deadline):
                 try:
                     catalog = await get_policy_catalog(request)
@@ -173,6 +184,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
                 session_id=payload.session_id,
                 settings=application.state.settings,
                 research_discoverer=discoverer,
+                research_scope_resolver=scope_resolver,
             )
             return JSONResponse(content=jsonable_encoder(result))
         except Exception:  # noqa: BLE001

@@ -47,6 +47,13 @@ def test_area_parser_does_not_swallow_leading_verbs():
     assert parse_areas("\u8be5\u5730\u533a\u3001\u5404\u5730\u3001\u672c\u5e02") == ()
 
 
+def test_relative_province_is_not_a_literal_area_filter():
+    assert parse_areas("与同省其他地市相比，畜牧业有什么特色？") == ()
+    assert parse_areas("广州市在产业调整方面的做法与同省其他地市相比有什么特色？") == ("广州市",)
+    assert parse_areas("产业调整与本省各地相比有哪些特点？") == ()
+    assert parse_areas("大同市与河北省的产业政策有哪些差异？") == ("大同市", "河北省")
+
+
 def test_open_topic_has_no_objects():
     d = decide("\u517b\u8001\u670d\u52a1\u4eba\u624d\u57f9\u517b\u6709\u54ea\u4e9b\u653f\u7b56\u8981\u6c42\uff1f")
     assert d.kind == "open" and d.planids == () and d.titles == ()

@@ -123,7 +123,8 @@ def test_user_requirements_cover_missing_acceptance_dimensions():
     question = ("分析数字经济政策在产业扶持、基础设施建设、人才培养方面的异同，"
                 "说明其积极作用及局限")
     got = requirements(question)["dimensions"]
-    assert {"产业扶持", "基础设施建设", "人才培养", "地区差异",
+    assert "地区差异" not in got  # Topic/facet comparison does not name different regions.
+    assert {"产业扶持", "基础设施建设", "人才培养",
             "政策作用", "政策局限"} <= set(got)
 
 

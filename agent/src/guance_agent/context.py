@@ -141,11 +141,17 @@ class EvidenceRegistry:
     @staticmethod
     def _merge(old: EvidenceRef, new: EvidenceRef) -> EvidenceRef:
         """分页多次读取同一块时合并已见范围，不用后一页覆盖前一页。"""
+        # 检索预览不能补齐正文阅读范围，也不能把已读来源降级为检索命中。
+        observations = [ref for ref in (old, new) if ref.source == "kb_read"] or [old, new]
         merged = old.model_copy(update={
-            "observed_ranges": merge_ranges(old.observed_ranges + new.observed_ranges),
-            "char_start": min(old.char_start, new.char_start),
-            "char_end": max(old.char_end, new.char_end),
-            "source": new.source,
+            **{name: getattr(new, name) for name in REF_FIELDS
+               if getattr(old, name, None) is None and getattr(new, name, None) is not None},
+            "observed_ranges": merge_ranges([
+                span for ref in observations for span in ref.observed_ranges]),
+            "char_start": min(ref.char_start for ref in observations),
+            "char_end": max(ref.char_end for ref in observations),
+            "source": "kb_read" if any(ref.source == "kb_read" for ref in observations)
+                      else new.source,
             "out_of_section": old.out_of_section or new.out_of_section,
         })
         return merged.model_copy(update={"complete": covers(merged)})
