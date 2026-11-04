@@ -133,6 +133,19 @@ export function ResearchForm({
 
   return (
     <section className="research-composer" ref={composerRef} aria-label="研究需求">
+      {selectedCitations.length > 0 && (
+        <div className="citation-selected" role="group" aria-label="已引用文献">
+          {selectedCitations.map(citation => (
+            <span key={citation.planid} className="citation-chip">
+              <BookMarked size={13} aria-hidden="true" />
+              <span>{citation.title ?? "未命名政策文献"}</span>
+              <button type="button" aria-label={`移除引用 ${citation.title ?? "未命名政策文献"}`} disabled={busy} onClick={() => setSelectedCitations(current => current.filter(item => item.planid !== citation.planid))}>
+                <X size={11} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="composer-fields composer-fields--with-templates">
         <button
           type="button"
@@ -173,21 +186,8 @@ export function ResearchForm({
           <button type="button" aria-label="恢复默认模式" title="恢复政策问答" disabled={busy} onClick={resetMode}><X size={12} /></button>
         </div>
       )}
-      {selectedCitations.length > 0 && (
-        <div className="citation-selected" role="group" aria-label="已引用文献">
-          {selectedCitations.map(citation => (
-            <span key={citation.planid} className="citation-chip">
-              <BookMarked size={13} aria-hidden="true" />
-              <span>{citation.title ?? "未命名政策文献"}</span>
-              <button type="button" aria-label={`移除引用 ${citation.title ?? "未命名政策文献"}`} disabled={busy} onClick={() => setSelectedCitations(current => current.filter(item => item.planid !== citation.planid))}>
-                <X size={11} aria-hidden="true" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      {messageLength > 0 && <div className={`composer-count ${messageLength > 4000 ? "is-over-limit" : ""}`} aria-live="polite">
-        {messageLength > 4000 ? `输入过长（${messageLength}/4000 字符），请精简后发送。` : `${messageLength}/4000`}
+      {messageLength > 4000 && <div className="composer-count is-over-limit" aria-live="polite">
+        输入过长，请精简后发送。
       </div>}
       {panel && (
         <div
@@ -202,7 +202,7 @@ export function ResearchForm({
               <button type="button" className="extra-menu-item" onClick={() => setPanel("citations")}>
                 <BookMarked size={18} aria-hidden="true" /><span>引用文献</span>
                 {selectedCitations.length > 0 && <span className="extra-menu-current">{selectedCitations.length} 篇</span>}
-                <ChevronRight size={16} aria-hidden="true" />
+                <ChevronRight className="extra-menu-chevron" size={16} aria-hidden="true" />
               </button>
               <button type="button" className="extra-menu-item" onClick={() => { setTemplateMode(mode); setPanel("templates"); }}>
                 <LayoutTemplate size={18} aria-hidden="true" /><span>指令模板</span><ChevronRight className="extra-menu-chevron" size={16} aria-hidden="true" />

@@ -229,7 +229,7 @@ describe("ResearchForm plus menu", () => {
     const textarea = screen.getByRole("textbox", { name: "研究需求" });
     const send = screen.getByRole("button", { name: "发送消息" });
     fireEvent.change(textarea, { target: { value: "😀".repeat(4000) } });
-    expect(screen.getByText("4000/4000")).toBeInTheDocument();
+    expect(screen.queryByText("4000/4000")).not.toBeInTheDocument();
     expect(send).toBeEnabled();
     fireEvent.change(textarea, { target: { value: "😀".repeat(4001) } });
     expect(send).toBeDisabled();

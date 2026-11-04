@@ -1229,12 +1229,13 @@
 }
 .extra-menu-items { display: grid; gap: 2px; }
 .extra-menu-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 11px;
   width: 100%;
   min-height: 42px;
-  padding: 8px 11px;
+  padding: 8px 38px 8px 11px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -1247,8 +1248,13 @@
 .extra-menu-item:hover,
 .extra-menu-item:focus-visible { background: #f8f4f2; }
 .extra-menu-item[aria-pressed="true"] { color: #aa302b; font-weight: 600; }
-.extra-menu-current { margin-left: auto; color: #968e89; font-size: 11px; }
-.extra-menu-chevron { margin-left: auto; }
+.extra-menu-current { margin-left: auto; margin-right: 4px; color: #968e89; font-size: 11px; }
+.extra-menu-chevron {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+}
 .citation-search {
   display: flex;
   align-items: center;
@@ -1318,11 +1324,12 @@
   font-size: 12px;
 }
 .citation-selected {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   justify-self: start;
   gap: 6px;
-  margin: 5px 0 0 6px;
+  margin: 12px 8px 8px 8px;
 }
 .citation-chip {
   display: inline-flex;

@@ -149,6 +149,7 @@ export function PolicyCatalog({
   const { facets, regions, status: facetsStatus, errorMessage: facetsError, refresh: refreshFacets, reload: reloadFacets } = usePolicyCatalogFacets();
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [fallbackTypes, setFallbackTypes] = useState<{ value: string; label: string; count: number }[]>([]);
   const typePickerRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<PolicyListResponse | null>(null);
   const [dataset, setDataset] = useState<PolicyListResponse["dataset"] | null>(null);
@@ -311,6 +312,8 @@ export function PolicyCatalog({
       detailController.current?.abort();
       contentSequence.current += 1;
       contentController.current?.abort();
+      selectedPlanRef.current = null;
+      openedRequestedPolicy.current = null;
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };
   }, [loadList, refreshFacets]);
@@ -577,7 +580,28 @@ export function PolicyCatalog({
     return String(value);
   };
   const appliedEntries = Object.entries(appliedFilters).filter(([, value]) => value !== undefined && value !== "");
-  const policyTypeOptions = facets?.facets.plantype.options ?? [];
+  const policyTypeOptions = facets?.facets.plantype.options ?? fallbackTypes;
+
+  useEffect(() => {
+    if (facets || hasNewFilters(appliedFiltersRef.current) || facetsStatus !== "unavailable") return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const first = await catalogClient.list({ page: 1, page_size: 100 }, controller.signal);
+        const pages = await Promise.all(Array.from({ length: Math.max(0, first.total_pages - 1) }, (_, index) =>
+          catalogClient.list({ page: index + 2, page_size: 100 }, controller.signal)));
+        if (controller.signal.aborted || pages.some(page => JSON.stringify(page.dataset) !== JSON.stringify(first.dataset))) return;
+        const counts = new Map<string, number>();
+        for (const item of [first, ...pages].flatMap(page => page.items)) {
+          if (item.plantype_label) counts.set(item.plantype_label, (counts.get(item.plantype_label) ?? 0) + 1);
+        }
+        setFallbackTypes([...counts].map(([value, count]) => ({ value, label: value, count })));
+      } catch {
+        if (!controller.signal.aborted) setFallbackTypes([]);
+      }
+    })();
+    return () => controller.abort();
+  }, [facets, facetsStatus]);
   const selectPolicyType = (value: string) => {
     setFilters((current) => ({ ...current, plantype: value, plantype_status: undefined }));
     setTypeDropdownOpen(false);

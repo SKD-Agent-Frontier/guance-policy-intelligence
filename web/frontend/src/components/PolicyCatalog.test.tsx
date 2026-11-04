@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PolicyCatalog, reflowPolicyReaderText } from "./PolicyCatalog";
 import { catalogClient } from "../api/catalogClient";
+import { StrictMode } from "react";
 
 const runtime = vi.hoisted(() => ({ isRealMode: true }));
 
@@ -136,6 +137,12 @@ beforeEach(() => {
 });
 
 describe("PolicyCatalog", () => {
+  it("loads a policy opened from a topic under StrictMode", async () => {
+    render(<StrictMode><PolicyCatalog requestedPolicyId="P-1" onBackToTopics={() => {}} /></StrictMode>);
+    expect(await screen.findByRole("heading", { name: "政策P-1" })).toBeVisible();
+    expect(await screen.findByText("正文0")).toBeVisible();
+    expect(screen.queryByText("正在读取政策信息…")).not.toBeInTheDocument();
+  });
   it("only shows the library count before an explicit search", async () => {
     render(<PolicyCatalog />);
     expect(await screen.findByText("当前库共有 506 篇政策文献")).toBeVisible();
