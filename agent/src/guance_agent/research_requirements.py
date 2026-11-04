@@ -356,7 +356,7 @@ def normalize_requirements(question: str, planned=None) -> list[dict]:
                 kind = "numeric_fact"
             locator_label = bool(re.search(
                 r"定位依据|来源定位|文献定位|对应文献|文献身份|规划来源|来源出处|"
-                r"原文出处|引用出处", label))
+                r"原文出处|引用出处|原文依据", label))
             if locator_label or (kind == "output_section"
                                  and re.search(r"引用|出处|原文标注|来源标注", label)):
                 kind = "source_citation"

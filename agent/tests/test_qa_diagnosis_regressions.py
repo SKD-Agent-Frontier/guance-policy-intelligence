@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from guance_agent.qa_context import resolve_followup
 from guance_agent.qa_controlled import (
     rank_topic_candidates,
     search_queries,
@@ -86,3 +87,32 @@ def test_document_diversity_does_not_displace_relevant_evidence_with_audit():
     ranked = rank_topic_candidates(hits, "高校毕业生就业有哪些支持措施？")
     assert [hit["chunk_id"] for hit in ranked] == ["jobs-1", "jobs-2", "audit"]
     assert len(hits) == len(ranked)
+
+
+def test_comparison_word_is_not_an_administrative_region():
+    assert parse_areas("比较两份规划的共同点与区别") == ()
+    assert parse_areas("区别于广东省政策，江苏省有哪些安排？") == ("广东省", "江苏省")
+    assert parse_areas("昆明市呈贡区的就业政策") == ("昆明市", "呈贡区")
+
+
+def test_this_requirement_inherits_only_verified_document_identity():
+    prior = {
+        "question": "planid=12915《云南省2019年政府工作报告》中，要求再为企业降低成本多少？",
+        "documents": [{"planid": "12915", "title": "云南省2019年政府工作报告", "area": "云南省", "fyp": "政府工作报告"}],
+        "verified_facts": [{"text": "一条已核验事实", "chunk_ids": ["c1"], "quotes": ["一条已核验事实"]}],
+        "evidence_refs": [{"chunk_id": "c1", "planid": "12915"}],
+        "quote_verification": {"approved": 1, "unverified": 0},
+    }
+    question = "这项要求是已经实现的效果，还是报告提出的目标？原文依据是什么？"
+    resolution = resolve_followup(question, [prior])
+    assert resolution["status"] == "continued"
+    assert resolution["inherited_planids"] == ["12915"]
+    assert "降低成本" in resolution["retrieval_query"]
+
+
+def test_request_for_original_evidence_is_not_a_named_output_section():
+    units = normalize_requirements(
+        "这项要求是目标还是已实现效果？原文依据是什么？",
+        [{"kind": "output_section", "label": "提供原文依据", "subject": None}],
+    )
+    assert next(unit for unit in units if unit["label"] == "提供原文依据")["kind"] == "source_citation"

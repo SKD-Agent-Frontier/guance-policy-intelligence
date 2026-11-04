@@ -415,6 +415,13 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         # retrieving the concrete, already-frozen facts that its anaphoric
         # opposite side refers to. The planid/area filters remain authoritative.
         retrieval_question = query_question
+    elif (scope and query_question
+          and (getattr(ctx, "qa_followup", None) or {}).get("status") == "continued"
+          and re.match(r"\s*(?:这项|这条|这一项|这个|该项|该条)(?:要求|数字|指标|目标)",
+                       current_question(task.question))):
+        # Pure numeric/requirement anaphora need the prior question's topic.
+        # Reuse only the question + verified scope; all evidence is read anew.
+        retrieval_question = query_question
     else:
         retrieval_question = current_question(task.question) if scope else (query_question or task.question)
     requested_focuses = list(dict.fromkeys(

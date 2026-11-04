@@ -325,6 +325,27 @@ async def test_acquire_comparison_keeps_explicit_current_topic_query(env, monkey
     assert any("产业结构优化目标" in query for query in searched)
 
 
+@pytest.mark.asyncio
+async def test_numeric_anaphor_keeps_prior_topic_inside_verified_scope(env, monkeypatch):
+    settings, origin = env
+    question = "这项要求是已经实现的效果，还是报告提出的目标？原文依据是什么？"
+    prior = "planid=12915《云南省2019年政府工作报告》中，要求再为企业降低成本多少？"
+    task = origin.model_copy(update={"question": question})
+    ctx = _context(settings, task, SimpleNamespace(search=None, read=None), scope=("12915",))
+    ctx.qa_followup = {"status": "continued", "previous_question": prior}
+    searched = []
+
+    async def empty_search(ctx, name, method, *args, **kwargs):
+        ctx.tool_calls.append({"name": name, "status": "empty"})
+        searched.append((args[0], kwargs.get("planids")))
+        return json.dumps({"status": "empty", "data": []})
+
+    monkeypatch.setattr("guance_agent.qa_controlled._call", empty_search)
+    await acquire(task, ctx, time.monotonic() + 180, query_question=prior + " " + question)
+    assert any("成本" in query for query, _ in searched)
+    assert all(scope == ("12915",) for _, scope in searched)
+
+
 async def test_no_search_match_never_calls_model(env):
     settings, origin = env
     task = origin.model_copy(update={"question": "完全不存在的显微奇异术语"})
