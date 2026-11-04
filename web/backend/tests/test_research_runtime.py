@@ -3,11 +3,12 @@ import time
 from dataclasses import replace
 
 import pytest
-from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
-from app.research_runtime import discover_run_plan
 from guance_agent.research_contract import ResearchPlan, TaskContract
 from guance_agent.research_planner import ResearchPlanner
 from guance_agent.schemas import TaskRequest
+
+from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
+from app.research_runtime import discover_run_plan
 
 
 def record(planid, area, fyp="第十三个五年规划", title=None, body="产业结构调整"):
