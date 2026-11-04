@@ -185,7 +185,7 @@ describe("independent home composer and history conversations", () => {
     if (screen.queryByRole("button", { name: "展开侧栏" })) {
       fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     }
-    expect(screen.getByTitle("还在准备的研究")).toHaveTextContent("研究中");
+    expect(screen.getByTitle("还在准备的研究").querySelector('[aria-label="研究中"]')).toBeInTheDocument();
     expect(screen.getByTitle("新的独立研究")).toBeInTheDocument();
   });
 });

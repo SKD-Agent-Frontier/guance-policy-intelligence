@@ -111,13 +111,6 @@ export function ConversationView({ conversation, onModeChange, onSend, onAdvance
 
   return (
     <main className="conversation-workspace" aria-label="研究工作区">
-      <header className="conversation-heading">
-        <div className="conversation-heading-mark"><img src="/guance-mark.svg" alt="" /></div>
-        <div>
-          <span className="conversation-eyebrow">当前研究</span>
-          <h1>{conversation.title || "新建研究"}</h1>
-        </div>
-      </header>
       <div ref={historyRef} className="conversation-history" aria-live="polite"
         onMouseOver={(event) => {
           const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".result-citation[data-chunk-id]");

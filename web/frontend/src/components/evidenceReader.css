@@ -78,14 +78,13 @@
 .source-reader-body { margin-top: 30px; }
 .source-reader-body-heading { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e8e3e0; padding-bottom: 12px; font-size: 14px; }
 .source-reader-body-heading span { color: #8a7f79; font-size: 12px; }
-.source-reader-body pre {
-  margin: 24px 0;
-  font: inherit;
-  font-size: 15px;
+.source-reader-body .catalog-rich-text {
+  margin: 20px 0 26px;
+  font-size: 15.5px;
   line-height: 2;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
+.source-reader-body .catalog-rich-text .catalog-prose { text-indent: 2em; }
+.source-reader-body .catalog-rich-text .catalog-prose:last-child { margin-bottom: 0; }
 .source-reader-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 26px; }
 .source-reader-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 .source-reader-pagination span { color: #857b76; font-size: 12px; }

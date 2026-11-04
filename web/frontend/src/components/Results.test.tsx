@@ -59,6 +59,27 @@ const makeResult = (overrides: Partial<RunResult> = {}): RunResult => ({
 const noEvidence = () => {};
 
 describe("Results", () => {
+  it("adds superscripts only to explicitly linked report blocks and keeps unlinked text uncited", () => {
+    const claims: Claim[] = [
+      { text: "甲政策事实", chunk_ids: ["a"], quotes: ["甲原文"], dimension: null, anchors: [] },
+      { text: "乙政策事实", chunk_ids: ["b"], quotes: ["乙原文"], dimension: null, anchors: [] },
+    ];
+    const html = renderToStaticMarkup(<Results result={makeResult({ task_type: "qa", answer: "甲乙政策存在差异。\n\n其他说明。", claims,
+      evidence_refs: [makeEvidenceRef("A", "a"), makeEvidenceRef("B", "b")],
+      structured: { schema_version: "qa-report/1", blocks: [{ text: "甲乙政策存在差异。", supporting_claim_indexes: [0, 1], supporting_chunk_ids: ["a", "b", "unknown"] }] } as never,
+    })} onEvidence={noEvidence} />);
+    expect(html).toMatch(/甲乙政策存在差异。<sup[^>]*>.*?\[1\].*?<sup[^>]*>.*?\[2\]/);
+    expect(html).toContain("其他说明。</p>");
+    expect(html).not.toContain('data-chunk-id="unknown"');
+    expect(html.indexOf("引用文件")).toBeGreaterThan(html.indexOf("其他说明。"));
+  });
+
+  it("does not invent a citation when a claim references a missing source", () => {
+    const html = renderToStaticMarkup(<Results result={makeResult({ task_type: "qa", answer: "政策事实。", claims: [{ text: "政策事实。", chunk_ids: ["missing"], quotes: [], dimension: null, anchors: [] }], evidence_refs: [] })} onEvidence={noEvidence} />);
+    expect(html).toContain("政策事实。");
+    expect(html).not.toContain("qa-inline-citation");
+    expect(html).not.toContain("引用文件");
+  });
   it.each([null, {}] as const)("does not render a previous matrix when structured is %s", (structured) => {
     const html = renderToStaticMarkup(<Results result={makeResult({ structured })} onEvidence={noEvidence} />);
     expect(html).toContain("当前结果说明");
@@ -115,9 +136,9 @@ describe("Results", () => {
     expect(html).toContain("研究分析");
     expect(html).toContain("两项政策使用了不同的政策工具");
     expect(html).toContain("不是政策原文");
-    expect(html).toContain("事实 1：政策甲提到产业园区");
-    expect(html).toContain("事实 2：政策乙提到企业改造");
-    expect(html.match(/data-primary-source=/g)).toHaveLength(2);
+    expect(html).toContain("政策甲提到产业园区");
+    expect(html).toContain("政策乙提到企业改造");
+    expect(html.match(/class="qa-reference-number"/g)).toHaveLength(2);
     expect(html).toContain('data-chunk-id="A"');
     expect(html).toContain('data-chunk-id="B"');
   });
@@ -164,7 +185,7 @@ describe("Results", () => {
       },
     })} onEvidence={noEvidence} />);
 
-    expect(html).toContain("<h1>研究结果</h1>");
+    expect(html).not.toContain("<h1>研究结果</h1>");
     expect(html).not.toContain("研究结果（部分）");
     expect(html).not.toContain("研究结论");
     expect(html).not.toContain("仅展示已经核验");
@@ -177,7 +198,7 @@ describe("Results", () => {
     expect(html).not.toContain("partial");
     // The fact is rendered once by its source group, not duplicated from the answer body.
     expect(html.match(/政策涉及基础设施建设/g)).toHaveLength(1);
-    expect(html).toContain("查看原文");
+    expect(html).toContain("引用文件");
   });
 
   it("renders source-excerpt recovery without partial labels or extra disclaimers", () => {
@@ -190,7 +211,7 @@ describe("Results", () => {
         research_delivery: { status: "partial", audited_analysis: false },
       },
     })} onEvidence={noEvidence} />);
-    expect(html).toContain("<h1>研究结果</h1>");
+    expect(html).not.toContain("<h1>研究结果</h1>");
     expect(html).not.toContain("研究结果（部分）");
     expect(html).not.toContain("本轮仅取得可核验的政策原文节选");
     expect(html).not.toContain("尚未形成完整研究结论");
@@ -203,7 +224,7 @@ describe("Results", () => {
       claims: [],
       structured: null,
     })} onEvidence={noEvidence} />);
-    expect(html).toContain("<h1>研究结果</h1>");
+    expect(html).not.toContain("<h1>研究结果</h1>");
     expect(html).not.toContain("研究分析");
   });
 
@@ -224,19 +245,18 @@ describe("Results", () => {
       ],
     })} onEvidence={noEvidence} />);
 
-    // One main original-text entry per document, not one per claim.
-    expect(html.match(/data-primary-source=/g)).toHaveLength(2);
-    expect(html.match(/data-source-planid="P-A"/g)).toHaveLength(1);
-    expect(html.match(/data-source-planid="P-B"/g)).toHaveLength(1);
-    expect(html.match(/data-chunk-id=/g)).toHaveLength(2);
-    expect(html).not.toContain('data-chunk-id="a-2"');
+    // One document entry per policy, with inline citations and distinct sections.
+    expect(html.match(/class="qa-reference-number"/g)).toHaveLength(2);
+    expect(html).toContain('data-chunk-id="a-1"');
+    expect(html).toContain('data-chunk-id="a-2"');
+    expect(html).toContain('data-chunk-id="b-1"');
 
     // Facts stay visible under their document; the expandable detail keeps each
     // claim's quote, section path and chunk locator.
     expect(html).toContain("政策甲提出产业园区支持");
     expect(html).toContain("政策甲提出人才补贴");
     expect(html).toContain("政策乙提出基础设施建设");
-    expect(html).toContain("展开证据详情（2 条）");
+    expect(html).toContain("查看引文与章节");
     expect(html).toContain("支持产业园区建设。");
     expect(html).toContain("给予人才补贴。");
     expect(html).toContain("第二章 支持对象");

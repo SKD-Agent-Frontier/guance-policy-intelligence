@@ -51,13 +51,13 @@ describe("App navigation", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
   });
 
-  it("expands the desktop sidebar from the home icon", () => {
+  it("shows research history in the expanded desktop sidebar", () => {
     render(<App />);
     expect(screen.queryByRole("button", { name: "数据" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
+    expect(screen.getByRole("button", { name: "新建研究" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toHaveAttribute("title", "返回首页");
-    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByText("研究记录")).toBeInTheDocument();
   });
 
   it("keeps the home icon available from workspace and catalog", () => {
@@ -72,53 +72,60 @@ describe("App navigation", () => {
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
   });
 
-  it("shows the dedicated history icon while collapsed and opens the history section", () => {
+  it("shows only the logo while collapsed and opens the history section", () => {
     render(<App />);
     const sidebar = screen.getByRole("complementary", { name: "全局侧栏" });
-    expect(sidebar).toHaveClass("is-collapsed");
-    expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
     expect(sidebar).not.toHaveClass("is-collapsed");
-    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "收起侧栏" }));
+    expect(sidebar).toHaveClass("is-collapsed");
+    expect(screen.queryByText("研究记录")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "历史记录" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "返回首页" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新建研究" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
+    expect(sidebar).not.toHaveClass("is-collapsed");
+    expect(screen.getByText("研究记录")).toBeInTheDocument();
     expect(screen.queryByText("本次会话中的研究会显示在这里")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "历史记录" })).toBeInTheDocument();
   });
 
-  it("expands recent conversations from the official logo without changing page", () => {
+  it("expands recent conversations from the logo without changing page", () => {
     render(<App />);
-    expect(screen.queryByText("最近研究")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "收起侧栏" }));
+    expect(screen.queryByText("研究记录")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
-    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByText("研究记录")).toBeInTheDocument();
     expect(screen.queryByText("本次会话中的研究会显示在这里")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开侧栏" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "展开最近研究" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "展开研究记录" })).not.toBeInTheDocument();
   });
 
-  it("opens the mobile drawer from a collapsed nav icon and keeps its action", () => {
+  it("opens the mobile drawer from the collapsed logo", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     render(<App />);
     const sidebar = screen.getByRole("complementary", { name: "全局侧栏" });
     expect(sidebar).toHaveClass("is-collapsed");
-    fireEvent.click(screen.getByRole("button", { name: "新建研究" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
     expect(sidebar).toHaveClass("is-mobile-open");
-    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByText("研究记录")).toBeInTheDocument();
     expect(mockState.newConversation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "关闭侧栏" }));
     expect(sidebar).toHaveClass("is-collapsed");
-    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
     expect(screen.getByRole("button", { name: "关闭侧栏" })).toBeInTheDocument();
-    expect(screen.getByText("最近研究")).toBeInTheDocument();
+    expect(screen.getByText("研究记录")).toBeInTheDocument();
   });
 
-  it("hides the top brand and menu on home while retaining accessible settings", () => {
+  it("keeps settings in the sidebar without duplicate top navigation", () => {
     render(<App />);
     expect(screen.queryByRole("button", { name: "管策智研首页" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开侧栏" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "展开侧栏" }));
-    const settings = screen.getByRole("button", { name: "身份与环境设置" });
+    expect(screen.queryByRole("button", { name: "关于" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "身份与环境设置" })).not.toBeInTheDocument();
+    const settings = screen.getByRole("button", { name: "环境设置" });
     expect(settings).toBeInTheDocument();
-    expect(settings).toHaveAccessibleName("身份与环境设置");
+    expect(settings).toHaveAccessibleName("环境设置");
     expect(settings).not.toHaveTextContent("学号");
     settings.focus();
     expect(settings).toHaveFocus();

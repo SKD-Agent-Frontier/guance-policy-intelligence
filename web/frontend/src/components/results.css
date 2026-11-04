@@ -11,6 +11,67 @@
   width: 100%;
 }
 
+.qa-direct-answer { font-size: 15px; line-height: 1.9; }
+.qa-direct-answer .qa-outline-paragraph, .qa-direct-fact, .qa-direct-analysis p { margin: 0 0 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.qa-direct-answer .qa-outline-row-list, .qa-direct-answer .qa-outline-row-table { margin: 0 0 18px; }
+.qa-answer-list { margin: 0 0 16px; padding-left: 22px; }
+.qa-answer-list li { margin: 0 0 8px; line-height: 1.85; overflow-wrap: anywhere; }
+.qa-answer-list li:last-child { margin-bottom: 0; }
+.qa-answer-list li::marker { color: var(--accent); font-size: 13px; }
+.qa-answer-list--ordered { padding-left: 26px; }
+.qa-answer-quote { margin: 0 0 16px; padding: 10px 15px; border-left: 2px solid #e8d5d9; background: #fdfbfb; color: #51443f; white-space: pre-wrap; }
+.qa-answer-table-scroll { width: 100%; max-width: 100%; margin: 0 0 18px; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid #e7e2de; border-radius: 6px; }
+.qa-answer-table { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13.5px; line-height: 1.7; }
+.qa-answer-table th, .qa-answer-table td { padding: 9px 12px; border-bottom: 1px solid #eeeae7; border-right: 1px solid #f1eeec; text-align: left; vertical-align: top; overflow-wrap: break-word; }
+.qa-answer-table th { background: #f8f5f3; color: #3a2f2b; font-weight: 600; white-space: nowrap; }
+.qa-answer-table tr:last-child td { border-bottom: 0; }
+.qa-answer-table td:last-child, .qa-answer-table th:last-child { border-right: 0; }
+.qa-answer-table tbody tr:nth-child(even) { background: #fdfcfc; }
+.qa-direct-answer .qa-outline-heading { margin-top: 18px; }
+.qa-direct-answer .qa-outline-level-1 {
+  margin: 26px 0 12px;
+  padding-bottom: 9px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.qa-direct-answer .qa-outline-level-2 {
+  margin: 22px 0 9px;
+  padding-left: 11px;
+  border-left: 3px solid #e3c9c5;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #2a2320;
+}
+.qa-direct-answer .qa-outline-level-3 {
+  margin: 16px 0 7px 13px;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.qa-direct-answer .qa-outline-level-4 {
+  margin: 13px 0 6px 25px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b3f3a;
+}
+.qa-direct-answer .qa-outline-paragraph { font-size: 15px; line-height: 1.95; color: #26201d; }
+.qa-direct-answer .qa-inline-citation { vertical-align: super; margin-left: 2px; line-height: 0; }
+.qa-direct-answer .qa-inline-citation .result-citation { display: inline; padding: 0 1px; border: 0; background: transparent; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; }
+.qa-direct-answer .qa-inline-citation .result-citation:hover { text-decoration: underline; }
+.qa-direct-analysis { margin-top: 20px; }
+.qa-direct-analysis .qa-analysis-disclaimer, .qa-direct-analysis small { color: #777; font-size: 12px; }
+.qa-reference-list { margin-top: 32px; padding-top: 18px; border-top: 1px solid #e9e8eb; }
+.qa-reference-list h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+.qa-reference-list ol { display: grid; gap: 14px; padding: 0; margin: 0; list-style: none; }
+.qa-reference-list li { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+.qa-reference-number { flex: none; color: #888; }
+.qa-reference-list .qa-reference-title, .qa-reference-list .qa-reference-section { display: inline; border: 0; padding: 0; background: transparent; color: #61252c; text-align: left; font: inherit; cursor: pointer; }
+.qa-reference-list .qa-reference-title:hover, .qa-reference-list .qa-reference-section:hover { text-decoration: underline; }
+.qa-reference-list p { margin: 2px 0 0; color: #888; font-size: 12px; }
+.qa-reference-list details { margin-top: 4px; color: #777; font-size: 12px; }
+.qa-reference-list summary { cursor: pointer; }
+.qa-reference-list blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid #e8d5d9; color: #57565a; }
+.qa-reference-list .qa-reference-section { display: block; margin-top: 7px; }
+
 .results-heading {
   margin: 0 0 28px;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpenText } from "lucide-react";
 import { catalogClient } from "../api/catalogClient";
+import { PolicyRichText } from "./PolicyRichText";
 import type { EvidenceRef, PolicyContentResponse, PolicyDetailResponse, RunResult } from "../types";
 import "./evidenceReader.css";
 
@@ -99,7 +100,10 @@ export function EvidenceOriginalReader({ source, onBack }: { source: Source; onB
         <div className="source-reader-body-heading"><strong>正文</strong><span>{page ? `${page.offset}–${page.offset + codePointLength} / ${page.total_chars} 字` : "按页读取"}</span></div>
         {loading && <p role="status">正在读取原文…</p>}
         {pageError && <p className="source-reader-warning" role="alert">{pageError}</p>}
-        {page && <pre>{page.text}</pre>}
+        {page && <PolicyRichText text={page.text} planid={reference.planid} softWrap
+          documentTitle={detail?.policy.title ?? reference.title}
+          firstPage={offset === 0} sections={detail?.policy.sections ?? []}
+          textOffset={page.offset} printedToc={detail?.policy.printed_toc ?? null} />}
         {page && <div className="source-reader-pagination">
           <button type="button" disabled={loading || cursor === 0} onClick={() => setCursor(current => current - 1)}>上一页</button>
           <span>第 {cursor + 1} 页</span>

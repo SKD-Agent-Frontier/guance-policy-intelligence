@@ -443,6 +443,19 @@ export function useConversations() {
     setActiveId(id);
   }, []);
 
+  const renameConversation = useCallback((id: string, title: string) => {
+    const clean = title.trim();
+    if (clean) updateConversation(id, (conversation) => ({ ...conversation, title: clean.slice(0, 100) }));
+  }, [updateConversation]);
+
+  const deleteConversation = useCallback((id: string) => {
+    generations.current.set(id, (generations.current.get(id) ?? 0) + 1);
+    operations.current.delete(id);
+    lastOperations.current.delete(id);
+    agentSessionIds.current.delete(id);
+    updateSessions((current) => current.filter((item) => item.id !== id));
+  }, [updateSessions]);
+
   const newConversation = useCallback((mode: TaskType = "qa") => {
     const conversation = createConversation(mode);
     updateSessions((current) => [conversation, ...current]);
@@ -475,6 +488,8 @@ export function useConversations() {
     activeId,
     active,
     selectConversation,
+    renameConversation,
+    deleteConversation,
     newConversation,
     setMode,
     send,

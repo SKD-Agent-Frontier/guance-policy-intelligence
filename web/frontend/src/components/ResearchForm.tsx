@@ -19,6 +19,7 @@ type Props = {
   /** The toolbar remains available in home and conversation composers. */
   hideModeTabs?: boolean;
   enableTemplates?: boolean;
+  homeVariant?: boolean;
 };
 
 const modes: { id: TaskType; label: string }[] = [
@@ -38,6 +39,7 @@ export function ResearchForm({
   onChange,
   onModeChange,
   onSend,
+  homeVariant = false,
 }: Props) {
   const [panel, setPanel] = useState<MenuPanel>(null);
   const [templateMode, setTemplateMode] = useState<TaskType>(mode);
@@ -131,7 +133,7 @@ export function ResearchForm({
           ref={textareaRef}
           className="composer-question"
           aria-label="研究需求"
-          placeholder="今天想研究些什么呢？"
+          placeholder={homeVariant ? "输入你想研究的政策问题…" : "今天想研究些什么呢？"}
           rows={1}
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -144,10 +146,10 @@ export function ResearchForm({
           disabled={busy}
         />
         <button type="button" className="submit-button" onClick={send} disabled={busy || !value.trim() || messageLength > 4000} aria-label="发送消息" title="发送">
-          <ArrowUp size={17} strokeWidth={2.4} />
+          {homeVariant ? <><span>开始研究</span><ArrowUp size={17} strokeWidth={2.4} /></> : <ArrowUp size={17} strokeWidth={2.4} />}
         </button>
       </div>
-      {mode !== "qa" && (
+      {mode !== "qa" && !homeVariant && (
         <div className="composer-current-mode">
           <span>{currentLabel}</span>
           <button type="button" aria-label="恢复默认模式" title="恢复政策问答" disabled={busy} onClick={() => selectMode("qa")}><X size={12} /></button>

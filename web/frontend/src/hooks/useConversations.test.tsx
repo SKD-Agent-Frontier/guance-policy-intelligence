@@ -91,6 +91,20 @@ describe("useConversations", () => {
     vi.clearAllMocks();
   });
 
+  it("renames a conversation and does not resurrect it when an in-flight request completes after deletion", async () => {
+    const pending = deferred<PreparationResponse>();
+    mockedClient.prepare.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useConversations());
+    const id = result.current.activeId;
+    let request!: Promise<void>;
+    act(() => { request = result.current.send("数字经济"); });
+    act(() => result.current.renameConversation(id, "政策研究"));
+    expect(result.current.sessions.find((item) => item.id === id)?.title).toBe("政策研究");
+    act(() => result.current.deleteConversation(id));
+    await act(async () => { pending.resolve(preparation("needs_clarification")); await request; });
+    expect(result.current.sessions.some((item) => item.id === id)).toBe(false);
+  });
+
   it("reuses one unpredictable Agent session per conversation but not across conversations", async () => {
     mockedClient.prepare.mockResolvedValue(preparation("ready"));
     mockedClient.submit.mockResolvedValue(RESULT);

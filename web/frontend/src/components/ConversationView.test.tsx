@@ -142,12 +142,11 @@ describe("conversation simplification and original source reader", () => {
 
   it("hides completed preparation, mode selector, local note, and status prelude", () => {
     renderCompleted();
-    expect(screen.getByRole("heading", { name: "研究结果" })).toBeVisible();
+    expect(screen.getByText("当前结论。", { exact: false })).toBeVisible();
     expect(document.querySelector(".results-content--qa .results-kicker")).toBeNull();
     expect(screen.queryByText("结论与本次检索到的原文逐条关联。")).not.toBeInTheDocument();
-    expect(screen.getByText("依据与引句")).toBeInTheDocument();
-    expect(screen.getByText("1 条事实 · 1 篇文献")).toBeInTheDocument();
-    expect(document.querySelector(".qa-claims .results-section-title > span:last-child")).toHaveTextContent("1 条事实 · 1 篇文献");
+    expect(screen.queryByText("依据与引句")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "引用文件" })).toBeInTheDocument();
     expect(screen.queryByText("研究请求已准备完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("查看已确认研究条件与执行边界")).not.toBeInTheDocument();
     expect(screen.queryByText("正式研究结果")).not.toBeInTheDocument();
@@ -173,7 +172,7 @@ describe("conversation simplification and original source reader", () => {
       offset: 0, limit: 4000, total_chars: 10, has_more: false, text: "真实政策正文",
     } as never);
     renderCompleted();
-    const original = screen.getByRole("button", { name: "查看原文" });
+    const original = screen.getByRole("button", { name: "查看引用 1：海西州数字经济发展规划" });
     vi.useFakeTimers();
     fireEvent.mouseOver(original);
     await act(async () => { vi.advanceTimersByTime(200); });
@@ -187,7 +186,7 @@ describe("conversation simplification and original source reader", () => {
     expect(catalogClient.detail).toHaveBeenCalledWith("P-1", expect.any(AbortSignal));
     expect(catalogClient.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
     fireEvent.click(screen.getByRole("button", { name: "返回研究对话" }));
-    expect(screen.getByRole("heading", { name: "研究结果" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "引用文件" })).toBeInTheDocument();
   });
 
   it("keeps internal research status and engineering prompts out of the reader-facing result", () => {
@@ -218,7 +217,7 @@ describe("conversation simplification and original source reader", () => {
       onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()}
       onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
 
-    expect(screen.getByRole("heading", { name: "研究结果" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "引用文件" })).toBeVisible();
     expect(screen.queryByText(/研究结果（部分）/)).not.toBeInTheDocument();
     expect(screen.queryByText(/根据本轮已读政策原文/)).not.toBeInTheDocument();
     expect(screen.queryByText(/研究完成情况/)).not.toBeInTheDocument();
@@ -247,7 +246,7 @@ describe("conversation simplification and original source reader", () => {
     expect(onEditAndResend).toHaveBeenCalledWith("u1", "修改后的研究问题");
   });
 
-  it("shows the product mark and a single working retry icon on failed research", () => {
+  it("shows a single working retry icon on failed research", () => {
     const onRetry = vi.fn();
     const onRegenerate = vi.fn();
     const conversation: Conversation = {
@@ -258,14 +257,12 @@ describe("conversation simplification and original source reader", () => {
         { id: "error1", kind: "error", code: "OUTPUT_PARSE", text: "模型输出无法解析为约定结构" },
       ],
     };
-    const { container } = render(
+    render(
       <ConversationView conversation={conversation} onModeChange={vi.fn()} onSend={vi.fn()}
         onAdvancedSubmit={vi.fn()} onRetry={onRetry} onRegenerate={onRegenerate}
         onRestartPreparation={vi.fn()} onAdvancedDraftChange={vi.fn()}
         onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />,
     );
-    const brand = container.querySelector<HTMLImageElement>(".conversation-heading-mark img");
-    expect(brand).toHaveAttribute("src", "/guance-mark.svg");
     const error = screen.getByRole("alert");
     expect(error.querySelectorAll(".retry-inline")).toHaveLength(0);
     expect(screen.queryByRole("button", { name: "重试" })).not.toBeInTheDocument();

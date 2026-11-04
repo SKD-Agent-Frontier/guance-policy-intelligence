@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Home } from "./components/Home";
 import { Sidebar } from "./components/Sidebar";
 import { ConversationView } from "./components/ConversationView";
@@ -12,7 +12,7 @@ import { createAdvancedDraft } from "./conversationTypes";
 import type { ResearchRequest, TaskType } from "./types";
 
 type Page = "home" | "workspace" | "catalog" | "topics";
-type Dialog = "settings" | "about" | null;
+type Dialog = "settings" | null;
 
 const scenarioOptions: { value: DemoScenario; label: string }[] = [
   { value: "success", label: "正常完成" },
@@ -23,14 +23,14 @@ const scenarioOptions: { value: DemoScenario; label: string }[] = [
 ];
 
 export default function App() {
-  const { sessions, activeId, active, selectConversation, newConversation, setMode, send, runAdvanced, retry, regenerate, editAndResend, restartPreparation, updateAdvancedDraft, openAdvanced } = useConversations();
+  const { sessions, activeId, active, selectConversation, renameConversation, deleteConversation, newConversation, setMode, send, runAdvanced, retry, regenerate, editAndResend, restartPreparation, updateAdvancedDraft, openAdvanced } = useConversations();
   const [page, setPage] = useState<Page>("home");
   const [topicSelection, setTopicSelection] = useState<TopicSelection>(null);
   const [topicCollections, setTopicCollections] = useState<TopicCollection[]>(loadTopicCollections);
   const topicsRef = useRef(topicCollections);
   const [topicSaveError, setTopicSaveError] = useState(false);
   const [requestedPolicyId, setRequestedPolicyId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [scenario, setScenario] = useState<DemoScenario>("success");
@@ -164,7 +164,7 @@ export default function App() {
   return <div className={`app-shell app-page-${page}`}>
     <Sidebar
       conversations={sessions}
-      activeId={activeId}
+      activeId={page === "workspace" ? activeId : null}
       collapsed={collapsed}
       mobileOpen={mobileOpen}
       onExpand={() => {
@@ -179,6 +179,8 @@ export default function App() {
       onHome={goHome}
       onNew={startNew}
       onSelect={openConversation}
+      onRename={renameConversation}
+      onDelete={(id) => { deleteConversation(id); if (id === activeId && page === "workspace") goHome(); }}
       onSettings={() => openDialog("settings")}
     />
     <div className={`app-content ${collapsed ? "sidebar-is-collapsed" : ""}`}>
@@ -190,12 +192,7 @@ export default function App() {
           <button type="button" className={page === "home" || page === "workspace" ? "is-current" : ""} onClick={goResearch}>研究</button>
           <button type="button" className={page === "catalog" ? "is-current" : ""} onClick={openCatalog}>文献</button>
           <button type="button" className={page === "topics" ? "is-current" : ""} onClick={openTopics}>专题</button>
-          <button type="button" onClick={() => openDialog("about")}>关于</button>
         </nav>
-        <div className="topbar-trailing">
-          <span className={`global-env-badge ${isRealMode ? "is-real" : "is-demo"}`}>{isRealMode ? "Real" : "Demo 数据"}</span>
-          <button type="button" className="identity-button" onClick={() => openDialog("settings")} aria-label="身份与环境设置"><Settings2 size={17} /></button>
-        </div>
       </header>
 
       {page === "home" && <div className="page-body page-body-home"><Home mode={homeMode} value={homeDraft} busy={false} onChange={setHomeDraft} onModeChange={(mode) => { setHomeMode(mode); setHomeAdvancedDraft(createAdvancedDraft()); }} onSend={beginHomeMessage} onAdvancedSubmit={beginHomeAdvanced} advancedDraft={homeAdvancedDraft} onAdvancedDraftChange={(patch) => setHomeAdvancedDraft((current) => ({ ...current, ...patch }))} onOpenCatalog={openCatalog} /></div>}
@@ -213,9 +210,8 @@ export default function App() {
     </div>
 
     {dialog && <dialog ref={dialogRef} className="global-dialog" aria-labelledby="global-dialog-title" onCancel={(event) => { event.preventDefault(); closeDialog(); }} onClick={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-        <header className="global-dialog-header"><div><span className="dialog-eyebrow">管策智研</span><h2 id="global-dialog-title">{dialog === "settings" ? "身份与环境设置" : "关于管策智研"}</h2></div><button type="button" aria-label="关闭" onClick={closeDialog}><X size={18} /></button></header>
+        <header className="global-dialog-header"><div><span className="dialog-eyebrow">管策智研</span><h2 id="global-dialog-title">身份与环境设置</h2></div><button type="button" aria-label="关闭" onClick={closeDialog}><X size={18} /></button></header>
         {dialog === "settings" && <div className="global-dialog-content"><div className="identity-status"><span>学号</span><strong>未连接身份认证</strong></div><div className="setting-block"><strong>当前运行环境</strong><p>{isRealMode ? "Real · 使用已配置的真实后端" : "Demo · 本地演示数据"}</p></div>{!isRealMode && <div className="setting-block"><strong>本地演示情景</strong><p>仅影响 Demo 演示，不会在真实环境失败时切换数据。</p><div className="scenario-options">{scenarioOptions.map((option) => <label key={option.value} className={`scenario-option ${scenario === option.value ? "is-selected" : ""}`}><input type="radio" name="demo-scenario" value={option.value} checked={scenario === option.value} onChange={() => setScenario(option.value)} /><span className="radio-indicator" />{option.label}</label>)}</div></div>}<p className="setting-disclaimer">当前没有登录或学号认证功能。</p></div>}
-        {dialog === "about" && <div className="global-dialog-content"><p>管策智研用于围绕政策文献开展问答、要素提取、文献梳理与比较分析。</p><p>研究范围与证据状态以本次后端返回内容为准。</p></div>}
     </dialog>}
   </div>;
 }
