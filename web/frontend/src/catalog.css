@@ -50,12 +50,18 @@
   margin: 0 auto 22px;
   padding: 17px;
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(120px, 1fr)) minmax(100px, 0.6fr) auto;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(120px, 1fr)) minmax(100px, 0.6fr);
   align-items: end;
+  justify-content: end;
   gap: 12px;
   border: 1px solid var(--line, #e8e7e6);
   border-radius: 6px;
   background: #fcfbfa;
+}
+.catalog-search .catalog-search-button {
+  grid-column: -2 / -1;
+  justify-self: end;
+  min-width: 128px;
 }
 .catalog-search label {
   min-width: 0;
@@ -78,13 +84,9 @@
 }
 .catalog-query-input {
   height: 38px;
-  padding-left: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   border: 1px solid #d9d5d3;
   border-radius: 4px;
-  color: #857b77;
   background: white;
 }
 .catalog-query-input input {
@@ -93,6 +95,7 @@
   border: 0;
   outline: 0;
 }
+.catalog-query-input input::placeholder { color: #b6ada9; }
 
 /* Exact policy-type search keeps free text and offers the real facet values. */
 .catalog-type-field {

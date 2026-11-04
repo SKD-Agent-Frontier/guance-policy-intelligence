@@ -620,7 +620,6 @@ export function PolicyCatalog({
         <label className="catalog-query-field">
           <span>关键词字面检索</span>
           <span className="catalog-query-input">
-            <Search size={17} aria-hidden="true" />
             <input
               type="search"
               value={filters.q ?? ""}
