@@ -103,6 +103,17 @@ def test_explicit_two_documents_missing_one_is_not_complete():
     assert coverage["next_action"]["target_planid"] == "B"
 
 
+
+def test_explicit_two_targets_count_as_multi_document_even_without_two_names():
+    refs = [_ref("c1", "A", "政策A"), _ref("c2", "B", "政策B")]
+    result = _result([_claim("c1", "支持高校毕业生就业见习")], refs)
+    coverage = build_coverage(result, "这些政策如何支持毕业生就业？",
+                              _ctx(refs, scope=("A", "B")))
+    assert coverage["multi_document_required"] is True
+    assert coverage["missing_planids"] == ["B"]
+    assert "multiple_documents_required" in coverage["gaps"]
+
+
 def test_unrelated_document_cannot_replace_required_document():
     refs = [_ref("c1", "C", "C规划")]
     claims = [_claim("c1", "C政策提出产业扶持措施")]
