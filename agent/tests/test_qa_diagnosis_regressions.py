@@ -112,6 +112,23 @@ def test_switch_to_new_document_same_province_is_not_previous_context():
     assert resolution["requested_constraints"]["titles"] == ["云南省2018年政府工作报告"]
 
 
+
+def test_comparison_expands_to_new_document_even_when_province_is_unchanged():
+    prior = {
+        "question": "planid=12915《云南省2019年政府工作报告》降成本多少？",
+        "documents": [{"planid": "12915", "title": "云南省2019年政府工作报告",
+                       "area": "云南省", "fyp": "政府工作报告"}],
+    }
+    resolution = resolve_followup(
+        "比较《云南省2019年政府工作报告》与《云南省2018年政府工作报告》（planid=88888）的措施差异",
+        [prior],
+    )
+    assert resolution["status"] == "extended"
+    assert resolution["inherited_planids"] == ["12915"]
+    assert resolution["requested_constraints"]["planids"] == ["12915", "88888"]
+    assert "2018" in resolution["retrieval_query"]
+
+
 def test_this_requirement_inherits_only_verified_document_identity():
     prior = {
         "question": "planid=12915《云南省2019年政府工作报告》中，要求再为企业降低成本多少？",

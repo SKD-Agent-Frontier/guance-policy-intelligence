@@ -511,6 +511,26 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
             },
             "context_note": "本轮切换到明确指定的新文献，必须重新检索取证。",
         }
+    if (new_ids or new_titles) and expansion:
+        # A newly named document is an expansion even if both sources share
+        # province and planning period. Do not bind the current run to A alone.
+        return {
+            **base,
+            "status": "extended",
+            "previous_question": previous_question,
+            "documents": documents,
+            "inherited_planids": [str(doc["planid"]) for doc in documents],
+            "retrieval_query": (previous_question[:400] + " " + question)[:700],
+            "reason": "用户明确加入新的比较文献，需要分别重新取证",
+            "requested_constraints": {
+                "planids": list(dict.fromkeys(
+                    [str(doc["planid"]) for doc in documents] + new_ids)),
+                "titles": new_titles,
+                "areas": explicit_areas,
+                "periods": explicit_periods,
+            },
+            "context_note": "多文献对照：上一轮来源仅供理解旧对象，本轮必须同时重新取得新旧文献证据。",
+        }
     if named_titles:
         documents = named_titles
         prior_areas = {str(doc.get("area") or "") for doc in documents}
