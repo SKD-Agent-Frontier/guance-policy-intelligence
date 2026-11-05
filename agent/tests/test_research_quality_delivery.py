@@ -52,6 +52,42 @@ def _set_support(result, question, supports):
     }
 
 
+
+def test_cross_document_analysis_does_not_count_unverified_second_source():
+    result = _result()
+    result.evidence_refs = [
+        EvidenceRef(
+            planid=pid, chunk_id=cid, title=pid + "规划", area="某省",
+            fyp="十四五", admin_level=None, plantype_label=None,
+            section_idx=1, section_path="就业措施", char_start=0, char_end=60,
+            source="kb_read",
+        )
+        for pid, cid in (("A", "chunk-1"), ("B", "chunk-2"))
+    ]
+    result.claims = [
+        Claim(text="高校毕业生就业见习支持措施", chunk_ids=["chunk-1"],
+              quotes=["高校毕业生就业见习支持措施"]),
+    ]
+    result.answer = "两份政策在就业支持上存在差异。"
+    result.meta["evidence_coverage"] = {
+        "status": "complete", "required_planids": ["A", "B"],
+        "covered_planids": ["A", "B"], "missing_planids": [],
+    }
+    result.structured = {
+        "schema_version": "qa-report/1",
+        "coverage": {"status": "complete"},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+        "blocks": [{
+            "id": "cross", "kind": "analysis", "dimension": "地区差异",
+            "text": result.answer, "supporting_chunk_ids": ["chunk-1", "chunk-2"],
+            "verification": "model_reviewed_evidence_linked",
+        }],
+    }
+    quality = evaluate(result, "这些政策在就业支持方面有何差异？")
+    assert quality["status"] != "complete"
+    assert "cross_document_analysis_missing" in quality["gaps"]
+
+
 def test_user_requirements_are_not_satisfied_by_model_declarations():
     result = _result()
     result.structured = {

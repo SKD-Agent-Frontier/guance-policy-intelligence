@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from .routing import current_question
+from .routing import current_question, task_text
 
 SIGNPOST = re.compile(
     r"(?:特别是|特别关注|尤其是|重点关注|重点研究|重点分析|重点看|"
@@ -57,6 +57,40 @@ def mentions_subject(text: str, subject: str) -> bool:
             if len(base) >= 2 and base in text:
                 return True
     return False
+
+
+def retrieval_subjects(question: str) -> tuple[str, ...]:
+    """Keep topic-bearing noun phrases when no explicit signpost is present."""
+    text = (task_text(question).replace("大学毕业生", "高校毕业生")
+            .replace("找工作", "就业").replace("降低成本", "降成本").replace("毕业后", ""))
+    targets = list(extract_targets(text))
+    if not targets:
+        clauses = re.split(r"[，。；！？?\n]", text)
+        first = next((clause.strip() for clause in clauses if len(clause.strip()) > 1), "")
+        first = first.replace("多少", "")
+        first = re.split(r"有哪些|有什么|有何|哪些|如何|怎样|怎么|可以|的(?:政策|支持|具体|主要)", first, maxsplit=1)[0]
+        first = re.split(r"的(?:资金|人才|基础设施|举措|安排|政策|措施|要求|目标)", first, maxsplit=1)[0]
+        targets = re.split(r"以及|和|与|、", first)
+    result = []
+    generic = STOP | {"共同点", "差异", "比较", "政策措施", "支持措施", "重点措施",
+                      "发展基础", "比较优势", "有利条件", "发展机遇", "面临挑战", "发展目标"}
+    for target in targets:
+        target = re.sub(r"(?:的)?(?:总体情况|总体状况|总体特点|整体情况|主要方面|具体表现|主要涉及).*$", "", target)
+        target = re.sub(r"^(?:(?:不同地方|各地区|各地|各省市|请问|请|介绍|查询|研究|"
+                        r"关于|针对|要求|再为|为了|帮助|帮|促进|推动|支持|加快|在|中|对|为))+", "", target)
+        target = re.sub(r"(?:方面|领域|中|里)$", "", target).strip(" ，：:（）()")
+        if 2 <= len(target) <= 24 and target not in generic and not re.search(r"规划|报告|原文|引用", target):
+            result.append(target)
+    return tuple(dict.fromkeys(result))
+
+
+def matches_retrieval_subject(text: str, subject: str) -> bool:
+    normalized = re.sub(r"\s+|的", "", text).replace("大学毕业生", "高校毕业生")
+    subject = subject.replace("找工作", "就业")
+    if subject.endswith("就业"):
+        population = subject[:-2]
+        return population in normalized and any(word in normalized for word in ("就业", "创业", "见习", "招聘"))
+    return mentions_subject(normalized, subject)
 
 
 def wants_numbers(question: str) -> bool:

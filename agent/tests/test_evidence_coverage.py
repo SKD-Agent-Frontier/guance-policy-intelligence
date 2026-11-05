@@ -103,6 +103,17 @@ def test_explicit_two_documents_missing_one_is_not_complete():
     assert coverage["next_action"]["target_planid"] == "B"
 
 
+
+def test_explicit_two_targets_count_as_multi_document_even_without_two_names():
+    refs = [_ref("c1", "A", "政策A"), _ref("c2", "B", "政策B")]
+    result = _result([_claim("c1", "支持高校毕业生就业见习")], refs)
+    coverage = build_coverage(result, "这些政策如何支持毕业生就业？",
+                              _ctx(refs, scope=("A", "B")))
+    assert coverage["multi_document_required"] is True
+    assert coverage["missing_planids"] == ["B"]
+    assert "multiple_documents_required" in coverage["gaps"]
+
+
 def test_unrelated_document_cannot_replace_required_document():
     refs = [_ref("c1", "C", "C规划")]
     claims = [_claim("c1", "C政策提出产业扶持措施")]
@@ -156,6 +167,17 @@ def test_single_document_simple_question_does_not_require_two_documents():
     coverage = build_coverage(result, "沧州市十五计划产业布局是什么？", ctx)
     assert coverage["multi_document_required"] is False
     assert coverage["status"] == "complete"
+
+
+def test_selected_document_ids_trigger_multi_document_prompt_without_named_titles():
+    task = SimpleNamespace(question="这些政策如何支持毕业生就业？")
+    evidence = [{"chunk_id": "c1", "planid": "A", "title": "政策A",
+                 "section_path": "就业措施", "text": "就业见习政策"}]
+    ordinary = messages_for(task, evidence)
+    required = messages_for(task, evidence, require_multi_document=True)
+    assert "至少为两篇不同 planid" not in ordinary[1]["content"]
+    assert "至少为两篇不同 planid" in required[1]["content"]
+    assert "不足两篇时明确说明覆盖缺口" in required[1]["content"]
 
 
 def test_multi_document_generation_prompt_requires_two_sources():

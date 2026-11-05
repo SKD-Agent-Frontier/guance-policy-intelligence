@@ -325,6 +325,66 @@ async def test_acquire_comparison_keeps_explicit_current_topic_query(env, monkey
     assert any("产业结构优化目标" in query for query in searched)
 
 
+@pytest.mark.asyncio
+async def test_numeric_anaphor_keeps_prior_topic_inside_verified_scope(env, monkeypatch):
+    settings, origin = env
+    question = "这项要求是已经实现的效果，还是报告提出的目标？原文依据是什么？"
+    prior = "planid=12915《云南省2019年政府工作报告》中，要求再为企业降低成本多少？"
+    task = origin.model_copy(update={"question": question})
+    ctx = _context(settings, task, SimpleNamespace(search=None, read=None), scope=("12915",))
+    ctx.qa_followup = {"status": "continued", "previous_question": prior}
+    searched = []
+
+    async def empty_search(ctx, name, method, *args, **kwargs):
+        ctx.tool_calls.append({"name": name, "status": "empty"})
+        searched.append((args[0], kwargs.get("planids")))
+        return json.dumps({"status": "empty", "data": []})
+
+    monkeypatch.setattr("guance_agent.qa_controlled._call", empty_search)
+    await acquire(task, ctx, time.monotonic() + 180, query_question=prior + " " + question)
+    assert any("成本" in query for query, _ in searched)
+    assert all(scope == ("12915",) for _, scope in searched)
+
+
+
+@pytest.mark.asyncio
+async def test_two_document_retrieval_reads_each_source_not_just_first_parent(env, monkeypatch):
+    settings, origin = env
+    task = origin.model_copy(update={"question": "比较两篇政策对高校毕业生就业的支持措施和差异"})
+    ctx = _context(settings, task, SimpleNamespace(search=None, read=None), scope=("A", "B"))
+    refs = {key: SimpleNamespace(source="kb_read", observed_ranges=[(0, 60)])
+            for key in ("cA", "cB")}
+    ctx.evidence = SimpleNamespace(get=refs.get)
+    calls = []
+
+    async def fake_call(ctx, name, method, *args, **kwargs):
+        ctx.tool_calls.append({"name": name, "status": "ok"})
+        calls.append((name, args, kwargs))
+        if name == "kb_search":
+            selected = kwargs.get("planids") or ()
+            pid = selected[0] if len(selected) == 1 else "A"
+            return json.dumps({"status": "ok", "data": [{
+                "chunk_id": "c" + pid, "planid": pid, "title": "政策" + pid,
+                "section_path": "第一章 / 第一节", "area": "某地",
+                "content": "高校毕业生就业见习和招聘支持措施",
+            }]})
+        if kwargs.get("chunk_id") is None:
+            pytest.fail("multi-document comparison must not expand only the first parent")
+        return json.dumps({"status": "ok", "data": {
+            "planid": args[0], "title": "政策" + args[0],
+            "section_path": "第一章 / 第一节", "area": "某地", "fyp": None,
+            "is_index": False, "content": "高校毕业生就业见习和招聘支持措施",
+            "chunks": [{"chunk_id": kwargs["chunk_id"]}],
+        }})
+
+    monkeypatch.setattr("guance_agent.qa_controlled._call", fake_call)
+    evidence = await acquire(task, ctx, time.monotonic() + 180)
+    assert {item["planid"] for item in evidence} == {"A", "B"}
+    assert any(name == "kb_search" and kwargs.get("planids") == ("B",)
+               for name, _, kwargs in calls)
+    assert set(ctx._qa_search_diagnostics["accepted_planids"]) == {"A", "B"}
+
+
 async def test_no_search_match_never_calls_model(env):
     settings, origin = env
     task = origin.model_copy(update={"question": "完全不存在的显微奇异术语"})
