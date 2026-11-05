@@ -17,6 +17,8 @@ def write(path, value):
 
 async def run(args):
     source = args.source.resolve()
+    if args.output.resolve().is_relative_to(source):
+        raise ValueError("Acceptance output must be outside the source repository")
     sys.path[:0] = [str(source / "agent/src"), str(source / "web/backend")]
     import httpx
     from app.main import create_app

@@ -494,6 +494,23 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
         r"结合|同时|另外|以及|并且|再看|与|和|比较|对比|相比|相较|差异|异同|共同", question
     ))
     named_titles = _explicit_document_matches(question, documents)
+    # A new document within the same province/period is still a scope switch.
+    known_ids = {str(doc.get("planid")) for doc in documents}
+    new_ids = [pid for pid in parse_planids(question) if pid not in known_ids]
+    known_titles = {_normalized_title(doc.get("title")) for doc in documents}
+    new_titles = [title for title in parse_titles(question)
+                  if _normalized_title(title) not in known_titles]
+    if (new_ids or new_titles) and not expansion:
+        return {
+            **base, "status": "scope_changed",
+            "previous_question": previous_question, "documents": documents,
+            "reason": "用户明确指定另一份政策文献，不继承旧来源",
+            "requested_constraints": {
+                "planids": new_ids, "titles": new_titles,
+                "areas": explicit_areas, "periods": explicit_periods,
+            },
+            "context_note": "本轮切换到明确指定的新文献，必须重新检索取证。",
+        }
     if named_titles:
         documents = named_titles
         prior_areas = {str(doc.get("area") or "") for doc in documents}

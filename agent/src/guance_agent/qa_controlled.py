@@ -463,6 +463,10 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
         # Reserve half the bounded query set for a passage-period fallback if
         # strict source-metadata filtering finds no carrier document.
         queries = queries[:max(1, MAX_QUERIES // 2)]
+    # Reserve slots for each user-selected document: a global top-k can be all A.
+    multi_scope = tuple(dict.fromkeys(scope or ()))
+    if len(multi_scope) > 1:
+        queries = queries[:max(1, MAX_QUERIES - min(len(multi_scope), MAX_QUERIES - 1))]
     searches = [(query, area) for query in queries]
     if (multi_document_required(task.question) and scope is None
             and len(getattr(decision, "areas", ()) or ()) >= 2):
@@ -511,6 +515,23 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
             ))
             search_attempts += 1
             searches.append((query, query_area))
+            if reply["status"] in {"backend_error", "timeout", "invalid_argument"}:
+                ctx._controlled_retrieval_error = reply["status"]
+                break
+            if reply["status"] == "ok":
+                groups.append(reply["data"])
+
+    if len(multi_scope) > 1 and not ctx._controlled_retrieval_error:
+        # Only source identities are trusted. Each returned hit still needs kb_read.
+        for planid in multi_scope[:max(0, MAX_QUERIES - search_attempts)]:
+            if deadline - time.monotonic() < 55 or len(tool_calls) >= tool_limit:
+                budget_exhausted = True
+                break
+            query = queries[0] if queries else task_text(task.question)[:70]
+            reply = json.loads(await _call(
+                ctx, "kb_search", ctx.kb.search, query, None, fyp, 8, planids=(planid,),
+            ))
+            search_attempts += 1
             if reply["status"] in {"backend_error", "timeout", "invalid_argument"}:
                 ctx._controlled_retrieval_error = reply["status"]
                 break
@@ -677,7 +698,8 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
                           "compare", "synthesize", "organize", "summarize", "analyze"})
     section_evidence = (await _read_relevant_parent(
         task, ctx, found, deadline, scope, requested_areas, requested_periods, section_selector)
-        if expand_context else [])
+        if expand_context and len(multi_scope) <= 1
+        and not multi_document_required(task.question) else [])
     if section_evidence:
         ctx._qa_search_diagnostics = {
             "queries": queries, "candidate_count": len(found),
