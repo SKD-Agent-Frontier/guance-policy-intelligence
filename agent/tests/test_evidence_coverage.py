@@ -169,6 +169,17 @@ def test_single_document_simple_question_does_not_require_two_documents():
     assert coverage["status"] == "complete"
 
 
+def test_selected_document_ids_trigger_multi_document_prompt_without_named_titles():
+    task = SimpleNamespace(question="这些政策如何支持毕业生就业？")
+    evidence = [{"chunk_id": "c1", "planid": "A", "title": "政策A",
+                 "section_path": "就业措施", "text": "就业见习政策"}]
+    ordinary = messages_for(task, evidence)
+    required = messages_for(task, evidence, require_multi_document=True)
+    assert "至少为两篇不同 planid" not in ordinary[1]["content"]
+    assert "至少为两篇不同 planid" in required[1]["content"]
+    assert "不足两篇时明确说明覆盖缺口" in required[1]["content"]
+
+
 def test_multi_document_generation_prompt_requires_two_sources():
     task = SimpleNamespace(question="请归纳两篇政策在基础设施方面的共同点与差异")
     messages = messages_for(task, [{"chunk_id": "c1", "planid": "A", "title": "A",

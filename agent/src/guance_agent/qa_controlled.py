@@ -783,7 +783,8 @@ async def acquire(task, ctx, deadline: float, *, focus: str | None = None,
 
 
 def messages_for(task, evidence: list[dict], context_note: str | None = None,
-                 fact_budget: int | None = None) -> list[dict]:
+                 fact_budget: int | None = None, *,
+                 require_multi_document: bool = False) -> list[dict]:
     budget = TOTAL_EVIDENCE_CHARS
     parts = [f"原始问题：{task.question[:1000]}", ""]
     if context_note:
@@ -803,7 +804,7 @@ def messages_for(task, evidence: list[dict], context_note: str | None = None,
     parts.append(f"本次最多输出 {fact_budget or claim_budget(task.question)} 条 claims；"
                  "每条 text 必须是原文直引或连续直引子句，quote 必须逐字一致；"
                  "同时给出 anchors，每个 anchor 是同一片段中的逐字短定位短语。")
-    if multi_document_required(task.question):
+    if multi_document_required(task.question) or require_multi_document:
         parts.append("本题涉及多篇政策：至少为两篇不同 planid 的文献提供 claim，"
                      "在 answer 中分别说明各文献事实与共同点/差异；"
                      "不足两篇时明确说明覆盖缺口，不得用一篇冒充多篇归纳。")
@@ -1022,8 +1023,12 @@ async def execute_controlled(task, s, ctx, rt, deadline: float, *,
                             + "、".join(facet_labels))
         response = await asyncio.wait_for(
             rt.client.chat.completions.create(
-                model=s.llm_model, messages=messages_for(task, evidence, context_note,
-                                                        fact_budget),
+                model=s.llm_model, messages=messages_for(
+                    task, evidence, context_note, fact_budget,
+                    require_multi_document=len(tuple(dict.fromkeys(
+                        (*tuple(ctx.scope or ()),
+                         *tuple(getattr(ctx.route, "planids", ()) or ()))))) > 1,
+                ),
                 max_tokens=min(2800 if fact_budget > 5 else 2200,
                                s.llm_max_output_tokens),
                 extra_body=thinking_off(s), timeout=timeout,
