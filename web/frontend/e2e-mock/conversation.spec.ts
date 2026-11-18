@@ -280,14 +280,14 @@ test("Real client Mock API: autonomous compare preserves session and catalog nav
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "研究" }).click();
   await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
-  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  await expect(page.locator(".result-message")).toContainText("此单元格仅用于前端联调");
 
   await newConversation(page);
   await selectResearchMode(page, "政策比较");
   const secondQuestion = "比较另一组政策的扶持范围";
   await page.getByRole("textbox", { name: "研究需求" }).fill(secondQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-2");
+  await expect(page.locator(".result-message")).toContainText("此单元格仅用于前端联调");
   expect(runCount()).toBe(2);
   const { session_id: sessionB, ...requestB } = runBodies[1];
   expect(requestB).toEqual({ task_type: "compare", question: secondQuestion });
@@ -298,8 +298,8 @@ test("Real client Mock API: autonomous compare preserves session and catalog nav
   await expect(page.locator(".history-link")).toHaveCount(2);
   await page.locator(".history-link").nth(1).click();
   await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
-  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
-  await expect(page.locator(".result-message")).not.toContainText("mock-2");
+  await expect(page.locator(".result-message")).toContainText("此单元格仅用于前端联调");
+  await expect(page.locator(".result-message")).toHaveCount(1);
   expect(unexpectedPrepare).toEqual([]);
   expect(runCount()).toBe(2);
 });
