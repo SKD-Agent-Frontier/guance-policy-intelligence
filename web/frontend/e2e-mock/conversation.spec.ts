@@ -380,9 +380,53 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   const contentRequests: URL[] = [];
   const total = 5000;
   const text = "Mock API 政策原文段落。".repeat(300);
+  const regionVersion = `sha256:${"a".repeat(64)}`;
+  const mappingVersion = `sha256:${"b".repeat(64)}`;
+  const dataset = {
+    generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false,
+    source: "current_published_frozen_release", region_version: regionVersion,
+    region_mapping_version: mappingVersion,
+  };
+  const facetRequests: URL[] = [];
   await page.route("**/api/policies**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+    if (path.endsWith("/facets")) {
+      facetRequests.push(url);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        dataset,
+        query: { q: url.searchParams.get("q"), area: url.searchParams.get("area"), fyp: url.searchParams.get("fyp") },
+        facets: {
+          admin_level: {
+            options: [
+              { value: "national", label: "国家级", count: 0 },
+              { value: "province", label: "省级", count: 2 },
+              { value: "prefecture", label: "市级", count: 0 },
+              { value: "county", label: "区县级", count: 0 },
+              { value: "unclassified", label: "未分类", count: 0 },
+            ],
+            regions: { province_options: [], prefecture_options: [], county_options: [],
+              unclassified: { label: "地区未分类", count: 0 },
+              not_applicable: { label: "不适用地区树", count: 0 } },
+          },
+          year: { options: [{ value: 2021, label: "2021", count: 2 }, { value: "unknown", label: "年份未知", count: 0 }] },
+          fyp: { options: [{ value: "第十四个五年规划", label: "十四五", count: 2 }],
+            unclassified: { label: "未分类", count: 0 } },
+          plantype: { options: [{ value: "实施意见", label: "实施意见", count: 2 }],
+            unclassified: { label: "未分类", count: 0 } },
+        },
+      }) });
+      return;
+    }
+    if (path.endsWith("/regions")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        region_version: regionVersion, artifact_sha256: "c".repeat(64),
+        source: "Mock region tree", source_url: "https://example.test/regions",
+        retrieved_at_utc: "2026-10-31T00:00:00Z", snapshot_as_of: null,
+        official_version: null, node_count: 0, data: [],
+      }) });
+      return;
+    }
     if (path.endsWith("/content")) {
       const planid = path.split("/").at(-2) ?? "POLICY-MOCK-1";
       contentRequests.push(url);
@@ -390,19 +434,19 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
       const limit = Number(url.searchParams.get("limit") ?? 0);
       const body = Array.from({ length: total }, (_, index) => index % 30 === 0 ? "M" : "文").join("");
       const chunk = Array.from(body).slice(offset, offset + limit).join("");
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, planid, title: "数字经济政策（Mock）", offset, limit, total_chars: total, has_more: offset + Array.from(chunk).length < total, text: chunk }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset, planid, title: "数字经济政策（Mock）", offset, limit, total_chars: total, has_more: offset + Array.from(chunk).length < total, text: chunk }) });
       return;
     }
     if (/\/POLICY-MOCK-[12]$/.test(path)) {
       const planid = path.split("/").at(-1);
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, policy: { planid, title: "数字经济政策（Mock）", area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", body_chars: total, sections: [{ index: 0, level: 1, path: "第一章 总则", start: 0, end: total }] } }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset, policy: { planid, title: "数字经济政策（Mock）", area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", body_chars: total, sections: [{ index: 0, level: 1, path: "第一章 总则", start: 0, end: total }] } }) });
       return;
     }
     listRequests.push(url);
     const pageNumber = Number(url.searchParams.get("page") ?? 1);
     const q = url.searchParams.get("q");
     const item = (planid: string, title: string) => ({ planid, title, area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", matches: q ? [{ field: "title", offset: 0, snippet: title }] : [] });
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 4, total_documents: 2, partial: false, source: "current_published_frozen_release" }, query: { q, area: url.searchParams.get("area"), fyp: url.searchParams.get("fyp"), plantype: url.searchParams.get("plantype"), match_mode: q ? "literal" : null }, matched_documents: 2, page: pageNumber, page_size: Number(url.searchParams.get("page_size") ?? 20), total_pages: 2, items: [item(pageNumber === 1 ? "POLICY-MOCK-1" : "POLICY-MOCK-2", pageNumber === 1 ? "数字经济政策（Mock）" : "数字经济促进意见（Mock）")] }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset, query: { q, area: url.searchParams.get("area"), fyp: url.searchParams.get("fyp"), plantype: url.searchParams.get("plantype"), match_mode: q ? "literal" : null }, matched_documents: 2, page: pageNumber, page_size: Number(url.searchParams.get("page_size") ?? 20), total_pages: 2, items: [item(pageNumber === 1 ? "POLICY-MOCK-1" : "POLICY-MOCK-2", pageNumber === 1 ? "数字经济政策（Mock）" : "数字经济促进意见（Mock）")] }) });
   });
 
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -418,6 +462,10 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.getByPlaceholder("例如：十四五").fill("十四五");
   await page.getByRole("button", { name: "检索目录" }).click();
   await expect(page.getByText("字面匹配结果不等于全部语义相关政策。")).toBeVisible();
+  expect(facetRequests.length).toBeGreaterThanOrEqual(2);
+  expect(facetRequests.at(-1)?.searchParams.get("q")).toBe("数字经济");
+  expect(facetRequests.at(-1)?.searchParams.get("area")).toBe("北京市");
+  expect(facetRequests.at(-1)?.searchParams.get("fyp")).toBe("十四五");
   const applied = listRequests.at(-1)!;
   expect(applied.searchParams.get("q")).toBe("数字经济");
   expect(applied.searchParams.get("area")).toBe("北京市");
