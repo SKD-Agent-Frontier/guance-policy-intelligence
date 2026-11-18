@@ -61,7 +61,9 @@ async def run_worker(assignment: Assignment, parent_task, settings, *,
             result=result,
             elapsed_seconds=round(time.monotonic() - began, 3),
             model_calls=int(core.get("model_calls") or 0),
-            tool_calls=int((core.get("remaining") or {}).get("search_read", 0)),
+            tool_calls=max(0, child_settings.max_tool_calls - int(
+                (core.get("remaining") or {}).get("search_read", child_settings.max_tool_calls)
+            )),
         )
     except TimeoutError:
         return WorkerOutcome(

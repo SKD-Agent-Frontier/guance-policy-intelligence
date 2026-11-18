@@ -64,7 +64,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
                 application.state.settings = runtime_settings
                 if isinstance(application.state.preparation_service, ResearchPreparationService):
                     application.state.preparation_service._allow_bounded_partial = (
-                        runtime_settings.qa_engine == "hyper"
+                        runtime_settings.qa_engine in {"hyper", "multi"}
                     )
                 stage = "warm_up"
                 await asyncio.to_thread(warm_up, runtime_settings)

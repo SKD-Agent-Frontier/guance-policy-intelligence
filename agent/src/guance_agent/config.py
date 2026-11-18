@@ -61,8 +61,8 @@ class Settings:
             raise ValueError("KB_BACKEND 仅支持 mock、sample 或 rag")
         if self.rag_mode not in {"bm25", "dense", "hybrid"}:
             raise ValueError("RAG_MODE 仅支持 bm25、dense 或 hybrid")
-        if self.qa_engine not in {"controlled", "sdk", "hyper"}:
-            raise ValueError("QA_ENGINE 仅支持 controlled、sdk 或 hyper")
+        if self.qa_engine not in {"controlled", "sdk", "hyper", "multi"}:
+            raise ValueError("QA_ENGINE 仅支持 controlled、sdk、hyper 或 multi")
         if self.kb_backend == "rag" and not self.rag_store_project.strip():
             raise ValueError(
                 "KB_BACKEND=rag 时必须设置 RAG_STORE_PROJECT，指向恢复后的运行库目录"

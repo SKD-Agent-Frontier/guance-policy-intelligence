@@ -1,6 +1,7 @@
 """Lead Agent: choose bounded research assignments and propose evidence-linked synthesis."""
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -76,7 +77,10 @@ async def build_plan(question: str, targets: list[str] | None, runtime,
                         and len(set(flattened)) == len(flattened)):
                     groups = proposed
                     source = "model_validated"
-        except (ValueError, TypeError, TimeoutError, OSError):
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # A bad/unavailable Lead must not block the deterministic fallback.
             pass
     if not any(groups):
         for index, unit in enumerate(units):

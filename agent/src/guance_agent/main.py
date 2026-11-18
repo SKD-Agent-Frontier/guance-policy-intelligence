@@ -113,6 +113,13 @@ async def submit(question: str, session_id: str | None = None,
             max_revisions=getattr(s, "max_plan_revisions", 1),
         )
         rt.prepare()
+        if task.task_type == "qa" and s.qa_engine == "multi":
+            from .multi_agent.scheduler import run_multi_task
+            return await run_multi_task(
+                task, s, rt, initial_decision=decision,
+                research_discoverer=research_discoverer,
+                research_runtime=research_runtime,
+            )
         if task.task_type == "qa" and s.qa_engine in {"sdk", "hyper"}:
             return await run_sdk_task(
                 task, s, rt, initial_decision=decision,
