@@ -451,7 +451,14 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
     listRequests.push(url);
     const pageNumber = Number(url.searchParams.get("page") ?? 1);
     const q = url.searchParams.get("q");
-    const item = (planid: string, title: string) => ({ planid, title, area: "北京市", fyp: "第十四个五年规划", year: 2021, plantype_label: "实施意见", matches: q ? [{ field: "title", offset: 0, snippet: title }] : [] });
+    const item = (planid: string, title: string) => ({
+      planid, title, area: "北京市", fyp: "第十四个五年规划", year: 2021,
+      plantype_label: "实施意见", preview: "政策正文涉及数字经济发展举措与实施条件。",
+      matches: q ? [
+        { field: "title", offset: 0, snippet: title },
+        { field: "body", offset: 4, snippet: "政策正文涉及数字经济发展举措与实施条件。" },
+      ] : [],
+    });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset, query: { q, area: url.searchParams.get("area"), fyp: url.searchParams.get("fyp"), plantype: url.searchParams.get("plantype"), match_mode: q ? "literal" : null }, matched_documents: 2, page: pageNumber, page_size: Number(url.searchParams.get("page_size") ?? 20), total_pages: 2, items: [item(pageNumber === 1 ? "POLICY-MOCK-1" : "POLICY-MOCK-2", pageNumber === 1 ? "数字经济政策（Mock）" : "数字经济促进意见（Mock）")] }) });
   });
 
