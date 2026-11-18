@@ -89,12 +89,14 @@ class ResearchPreparationService:
         ttl_seconds: float = 1800,
         max_states: int = 1000,
         max_clarifications: int = 5,
+        allow_bounded_partial: bool = False,
     ):
         if ttl_seconds <= 0 or max_states < 1 or max_clarifications < 1:
             raise ValueError("invalid preparation service limits")
         self._ttl = timedelta(seconds=ttl_seconds)
         self._max_states = max_states
         self._max_clarifications = max_clarifications
+        self._allow_bounded_partial = allow_bounded_partial
         self._states: OrderedDict[str, _Entry] = OrderedDict()
         self._lock = asyncio.Lock()
 
@@ -848,10 +850,19 @@ class ResearchPreparationService:
             if message_intent is not None:
                 full_corpus_intent = message_intent
         if entry.mode == "qa" and full_corpus_intent is True:
-            status = "blocked"
-            message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
-            options = []
-            pending = []
+            if self._allow_bounded_partial:
+                # Opt-in experimental engine: a bounded partial research result
+                # is permissible; it can never claim exhaustive enumeration.
+                warnings.append(
+                    "实验模式只提供已核验的政策候选；Top-K 不保证全库覆盖或准确篇数。"
+                )
+                if status == "ready":
+                    message = "以受限研究方式继续；最终须说明未证明全量覆盖。"
+            else:
+                status = "blocked"
+                message = "当前 Top-K 全库能力无法保证返回全部政策或准确篇数。"
+                options = []
+                pending = []
 
         state = PreparationState(
             state_id=entry.state_id,

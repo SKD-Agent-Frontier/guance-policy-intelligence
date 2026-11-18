@@ -62,6 +62,10 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
             try:
                 runtime_settings = settings if settings is not None else load_settings(selected_env_file)
                 application.state.settings = runtime_settings
+                if isinstance(application.state.preparation_service, ResearchPreparationService):
+                    application.state.preparation_service._allow_bounded_partial = (
+                        runtime_settings.qa_engine == "hyper"
+                    )
                 stage = "warm_up"
                 await asyncio.to_thread(warm_up, runtime_settings)
             except Exception as exc:  # noqa: BLE001
