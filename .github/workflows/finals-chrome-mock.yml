@@ -38,6 +38,14 @@ jobs:
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: chrome
         run: npm run test:e2e:mock
+      # Repeat the three verification commands after Chrome, not concurrently
+      # with the browser on the same runner (the previous local run was flaky).
+      - name: Run Vitest separately after Chrome
+        run: npm test
+      - name: Typecheck separately after Vitest
+        run: npm run typecheck
+      - name: Build separately after typecheck
+        run: npm run build
       - name: Upload mock Playwright traces
         if: failure()
         uses: actions/upload-artifact@v4
