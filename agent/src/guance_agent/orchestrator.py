@@ -895,7 +895,8 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
 
 async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                        initial_decision=None, research_discoverer=None,
-                       research_runtime: ResearchRuntime | None = None) -> RunResult:
+                       research_runtime: ResearchRuntime | None = None,
+                       experimental_hyper: bool = False) -> RunResult:
     """One model-directed QA core with trusted discovery and programmatic gates."""
     if not s.llm_base_url or not s.llm_api_key:
         result = build_result(task, None, None, rt.meta,
@@ -1141,6 +1142,13 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             approved_source_periods=tuple(decision.fyps),
             prior_facts=prior_facts, prior_documents=prior_documents,
         )
+        if experimental_hyper:
+            from .harness_inspired import HyperMechanisms
+            state.experiment = HyperMechanisms(
+                run_id=task.run_id, question=task.question,
+                workspace_dir=s.run_log.parent / "hyperresearch-experiments",
+            )
+            state.experiment.snapshot("initialized", state)
         agent = build_research_core_agent(chat_model(s, rt.client), s, rt)
         answer = await execute_research_core(agent, state, rt)
         passed = bool(state.check_result and state.check_result.get("passed")
@@ -1313,6 +1321,23 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             "audited_report_blocks": len(surviving_blocks),
             "audited_analysis_blocks": sum(block["kind"] == "analysis" for block in surviving_blocks),
         }
+        if experimental_hyper and state.experiment is not None:
+            result.meta["hyperresearch_experiment"] = state.experiment.summary(state)
+            if state.experiment.exhaustive_requested:
+                result.warnings.append(
+                    "覆盖型研究：Top-K 检索未证明全库穷举，列出的政策仅代表已核验候选。"
+                )
+                result.meta["research_core"]["status"] = "partial"
+                result.meta["research_completion"] = {"status": "partial"}
+                result.meta["research_delivery"] = {"status": "partial"}
+                result.meta["research_quality"]["status"] = "partial"
+                if (isinstance(result.structured, dict)
+                        and isinstance(result.structured.get("coverage"), dict)):
+                    result.structured["coverage"]["status"] = "partial"
+                result.answer += (
+                    "\n\n覆盖提示：当前结果未通过全库穷举证明，"
+                    "不能据此断言已列出全部相关政策或准确篇数。"
+                )
         result.meta["research_core_delivery"] = {
             "schema_version": "research-core-delivery/1",
             "blocks": surviving_blocks,
@@ -1326,6 +1351,8 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         except (ValueError, TypeError):
             result.evidence_status = "insufficient"
             result.meta["research_runtime_error"] = "contract_evaluation_failed"
+        if experimental_hyper and state.experiment is not None:
+            state.experiment.snapshot("finalized", state)
         rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
         rt.finish(result, ctx)
         return result

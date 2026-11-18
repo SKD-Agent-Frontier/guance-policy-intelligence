@@ -113,11 +113,12 @@ async def submit(question: str, session_id: str | None = None,
             max_revisions=getattr(s, "max_plan_revisions", 1),
         )
         rt.prepare()
-        if task.task_type == "qa" and s.qa_engine == "sdk":
+        if task.task_type == "qa" and s.qa_engine in {"sdk", "hyper"}:
             return await run_sdk_task(
                 task, s, rt, initial_decision=decision,
                 research_discoverer=research_discoverer,
                 research_runtime=research_runtime,
+                experimental_hyper=s.qa_engine == "hyper",
             )
         return await run_task(task, s, rt, research_discoverer=research_discoverer,
                               initial_decision=decision,
