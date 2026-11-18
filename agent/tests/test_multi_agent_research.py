@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from guance_agent.config import Settings
-from guance_agent.multi_agent import critic, lead, scheduler
+from guance_agent.multi_agent import critic, lead, scheduler, worker
 from guance_agent.multi_agent.contracts import Assignment, Synthesis, WorkerOutcome
 from guance_agent.multi_agent.workspace import EvidenceLedger, Workspace
 from guance_agent.schemas import Claim, EvidenceRef
@@ -199,3 +199,61 @@ def test_workspace_does_not_write_original_question(tmp_path):
     raw = workspace.path.read_text(encoding="utf-8")
     assert question not in raw and "私有政策" not in raw
     assert json.loads(raw)["events"][0]["facts"] == 2
+
+
+@pytest.mark.asyncio
+async def test_worker_keeps_authorized_targets_and_isolates_session(env, monkeypatch):
+    settings, task = env
+    settings = replace(
+        settings, qa_engine="multi", llm_base_url="https://fake.invalid/v1",
+        llm_api_key="offline-test-key",
+    )
+    original_task_session = task.session_id
+    calls = []
+
+    async def stub_sdk(child, configured, runtime, *, initial_decision,
+                       research_discoverer, experimental_hyper):
+        assert experimental_hyper is True
+        assert configured.qa_engine == "hyper"
+        assert child.targets == ["TEST-001"]
+        assert child.run_id != task.run_id
+        assert child.session_id != original_task_session
+        assert "本轮子任务只研究" in child.question
+        assert configured.max_tool_calls <= settings.max_tool_calls
+        calls.append(child)
+        return verified_result()
+
+    monkeypatch.setattr(worker, "run_sdk_task", stub_sdk)
+    result = await worker.run_worker(assignment(), task, settings, seconds=40)
+    assert result.status == "completed"
+    assert result.result is not None
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_critic_model_outage_never_promotes_unsupported_synthesis():
+    class OutageRuntime:
+        async def complete_text(self, *_args, **_kwargs):
+            raise RuntimeError("API backend unavailable")
+
+    decision = await critic.review(
+        [Synthesis("S1", "研究", "发展农业灌溉设施", ("F1",))],
+        {"F1": {"text": "农业灌溉设施", "quotes": ["发展农业灌溉设施"]}},
+        OutageRuntime(), time.monotonic() + 90,
+    )
+    assert not decision.performed
+    assert decision.approved_ids == ()
+    assert decision.gaps == ("critic_unavailable",)
+
+
+def test_ledger_keeps_independent_fact_ids_from_workers():
+    ledger = EvidenceLedger()
+    ledger.ingest(WorkerOutcome(assignment(), "completed", verified_result()))
+    assert ledger.claims[0].fact_ids == ["G1"]
+    other = verified_result()
+    other.claims[0].text = "促进科技基础设施"
+    other.claims[0].quotes = ["促进科技基础设施"]
+    ledger.ingest(WorkerOutcome(assignment("W2"), "completed", other))
+    assert len(ledger.claims) == 2
+    assert ledger.claims[1].fact_ids == ["G2"]
+    assert len(set(x for c in ledger.claims for x in c.fact_ids)) == 2
