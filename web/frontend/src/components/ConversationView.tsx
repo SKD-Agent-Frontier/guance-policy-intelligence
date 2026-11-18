@@ -6,7 +6,7 @@ import { Results } from "./Results";
 import { containsInternalStatus } from "./resultDisplay";
 import { EvidenceOriginalReader, SourceHoverCard } from "./EvidenceOriginalReader";
 import type { AdvancedDraft, Conversation, ConversationMessage } from "../conversationTypes";
-import type { EvidenceRef, ResearchRequest, RunResult, TaskType } from "../types";
+import type { EvidenceRef, PreparationResponse, ResearchRequest, RunResult, TaskType } from "../types";
 
 type Props = {
   conversation: Conversation;
@@ -262,9 +262,16 @@ function Message({
   }
   if (message.kind === "result") {
     const index = conversation.messages.findIndex(entry => entry.id === message.id);
-    const question = conversation.messages.slice(0, index).reverse().find(entry => entry.kind === "user");
+    const preceding = conversation.messages.slice(0, index).reverse();
+    const userIndex = preceding.findIndex(entry => entry.kind === "user");
+    const question = userIndex >= 0 ? preceding[userIndex] : undefined;
+    // Preserve the preparation warnings and condition execution boundaries for
+    // this answer only, not the latest preparation of another conversation turn.
+    const relevant = userIndex >= 0 ? preceding.slice(0, userIndex) : [];
+    const prepared = relevant.find(entry => entry.kind === "preparation" && entry.response.status === "ready");
     return <ResultMessage message={message}
       question={question?.kind === "user" ? question.text : conversation.title}
+      preparation={prepared?.kind === "preparation" ? prepared.response : null}
       isLatest={isLatest} onRetry={onRetry} onRegenerate={() => onRegenerate(message.id)}
       disabled={!canChangeHistory} onEvidence={onEvidence} />;
   }
@@ -317,6 +324,7 @@ function errorExplanation(code: string) {
 function ResultMessage({
   message,
   question,
+  preparation,
   isLatest,
   onRetry,
   onRegenerate,
@@ -325,6 +333,7 @@ function ResultMessage({
 }: {
   message: Extract<ConversationMessage, { kind: "result" }>;
   question: string;
+  preparation: PreparationResponse | null;
   isLatest: boolean;
   onRetry: () => void;
   onRegenerate: () => void;
@@ -350,18 +359,25 @@ function ResultMessage({
   const code = result.error?.code || (result.status === "limit_reached" ? "LIMIT_REACHED" : "EXECUTION_FAILED");
   const reason = result.error?.message || result.answer || "研究任务未能完成。";
   // Raw delivery state / gap codes belong to diagnostics, not to the reader-facing notes.
-  const visibleWarnings = (result.warnings ?? []).filter((warning) => !containsInternalStatus(warning));
+  const visibleWarnings = [...new Set([
+    ...(result.warnings ?? []),
+    ...(preparation?.warnings ?? []),
+  ].filter((warning) => !containsInternalStatus(warning)))];
+  const executionConditions = preparation?.state.condition_statuses ?? [];
   return <article className="conversation-message result-message" data-result-message-id={message.id}>
     <div ref={bodyRef} className="result-message-body">
       {failed ? <ResearchFailureCard code={code} text={reason} />
         : <Results result={result} onEvidence={(chunkId) => onEvidence(result, chunkId)} />}
     </div>
-    {(result.evidence_status !== "verified" || visibleWarnings.length > 0 || (!failed && result.error)) && (
+    {(result.evidence_status !== "verified" || visibleWarnings.length > 0 || executionConditions.length > 0 || (!failed && result.error)) && (
       <details className="result-followup-notes">
         <summary>研究提示与核验信息</summary>
         {result.evidence_status !== "verified" && <p>本轮未形成足够的可核验证据，不能据此判断政策不存在。</p>}
         {!failed && result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
         {visibleWarnings.length > 0 && <ul>{visibleWarnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+        {executionConditions.length > 0 && <div aria-label="研究条件执行情况">{executionConditions.map((condition, index) => (
+          <p key={`${condition.condition_id}-${index}`}>{condition.value || condition.condition_id} · {condition.reason}{condition.status === "request_only" ? " · 不代表已完成筛选。" : ""}</p>
+        ))}</div>}
       </details>
     )}
     {!failed && (
