@@ -1592,6 +1592,9 @@ textarea:focus-visible {
   .research-running-text { animation: none; background: none; -webkit-text-fill-color: currentColor; }
 }
 .conversation-composer-wrap {
+  position: relative;
+  /* Keep floating mode/template menus above the scrollable history. */
+  z-index: 4;
   flex: 0 0 auto;
   padding: 8px 0 4px;
   background: linear-gradient(180deg, rgba(255,255,255,0), #fff 10%);
@@ -1599,7 +1602,8 @@ textarea:focus-visible {
 .conversation-composer-wrap .research-composer {
   width: min(820px, 100%);
   max-height: min(44vh, 460px);
-  overflow: auto;
+  /* The floating menus intentionally extend outside the composer box. */
+  overflow: visible;
   margin: 0 auto;
 }
 .conversation-local-note {
