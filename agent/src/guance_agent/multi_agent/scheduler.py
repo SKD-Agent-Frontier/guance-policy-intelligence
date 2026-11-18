@@ -44,8 +44,8 @@ def _finish_without_evidence(task, rt, message, workspace, *, stage):
         structured={"schema_version": "qa-report/1", "blocks": [],
                     "coverage": {"covered": [], "missing": [], "status": "partial"}},
     )
-    rt.finish(result, None)
     workspace.record("finished", reason=stage, facts=0)
+    rt.finish(result, None)
     return result
 
 

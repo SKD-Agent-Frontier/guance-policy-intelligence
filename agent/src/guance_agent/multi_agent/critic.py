@@ -1,6 +1,7 @@
 """Independent critical review of proposed synthesis against verified quotes."""
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -78,5 +79,8 @@ async def review(blocks: list[Synthesis], facts: dict[str, dict], runtime,
             comments=str(response.get("comments") or "")[:360],
             performed=True,
         )
-    except (ValueError, TypeError, TimeoutError, OSError):
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # A model outage cannot discard already independently verified worker facts.
         return Review(gaps=("critic_unavailable",))

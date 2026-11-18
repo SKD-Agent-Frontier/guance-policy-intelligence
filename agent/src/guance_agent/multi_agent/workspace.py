@@ -32,7 +32,8 @@ class EvidenceLedger:
 
     def ingest(self, outcome: WorkerOutcome) -> int:
         result = outcome.result
-        if (result is None or result.evidence_status != "verified"
+        if (result is None or result.status != "completed"
+                or result.evidence_status != "verified"
                 or result.meta.get("verification_incomplete")
                 or not isinstance(result.structured, dict)):
             return 0
@@ -40,6 +41,10 @@ class EvidenceLedger:
         if not isinstance(blocks, list):
             return 0
         refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+        if len(refs) != len(result.evidence_refs):
+            # Duplicate chunk IDs may hide competing document generations.
+            self.conflicts += 1
+            return 0
         local_indexes = {}
         new_count = 0
         for block in blocks:
@@ -54,7 +59,8 @@ class EvidenceLedger:
                 continue
             source_claims = [result.claims[x] for x in old_ids]
             chunks = {chunk for claim in source_claims for chunk in claim.chunk_ids}
-            if any(not refs.get(chunk) for chunk in chunks):
+            if any(not refs.get(chunk) or refs[chunk].source != "kb_read"
+                   for chunk in chunks):
                 self.rejected_blocks += 1
                 continue
             if any(not claim.quotes or not claim.chunk_ids for claim in source_claims):
@@ -78,13 +84,16 @@ class EvidenceLedger:
             for old in old_ids:
                 if old not in local_indexes:
                     claim = result.claims[old]
+                    # Worker fact IDs are local; their raw values may collide.
                     key = (
                         claim.text, tuple(claim.chunk_ids), tuple(claim.quotes),
-                        tuple(claim.fact_ids), claim.fact_status,
+                        claim.fact_status, claim.content_period, claim.time_anchor,
                     )
                     if key not in self._claim_keys:
                         self._claim_keys[key] = len(self.claims)
-                        self.claims.append(claim.model_copy(deep=True))
+                        merged = claim.model_copy(deep=True)
+                        merged.fact_ids = [f"G{len(self.claims) + 1}"]
+                        self.claims.append(merged)
                     local_indexes[old] = self._claim_keys[key]
                 indexes.append(local_indexes[old])
             for chunk in chunks:
