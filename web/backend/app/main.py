@@ -14,6 +14,7 @@ from guance_agent.kb import close_kb, warm_up
 from guance_agent.main import submit
 from guance_agent.research_planner import ResearchPlanner
 
+from .export_routes import router as export_router
 from .policy_routes import _catalog as get_policy_catalog
 from .policy_routes import router as policy_catalog_router
 from .preparation import (
@@ -22,8 +23,11 @@ from .preparation import (
     ResearchPreparationService,
 )
 from .preparation_models import ResearchPrepareRequest
+from .request_limits import RequestBodyLimitMiddleware
 from .research_runtime import discover_run_plan
 from .schemas import RunRequest
+from .validation_batches import ValidationBatchService
+from .validation_batches import router as validation_batch_router
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
             yield
         finally:
             application.state.ready = False
+            await application.state.validation_batches.close()
             try:
                 await asyncio.to_thread(close_kb)
             except Exception as exc:  # noqa: BLE001
@@ -84,10 +89,14 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
     application = FastAPI(lifespan=lifespan)
     application.state.ready = False
     application.state.settings = None
+    application.state.validation_batches = ValidationBatchService()
     application.state.preparation_service = (
         preparation_service if preparation_service is not None else ResearchPreparationService()
     )
     application.include_router(policy_catalog_router)
+    application.include_router(export_router)
+    application.include_router(validation_batch_router)
+    application.add_middleware(RequestBodyLimitMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configured_origins,

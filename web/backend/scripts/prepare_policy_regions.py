@@ -85,7 +85,8 @@ def read_tree(raw_bytes: bytes) -> tuple[list[dict], dict]:
         raise ValueError("地区树来源或请求层级与契约记录不符")
     raw_nodes = source.get("data")
     if not isinstance(raw_nodes, list):
-        raise ValueError("地区树 data 必须是数组")
+        # CLI 入口按 ValueError 将资源配置问题转成可读错误。
+        raise ValueError("地区树 data 必须是数组")  # noqa: TRY004
     transformed: list[dict] = []
     flat: list[dict] = []
 

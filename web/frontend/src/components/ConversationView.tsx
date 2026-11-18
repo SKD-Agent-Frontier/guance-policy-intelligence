@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Check, Copy, Pencil, RotateCcw } from "lucide-react";
+import { Check, Copy, FileDown, FileSpreadsheet, Pencil, RotateCcw } from "lucide-react";
+import { exportResearch, type ExportFormat } from "../api/exportResearch";
 import { ResearchForm } from "./ResearchForm";
 import { Results } from "./Results";
 import { containsInternalStatus } from "./resultDisplay";
@@ -259,7 +260,14 @@ function Message({
         disabled={!canChangeHistory} />
     </article>;
   }
-  if (message.kind === "result") return <ResultMessage message={message} isLatest={isLatest} onRetry={onRetry} onRegenerate={() => onRegenerate(message.id)} disabled={!canChangeHistory} onEvidence={onEvidence} />;
+  if (message.kind === "result") {
+    const index = conversation.messages.findIndex(entry => entry.id === message.id);
+    const question = conversation.messages.slice(0, index).reverse().find(entry => entry.kind === "user");
+    return <ResultMessage message={message}
+      question={question?.kind === "user" ? question.text : conversation.title}
+      isLatest={isLatest} onRetry={onRetry} onRegenerate={() => onRegenerate(message.id)}
+      disabled={!canChangeHistory} onEvidence={onEvidence} />;
+  }
 
   if (message.response.status === "ready") return null;
   const response = message.response;
@@ -308,6 +316,7 @@ function errorExplanation(code: string) {
 
 function ResultMessage({
   message,
+  question,
   isLatest,
   onRetry,
   onRegenerate,
@@ -315,6 +324,7 @@ function ResultMessage({
   onEvidence,
 }: {
   message: Extract<ConversationMessage, { kind: "result" }>;
+  question: string;
   isLatest: boolean;
   onRetry: () => void;
   onRegenerate: () => void;
@@ -323,6 +333,19 @@ function ResultMessage({
 }) {
   const result = message.result;
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [exportError, setExportError] = useState("");
+  const saveAs = async (format: ExportFormat) => {
+    setExporting(format);
+    setExportError("");
+    try {
+      await exportResearch(result, question, format);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "导出失败");
+    } finally {
+      setExporting(null);
+    }
+  };
   const failed = result.status !== "completed";
   const code = result.error?.code || (result.status === "limit_reached" ? "LIMIT_REACHED" : "EXECUTION_FAILED");
   const reason = result.error?.message || result.answer || "研究任务未能完成。";
@@ -340,6 +363,16 @@ function ResultMessage({
         {!failed && result.error && <p>{result.error.code}：{result.error.message}。{errorExplanation(result.error.code)}</p>}
         {visibleWarnings.length > 0 && <ul>{visibleWarnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
       </details>
+    )}
+    {!failed && (
+      <div className="result-export-actions" aria-label="研究结果导出">
+        <button type="button" disabled={exporting !== null} onClick={() => void saveAs("docx")}
+          title="导出 Word 报告"><FileDown size={16} />导出 Word</button>
+        <button type="button" disabled={exporting !== null} onClick={() => void saveAs("xlsx")}
+          title="导出 Excel 表格"><FileSpreadsheet size={16} />导出 Excel</button>
+        {exporting && <span role="status">正在生成{exporting === "docx" ? "Word" : "Excel"}…</span>}
+        {exportError && <span role="alert" className="result-export-error">{exportError}</span>}
+      </div>
     )}
     <MessageActions contentRef={bodyRef}
       onRegenerate={isLatest && failed ? onRetry : onRegenerate}

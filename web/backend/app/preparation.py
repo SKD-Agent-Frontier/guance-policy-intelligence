@@ -450,9 +450,11 @@ class ResearchPreparationService:
                 entry.completed_questions.append(
                     CompletedQuestion(question_id="publication_time", answer=message)
                 )
-            elif entry.mode == "organize" and "scope" not in {item.question_id for item in entry.completed_questions}:
-                if entry.area or entry.area_unrestricted or entry.time_text or entry.time_unrestricted or entry.dimensions:
-                    entry.completed_questions.append(CompletedQuestion(question_id="scope", answer=message))
+            elif (entry.mode == "organize"
+                  and "scope" not in {item.question_id for item in entry.completed_questions}
+                  and (entry.area or entry.area_unrestricted or entry.time_text
+                       or entry.time_unrestricted or entry.dimensions)):
+                entry.completed_questions.append(CompletedQuestion(question_id="scope", answer=message))
 
         # Do not replay original_request after the prior QA turn was ready:
         # the latest question is the instruction, prior scope is context only.

@@ -536,6 +536,15 @@ describe("PolicyCatalog", () => {
     expect(await screen.findByText(/政策信息与检索时的数据版本不同/)).toBeVisible();
   });
 
+  it("derives displayed topic tags from the published policy title", async () => {
+    catalog.detail.mockResolvedValue(detailResponse("P-1", "海西州数字经济科技创新规划") as never);
+    const user = userEvent.setup();
+    render(<PolicyCatalog />);
+    await searchCatalog(user);
+    await user.click(screen.getByRole("button", { name: /数字经济政策/ }));
+    expect(await screen.findByText("主题：产业经济与营商 · 数字经济与科技")).toBeVisible();
+  });
+
   it("keeps an empty real service response explicit and offers retry", async () => {
     const failure = Object.assign(new Error("政策目录服务不可用"), { status: 503 });
     catalog.list.mockRejectedValueOnce(failure);

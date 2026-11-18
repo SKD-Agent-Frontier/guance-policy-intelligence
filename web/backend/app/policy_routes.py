@@ -19,7 +19,11 @@ from .policy_catalog import (
     PolicyCatalogService,
     load_published_catalog,
 )
-from .policy_regions import RegionResourceUnavailable, load_region_mapping, load_region_tree
+from .policy_regions import (
+    RegionResourceUnavailable,
+    load_region_mapping,
+    load_region_tree,
+)
 from .policy_schemas import (
     PolicyContentResponse,
     PolicyDetailResponse,

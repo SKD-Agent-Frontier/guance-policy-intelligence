@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 MAX_PREVIEW_CHARS = 172
-IMAGE = re.compile(r"!\[[^\]\n]*\]\(\s*(?:media/|https?://)[^)]*\)", re.I)
+IMAGE = re.compile(r"!\[[^\]\n]*\]\(\s*(?:media/|https?://)[^)]*\)", re.IGNORECASE)
 HEADING = re.compile(r"^\s*#{1,6}\s*")
 HTML = re.compile(r"<[^>]+>")
 SPACE = re.compile(r"\s+")

@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { catalogClient } from "../api/catalogClient";
+import type { PolicyListItem } from "../types";
 import { ArrowLeft, BookOpenText, FolderPlus, Plus, Trash2 } from "lucide-react";
-import { builtInThemes, themedPolicies } from "../policyTopics";
+import { themeCounts, themedPolicies } from "../policyTopics";
 import type { TopicCollection, TopicPolicy } from "../topicStore";
 import { TopicPicker } from "./TopicPicker";
 import "../topics.css";
@@ -26,10 +28,39 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
   const [error, setError] = useState("");
   const [visible, setVisible] = useState(30);
   const [filter, setFilter] = useState("");
+  const [published, setPublished] = useState<PolicyListItem[]>([]);
+  const [loadingPublished, setLoadingPublished] = useState(true);
+  const [publishedError, setPublishedError] = useState("");
 
-  const theme = selected?.kind === "public" ? builtInThemes.find((item) => item.id === selected.id) : undefined;
+  useEffect(() => {
+    let active = true;
+    const loadPublished = async () => {
+      const first = await catalogClient.list({ page: 1, page_size: 100 });
+      if (!Number.isSafeInteger(first.total_pages) || first.total_pages < 0) {
+        throw new Error("知识库目录分页信息无效。");
+      }
+      const items = [...first.items];
+      for (let page = 2; page <= first.total_pages; page += 1) {
+        if (!active) return;
+        const next = await catalogClient.list({ page, page_size: 100 });
+        items.push(...next.items);
+      }
+      if (!active) return;
+      setPublished(items);
+      setLoadingPublished(false);
+    };
+    void loadPublished().catch((exception: unknown) => {
+      if (!active) return;
+      setPublishedError(exception instanceof Error ? exception.message : "知识库目录暂不可用，系统主题分类未加载。");
+      setLoadingPublished(false);
+    });
+    return () => { active = false; };
+  }, []);
+  const publicThemes = useMemo(() => themeCounts(published), [published]);
+
+  const theme = selected?.kind === "public" ? publicThemes.find((item) => item.id === selected.id) : undefined;
   const personal = selected?.kind === "personal" ? collections.find((item) => item.id === selected.id) : undefined;
-  const publicDocuments = useMemo(() => theme ? themedPolicies(theme.id) : [], [theme?.id]);
+  const publicDocuments = useMemo(() => theme ? themedPolicies(theme.id, published) : [], [theme?.id, published]);
   const documents = (personal ? personal.policies : publicDocuments).filter((item) =>
     `${item.title} ${item.area || ""}`.includes(filter.trim()));
   const showSelection = (next: TopicSelection) => {
@@ -87,12 +118,14 @@ export function TopicsPage({ collections, onCreate, onAddPolicy, onRemovePolicy,
         ))}
         {documents.length > visible && <button type="button" className="topics-more" onClick={() => setVisible((n) => n + 30)}>加载更多（剩余 {documents.length - visible} 篇）</button>}
       </div> : <div className="topics-empty">{filter ? "没有匹配的文献。" : "这个专题还没有文献，可从文献目录预览或正文页添加。"}</div>}
-      {theme && <p className="topics-note">分类基于样本标题，允许多标签；点击文献后，以当前发布知识库的正文和元数据为准。</p>}
+      {theme && <p className="topics-note">分类根据当前发布目录中的文献标题归类，允许多标签；分类不判断政策正文内容。</p>}
     </div> : <>
       <section className="topics-section" aria-label="系统主题分类">
-        <div className="topics-section-heading"><h2>主题分类</h2><span>{builtInThemes.length} 个主题</span></div>
+        {loadingPublished && <p role="status">正在读取当前发布目录中的文献主题…</p>}
+        {publishedError && <p role="alert">{publishedError}</p>}
+        <div className="topics-section-heading"><h2>主题分类</h2><span>{publicThemes.length} 个主题</span></div>
         <div className="topics-grid">
-          {builtInThemes.map((item) => <button type="button" className="topics-card" key={item.id}
+          {publicThemes.map((item) => <button type="button" className="topics-card" key={item.id}
             onClick={() => showSelection({ kind: "public", id: item.id })}>
             <span className="topics-card-heading"><span className="topics-card-symbol" aria-hidden="true">◈</span><strong>{item.name}</strong></span>
             <span className="topics-card-description">{item.description}</span><small>{item.count} 篇文献 <span aria-hidden="true">↗</span></small>

@@ -521,7 +521,7 @@ class PolicyCatalogService:
         q = self._check_query(q)
         for name, value in (("area", area), ("fyp", fyp), ("plantype", plantype)):
             self._check_filter(value, name)
-        fyp, plantype = normalize_fyp(fyp), plantype
+        fyp = normalize_fyp(fyp)
         if admin_level is not None and admin_level not in ADMIN_LEVEL_VALUES:
             raise InvalidParameter("admin_level 值无效")
         if region_status is not None and region_status not in REGION_STATUSES:
@@ -596,9 +596,10 @@ class PolicyCatalogService:
         if filters.get("admin_level") is not None and self._admin_level(record) != filters["admin_level"]:
             return False
         mapping = (self.region_mapping or {}).get(record.planid)
-        if filters.get("region_status") is not None:
-            if mapping is None or mapping["region_status"] != filters["region_status"]:
-                return False
+        if filters.get("region_status") is not None and (
+            mapping is None or mapping["region_status"] != filters["region_status"]
+        ):
+            return False
         code_set = filters.get("_region_codes")
         if code_set is not None and (mapping is None or mapping.get("region_code") not in code_set):
             return False
@@ -626,9 +627,7 @@ class PolicyCatalogService:
                 return False
             if isinstance(filters["year"], int) and record.year != filters["year"]:
                 return False
-        if filters.get("q") is not None and not self._match_record(record, filters["q"]):
-            return False
-        return True
+        return filters.get("q") is None or self._match_record(record, filters["q"])
 
     def get_policy(self, planid: str) -> dict:
         planid = self._check_planid(planid)

@@ -543,7 +543,7 @@ export function PolicyCatalog({
     !policy?.printed_toc
     || section.start < policy.printed_toc[0]
     || section.start >= policy.printed_toc[1]);
-  const policyTags = policy ? tagsForPolicy(policy.planid) : [];
+  const policyTags = policy ? tagsForPolicy(policy.title || "") : [];
   const visibleTopics = builtInThemes.filter((topic) => policyTags.includes(topic.id));
   const contentPage = content ? (content.page ?? Math.floor(content.offset / CONTENT_PAGE_SIZE) + 1) : 1;
   const contentPageCount = content ? (content.page_count ?? Math.max(1, Math.ceil(content.total_chars / CONTENT_PAGE_SIZE))) : 1;

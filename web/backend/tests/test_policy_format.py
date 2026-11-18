@@ -13,7 +13,7 @@ def test_original_html_headings_are_read_only_and_structured(tmp_path):
         "<p class='MsoHeading2'><span>一、主要目标</span></p>"
         "<p>普通正文应当保持普通格式。</p>"
         "<script>alert('not a heading')</script></body></html>"
-    ).encode("utf-8")
+    ).encode()
     source = folder / "20699.html"
     source.write_bytes(original)
     result = read_original_html_headings(root, "20699")

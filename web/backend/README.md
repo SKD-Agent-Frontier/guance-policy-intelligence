@@ -81,6 +81,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 API Base URL 为 `http://127.0.0.1:8000`。本地前端可请求 `http://127.0.0.1:8000/api/runs`、`http://127.0.0.1:8000/api/health` 和 `http://127.0.0.1:8000/api/research/prepare`。
 
+已完成的研究结果可通过 `POST /api/exports/docx` 或 `POST /api/exports/xlsx` 导出；请求只传用户可见的研究正文、事实和证据字段，未全部核验的结果在文件中保留提示。`POST /api/validation-batches/preview` 接收含「问题」「预期答案」两列的 `.xlsx`，随后通过 `/api/validation-batches/{upload_id}/start` 启动、`/api/validation-batches/jobs/{job_id}` 查询进度、`.../cancel` 取消、`.../export` 下载结果。最多500题、两个活动任务，研究请求实际串行执行；「执行成功」只表示研究接口完成，正确性在无金标判分机制时显示「未评估」。批次和结果仅暂存在服务进程内，重启会丢失，Agent 自身会话日志仍遵循其原有本地配置。
+
 `POST /api/research/prepare` 是研究需求澄清与准备接口，不会调用 Agent 或执行研究。当前仅 `qa` 和 `organize` 支持准备；`extract`、`compare` 和 `compare_plans` 返回 `blocked`。收到 `ready` 后，前端应另行调用 `POST /api/runs` 执行任务。请求、响应和状态规则见[研究准备接口契约](RESEARCH_PREPARATION_CONTRACT.md)。
 
 本地运行使用一个 Uvicorn worker。FastAPI lifespan 在服务启动时加载共享 Agent 设置并预热检索资源，关闭时释放知识库和共享模型客户端。BM25 预热通过线程执行，避免阻塞异步事件循环；非 RAG 后端的 `warm_up()` 不做预热操作。单 worker 可避免本地开发时每个 worker 各自初始化一份生命周期资源。

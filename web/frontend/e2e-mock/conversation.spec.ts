@@ -139,6 +139,14 @@ async function newConversation(page: Page) {
   await page.getByRole("button", { name: "新建研究" }).click();
 }
 
+async function selectResearchMode(page: Page, name: string) {
+  await page.getByRole("button", { name: "更多功能" }).click();
+  await page.getByRole("button", { name: /研究模式/ }).click();
+  const modes = page.getByRole("group", { name: "可选研究模式" });
+  await expect(modes.getByRole("button")).toHaveCount(5);
+  await modes.getByRole("button", { name, exact: true }).click();
+}
+
 test("Real client Mock API: QA clarification resumes the token, runs once, and opens the matching evidence", async ({ page }, info) => {
   const directory = await artifacts(info);
   const prepareRequests: Record<string, unknown>[] = [];
@@ -158,7 +166,10 @@ test("Real client Mock API: QA clarification resumes the token, runs once, and o
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByText("Real")).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "研究模式" }).getByRole("tab")).toHaveCount(5);
+  await page.getByRole("button", { name: "更多功能" }).click();
+  await page.getByRole("button", { name: /研究模式/ }).click();
+  await expect(page.getByRole("group", { name: "可选研究模式" }).getByRole("button")).toHaveCount(5);
+  await page.getByRole("button", { name: "关闭更多功能" }).click();
   await expect.poll(() => page.locator(".architecture-scene img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
   await page.screenshot({ path: join(directory, "home-desktop.png"), fullPage: true });
 
@@ -201,7 +212,7 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
   });
   const runCount = await installRunRoute(page, (body) => runBodies.push(body));
   await page.goto("/");
-  await page.getByRole("tab", { name: "文献梳理" }).click();
+  await selectResearchMode(page, "文献梳理");
   await page.getByRole("textbox", { name: "研究需求" }).fill("梳理支持数字经济的政策");
   await page.getByRole("button", { name: "发送消息" }).click();
   await expect(page.getByRole("heading", { name: "后端问题：先确定按哪个范围整理？" })).toBeVisible();
@@ -245,7 +256,7 @@ test("Real client Mock API: advanced compare keeps its draft through catalog and
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 1, total_documents: 0, partial: false, source: "current_published_frozen_release" }, query: { q: null, area: null, fyp: null, plantype: null, match_mode: null }, matched_documents: 0, page: 1, page_size: 20, total_pages: 1, items: [] }) });
   });
   await page.goto("/");
-  await page.getByRole("tab", { name: "政策比较" }).click();
+  await selectResearchMode(page, "政策比较");
   const question = "比较下北京市2015和2016年的政府工作报告";
   await page.getByRole("textbox", { name: "研究需求" }).fill(question);
   await page.getByRole("button", { name: "发送消息" }).click();
@@ -303,7 +314,7 @@ test("Real client Mock API: advanced compare keeps its draft through catalog and
 
   await openSidebar(page);
   await page.getByRole("button", { name: "新建研究" }).click();
-  await page.getByRole("tab", { name: "政策比较" }).click();
+  await selectResearchMode(page, "政策比较");
   const secondQuestion = "比较另一组政策的扶持范围";
   await page.getByRole("textbox", { name: "研究需求" }).fill(secondQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
@@ -338,7 +349,7 @@ test("Real client Mock API: advanced extract and multi-plan handoff send explici
   const runCount = await installRunRoute(page, (body) => runBodies.push(body));
   await page.goto("/");
 
-  await page.getByRole("tab", { name: "要素提取" }).click();
+  await selectResearchMode(page, "要素提取");
   const extractQuestion = "提取政策中的支持对象与申请条件";
   await page.getByRole("textbox", { name: "研究需求" }).fill(extractQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
@@ -355,7 +366,7 @@ test("Real client Mock API: advanced extract and multi-plan handoff send explici
   expect(runBodies[0]).toEqual({ task_type: "extract", question: extractQuestion, targets: ["DEMO-EXTRACT-1"], dimensions: ["支持对象"] });
 
   await newConversation(page);
-  await page.getByRole("tab", { name: "多方案分析" }).click();
+  await selectResearchMode(page, "多方案分析");
   const plansQuestion = "分析方案政策的适用范围差异";
   await page.getByRole("textbox", { name: "研究需求" }).fill(plansQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
@@ -568,8 +579,8 @@ test("Real client Mock API: IME Enter, Unicode limit, mode cancellation, and one
   expect(firstPrepareCount).toBe(0);
   await page.getByRole("button", { name: "发送消息" }).click();
   await expect(page.getByRole("button", { name: "发送消息" })).toBeDisabled();
-  await page.getByRole("tab", { name: "文献梳理" }).click();
-  await expect(page.getByRole("tab", { name: "文献梳理" })).toHaveAttribute("aria-selected", "true");
+  await selectResearchMode(page, "文献梳理");
+  await expect(page.getByRole("button", { name: "恢复默认模式" })).toBeVisible();
   await page.waitForTimeout(300);
   expect(firstPrepareCount).toBe(1);
   expect(runCount()).toBe(0);
@@ -626,7 +637,7 @@ test("Real client Mock API: explicit region, period and subject compare runs wit
   });
   const runCount = await installRunRoute(page, (body) => bodyRequests.push(body));
   await page.goto("/");
-  await page.getByRole("tab", { name: "政策比较" }).click();
+  await selectResearchMode(page, "政策比较");
   await page.getByRole("textbox", { name: "研究需求" }).fill(question);
   await page.getByRole("button", { name: "发送消息" }).click();
 
@@ -642,7 +653,7 @@ test("Real client Mock API: explicit region, period and subject compare runs wit
 test("Landing page: template and advanced panels float without shifting the hero or background", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await page.getByRole("tab", { name: "要素提取" }).click();
+  await selectResearchMode(page, "要素提取");
 
   const measure = async () => page.evaluate(() => {
     const top = (selector: string) => {

@@ -4,8 +4,10 @@ import { ConversationView } from "./ConversationView";
 import { createAdvancedDraft, type Conversation } from "../conversationTypes";
 import type { EvidenceRef, PreparationResponse, RunResult } from "../types";
 import { catalogClient } from "../api/catalogClient";
+import { exportResearch } from "../api/exportResearch";
 
 vi.mock("../api/catalogClient", () => ({ catalogClient: { detail: vi.fn(), content: vi.fn() } }));
+vi.mock("../api/exportResearch", () => ({ exportResearch: vi.fn() }));
 
 const state: PreparationResponse["state"] = {
   state_id: "state-current",
@@ -155,6 +157,30 @@ describe("conversation simplification and original source reader", () => {
     expect(screen.queryByRole("tablist", { name: "研究模式" })).not.toBeInTheDocument();
     expect(screen.queryByText(/对话记录和准备状态仅保存在当前前端会话/)).not.toBeInTheDocument();
     expect(screen.getByText("研究提示与核验信息")).toBeInTheDocument();
+  });
+
+  it("exports the completed result with its original question and reports export errors", async () => {
+    vi.mocked(exportResearch).mockRejectedValueOnce(new Error("导出服务暂不可用"));
+    renderCompleted();
+    fireEvent.click(screen.getByRole("button", { name: "导出 Word" }));
+    expect(exportResearch).toHaveBeenCalledWith(completed, "研究问题", "docx");
+    expect(screen.getByRole("button", { name: "导出 Excel" })).toBeDisabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("导出服务暂不可用");
+    expect(screen.getByRole("button", { name: "导出 Excel" })).toBeEnabled();
+  });
+
+  it("does not offer formal exports for an unfinished result", () => {
+    const base = completedConversation();
+    const conversation: Conversation = {
+      ...base,
+      messages: base.messages.map((message) => message.kind === "result"
+        ? { ...message, result: { ...message.result, status: "failed" as const } } : message),
+    };
+    render(<ConversationView conversation={conversation} onModeChange={vi.fn()} onSend={vi.fn()}
+      onAdvancedSubmit={vi.fn()} onRetry={vi.fn()} onRestartPreparation={vi.fn()}
+      onAdvancedDraftChange={vi.fn()} onSpecifyPolicies={vi.fn()} onOpenCatalog={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "导出 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导出 Excel" })).not.toBeInTheDocument();
   });
 
   it("previews source on hover and opens real published original in standalone view", async () => {

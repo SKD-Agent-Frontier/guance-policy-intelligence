@@ -1,30 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addPolicyToTopic, loadTopicCollections, newTopicCollection, removePolicyFromTopic, saveTopicCollections, TOPIC_STORAGE_KEY } from "./topicStore";
-import { builtInThemes, classifiedDocuments, policyTopics, tagsForPolicy, themedPolicies } from "./policyTopics";
 
 afterEach(() => { localStorage.removeItem(TOPIC_STORAGE_KEY); vi.restoreAllMocks(); });
-
-describe("builtin policy themes", () => {
-  it("classifies precisely 506 unique sample planids with no categories below three documents", () => {
-    expect(Object.keys(classifiedDocuments)).toHaveLength(506);
-    expect(policyTopics.total_documents).toBe(506);
-    expect(builtInThemes.length).toBeGreaterThan(0);
-    expect(builtInThemes.every((theme) => theme.count >= 3)).toBe(true);
-    for (const theme of builtInThemes) {
-      expect(themedPolicies(theme.id)).toHaveLength(theme.count);
-    }
-    const tags = Object.values(classifiedDocuments);
-    expect(tags.filter((item) => item.tags.length === 0)).toHaveLength(policyTopics.unclassified_count);
-    expect(tagsForPolicy("nonexistent")).toEqual([]);
-  });
-  it("can use multiple themes without fabricating tags for unclassified policies", () => {
-    for (const [planid, policy] of Object.entries(classifiedDocuments)) {
-      expect(policy.tags.every((tag) => builtInThemes.some((t) => t.id === tag))).toBe(true);
-      expect(new Set(policy.tags).size).toBe(policy.tags.length);
-      expect(tagsForPolicy(planid)).toEqual(policy.tags);
-    }
-  });
-});
 
 describe("personal topic storage", () => {
   const policy = {

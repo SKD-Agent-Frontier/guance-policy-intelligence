@@ -5,13 +5,14 @@ import { Sidebar } from "./components/Sidebar";
 import { ConversationView } from "./components/ConversationView";
 import { PolicyCatalog } from "./components/PolicyCatalog";
 import { TopicsPage, type TopicSelection } from "./components/TopicsPage";
+import { ValidationBatchPage } from "./components/ValidationBatchPage";
 import { addPolicyToTopic, loadTopicCollections, newTopicCollection, removePolicyFromTopic, saveTopicCollections, TOPIC_STORAGE_KEY, type TopicCollection, type TopicPolicy } from "./topicStore";
 import { isRealMode, type DemoScenario } from "./api/client";
 import { useConversations } from "./hooks/useConversations";
 import { createAdvancedDraft } from "./conversationTypes";
 import type { ResearchRequest, TaskType } from "./types";
 
-type Page = "home" | "workspace" | "catalog" | "topics";
+type Page = "home" | "workspace" | "catalog" | "topics" | "validation";
 type Dialog = "settings" | "about" | null;
 
 const scenarioOptions: { value: DemoScenario; label: string }[] = [
@@ -190,6 +191,7 @@ export default function App() {
           <button type="button" className={page === "home" || page === "workspace" ? "is-current" : ""} onClick={goResearch}>研究</button>
           <button type="button" className={page === "catalog" ? "is-current" : ""} onClick={openCatalog}>文献</button>
           <button type="button" className={page === "topics" ? "is-current" : ""} onClick={openTopics}>专题</button>
+          <button type="button" className={page === "validation" ? "is-current" : ""} onClick={() => setPage("validation")}>批量评测</button>
           <button type="button" onClick={() => openDialog("about")}>关于</button>
         </nav>
         <div className="topbar-trailing">
@@ -209,6 +211,7 @@ export default function App() {
         onRemovePolicy={removeFromTopic} onDelete={deleteTopic} onOpenPolicy={openPolicyFromTopics}
         selection={topicSelection} onSelectionChange={setTopicSelection}
       /></div>}
+      {page === "validation" && <div className="page-body page-body-validation"><ValidationBatchPage /></div>}
       {topicSaveError && <div className="topic-storage-error" role="alert">专题保存失败：请检查浏览器本地存储空间或权限。</div>}
     </div>
 

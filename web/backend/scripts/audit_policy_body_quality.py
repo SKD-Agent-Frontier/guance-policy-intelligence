@@ -14,14 +14,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.policy_quality import body_status  # noqa: E402
+from app.policy_quality import body_status
 
 
 def scan(root: Path) -> list[dict[str, str | int]]:
     results: list[dict[str, str | int]] = []
     for path in sorted(root.glob("*/*/*.md")):
         text = path.read_text(encoding="utf-8")
-        frontmatter = re.match(r"\A---\r?\n.*?\r?\n---\r?\n", text, re.S)
+        frontmatter = re.match(r"\A---\r?\n.*?\r?\n---\r?\n", text, re.DOTALL)
         body = text[frontmatter.end():] if frontmatter else text
         metadata = text[:frontmatter.end()] if frontmatter else ""
         title = next(
