@@ -130,7 +130,7 @@ async function installRunRoute(page: Page, onRun?: (body: Record<string, unknown
 async function openSidebar(page: Page) {
   const sidebar = page.locator(".app-sidebar");
   const closed = await sidebar.evaluate((element) => element.classList.contains("is-collapsed") || !element.classList.contains("is-mobile-open") && window.matchMedia("(max-width: 768px)").matches);
-  if (closed) await page.getByRole("button", { name: "打开侧栏" }).click();
+  if (closed) await page.getByRole("button", { name: "展开侧栏" }).click();
   await expect(page.getByRole("button", { name: "新建研究" })).toBeVisible();
 }
 
@@ -179,16 +179,21 @@ test("Real client Mock API: QA clarification resumes the token, runs once, and o
   await expect(page.getByRole("heading", { name: "你想了解这个主题的哪个方面？" })).toBeVisible();
   await page.screenshot({ path: join(directory, "conversation-clarification.png"), fullPage: true });
   await page.getByRole("button", { name: "产业政策" }).click();
-  await expect(page.getByText(/时间条件仅作为请求条件/)).toBeVisible();
   await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  await page.locator(".result-followup-notes summary").click();
+  await expect(page.locator(".result-followup-notes")).toContainText("时间条件仅作为请求条件");
   expect(prepareRequests).toHaveLength(2);
   expect(prepareRequests[0]).toMatchObject({ mode: "qa", message: "数字经济" });
   expect(prepareRequests[1]).toMatchObject({ state: { state_id: "mock-state", revision: 0 } });
   expect(runCount()).toBe(1);
   await page.screenshot({ path: join(directory, "conversation-multiturn.png"), fullPage: true });
-  await page.getByRole("button", { name: /原文/ }).first().click();
-  await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 政策文献");
-  await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 原文引句");
+  await expect(page.getByRole("region", { name: "依据与引句" })).toContainText("Mock API 政策文献 mock-1");
+  await page.locator(".qa-source-evidence summary").click();
+  await expect(page.locator(".qa-source-evidence")).toContainText("Mock API 原文引句 mock-1");
+  await page.getByRole("button", { name: "查看原文" }).click();
+  await expect(page.getByRole("main", { name: "政策原文阅读" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mock API 政策文献 mock-1" })).toBeVisible();
+  await page.getByRole("button", { name: "返回研究对话" }).click();
   expect(errors).toEqual([]);
 });
 
@@ -220,168 +225,119 @@ test("Real client Mock API: dynamic Organize questions preserve request_only war
   await page.getByRole("button", { name: "先按时间范围" }).click();
   await expect(page.getByRole("heading", { name: "后端问题：请确认时间范围和地区。" })).toBeVisible();
   await page.getByRole("button", { name: "十四五时期，北京市" }).click();
-  await expect(page.getByText(/地区条件仅作为研究请求说明/)).toBeVisible();
   await expect(page.locator(".result-message")).toBeVisible();
+  await page.locator(".result-followup-notes summary").click();
+  await expect(page.locator(".result-followup-notes")).toContainText("地区条件仅作为研究请求说明");
   expect(prepareRequests).toHaveLength(3);
   expect(prepareRequests[1]).toMatchObject({ message: "先按时间范围", state: { revision: 0 } });
   expect(prepareRequests[2]).toMatchObject({ message: "十四五时期，北京市", state: { revision: 1 } });
   expect(runCount()).toBe(1);
-  expect(runBodies[0]).toEqual({ task_type: "organize", question: "正式研究问题：数字经济政策及北京市、十四五时期的支持措施", targets: null, dimensions: ["支持措施"] });
-  await page.locator(".preparation-details").last().locator("summary").click();
-  await expect(page.locator(".preparation-details").last()).toContainText("北京市 · 地区仅作为请求条件，不保证精确过滤。");
-  await expect(page.locator(".preparation-details").last()).toContainText(/不代表已完成筛选/);
+  const { session_id, ...runRequest } = runBodies[0];
+  expect(runRequest).toEqual({ task_type: "organize", question: "正式研究问题：数字经济政策及北京市、十四五时期的支持措施", targets: null, dimensions: ["支持措施"] });
+  expect(session_id).toEqual(expect.stringMatching(/^guance-/));
+  await expect(page.locator(".result-followup-notes")).toContainText("北京市 · 地区仅作为请求条件，不保证精确过滤。");
+  await expect(page.locator(".result-followup-notes")).toContainText(/不代表已完成筛选/);
 });
 
-test("Real client Mock API: advanced compare keeps its draft through catalog and sessions, then runs only valid targets", async ({ page }) => {
-  await page.route("**/api/research/resolve-compare", async (route) => {
-    await route.fulfill({
-      status: 200, contentType: "application/json",
-      body: JSON.stringify({ status: "needs_clarification", message: "没有明确的比较文献，请补充标题。",
-        targets: [], policies: [], dimensions: [] }),
-    });
-  });
-  const prepareRequests: Record<string, unknown>[] = [];
+test("Real client Mock API: autonomous compare preserves session and catalog navigation without a manual ID gate", async ({ page }) => {
   const runBodies: Record<string, unknown>[] = [];
+  const unexpectedPrepare: string[] = [];
   await page.route("**/api/research/prepare", async (route) => {
-    prepareRequests.push(route.request().postDataJSON() as Record<string, unknown>);
-    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Advanced handoff must not prepare." }) });
+    unexpectedPrepare.push("prepare");
+    await route.fulfill({ status: 500, body: "Compare must use the autonomous research runtime." });
+  });
+  await page.route("**/api/research/resolve-compare", async (route) => {
+    unexpectedPrepare.push("resolve");
+    await route.fulfill({ status: 500, body: "Frontend may not pre-resolve comparison sources." });
   });
   const runCount = await installRunRoute(page, (body) => runBodies.push(body));
   await page.route("**/api/policies**", async (route) => {
-    const url = new URL(route.request().url());
-    if (url.pathname.endsWith("/content")) {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ planid: "POLICY-A", offset: 0, limit: 4000, total_chars: 0, has_more: false, text: "" }) });
-      return;
-    }
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset: { generation_id: "mock-generation", revision: 1, total_documents: 0, partial: false, source: "current_published_frozen_release" }, query: { q: null, area: null, fyp: null, plantype: null, match_mode: null }, matched_documents: 0, page: 1, page_size: 20, total_pages: 1, items: [] }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      dataset: { generation_id: "mock-generation", revision: 1, total_documents: 0, partial: false, source: "current_published_frozen_release" },
+      query: { q: null, area: null, fyp: null, plantype: null, match_mode: null },
+      matched_documents: 0, page: 1, page_size: 20, total_pages: 1, items: [],
+    }) });
   });
   await page.goto("/");
   await selectResearchMode(page, "政策比较");
   const question = "比较下北京市2015和2016年的政府工作报告";
   await page.getByRole("textbox", { name: "研究需求" }).fill(question);
   await page.getByRole("button", { name: "发送消息" }).click();
-
   await expect(page.getByRole("main", { name: "研究工作区" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "指定政策对象" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "收起高级选择" })).toHaveAttribute("aria-expanded", "true");
-  const advancedQuestion = page.getByRole("textbox", { name: "研究问题" });
-  await expect(advancedQuestion).toHaveValue(question);
-  await expect(page.locator(".message-error")).toHaveCount(0);
-  await expect(page.getByText(/UNSUPPORTED_MODE/)).toHaveCount(0);
-  expect(prepareRequests).toHaveLength(0);
-  expect(runCount()).toBe(0);
+  await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
+  const matrix = page.getByRole("region", { name: "政策比较矩阵" });
+  await expect(matrix).toContainText("POLICY-A");
+  await expect(matrix).toContainText("POLICY-B");
+  await expect(matrix).toContainText("此单元格仅用于前端联调");
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveCount(0);
+  expect(unexpectedPrepare).toEqual([]);
+  expect(runCount()).toBe(1);
+  const { session_id: sessionA, ...requestA } = runBodies[0];
+  expect(requestA).toEqual({ task_type: "compare", question });
+  expect(sessionA).toEqual(expect.stringMatching(/^guance-/));
 
-  await page.getByRole("button", { name: "指定政策对象" }).click();
-  const firstTarget = page.getByRole("textbox", { name: "研究对象编号 1" });
-  const secondTarget = page.getByRole("textbox", { name: "研究对象编号 2" });
-  await expect(firstTarget).toBeFocused();
-  await expect(page.getByText("政策对象 A")).toBeVisible();
-  await expect(page.getByText("政策对象 B")).toBeVisible();
-  const submit = page.getByRole("button", { name: "使用高级入口执行" });
-  await expect(submit).toBeDisabled();
-  await firstTarget.fill("POLICY-A");
-  await expect(submit).toBeDisabled();
-  await secondTarget.fill("POLICY-A");
-  await expect(submit).toBeDisabled();
-  await secondTarget.fill("invalid/id");
-  await expect(submit).toBeDisabled();
-  await secondTarget.fill("POLICY-B");
-  await expect(submit).toBeEnabled();
-
-  await page.getByRole("button", { name: "添加对象" }).click();
-  await page.getByRole("textbox", { name: "研究对象编号 3" }).fill("POLICY-C");
-  await page.getByRole("textbox", { name: "自定义维度（选填）" }).fill("申报条件");
-  await page.getByRole("button", { name: "添加自定义维度" }).click();
-  await expect(submit).toBeEnabled();
-  for (let index = 4; index <= 8; index += 1) {
-    await page.getByRole("button", { name: "添加对象" }).click();
-    await page.getByRole("textbox", { name: `研究对象编号 ${index}` }).fill(`POLICY-${index}`);
-  }
-  await expect(page.getByRole("textbox", { name: "研究对象编号 8" })).toHaveValue("POLICY-8");
-  await expect(page.getByRole("button", { name: "添加对象" })).toBeDisabled();
-  for (let index = 8; index >= 3; index -= 1) {
-    await page.getByRole("button", { name: `移除研究对象 ${index}` }).click();
-  }
-  await expect(page.getByRole("textbox", { name: "研究对象编号 3" })).toHaveCount(0);
-
-  await page.getByRole("button", { name: "前往文献目录查找编号" }).click();
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献" }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "研究" }).click();
-  await expect(page.getByRole("main", { name: "研究工作区" })).toBeVisible();
-  await expect(firstTarget).toHaveValue("POLICY-A");
-  await expect(secondTarget).toHaveValue("POLICY-B");
-  await expect(advancedQuestion).toHaveValue(question);
+  await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
 
-  await openSidebar(page);
-  await page.getByRole("button", { name: "新建研究" }).click();
+  await newConversation(page);
   await selectResearchMode(page, "政策比较");
   const secondQuestion = "比较另一组政策的扶持范围";
   await page.getByRole("textbox", { name: "研究需求" }).fill(secondQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(secondQuestion);
-  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("");
-  await openSidebar(page);
-  // History uses a summarized title, not the verbatim first question.
-  await page.locator(".history-link").nth(1).click();
-  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveValue("POLICY-A");
-  await expect(page.getByRole("textbox", { name: "研究对象编号 2" })).toHaveValue("POLICY-B");
-  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(question);
-  expect(prepareRequests).toHaveLength(0);
-  expect(runCount()).toBe(0);
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-2");
+  expect(runCount()).toBe(2);
+  const { session_id: sessionB, ...requestB } = runBodies[1];
+  expect(requestB).toEqual({ task_type: "compare", question: secondQuestion });
+  expect(sessionB).toEqual(expect.stringMatching(/^guance-/));
+  expect(sessionB).not.toBe(sessionA);
 
-  await page.getByRole("button", { name: "使用高级入口执行" }).click();
+  await openSidebar(page);
+  await expect(page.locator(".history-link")).toHaveCount(2);
+  await page.locator(".history-link").nth(1).click();
   await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("POLICY-A");
-  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("POLICY-B");
-  await expect(page.getByRole("region", { name: "政策比较矩阵" })).toContainText("此单元格仅用于前端联调");
-  expect(prepareRequests).toHaveLength(0);
-  expect(runCount()).toBe(1);
-  expect(runBodies[0]).toEqual({ task_type: "compare", question, targets: ["POLICY-A", "POLICY-B"], dimensions: ["申报条件"] });
+  await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
+  await expect(page.locator(".result-message")).not.toContainText("mock-2");
+  expect(unexpectedPrepare).toEqual([]);
+  expect(runCount()).toBe(2);
 });
 
-test("Real client Mock API: advanced extract and multi-plan handoff send explicit requests", async ({ page }) => {
-  const prepareRequests: Record<string, unknown>[] = [];
-  const runBodies: Record<string, unknown>[] = [];
+test("Real client Mock API: extract and multi-plan use autonomous requests and distinct sessions", async ({ page }) => {
+  const unexpectedPrepare: string[] = [];
   await page.route("**/api/research/prepare", async (route) => {
-    prepareRequests.push(route.request().postDataJSON() as Record<string, unknown>);
-    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Advanced handoff must not prepare." }) });
+    unexpectedPrepare.push("prepare");
+    await route.fulfill({ status: 500, body: "Autonomous mode must bypass frontend preparation." });
   });
-  const runCount = await installRunRoute(page, (body) => runBodies.push(body));
+  const runBodies: Record<string, unknown>[] = [];
+  const runCount = await installRunRoute(page, body => runBodies.push(body));
   await page.goto("/");
 
   await selectResearchMode(page, "要素提取");
-  const extractQuestion = "提取政策中的支持对象与申请条件";
+  const extractQuestion = "提取编号 DEMO-EXTRACT-1 政策中的支持对象与申请条件";
   await page.getByRole("textbox", { name: "研究需求" }).fill(extractQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByRole("button", { name: "指定政策对象" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(extractQuestion);
-  const submit = page.getByRole("button", { name: "使用高级入口执行" });
-  await expect(submit).toBeDisabled();
-  expect(prepareRequests).toHaveLength(0);
-  expect(runCount()).toBe(0);
-  await page.getByRole("textbox", { name: "政策编号" }).fill("DEMO-EXTRACT-1");
-  await page.getByRole("button", { name: "支持对象", exact: true }).click();
-  await submit.click();
   await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-1");
-  expect(runBodies[0]).toEqual({ task_type: "extract", question: extractQuestion, targets: ["DEMO-EXTRACT-1"], dimensions: ["支持对象"] });
+  await expect(page.getByRole("textbox", { name: "政策编号" })).toHaveCount(0);
+  expect(runCount()).toBe(1);
+  const { session_id: extractSession, ...extractRequest } = runBodies[0];
+  expect(extractRequest).toEqual({ task_type: "extract", question: extractQuestion });
+  expect(extractSession).toEqual(expect.stringMatching(/^guance-/));
 
   await newConversation(page);
   await selectResearchMode(page, "多方案分析");
-  const plansQuestion = "分析方案政策的适用范围差异";
+  const plansQuestion = "比较 PLAN-A 和 PLAN-B 两项政策的适用范围差异";
   await page.getByRole("textbox", { name: "研究需求" }).fill(plansQuestion);
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByRole("textbox", { name: "研究问题" })).toHaveValue(plansQuestion);
-  const plansSubmit = page.getByRole("button", { name: "使用高级入口执行" });
-  await expect(plansSubmit).toBeDisabled();
-  expect(prepareRequests).toHaveLength(0);
-  expect(runCount()).toBe(1);
-  await page.getByRole("textbox", { name: "研究对象编号 1" }).fill("PLAN-A");
-  await page.getByRole("textbox", { name: "研究对象编号 2" }).fill("PLAN-B");
-  await plansSubmit.click();
   await expect(page.locator(".result-message")).toContainText("Mock API 研究结果 mock-2");
-  expect(prepareRequests).toHaveLength(0);
+  await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveCount(0);
   expect(runCount()).toBe(2);
-  expect(runBodies[1]).toEqual({ task_type: "compare_plans", question: plansQuestion, targets: ["PLAN-A", "PLAN-B"], dimensions: [] });
+  const { session_id: planSession, ...planRequest } = runBodies[1];
+  expect(planRequest).toEqual({ task_type: "compare_plans", question: plansQuestion });
+  expect(planSession).toEqual(expect.stringMatching(/^guance-/));
+  expect(planSession).not.toBe(extractSession);
+  expect(unexpectedPrepare).toEqual([]);
 });
 
 test("Real client Mock API: 409 requires explicit restart and omits the stale state token", async ({ page }) => {
@@ -453,7 +409,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.goto("/");
   await page.getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
-  await expect(page.locator(".catalog-header p")).toHaveCount(0);
+  await expect(page.locator(".catalog-header .library-heading-kicker")).toHaveText("POLICY LIBRARY");
   await expect(page.getByText("当前库共有 2 篇政策文献")).toBeVisible();
   await expect(page.locator(".catalog-policy-card")).toHaveCount(0);
   await page.screenshot({ path: join(directory, "catalog-initial-blank.png"), fullPage: true });
@@ -557,11 +513,11 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("Real client Mock API: IME Enter, Unicode limit, mode cancellation, and one in-flight send", async ({ page }) => {
-  let firstPrepareCount = 0;
+test("Real client Mock API: IME Enter, Unicode limit, single-flight request and safe mode change", async ({ page }) => {
+  let prepareCount = 0;
   await page.route("**/api/research/prepare", async (route) => {
-    firstPrepareCount += 1;
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    prepareCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 550));
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prep("qa", "needs_clarification", 0, "Mock API 追问", ["选项"])) });
   });
   const runCount = await installRunRoute(page);
@@ -576,15 +532,20 @@ test("Real client Mock API: IME Enter, Unicode limit, mode cancellation, and one
     textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true, cancelable: true }));
     textarea.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
   });
-  expect(firstPrepareCount).toBe(0);
+  expect(prepareCount).toBe(0);
   await page.getByRole("button", { name: "发送消息" }).click();
   await expect(page.getByRole("button", { name: "发送消息" })).toBeDisabled();
+  // The current composer intentionally blocks mode changes during a request;
+  // this prevents a stale preparation from being assigned to a new mode.
+  await expect(page.getByRole("button", { name: "更多功能" })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Mock API 追问" })).toBeVisible();
+  expect(prepareCount).toBe(1);
+  expect(runCount()).toBe(0);
   await selectResearchMode(page, "文献梳理");
   await expect(page.getByRole("button", { name: "恢复默认模式" })).toBeVisible();
-  await page.waitForTimeout(300);
-  expect(firstPrepareCount).toBe(1);
+  await expect(page.getByRole("button", { name: "选项" })).toBeDisabled();
+  expect(prepareCount).toBe(1);
   expect(runCount()).toBe(0);
-  await expect(page.getByRole("heading", { name: "Mock API 追问" })).toHaveCount(0);
 });
 
 test("Real client Mock API: two results keep separate evidence links after switching sessions", async ({ page }) => {
@@ -611,31 +572,23 @@ test("Real client Mock API: two results keep separate evidence links after switc
   await expect(sessions).toHaveCount(2);
   await sessions.nth(1).click();
   await expect(page.locator(".result-message")).toHaveCount(2);
-  await page.getByRole("button", { name: /原文/ }).first().click();
-  await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 政策文献 separate-1");
-  await expect(page.locator(".message-evidence-panel")).toContainText("Mock API 原文引句 separate-1");
-  await expect(page.locator(".message-evidence-panel")).not.toContainText("separate-2");
+  const firstResult = page.locator(".result-message").first();
+  await expect(firstResult.getByRole("region", { name: "依据与引句" })).toContainText("Mock API 政策文献 separate-1");
+  await firstResult.locator(".qa-source-evidence summary").click();
+  await expect(firstResult.locator(".qa-source-evidence")).toContainText("Mock API 原文引句 separate-1");
+  await expect(firstResult).not.toContainText("separate-2");
 });
 
 
-test("Real client Mock API: explicit region, period and subject compare runs without manual policy IDs", async ({ page }) => {
+test("Real client Mock API: explicit comparison scope reaches autonomous agent without frontend policy IDs", async ({ page }) => {
   const bodyRequests: Record<string, unknown>[] = [];
+  const resolutionRequests: Record<string, unknown>[] = [];
   const question = "比较浙江和江苏十四五数字经济发展目标的异同";
-  await page.route("**/api/research/resolve-compare", async (route) => {
-    expect(route.request().postDataJSON()).toEqual({ question });
-    await route.fulfill({
-      status: 200, contentType: "application/json",
-      body: JSON.stringify({
-        status: "ready", message: "已定位政策", targets: ["ZJ-14", "JS-14"],
-        dimensions: ["发展目标"],
-        policies: [
-          { area: "浙江", planid: "ZJ-14", title: "浙江省数字经济十四五规划", fyp: "十四五", match: "title" },
-          { area: "江苏", planid: "JS-14", title: "江苏省数字经济十四五规划", fyp: "十四五", match: "title" },
-        ],
-      }),
-    });
+  await page.route("**/api/research/resolve-compare", async route => {
+    resolutionRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({ status: 500, body: "Policy resolution belongs to the research backend." });
   });
-  const runCount = await installRunRoute(page, (body) => bodyRequests.push(body));
+  const runCount = await installRunRoute(page, body => bodyRequests.push(body));
   await page.goto("/");
   await selectResearchMode(page, "政策比较");
   await page.getByRole("textbox", { name: "研究需求" }).fill(question);
@@ -644,13 +597,19 @@ test("Real client Mock API: explicit region, period and subject compare runs wit
   await expect(page.getByRole("heading", { name: "政策比较矩阵" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "研究对象编号 1" })).toHaveCount(0);
   expect(runCount()).toBe(1);
-  expect(bodyRequests[0]).toEqual({
-    task_type: "compare", question, targets: ["ZJ-14", "JS-14"], dimensions: ["发展目标"],
-  });
+  expect(resolutionRequests).toHaveLength(0);
+  const { session_id, ...request } = bodyRequests[0];
+  expect(request).toEqual({ task_type: "compare", question });
+  expect(session_id).toEqual(expect.stringMatching(/^guance-/));
+  // Scope terms remain intact; frontend must not manufacture planids or
+  // restrict dimensions based on unverified heuristics.
+  expect(question).toContain("浙江");
+  expect(question).toContain("江苏");
+  expect(question).toContain("十四五");
+  expect(question).toContain("发展目标");
 });
 
-
-test("Landing page: template and advanced panels float without shifting the hero or background", async ({ page }) => {
+test("Landing page: modes and templates float without shifting the hero or background", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await selectResearchMode(page, "要素提取");
@@ -669,10 +628,8 @@ test("Landing page: template and advanced panels float without shifting the hero
     };
   });
   const original = await measure();
-  // The approved mountain/cloud artwork must remain visible in full, rather than
-  // reusing the old short 29vh cover crop that obscured the mountain composition.
   const scene = page.locator(".architecture-scene");
-  const sceneHeight = await scene.evaluate((element) => element.getBoundingClientRect().height);
+  const sceneHeight = await scene.evaluate(element => element.getBoundingClientRect().height);
   expect(sceneHeight).toBeGreaterThanOrEqual(367);
   expect(sceneHeight).toBeLessThanOrEqual(371);
   const artwork = scene.locator("img");
@@ -680,23 +637,28 @@ test("Landing page: template and advanced panels float without shifting the hero
   await expect(artwork).toHaveCSS("object-fit", "fill");
   await expect.poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(1000);
 
-  await page.getByRole("button", { name: "高级选择 · 指定政策编号" }).click();
-  const advanced = page.locator(".advanced-fields");
-  await expect(advanced).toBeVisible();
-  await expect(advanced).toHaveCSS("position", "absolute");
-  await expect(advanced).toHaveCSS("overflow-y", "auto");
+  await page.getByRole("button", { name: "更多功能" }).click();
+  const root = page.getByRole("region", { name: "更多功能菜单" });
+  await expect(root).toBeVisible();
+  await expect(root).toHaveCSS("position", "absolute");
+  await expect(root).toHaveCSS("overflow-y", "auto");
   expect(await measure()).toEqual(original);
-  expect(await advanced.evaluate((element) => element.getBoundingClientRect().bottom))
-    .toBeLessThanOrEqual(900);
+  expect(await root.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(900);
 
+  await page.getByRole("button", { name: /研究模式/ }).click();
+  const modes = page.getByRole("group", { name: "可选研究模式" });
+  await expect(modes.getByRole("button")).toHaveCount(5);
+  await expect(page.getByRole("region", { name: "研究模式选择" })).toHaveCSS("position", "absolute");
+  expect(await measure()).toEqual(original);
+
+  await page.getByRole("button", { name: "返回更多功能" }).click();
   await page.getByRole("button", { name: "指令模板" }).click();
-  await expect(advanced).toHaveCount(0);
   const templates = page.getByRole("region", { name: "指令模板列表" });
   await expect(templates).toBeVisible();
   await expect(templates).toHaveCSS("position", "absolute");
   await expect(page.getByText("选择模板后将自动填入输入框，你可以继续修改后发送。")).toHaveCount(0);
   expect(await measure()).toEqual(original);
 
-  await page.getByRole("button", { name: "关闭指令模板" }).click();
+  await page.getByRole("button", { name: "关闭更多功能" }).click();
   expect(await measure()).toEqual(original);
 });
