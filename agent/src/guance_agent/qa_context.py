@@ -18,7 +18,7 @@ MAX_TURNS = 8
 MAX_QUESTION_CHARS = 1000
 
 FOLLOWUP_MARKERS = (
-    "其中", "该", "这个", "上述", "它", "其", "那", "这份", "这一",
+    "其中", "该", "这个", "上述", "它", "其", "那", "这份", "这一", "这项", "这条",
     "第", "部分", "具体", "怎么说的", "怎么说", "类似措施", "前面", "刚才",
     "上一轮", "此政策", "该政策", "这份政策", "那", "这些", "以上", "前三轮", "继续",
 )
@@ -494,6 +494,43 @@ def resolve_followup(question: str, turns: list[dict], route=None) -> dict:
         r"结合|同时|另外|以及|并且|再看|与|和|比较|对比|相比|相较|差异|异同|共同", question
     ))
     named_titles = _explicit_document_matches(question, documents)
+    # A new document within the same province/period is still a scope switch.
+    known_ids = {str(doc.get("planid")) for doc in documents}
+    new_ids = [pid for pid in parse_planids(question) if pid not in known_ids]
+    known_titles = {_normalized_title(doc.get("title")) for doc in documents}
+    new_titles = [title for title in parse_titles(question)
+                  if _normalized_title(title) not in known_titles]
+    if (new_ids or new_titles) and not expansion:
+        return {
+            **base, "status": "scope_changed",
+            "previous_question": previous_question, "documents": documents,
+            "reason": "用户明确指定另一份政策文献，不继承旧来源",
+            "requested_constraints": {
+                "planids": new_ids, "titles": new_titles,
+                "areas": explicit_areas, "periods": explicit_periods,
+            },
+            "context_note": "本轮切换到明确指定的新文献，必须重新检索取证。",
+        }
+    if (new_ids or new_titles) and expansion:
+        # A newly named document is an expansion even if both sources share
+        # province and planning period. Do not bind the current run to A alone.
+        return {
+            **base,
+            "status": "extended",
+            "previous_question": previous_question,
+            "documents": documents,
+            "inherited_planids": [str(doc["planid"]) for doc in documents],
+            "retrieval_query": (previous_question[:400] + " " + question)[:700],
+            "reason": "用户明确加入新的比较文献，需要分别重新取证",
+            "requested_constraints": {
+                "planids": list(dict.fromkeys(
+                    [str(doc["planid"]) for doc in documents] + new_ids)),
+                "titles": new_titles,
+                "areas": explicit_areas,
+                "periods": explicit_periods,
+            },
+            "context_note": "多文献对照：上一轮来源仅供理解旧对象，本轮必须同时重新取得新旧文献证据。",
+        }
     if named_titles:
         documents = named_titles
         prior_areas = {str(doc.get("area") or "") for doc in documents}

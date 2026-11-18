@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from guance_agent.research_contract import ResearchPlan, TaskContract
@@ -116,9 +117,20 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
     # Do not validate regions by copying discovered city names into user
     # scope. Check the catalog's verified parent chain before binding any plan.
     if trusted and contract.scope.areas:
+        allowed_areas = list(contract.scope.areas)
+        national_reference = re.search(r"中华人民共和国|国家.{0,24}(?:规划|纲要|政策)", task.question)
+        exclusive_region = any(re.search(
+            r"(?:仅限|只限|仅|只|限于|限定在)(?:检索|使用|比较|研究|分析|看|在)*"
+            + re.escape(area) + r"(?:的)?(?:文献|政策|文件|规划|资料|范围|[，。；]|$)",
+            task.question,
+        ) for area in allowed_areas)
+        if task.targets and len(task.targets) > 1 and national_reference and not exclusive_region:
+            allowed_areas.extend(entry["area"] for entry in trusted
+                                 if entry["planid"] in task.targets
+                                 and entry["area"] in {"中华人民共和国", "全国", "国家"})
         out_of_scope = [entry["planid"] for entry in trusted
                         if not _catalog_region_within_scope(
-                            catalog, records[entry["planid"]], contract.scope.areas)]
+                            catalog, records[entry["planid"]], allowed_areas)]
         if out_of_scope:
             return ResearchPlanner.with_catalog_documents(
                 contract, plan, [], status="insufficient",

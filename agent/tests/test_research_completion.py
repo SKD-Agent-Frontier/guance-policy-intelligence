@@ -205,6 +205,10 @@ def test_cross_document_analysis_must_cite_distinct_surviving_policies():
     assert "cross_document_analysis_missing" in quality["gaps"]
     result.structured["blocks"][0]["supporting_claim_indexes"] = [0, 1]
     result.structured["blocks"][0]["supporting_chunk_ids"] = ["c1", "c2"]
+    # Citation coverage alone is insufficient when the approved block never
+    # appears in the user-visible answer.
+    assert evaluate(result, question)["status"] == "partial"
+    result.answer = result.structured["blocks"][0]["text"]
     quality = evaluate(result, question)
     assert quality["status"] == "complete"
     assert quality["covered_planids"] == ["A", "B"]

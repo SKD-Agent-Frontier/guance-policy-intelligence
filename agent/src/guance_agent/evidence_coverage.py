@@ -90,11 +90,11 @@ def build_coverage(result, question: str, ctx) -> dict:
     # exists; factual coverage must not pretend a literal claim satisfies them.
     factual_dimensions = [label for label in required["dimensions"]
                           if label not in ANALYTICAL]
-    multi_required = multi_document_required(question)
     claims = _verified_claims(result)
     refs_by_chunk = {ref.chunk_id: ref for ref in result.evidence_refs}
     read_documents = _read_documents(ctx)
     explicit_planids = _explicit_planids(ctx)
+    multi_required = multi_document_required(question) or len(explicit_planids) >= 2
 
     document_claims: dict[str, int] = {}
     document_dimensions: dict[str, list[str]] = {}

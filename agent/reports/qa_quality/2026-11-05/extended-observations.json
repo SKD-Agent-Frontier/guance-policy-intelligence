@@ -1,0 +1,395 @@
+{
+  "production_fix_commit": "f805f73",
+  "phase": "exploratory, pre-followup-fix",
+  "concurrency": 3,
+  "note": "Not a blinded benchmark or expert gold; counts/status are not accuracy",
+  "results": [
+    {
+      "case": "H01",
+      "group": "fact",
+      "elapsed_seconds_including_seed": 7.282,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 1,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H02",
+      "group": "fact",
+      "elapsed_seconds_including_seed": 9.672,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 1,
+      "source_planids": [
+        "18563"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H03",
+      "group": "fact",
+      "elapsed_seconds_including_seed": 43.734,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 5,
+      "source_planids": [
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H04",
+      "group": "fact",
+      "elapsed_seconds_including_seed": 13.75,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 3,
+      "source_planids": [
+        "18365"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H05",
+      "group": "fact",
+      "elapsed_seconds_including_seed": 5.672,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 3,
+      "source_planids": [
+        "30505"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H06",
+      "group": "topic",
+      "elapsed_seconds_including_seed": 17.047,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 3,
+      "source_planids": [
+        "25743",
+        "52316"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H07",
+      "group": "topic",
+      "elapsed_seconds_including_seed": 38.718,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 5,
+      "source_planids": [
+        "31392",
+        "35473",
+        "46482",
+        "57"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "complete"
+    },
+    {
+      "case": "H08",
+      "group": "topic",
+      "elapsed_seconds_including_seed": 58.265,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 5,
+      "source_planids": [
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H09",
+      "group": "topic",
+      "elapsed_seconds_including_seed": 9.969,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H10",
+      "group": "topic",
+      "elapsed_seconds_including_seed": 35.078,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 6,
+      "source_planids": [
+        "30505"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H11",
+      "group": "comparison",
+      "elapsed_seconds_including_seed": 0.016,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H12",
+      "group": "comparison",
+      "elapsed_seconds_including_seed": 3.546,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H13",
+      "group": "comparison",
+      "elapsed_seconds_including_seed": 76.047,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 7,
+      "source_planids": [
+        "30505",
+        "35473"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H14",
+      "group": "comparison",
+      "elapsed_seconds_including_seed": 76.469,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 14,
+      "source_planids": [
+        "18563",
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H15",
+      "group": "comparison",
+      "elapsed_seconds_including_seed": 8.0,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H16",
+      "group": "paraphrase",
+      "elapsed_seconds_including_seed": 30.844,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 4,
+      "source_planids": [
+        "30505"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H17",
+      "group": "paraphrase",
+      "elapsed_seconds_including_seed": 28.969,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 8,
+      "source_planids": [
+        "24378",
+        "30505"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H18",
+      "group": "paraphrase",
+      "elapsed_seconds_including_seed": 35.547,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 5,
+      "source_planids": [
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H19",
+      "group": "paraphrase",
+      "elapsed_seconds_including_seed": 15.359,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 2,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H20",
+      "group": "paraphrase",
+      "elapsed_seconds_including_seed": 9.578,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 3,
+      "source_planids": [
+        "18563"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H21",
+      "group": "history",
+      "elapsed_seconds_including_seed": 19.453,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 1,
+      "source_planids": [
+        "18563"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H22",
+      "group": "history",
+      "elapsed_seconds_including_seed": 11.625,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H23",
+      "group": "history",
+      "elapsed_seconds_including_seed": 28.032,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H24",
+      "group": "history",
+      "elapsed_seconds_including_seed": 66.672,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 2,
+      "source_planids": [
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H25",
+      "group": "history",
+      "elapsed_seconds_including_seed": 98.141,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 8,
+      "source_planids": [
+        "30505",
+        "31392",
+        "35473",
+        "46482",
+        "52109"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H26",
+      "group": "boundary",
+      "elapsed_seconds_including_seed": 48.781,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 8,
+      "source_planids": [
+        "30505",
+        "31392",
+        "35473",
+        "46482"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H27",
+      "group": "boundary",
+      "elapsed_seconds_including_seed": 51.234,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 5,
+      "source_planids": [
+        "18052",
+        "18177"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial"
+    },
+    {
+      "case": "H28",
+      "group": "boundary",
+      "elapsed_seconds_including_seed": 7.828,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H29",
+      "group": "boundary",
+      "elapsed_seconds_including_seed": 4.172,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    },
+    {
+      "case": "H30",
+      "group": "boundary",
+      "elapsed_seconds_including_seed": 0.016,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient"
+    }
+  ]
+}

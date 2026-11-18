@@ -1,0 +1,178 @@
+{
+  "production_fix_commit": "9538944",
+  "affected_concurrency": 3,
+  "load_concurrency": 5,
+  "affected": [
+    {
+      "case": "H11",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 17.531,
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient",
+      "source_quote_issues": []
+    },
+    {
+      "case": "H22",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 41.625,
+      "claims": 4,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "H23",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 24.921,
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient",
+      "source_quote_issues": []
+    },
+    {
+      "case": "H30",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 0.016,
+      "claims": 0,
+      "source_planids": [],
+      "evidence_status": "insufficient",
+      "delivery_status": "insufficient",
+      "source_quote_issues": []
+    },
+    {
+      "case": "M1r1",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 44.5,
+      "claims": 3,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "M1r2",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 39.75,
+      "claims": 2,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "complete",
+      "source_quote_issues": []
+    },
+    {
+      "case": "M1r3",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 22.187,
+      "claims": 2,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    }
+  ],
+  "load": [
+    {
+      "case": "L5-H01",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 9.14,
+      "claims": 2,
+      "source_planids": [
+        "12915"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "L5-H02",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 11.453,
+      "claims": 1,
+      "source_planids": [
+        "18563"
+      ],
+      "evidence_status": "insufficient",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "L5-H03",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 53.0,
+      "claims": 5,
+      "source_planids": [
+        "23132"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "L5-H04",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 13.719,
+      "claims": 2,
+      "source_planids": [
+        "18365"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    },
+    {
+      "case": "L5-H05",
+      "repeat": 1,
+      "http_status": 200,
+      "lifecycle": "completed",
+      "seconds_including_seed": 14.0,
+      "claims": 5,
+      "source_planids": [
+        "30505"
+      ],
+      "evidence_status": "verified",
+      "delivery_status": "partial",
+      "source_quote_issues": []
+    }
+  ],
+  "source_quote_audit": {
+    "run_count": 90,
+    "quotes_checked": 319,
+    "issues": 0,
+    "original_source_files_unchanged": true
+  },
+  "note": "Status/counts are not accuracy; five-concurrent ASGI exploration is not network/process soak acceptance"
+}

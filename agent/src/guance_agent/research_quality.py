@@ -49,9 +49,9 @@ ANALYSIS_WORDS = ("分析", "研究", "研判", "评估", "报告", "比较", "�
 
 
 def requirements(question: str, planned=None) -> dict:
-    from .routing import current_question
+    from .routing import task_text
 
-    text = current_question(question or "")
+    text = task_text(question or "")
     explicit = [label for label, terms in INTENT_TERMS.items()
                 if any(term in text for term in terms)]
     from .routing import parse_areas
@@ -470,11 +470,20 @@ def evaluate(result, question: str) -> dict:
     # must itself rely on verified facts from distinct policy identities.
     from .evidence_coverage import multi_document_required
 
-    if multi_document_required(question):
-        chunk_planids = {ref.chunk_id: ref.planid for ref in result.evidence_refs}
+    if (multi_document_required(question)
+            or len(coverage.get("required_planids") or []) >= 2):
+        # Both source identities must be backed by surviving verified claims.
+        verified_chunk_planids = {
+            cid: refs_by_chunk[cid].planid
+            for claim in verified_claims for cid in claim.chunk_ids
+            if cid in refs_by_chunk
+        }
         cross_document_analysis = any(
-            len({chunk_planids.get(cid) for cid in block.get("supporting_chunk_ids") or []
-                 if chunk_planids.get(cid)}) >= 2
+            bool(str(block.get("text") or ""))
+            and str(block.get("text") or "") in str(getattr(result, "answer", "") or "")
+            and len({verified_chunk_planids[cid]
+                     for cid in block.get("supporting_chunk_ids") or []
+                     if cid in verified_chunk_planids}) >= 2
             for block in analytical_blocks
         )
         if required["needs_analysis"] and not cross_document_analysis:
