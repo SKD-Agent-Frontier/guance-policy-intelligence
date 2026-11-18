@@ -550,10 +550,12 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(page.getByRole("button", { name: "新建研究" })).toBeVisible();
   await expect(page.locator(".app-sidebar").getByRole("button", { name: "文献目录" })).toHaveCount(0);
   await page.locator(".sidebar-scrim").click({ position: { x: 350, y: 400 } });
-  await page.waitForFunction(() => {
-    const sidebar = document.querySelector(".app-sidebar");
-    return sidebar && !sidebar.classList.contains("is-mobile-open") && sidebar.getBoundingClientRect().right <= 0;
-  });
+  // The current mobile layout keeps a compact 64px rail instead of moving the
+  // entire sidebar off-screen; closing must remove the overlay and preserve navigation.
+  await expect(page.locator(".app-sidebar")).toHaveClass(/is-collapsed/);
+  await expect(page.locator(".app-sidebar")).not.toHaveClass(/is-mobile-open/);
+  await expect(page.locator(".sidebar-scrim")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "展开侧栏" })).toBeVisible();
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "文献", exact: true }).click();
   await expect(page.getByRole("heading", { name: "政策文献目录" })).toBeVisible();
   await page.screenshot({ path: join(directory, "catalog-mobile.png"), fullPage: true });
