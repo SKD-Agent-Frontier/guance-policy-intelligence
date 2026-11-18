@@ -427,14 +427,20 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
       }) });
       return;
     }
-    if (path.endsWith("/content")) {
+    if (path.endsWith("/reading-page") || path.endsWith("/content")) {
       const planid = path.split("/").at(-2) ?? "POLICY-MOCK-1";
       contentRequests.push(url);
-      const offset = Number(url.searchParams.get("offset") ?? 0);
-      const limit = Number(url.searchParams.get("limit") ?? 0);
+      const readingPage = path.endsWith("/reading-page");
+      const page = readingPage ? Number(url.searchParams.get("page") ?? 1) : null;
+      const limit = Number(readingPage ? url.searchParams.get("page_chars") : url.searchParams.get("limit"));
+      const offset = readingPage ? (page! - 1) * limit : Number(url.searchParams.get("offset") ?? 0);
       const body = Array.from({ length: total }, (_, index) => index % 30 === 0 ? "M" : "文").join("");
       const chunk = Array.from(body).slice(offset, offset + limit).join("");
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ dataset, planid, title: "数字经济政策（Mock）", offset, limit, total_chars: total, has_more: offset + Array.from(chunk).length < total, text: chunk }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        dataset, planid, title: "数字经济政策（Mock）", offset, limit, total_chars: total,
+        has_more: offset + Array.from(chunk).length < total, text: chunk,
+        ...(readingPage ? { page, page_count: Math.ceil(total / limit) } : {}),
+      }) });
       return;
     }
     if (/\/POLICY-MOCK-[12]$/.test(path)) {
@@ -515,11 +521,14 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await expect(stickyBack).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.getByRole("region", { name: "政策原文" })).toBeVisible();
-  expect(contentRequests[0]?.searchParams.get("limit")).toBe("4000");
+  expect(contentRequests[0]?.pathname).toMatch(/\/reading-page$/);
+  expect(contentRequests[0]?.searchParams.get("page")).toBe("1");
+  expect(contentRequests[0]?.searchParams.get("page_chars")).toBe("4000");
   await page.getByRole("region", { name: "政策原文" }).getByRole("button", { name: /下一页/ }).click();
   await expect.poll(() => contentRequests.length).toBe(2);
-  expect(contentRequests[1]?.searchParams.get("offset")).toBe("4000");
-  expect(contentRequests[1]?.searchParams.get("limit")).toBe("4000");
+  expect(contentRequests[1]?.pathname).toMatch(/\/reading-page$/);
+  expect(contentRequests[1]?.searchParams.get("page")).toBe("2");
+  expect(contentRequests[1]?.searchParams.get("page_chars")).toBe("4000");
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await page.screenshot({ path: join(directory, "policy-reader-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "返回检索结果" }).click();
