@@ -546,7 +546,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.screenshot({ path: join(directory, "home-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "打开侧栏" }).click();
+  await page.getByRole("button", { name: "展开侧栏" }).click();
   await expect(page.getByRole("button", { name: "新建研究" })).toBeVisible();
   await expect(page.locator(".app-sidebar").getByRole("button", { name: "文献目录" })).toHaveCount(0);
   await page.locator(".sidebar-scrim").click({ position: { x: 350, y: 400 } });
@@ -568,7 +568,7 @@ test("Real client Mock API: catalog sends exact filters, paginates, and reads bo
   await page.route("**/api/research/prepare", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prep("qa", "needs_clarification", 0, "移动端 Mock API 追问", ["确认选项"])) });
   });
-  await page.getByRole("button", { name: "打开侧栏" }).click();
+  await page.getByRole("button", { name: "展开侧栏" }).click();
   await page.getByRole("button", { name: "新建研究" }).click();
   await page.getByRole("textbox", { name: "研究需求" }).fill("移动端工作区检查");
   await page.getByRole("button", { name: "发送消息" }).click();
