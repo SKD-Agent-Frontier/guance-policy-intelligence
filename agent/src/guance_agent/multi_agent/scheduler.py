@@ -58,6 +58,7 @@ def _worker_summary(outcome: WorkerOutcome, count: int) -> dict:
         "research_status": (core or {}).get("status"),
         "elapsed_seconds": outcome.elapsed_seconds,
         "model_calls": outcome.model_calls,
+        "tool_calls": outcome.tool_calls,
         "accepted_blocks": count,
         "error_type": outcome.error_type,
         "requirement_ids": list(outcome.assignment.requirement_ids),
@@ -210,7 +211,8 @@ def _assemble(task, rt, ledger, plan, outcomes, accepted, critic_review, workspa
             },
             "verification": {
                 "facts": "per_worker_quote_and_number_verified",
-                "blocks": "worker_semantic_reviewed_and_synthesis_critic_reviewed",
+                "blocks": ("worker_and_synthesis_semantic_reviewed" if critic_review.performed
+                           else "worker_semantic_reviewed_only"),
             },
         } if blocks else {
             "schema_version": "qa-report/1", "blocks": [],

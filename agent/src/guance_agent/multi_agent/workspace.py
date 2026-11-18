@@ -107,7 +107,13 @@ class EvidenceLedger:
                 title=title.strip()[:80],
                 text=text.strip()[:1200],
                 claim_indexes=tuple(dict.fromkeys(indexes)),
-                requirement_ids=outcome.assignment.requirement_ids,
+                # A partial worker has not established coverage for ALL its
+                # assigned requirements; do not attach a false coverage claim.
+                requirement_ids=(
+                    outcome.assignment.requirement_ids
+                    if (result.meta.get("research_quality") or {}).get("status") == "complete"
+                    else ()
+                ),
             )
             self.findings.append(finding)
             new_count += 1
