@@ -701,6 +701,7 @@ export function PolicyCatalog({
       </div>}
 
       {dataset && <p className="catalog-library-count">当前库共有 {dataset.total_documents} 篇政策文献</p>}
+      {hasSearched && list?.query.q && <p className="catalog-match-caveat">字面匹配结果不等于全部语义相关政策。</p>}
 
       <div className="catalog-layout">
         <section className="catalog-results" aria-label="政策列表" aria-busy={listLoading}>
