@@ -6,8 +6,8 @@ import json
 import re
 import time
 
-from .contracts import Assignment, Plan, Requirement, Synthesis
 from ..research_requirements import parse_requirements
+from .contracts import Assignment, Plan, Requirement, Synthesis
 
 _EXHAUSTIVE = re.compile(r"所有|全部|全量|完整清单|准确篇数|穷举")
 _SPLIT = re.compile(r"[；;。]|\s*(?:并且|此外还要|同时)\s*")

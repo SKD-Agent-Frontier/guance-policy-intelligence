@@ -6,10 +6,10 @@ import time
 from dataclasses import replace
 from uuid import uuid4
 
-from .contracts import Assignment, WorkerOutcome
 from ..orchestrator import run_sdk_task
 from ..routing import decide
 from ..runtime import Runtime
+from .contracts import Assignment, WorkerOutcome
 
 
 def child_question(assignment: Assignment, max_chars: int) -> str:

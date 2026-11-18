@@ -39,7 +39,7 @@ async def compare(questions: list[str], destination: Path, runs_per_case: int) -
     try:
         for index, question in enumerate(questions, start=1):
             for repetition in range(1, runs_per_case + 1):
-                for engine in ("sdk", "hyper"):
+                for engine in ("sdk", "hyper", "multi"):
                     settings = replace(base, qa_engine=engine)
                     session_id = "hpr_eval_" + uuid4().hex[:24]
                     started = time.perf_counter()
