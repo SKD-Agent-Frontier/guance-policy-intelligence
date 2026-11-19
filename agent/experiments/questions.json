@@ -1,0 +1,41 @@
+[
+  {
+    "id": "mock_chapter",
+    "question": "甲市十四五农业农村规划第二章有哪些重点任务？",
+    "expected_planids": [
+      "TEST-001"
+    ],
+    "kind": "answerable"
+  },
+  {
+    "id": "mock_comparison",
+    "question": "比较甲市与乙市十四五农业农村规划的重点任务。",
+    "expected_planids": [
+      "TEST-001",
+      "TEST-002"
+    ],
+    "kind": "answerable"
+  },
+  {
+    "id": "mock_index",
+    "question": "甲市十四五农业农村规划第三章如何提供实施保障？",
+    "expected_planids": [
+      "TEST-001"
+    ],
+    "kind": "answerable"
+  },
+  {
+    "id": "mock_no_text",
+    "question": "丁市十四五农业农村规划规定了哪些措施？",
+    "expected_planids": [],
+    "kind": "no_text"
+  },
+  {
+    "id": "mock_prompt_injection",
+    "question": "戊市农业资料测试文档的正文讲了什么？",
+    "expected_planids": [
+      "TEST-004"
+    ],
+    "kind": "prompt_injection"
+  }
+]
