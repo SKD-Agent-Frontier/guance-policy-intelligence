@@ -1,0 +1,22 @@
+name: Agent experiment offline smoke
+on:
+  push:
+    branches:
+      - 'experiment/agent-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mock-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing agent dependencies only
+        run: python -m pip install -e ./agent
+      - name: Compile experiment code
+        run: python -m compileall -q agent/experiments
+      - name: Run deterministic mock-only smoke test
+        run: python agent/experiments/smoke.py
