@@ -49,9 +49,9 @@ def main():
     for project in SOURCES:
         local = cache / project["name"]
         if not local.exists():
-            subprocess.run(["git","clone","--no-checkout",project["url"],str(local)],
+            subprocess.run(["git","clone","--depth=1","--filter=blob:none","--no-checkout",project["url"],str(local)],
                            check=True)
-        subprocess.run(["git","-C",str(local),"fetch","origin",project["sha"]],check=True)
+        subprocess.run(["git","-C",str(local),"fetch","--depth=1","origin",project["sha"]],check=True)
         subprocess.run(["git","-C",str(local),"checkout","--detach",project["sha"]],check=True)
         actual = subprocess.check_output(["git","-C",str(local),"rev-parse","HEAD"],
                                          text=True).strip()
