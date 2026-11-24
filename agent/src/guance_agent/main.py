@@ -7,9 +7,10 @@ from uuid import uuid4
 
 from .business import get_module, register
 from .business.compare import PolicyComparisonModule, SchemeComparisonModule
+from .business.extract import ExtractModule
 from .business.organize import OrganizeModule
 from .config import ConfigurationError, Settings, load_settings
-from .orchestrator import run_sdk_task, run_task
+from .orchestrator import run_sdk_task
 from .output import ERRORS, build_result
 from .research_contract import TaskContract
 from .research_planner import ResearchPlanner
@@ -20,9 +21,19 @@ from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
-register(PolicyComparisonModule())
-register(SchemeComparisonModule())
-register(OrganizeModule())
+_policy_comparison = PolicyComparisonModule()
+_scheme_comparison = SchemeComparisonModule()
+_organize = OrganizeModule()
+_extract = ExtractModule()
+register(_policy_comparison)
+register(_scheme_comparison)
+register(_organize)
+RESEARCH_CAPABILITIES = {
+    "extract": _extract,
+    "organize": _organize,
+    "compare": _policy_comparison,
+    "compare_plans": _scheme_comparison,
+}
 
 def _build_task(question: str, session_id, user_id, task_type, dimensions, targets) -> TaskRequest:
     return TaskRequest(
@@ -85,6 +96,8 @@ async def submit(question: str, session_id: str | None = None,
         except (ValueError, KeyError) as exc:
             raise ConfigurationError from exc
         rt = Runtime(s, task)
+        rt.meta.update(qa_engine_configured=s.qa_engine,
+                       qa_engine_effective="sdk_unified")
         rt.received()
         message = _reject_reason(question, task, session_id, user_id, s,
                                  task_type, dimensions, targets)
@@ -93,6 +106,9 @@ async def submit(question: str, session_id: str | None = None,
             result = build_result(task, None, None, rt.meta,
                                   RunError(code="INVALID_INPUT", message=message))
             result.task_type = task.task_type
+            from .delivery_gateway import finalize_public_delivery
+
+            result = await finalize_public_delivery(result, task, None, None)
             rt.finish(result, None)
             return result
         decision = decide(task.question)
@@ -113,15 +129,12 @@ async def submit(question: str, session_id: str | None = None,
             max_revisions=getattr(s, "max_plan_revisions", 1),
         )
         rt.prepare()
-        if task.task_type == "qa" and s.qa_engine == "sdk":
-            return await run_sdk_task(
-                task, s, rt, initial_decision=decision,
-                research_discoverer=research_discoverer,
-                research_runtime=research_runtime,
-            )
-        return await run_task(task, s, rt, research_discoverer=research_discoverer,
-                              initial_decision=decision,
-                              research_runtime=research_runtime)
+        return await run_sdk_task(
+            task, s, rt, initial_decision=decision,
+            research_discoverer=research_discoverer,
+            research_runtime=research_runtime,
+            capability_modules=RESEARCH_CAPABILITIES,
+        )
     except Exception as exc:
         if isinstance(exc, ConfigurationError):
             code = "CONFIG_ERROR"
@@ -141,6 +154,10 @@ async def submit(question: str, session_id: str | None = None,
                     research_runtime.finish(result, None)
                 except (ValueError, TypeError):
                     pass
+        from .delivery_gateway import finalize_public_delivery
+
+        result = await finalize_public_delivery(result, task, None, research_runtime)
+        if rt:
             try:
                 rt.log("rejected", error_code=code,
                        error_detail=f"{type(exc).__name__}: {exc}")

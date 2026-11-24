@@ -7,6 +7,7 @@ import json
 import re
 import time
 from dataclasses import replace
+from types import SimpleNamespace
 
 from .agent import build_agent, chat_model
 from .business import get_module, group_by_document
@@ -93,6 +94,13 @@ RESEARCH_TASKS = frozenset({"qa", "extract", "organize", "compare", "compare_pla
 REPORT_REVIEW_RETRY_RESERVE_S = 28.0
 
 _LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def allowed_capabilities_for(task_type: str, registered: tuple[str, ...]) -> tuple[str, ...]:
+    """Keep explicit task types locked while allowing QA intent to pick a module."""
+    if task_type == "qa":
+        return registered
+    return (task_type,) if task_type in registered else ()
 
 
 def _report_review_reserve(rt, result=None, *, block_count: int = 12) -> float:
@@ -985,15 +993,97 @@ async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
     return result
 
 
+async def _execute_research_capability(capability: str, state: ResearchState,
+                                       requested_targets: list[str] | None, task,
+                                       s, rt, ctx, decision, deadline, capability_modules):
+    module = capability_modules.get(capability)
+    if module is None:
+        return {"claims": []}
+    effective_task = task.model_copy(update={"task_type": capability})
+    if task.targets is not None:
+        if requested_targets is not None and list(task.targets) != requested_targets:
+            return {"claims": []}
+    elif requested_targets is not None:
+        allowed = set(state.authorized_scope or ()) | state.candidate_planids
+        if not requested_targets or any(target not in allowed for target in requested_targets):
+            return {"claims": []}
+        effective_task = effective_task.model_copy(update={"targets": requested_targets})
+    elif capability in {"compare", "compare_plans"}:
+        return {"claims": [], "needs_targets": True}
+    if (capability in {"compare", "compare_plans"}
+            and (not effective_task.targets or len(effective_task.targets) < 2)):
+        return {"claims": [], "needs_targets": True}
+
+    prior_scope, prior_label = ctx.scope, ctx.object_label
+    try:
+        result = await _run_business(
+            effective_task, s, rt, ctx, deadline, decision, module,
+            research_state=state,
+        )
+    finally:
+        ctx.scope, ctx.object_label = prior_scope, prior_label
+    # The business result remains an internal candidate. Only claims that passed
+    # the existing quote/number checks enter ResearchState for the main audit.
+    claims = list(result.claims) if result.evidence_refs else []
+    if claims and isinstance(result.structured, dict):
+        state.capability_structured[capability] = result.structured
+        result_route = result.route if isinstance(result.route, dict) else {}
+        state.capability_targets[capability] = list(result_route.get("targets") or
+                                                     effective_task.targets or [])
+    return {"claims": claims}
+
+
+async def _finalize_sdk_result(task, result, ctx, rt, research_runtime, research_state=None):
+    terminal = {"completed", "partial", "insufficient", "failed", "limit_reached"}
+    if (ctx is not None and result.claims
+            and not result.meta.get("unified_claim_verification_completed")
+            and not result.meta.get("verification_incomplete")):
+        deadline = (research_runtime.deadline if research_runtime is not None
+                    else time.monotonic() + ctx.settings.run_timeout)
+        try:
+            await asyncio.wait_for(verify_quotes(result, ctx),
+                                   timeout=max(deadline - time.monotonic(), 0.05))
+            await asyncio.wait_for(verify_numbers(result, ctx),
+                                   timeout=max(deadline - time.monotonic(), 0.05))
+            result.meta["unified_claim_verification_completed"] = True
+        except TimeoutError:
+            result.meta["verification_incomplete"] = True
+            result.evidence_status = "insufficient"
+            result.warnings.append("核验超出本次运行时限，未完成逐条核验")
+    if research_runtime is not None and research_runtime.status not in terminal:
+        try:
+            research_runtime.finish(result, ctx)
+        except (ValueError, TypeError) as exc:
+            result.status = "failed"
+            result.evidence_status = "insufficient"
+            result.error = RunError(
+                code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
+            result.warnings.append("研究运行时无法完成任务契约验收")
+            result.meta["research_runtime_error"] = type(exc).__name__
+
+    from .delivery_gateway import finalize_public_delivery
+
+    result = await finalize_public_delivery(
+        result, task, ctx, research_runtime, research_state=research_state,
+    )
+    if task.task_type == "qa" and ctx is not None:
+        rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
+    try:
+        rt.finish(result, ctx)
+    except OSError as exc:
+        result.meta["finish_failed"] = type(exc).__name__
+    return result
+
+
 async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                        initial_decision=None, research_discoverer=None,
-                       research_runtime: ResearchRuntime | None = None) -> RunResult:
+                       research_runtime: ResearchRuntime | None = None,
+                       capability_modules: dict | None = None) -> RunResult:
     """One model-directed QA core with trusted discovery and programmatic gates."""
     if not s.llm_base_url or not s.llm_api_key:
         result = build_result(task, None, None, rt.meta,
                               RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
-        rt.finish(result, None)
-        return result
+        return await _finalize_sdk_result(task, result, None, rt, research_runtime)
     kb = get_kb(s)
     decision = initial_decision or decide(task.question)
     decision = replace(decision, fyps=tuple(_mentioned_source_periods(task.question, decision)))
@@ -1001,8 +1091,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
     if task.targets is not None and not task.targets:
         result = build_result(task, None, None, rt.meta,
                               RunError(code="INVALID_INPUT", message="targets不能为空列表"))
-        rt.finish(result, None)
-        return result
+        return await _finalize_sdk_result(task, result, None, rt, research_runtime)
     if task.targets is not None:
         decision = replace(decision, kind="objects", planids=tuple(task.targets))
     research_runtime = research_runtime or ResearchRuntime(
@@ -1028,8 +1117,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 "qa_execution_subtype": "boundary_response",
             })
             result.evidence_status = "none"
-            rt.finish(result, ctx)
-            return result
+            return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
         resolution = resolve_followup(task.question, rt.trusted_turns, decision)
         ctx.qa_context_resolution = resolution
         orphaned_reference = (resolution.get("status") == "no_prior"
@@ -1052,9 +1140,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 "research_quality": {"status": "partial"},
             })
             result.evidence_status = "none"
-            rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
-            rt.finish(result, ctx)
-            return result
+            return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
         resolved_documents = [item for item in (resolution.get("documents") or [])
                               if isinstance(item, dict) and item.get("planid")]
         prior_scope = next((turn.get("user_scope") or {} for turn in reversed(rt.trusted_turns)
@@ -1129,9 +1215,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 })
                 result.evidence_status = "none"
                 result.meta["research"] = {"status": "insufficient", "reason": message}
-                rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
-                rt.finish(result, ctx)
-                return result
+                return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
             discovered = tuple(doc.planid for doc in research_runtime.plan.documents
                                if doc.source_verified)
             if (task.targets is not None and not set(task.targets) <= set(discovered)):
@@ -1149,8 +1233,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 })
                 result.evidence_status = "none"
                 result.meta["research"] = {"status": "insufficient", "reason": message}
-                rt.finish(result, ctx)
-                return result
+                return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
             allowed_planids = tuple(task.targets) if task.targets is not None else (
                 discovered or None)
             if task.targets is None and resolution_status == "extended":
@@ -1234,7 +1317,25 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             approved_source_periods=tuple(decision.fyps),
             prior_facts=prior_facts, prior_documents=prior_documents,
         )
-        agent = build_research_core_agent(chat_model(s, rt.client), s, rt)
+        capability_modules = capability_modules or {
+            name: get_module(name) for name in ("organize", "compare", "compare_plans")
+            if get_module(name) is not None
+        }
+        registered_capabilities = tuple(capability_modules)
+        state.allowed_capabilities = allowed_capabilities_for(
+            task.task_type, registered_capabilities)
+        state.required_capability = task.task_type if task.task_type != "qa" else None
+
+        async def capability_runner(capability, current_state, requested_targets):
+            return await _execute_research_capability(
+                capability, current_state, requested_targets, task, s, rt, ctx,
+                decision, deadline, capability_modules,
+            )
+
+        agent = build_research_core_agent(
+            chat_model(s, rt.client), s, rt,
+            capability_runner=capability_runner,
+        )
         answer = await execute_research_core(agent, state, rt)
         passed = bool(state.check_result and state.check_result.get("passed")
                       and state.final_answer)
@@ -1286,6 +1387,8 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 result.meta["verification_incomplete"] = True
                 result.evidence_status = "insufficient"
                 result.warnings.append("事实核验超出本轮时限；仅保留已完成核验的事实")
+            else:
+                result.meta["unified_claim_verification_completed"] = True
         verified_claims = [claim for claim in result.claims if claim.quotes and claim.chunk_ids]
         passed = bool(passed and not result.meta.get("verification_incomplete")
                       and verified_claims)
@@ -1414,14 +1517,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         }
         if research_runtime.status == "executing":
             research_runtime.transition("verifying")
-        try:
-            research_runtime.finish(result, ctx)
-        except (ValueError, TypeError):
-            result.evidence_status = "insufficient"
-            result.meta["research_runtime_error"] = "contract_evaluation_failed"
-        rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
-        rt.finish(result, ctx)
-        return result
+        return await _finalize_sdk_result(task, result, ctx, rt, research_runtime, state)
 def _business_prompt(task, ctx, meta, decision, answer, targets=()) -> RunResult:
     output = AgentOutput(answer=answer, claims=[], insufficient=True)
     result = build_result(task, ExecOutcome(output, None), ctx, meta)
@@ -1483,7 +1579,57 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
     return list(dict.fromkeys(targets)), None
 
 
-async def _run_business(task, s, rt, ctx, deadline, decision, module):
+def _bind_research_budget(services: BusinessServices, state: ResearchState) -> None:
+    """Make legacy business adapters spend the active ResearchState budgets."""
+    original_search = services.search
+    original_read = services.read
+    original_call_model = services.call_model
+
+    async def search(*args, **kwargs):
+        problem = state.spend_io("kb_search")
+        if problem:
+            raise BusinessError("RUN_TIMEOUT")
+        result = await original_search(*args, **kwargs)
+        if result.status == "ok" and isinstance(result.data, list):
+            state.candidate_planids.update(
+                hit.planid for hit in result.data if getattr(hit, "planid", None))
+        return result
+
+    async def read(*args, **kwargs):
+        problem = state.spend_io("kb_read")
+        if problem:
+            raise BusinessError("RUN_TIMEOUT")
+        result = await original_read(*args, **kwargs)
+        passage = result.data
+        chunk_id = getattr(passage, "chunk_id", None)
+        content = getattr(passage, "content", None)
+        if result.status == "ok" and chunk_id and isinstance(content, str):
+            state.read_text.setdefault(chunk_id, []).append(content)
+        return result
+
+    async def call_model(*args, **kwargs):
+        try:
+            state.begin_model_call()
+        except Exception as exc:
+            raise BusinessError("RUN_TIMEOUT") from exc
+        per_call = services.telemetry.get("per_call", [])
+        start = len(per_call)
+        try:
+            return await original_call_model(*args, **kwargs)
+        finally:
+            record = (services.telemetry.get("per_call", [])[start:start + 1] or [{}])[0]
+            state.finish_model_call(SimpleNamespace(
+                input_tokens=record.get("input_tokens"),
+                output_tokens=record.get("output_tokens"),
+            ))
+
+    services.search = search
+    services.read = read
+    services.call_model = call_model
+
+
+async def _run_business(task, s, rt, ctx, deadline, decision, module,
+                        *, research_state: ResearchState | None = None):
     """一次调用业务模块，并统一检查结果形状、引文、数字与降级一致性。"""
     try:
         targets, message = await _business_targets(task, s, ctx, decision, deadline, module)
@@ -1512,6 +1658,8 @@ async def _run_business(task, s, rt, ctx, deadline, decision, module):
     ctx.scope = tuple(targets) if targets is not None else None
     effective_task = task.model_copy(update={"targets": targets})
     services = BusinessServices(ctx, rt, deadline)
+    if research_state is not None:
+        _bind_research_budget(services, research_state)
     try:
         remaining = deadline - time.monotonic()
         if remaining <= 0:

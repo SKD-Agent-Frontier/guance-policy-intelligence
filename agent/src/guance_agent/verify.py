@@ -3,6 +3,7 @@
 这一步只做字面核对，不判断语义是否支撑结论；输出必须按这个边界说明。
 """
 import asyncio
+import json
 import re
 import unicodedata
 import weakref
@@ -13,6 +14,8 @@ MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免�
 EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句，实测 20 句远远不够
 _QUOTE_VERIFICATION_TOKEN = object()
 _QUOTE_VERIFIED_CLAIMS = {}
+_NUMBER_VERIFICATION_TOKEN = object()
+_NUMBER_VERIFIED_CLAIMS = {}
 
 
 def _claim_quote_signature(claim):
@@ -46,6 +49,65 @@ def is_quote_verified_claim(result, claim) -> bool:
     return bool(entry and entry[0]() is claim
                 and entry[1] is _QUOTE_VERIFICATION_TOKEN
                 and entry[2] == _claim_quote_signature(claim))
+
+
+_NUMBER_REF_FIELDS = (
+    "chunk_id", "planid", "title", "area", "fyp", "section_path", "source",
+    "document_id", "generation_id", "char_start", "char_end", "observed_ranges",
+    "complete", "out_of_section",
+)
+
+
+def _claim_number_signature(result, claim):
+    content = json.dumps(claim.model_dump(mode="json"), ensure_ascii=False,
+                         sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+    def ref_signature(ref):
+        values = []
+        for field in _NUMBER_REF_FIELDS:
+            value = getattr(ref, field, None)
+            if field == "observed_ranges":
+                value = tuple(tuple(pair) for pair in (value or ()))
+            values.append(value)
+        return tuple(values)
+
+    refs_by_chunk = {}
+    for ref in getattr(result, "evidence_refs", None) or ():
+        chunk_id = getattr(ref, "chunk_id", None)
+        if chunk_id in claim.chunk_ids:
+            refs_by_chunk.setdefault(chunk_id, []).append(ref_signature(ref))
+    citations = tuple((chunk_id, tuple(refs_by_chunk.get(chunk_id, ())))
+                      for chunk_id in claim.chunk_ids)
+    return content, citations
+
+
+def _revoke_number_verification(claim) -> None:
+    entry = _NUMBER_VERIFIED_CLAIMS.get(id(claim))
+    if entry is not None and entry[0]() is claim:
+        _NUMBER_VERIFIED_CLAIMS.pop(id(claim), None)
+
+
+def _authorize_number_verified_claim(result, claim) -> None:
+    claim_id = id(claim)
+
+    def remove_dead_claim(ref, key=claim_id):
+        current = _NUMBER_VERIFIED_CLAIMS.get(key)
+        if current is not None and current[0] is ref:
+            _NUMBER_VERIFIED_CLAIMS.pop(key, None)
+
+    _NUMBER_VERIFIED_CLAIMS[claim_id] = (
+        weakref.ref(claim, remove_dead_claim), _NUMBER_VERIFICATION_TOKEN,
+        _claim_number_signature(result, claim))
+
+
+def is_number_verified_claim(result, claim) -> bool:
+    """Return true only for a current Claim authorized by this verifier run."""
+    if not any(current is claim for current in result.claims):
+        return False
+    entry = _NUMBER_VERIFIED_CLAIMS.get(id(claim))
+    return bool(entry and entry[0]() is claim
+                and entry[1] is _NUMBER_VERIFICATION_TOKEN
+                and entry[2] == _claim_number_signature(result, claim))
 
 
 def quote_budget(result) -> int:
@@ -849,9 +911,11 @@ def _unknown_titles(text: str, known: set[str]) -> list[str]:
 
 async def verify_numbers(result, ctx) -> int:
     """核对政策事实数字；文献身份字段走元数据核对，不要求出现在原文引句中。"""
-    getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
     if not result.claims:
         return 0
+    for claim in result.claims:
+        _revoke_number_verification(claim)
+    getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
     run_refs = _all_refs(ctx, result)
     # 身份核对依据是本轮检索实际返回的元数据；用户输入的 targets/路由编号属于输入身份。
     user_identities = _user_identity_values(ctx)
@@ -879,6 +943,7 @@ async def verify_numbers(result, ctx) -> int:
         tokens = _tokens(_mask_identities(claim.text, strict=metadata_identities,
                                           loose=user_identities))
         if not tokens:
+            _authorize_number_verified_claim(result, claim)
             continue
         result.meta["number_verification"] = "literal_only"
         own = await _seen_text(ctx, getter, [claim], cache, failed) if getter else None
@@ -894,6 +959,8 @@ async def verify_numbers(result, ctx) -> int:
                 + " 未在其所引原文中出现")
             problems += len(missing)
             rejected_claims.append(claim)
+        else:
+            _authorize_number_verified_claim(result, claim)
 
     if rejected_claims:
         rejected_ids = {id(claim) for claim in rejected_claims}

@@ -142,6 +142,12 @@ class ResearchState:
     model_usage: list[dict[str, Any]] = field(default_factory=list)
     model_call_started_at: float | None = None
     action_log: list[dict[str, Any]] = field(default_factory=list)
+    allowed_capabilities: tuple[str, ...] = ()
+    required_capability: str | None = None
+    capabilities_used: set[str] = field(default_factory=set)
+    capability_structured: dict[str, dict[str, Any]] = field(default_factory=dict)
+    capability_targets: dict[str, list[str]] = field(default_factory=dict)
+    capability_fact_ids: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def tool_calls(self) -> list[dict]:
@@ -271,7 +277,7 @@ class ResearchState:
         return {
             "search_read": max(0, self.run.settings.max_tool_calls - self.io_calls),
             "internal_actions": max(0, MAX_INTERNAL_ACTIONS - self.internal_actions),
-            "model_calls": max(0, MAX_MODEL_CALLS - self.model_calls),
+            "model_calls": max(0, min(MAX_MODEL_CALLS, self.run.settings.max_turns) - self.model_calls),
             "seconds": max(0, round(self.deadline - time.monotonic(), 1)),
         }
 
@@ -367,6 +373,9 @@ class ResearchState:
                              "section": ref.section_path[:100]})
         state = {
             "original_question": self.question,
+            "allowed_capabilities": list(self.allowed_capabilities),
+            "required_capability": self.required_capability,
+            "capabilities_used": sorted(self.capabilities_used),
             "requirements_frozen": self.requirements_frozen,
             "authorized_scope": {"planids": list(self.authorized_scope or []),
                                  "areas": list(self.authorized_areas),
@@ -410,7 +419,7 @@ class ResearchState:
         return json.dumps(state, ensure_ascii=False)
 
     def begin_model_call(self) -> None:
-        if self.model_calls >= MAX_MODEL_CALLS:
+        if self.model_calls >= min(MAX_MODEL_CALLS, self.run.settings.max_turns):
             raise ModelCallBudgetExceeded
         self.model_calls += 1
         self.model_call_started_at = time.perf_counter()
@@ -778,13 +787,54 @@ def _register_evidence(state: ResearchState, candidate: EvidenceCandidate) -> di
                        "document_period": ref.fyp, "section": ref.section_path}}
 
 
-def build_research_core_agent(model, settings, runtime, *, audit=None) -> Agent[ResearchState]:
+def _import_capability_claims(state: ResearchState, capability: str,
+                              claims: list[Claim]) -> int:
+    """Admit only business claims whose exact quotes were read in this run."""
+    if not state.requirements_frozen:
+        return 0
+    root = next((item for item in state.requirements
+                 if item.origin_question == state.question), None)
+    if root is None:
+        return 0
+    imported = 0
+    for index, claim in enumerate(claims):
+        if (not isinstance(claim, Claim) or len(claim.chunk_ids) != 1
+                or len(claim.chunk_ids) != len(claim.quotes)):
+            continue
+        for source_index, (chunk_id, quote) in enumerate(
+                zip(claim.chunk_ids, claim.quotes, strict=True)):
+            if not _quote_is_read(state, chunk_id, quote):
+                continue
+            candidate = EvidenceCandidate(
+                candidate_id=f"{capability}-{index}-{source_index}",
+                claim=claim.text,
+                quote=quote,
+                chunk_id=chunk_id,
+                requirement_ids=[root.id],
+                content_period=claim.content_period,
+                fact_status=claim.fact_status,
+                time_anchor=claim.time_anchor,
+            )
+            outcome = _register_evidence(state, candidate)
+            if outcome.get("accepted"):
+                imported += 1
+                fact_ids = state.capability_fact_ids.setdefault(capability, [])
+                if outcome["fact_id"] not in fact_ids:
+                    fact_ids.append(outcome["fact_id"])
+    return imported
+
+
+def build_research_core_agent(model, settings, runtime, *, audit=None,
+                              capability_runner=None) -> Agent[ResearchState]:
     """Create the native tool-choosing research agent for an isolated run."""
 
     def state_prompt(ctx: RunContextWrapper[ResearchState], _agent: Agent) -> str:
         return (
             "你是政策研究执行者。首次search必须同轮提交requirements原子清单和检索词；整题原始要求永久保留，比较任务拆成内容时期明确的两侧事实要求。"
             "之后可组合检索、批量读取最多8处，再批量登记证据和提交答案。"
+            "需要政策梳理、比较、方案分析或要素提取时，先冻结要求，再按需调用run_capability；"
+            "task_type=qa时按自然语言请求选择合适能力；其他task_type只能调用同名能力。"
+            "只可选状态列出的能力，业务工具返回的是候选证据，不是可直接交付的答案。"
             "只研究original_question及不可删除requirements；授权planid范围不能由query改变。"
             "不得新增、删除或弱化冻结要求。引用只能从已读取的完整原文提出；"
             "每条事实标注内容时期、事实状态(achieved/target/ongoing/unspecified)和时间锚；"
@@ -799,6 +849,46 @@ def build_research_core_agent(model, settings, runtime, *, audit=None) -> Agent[
             "不要把模型猜测标作来源事实。旧文献身份只作检索定位，引用须在本轮重读并核对版本。\n"
             "当前状态：" + ctx.context.status_for_model()
         )
+
+    @function_tool(failure_error_function=None)
+    async def run_capability(ctx: RunContextWrapper[ResearchState], capability: str,
+                             targets: list[str] | None = None) -> str:
+        """运行一个任务允许的业务能力，并把其逐字核验事实登记到当前研究状态。"""
+        state = ctx.context
+        problem = state.spend_internal("run_capability")
+        if problem:
+            return json.dumps({"status": "budget_exhausted", "message": problem},
+                              ensure_ascii=False)
+        if not state.requirements_frozen:
+            return json.dumps({"status": "requirements_not_frozen"}, ensure_ascii=False)
+        if capability not in state.allowed_capabilities:
+            return json.dumps({"status": "capability_not_allowed"}, ensure_ascii=False)
+        if capability in state.capabilities_used:
+            return json.dumps({"status": "capability_already_used"}, ensure_ascii=False)
+        if capability_runner is None:
+            return json.dumps({"status": "capability_unavailable"}, ensure_ascii=False)
+        if state.required_capability and capability != state.required_capability:
+            return json.dumps({"status": "task_type_locked"}, ensure_ascii=False)
+        try:
+            response = await capability_runner(capability, state, targets)
+        except Exception as exc:  # noqa: BLE001 - capability failures stay inside the research loop
+            state.capabilities_used.add(capability)
+            state.action_log.append({"action": "capability_failed", "capability": capability,
+                                     "error_type": type(exc).__name__})
+            return json.dumps({"status": "capability_failed",
+                               "error_type": type(exc).__name__}, ensure_ascii=False)
+        if isinstance(response, dict) and response.get("needs_targets"):
+            return json.dumps({"status": "targets_required", "capability": capability,
+                               "message": "请先确定至少两个已授权的政策对象，再调用比较能力。"},
+                              ensure_ascii=False)
+        state.capabilities_used.add(capability)
+        claims = response.get("claims", []) if isinstance(response, dict) else []
+        imported = _import_capability_claims(state, capability, claims)
+        state.action_log.append({"action": "capability_completed", "capability": capability,
+                                 "imported_claims": imported})
+        return json.dumps({"status": "ok" if imported else "insufficient",
+                           "capability": capability, "imported_claims": imported,
+                           "current": state.status_for_model()}, ensure_ascii=False)
 
     @function_tool(failure_error_function=None)
     async def search(ctx: RunContextWrapper[ResearchState], query: str,
@@ -1027,7 +1117,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None) -> Agent[
                 requirement.status = "open"
             return result
         calls_needed = 2 if reserve_final_call else 1
-        if state.model_calls + calls_needed > MAX_MODEL_CALLS:
+        if state.model_calls + calls_needed > min(MAX_MODEL_CALLS, state.run.settings.max_turns):
             return {"passed": False, "gaps": ["budget:model_calls"],
                     "reason": "最终审查所需模型调用预算不足"}
         # Auditor summaries retain the canonical requirement IDs and only the
@@ -1094,6 +1184,9 @@ def build_research_core_agent(model, settings, runtime, *, audit=None) -> Agent[
                            finish_if_partial: bool = False) -> str:
         """批量核验证据与答案块；candidate_results.items按输入顺序返回。"""
         state = ctx.context
+        if state.required_capability and state.required_capability not in state.capabilities_used:
+            return json.dumps({"passed": False,
+                               "gaps": ["required_capability_not_used"]}, ensure_ascii=False)
         problem = state.spend_internal("submit_draft")
         if problem:
             return json.dumps({"passed": False, "gaps": [problem]}, ensure_ascii=False)
@@ -1246,7 +1339,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None) -> Agent[
         name="政策研究执行者",
         instructions=state_prompt,
         model=model,
-        tools=[search, read_batch, record_evidence_batch, submit_draft],
+        tools=[search, read_batch, record_evidence_batch, submit_draft, run_capability],
         model_settings=ModelSettings(
             max_tokens=settings.llm_max_output_tokens,
             extra_body=thinking_off(settings),
@@ -1262,6 +1355,7 @@ async def execute_research_core(agent: Agent[ResearchState], state: ResearchStat
                                runtime, *, max_cycles: int = MAX_MODEL_CALLS) -> str:
     """Run the SDK tool loop; resume after an unfinalized plain-text early exit."""
     deadline = min(state.deadline, time.monotonic() + state.run.settings.run_timeout)
+    call_limit = min(MAX_MODEL_CALLS, state.run.settings.max_turns)
     run_config = RunConfig(
         tracing_disabled=True,
         tool_execution=ToolExecutionConfig(max_function_tool_concurrency=1),
@@ -1270,14 +1364,14 @@ async def execute_research_core(agent: Agent[ResearchState], state: ResearchStat
     runtime.hooks.core_state = state
     try:
         async with asyncio.timeout_at(deadline):
-            for _ in range(max_cycles):
+            for _ in range(min(max_cycles, call_limit)):
                 if state.final_answer:
                     return state.final_answer
-                if time.monotonic() >= deadline or state.model_calls >= MAX_MODEL_CALLS:
+                if time.monotonic() >= deadline or state.model_calls >= call_limit:
                     break
                 await Runner.run(
                     agent, continuation, context=state,
-                    max_turns=max(1, MAX_MODEL_CALLS - state.model_calls),
+                    max_turns=max(1, call_limit - state.model_calls),
                     hooks=runtime.hooks, run_config=run_config, session=None,
                 )
                 if state.final_answer:

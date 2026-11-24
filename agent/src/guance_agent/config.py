@@ -25,6 +25,7 @@ class Settings:
     max_turns: int = 12
     max_tool_calls: int = 20
     max_plan_revisions: int = 1
+    # Deprecated legacy selector: controlled and sdk both map to unified SDK execution.
     qa_engine: str = "controlled"
     max_history_items: int = 40
     run_timeout: float = 180
