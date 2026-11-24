@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from app.policy_catalog import PolicyCatalogService, load_published_catalog
+from app.policy_catalog import MAX_CONTENT_LIMIT, PolicyCatalogService, load_published_catalog
 
 STORE = os.environ.get("GUANCE_CATALOG_STORE_PROJECT")
 pytestmark = pytest.mark.skipif(
@@ -121,13 +121,16 @@ def test_real_filters_and_detail(service):
         assert isinstance(section["path"], str)
 
 
-def test_real_content_offsets_map_to_frozen_body(service):
+def test_real_content_offsets_map_to_frozen_body(service, snapshot):
     sample = service.list_policies(q=None, area=None, fyp=None, plantype=None,
                                    page=1, page_size=1)["items"][0]
     detail = service.get_policy(sample["planid"])["policy"]
-    full = service.read_content(sample["planid"], offset=0,
-                                limit=detail["body_chars"])["text"]
+    full = next(record.body for record in snapshot.records if record.planid == sample["planid"])
     assert len(full) == detail["body_chars"] and full.strip()
+    for offset in range(0, len(full), MAX_CONTENT_LIMIT):
+        page = service.read_content(sample["planid"], offset=offset, limit=MAX_CONTENT_LIMIT)
+        assert page["text"] == full[offset:offset + MAX_CONTENT_LIMIT]
+        assert page["has_more"] == (offset + MAX_CONTENT_LIMIT < len(full))
     first = service.read_content(sample["planid"], offset=0, limit=100)
     assert first["text"] == full[:min(100, detail["body_chars"])]
     offset = max(0, detail["body_chars"] - 10)

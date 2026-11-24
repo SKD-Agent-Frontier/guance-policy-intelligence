@@ -227,13 +227,16 @@ def test_agent_business_rejection_stays_http_200_without_model_call(client, monk
 def test_4000_character_question_passes_agent_length_validation(client, monkeypatch):
     from guance_agent import main as agent_main
 
-    monkeypatch.setattr(agent_main, "run_task", AsyncMock(return_value={"status": "accepted"}))
+    run = AsyncMock(return_value={"status": "accepted"})
+    monkeypatch.setattr(agent_main, "run_sdk_task", run)
     monkeypatch.setattr(api, "submit", agent_main.submit)
 
     response = client.post("/api/runs", json={"question": "中" * 4000})
 
     assert response.status_code == 200
     assert response.json() == {"status": "accepted"}
+    run.assert_awaited_once()
+    assert run.await_args.args[0].question == "中" * 4000
 
 
 def test_4001_character_question_is_rejected_by_agent(client, monkeypatch):
