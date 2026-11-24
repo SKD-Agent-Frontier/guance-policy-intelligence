@@ -110,6 +110,7 @@ class ResearchState:
     candidate_planids: set[str] = field(default_factory=set)
     disallowed_planids: set[str] = field(default_factory=set)
     requirements: list[ResearchRequirement] = field(default_factory=list)
+    planned_requirements: list[dict[str, Any]] = field(default_factory=list)
     requirements_frozen: bool = False
     prior_facts: list[dict[str, Any]] = field(default_factory=list)
     prior_facts_omitted: int = 0
@@ -155,7 +156,8 @@ class ResearchState:
                allowed_planids: tuple[str, ...] | None = None,
                approved_source_periods: tuple[str, ...] | None = None,
                prior_facts: list[dict] | None = None,
-               prior_documents: list[dict] | None = None) -> ResearchState:
+               prior_documents: list[dict] | None = None,
+               planned_requirements: list[dict] | None = None) -> ResearchState:
         route = run.route
         areas = tuple(dict.fromkeys(
             str(item) for item in (getattr(route, "canonical_areas", ()) or
@@ -236,11 +238,29 @@ class ResearchState:
                                             question)))
         needs_report = needs_analysis or any(
             item.get("kind") == "output_section" for item in requested_units)
+        # Reuse the orchestrator's existing planner for bounded evidence coverage.
+        # A simple fact lookup must not inherit extra perspectives from a broad
+        # planner response; only multi-requirement research/report tasks qualify.
+        planned = []
+        if needs_report and isinstance(planned_requirements, list):
+            for item in planned_requirements[:MAX_REQUIREMENTS]:
+                if (not isinstance(item, dict)
+                        or item.get("phase", "evidence") != "evidence"
+                        or item.get("actionable") is False):
+                    continue
+                label = item.get("label")
+                if isinstance(label, str) and label.strip():
+                    planned.append({
+                        "id": str(item.get("id") or ""),
+                        "label": label.strip()[:240],
+                        "kind": str(item.get("kind") or "subject_fact"),
+                    })
         prior_fact_items = [item for item in (prior_facts or []) if isinstance(item, dict)]
         return cls(run=run, question=question, deadline=deadline,
                    authorized_scope=scope, authorized_areas=areas,
                    authorized_periods=source_periods, requirements=obligations,
                    needs_report=needs_report, needs_analysis=needs_analysis,
+                   planned_requirements=planned,
                    prior_facts=prior_fact_items[-24:],
                    prior_facts_omitted=max(0, len(prior_fact_items) - 24),
                    prior_documents=[item for item in (prior_documents or [])
@@ -287,6 +307,7 @@ class ResearchState:
         explicit_units = parse_requirements(self.question)
         labels.extend(str(item.get("label") or "").strip()
                       for item in explicit_units if item.get("actionable", True))
+        labels.extend(item["label"] for item in self.planned_requirements)
         labels = list(dict.fromkeys(item for item in labels if item))
         stable_scope = {
             "planids": list(self.authorized_scope or []),
@@ -354,6 +375,9 @@ class ResearchState:
                               "status": item.status, "content_period": item.content_period,
                               "source_period": item.source_period}
                              for item in self.requirements],
+            "planner_coverage": [{"id": item["id"], "label": item["label"],
+                                  "kind": item["kind"]}
+                                 for item in self.planned_requirements],
             "prior_verified_facts_for_reread": [{
                 "text": item.get("text", "")[:240],
                 "content_period": item.get("content_period"),

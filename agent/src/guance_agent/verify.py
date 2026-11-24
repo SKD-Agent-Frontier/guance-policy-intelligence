@@ -5,11 +5,47 @@
 import asyncio
 import re
 import unicodedata
+import weakref
 
 from .output import rebuild_trusted_answer
 
 MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免核验本身拖垮回合预算
 EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句，实测 20 句远远不够
+_QUOTE_VERIFICATION_TOKEN = object()
+_QUOTE_VERIFIED_CLAIMS = {}
+
+
+def _claim_quote_signature(claim):
+    return claim.text, tuple(claim.chunk_ids), tuple(claim.quotes)
+
+
+def _revoke_quote_verification(claim) -> None:
+    entry = _QUOTE_VERIFIED_CLAIMS.get(id(claim))
+    if entry is not None and entry[0]() is claim:
+        _QUOTE_VERIFIED_CLAIMS.pop(id(claim), None)
+
+
+def _authorize_quote_verified_claim(claim) -> None:
+    claim_id = id(claim)
+
+    def remove_dead_claim(ref, key=claim_id):
+        current = _QUOTE_VERIFIED_CLAIMS.get(key)
+        if current is not None and current[0] is ref:
+            _QUOTE_VERIFIED_CLAIMS.pop(key, None)
+
+    _QUOTE_VERIFIED_CLAIMS[claim_id] = (
+        weakref.ref(claim, remove_dead_claim), _QUOTE_VERIFICATION_TOKEN,
+        _claim_quote_signature(claim))
+
+
+def is_quote_verified_claim(result, claim) -> bool:
+    """Check verifier-owned authorization against the claim's current contents."""
+    if not any(current is claim for current in result.claims):
+        return False
+    entry = _QUOTE_VERIFIED_CLAIMS.get(id(claim))
+    return bool(entry and entry[0]() is claim
+                and entry[1] is _QUOTE_VERIFICATION_TOKEN
+                and entry[2] == _claim_quote_signature(claim))
 
 
 def quote_budget(result) -> int:
@@ -171,6 +207,8 @@ async def verify_quotes(result, ctx) -> int:
     诊断只记录安全的结构化失败类别；只有显式开启 log_content 时保存限量引文预览。
 
     """
+    for claim in result.claims:
+        _revoke_quote_verification(claim)
     checker = getattr(ctx.kb, "verify_quote", None) if ctx else None
     if not result.claims:
         return 0
@@ -256,6 +294,10 @@ async def verify_quotes(result, ctx) -> int:
     if removed_claims:
 
         result.claims = kept_claims
+
+    for claim in kept_claims:
+        if claim.quotes:
+            _authorize_quote_verified_claim(claim)
 
     categories = {}
 

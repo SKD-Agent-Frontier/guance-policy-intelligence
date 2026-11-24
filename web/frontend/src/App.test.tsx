@@ -72,10 +72,9 @@ describe("App navigation", () => {
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
   });
 
-  it("opens batch validation from the global navigation without replacing research", () => {
+  it("keeps batch validation out of the global navigation", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "批量评测" }));
-    expect(screen.getByRole("main", { name: "验证集批量评测" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量评测" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "研究" })).toBeInTheDocument();
   });
 

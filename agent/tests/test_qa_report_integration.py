@@ -95,7 +95,7 @@ async def test_submit_reviews_verified_report_once_and_publishes_qa_report_1(env
 
 
 @pytest.mark.asyncio
-async def test_submit_report_review_timeout_fails_closed_without_raw_report(env, monkeypatch):
+async def test_submit_report_review_timeout_keeps_only_quote_verified_facts(env, monkeypatch):
     settings, task = _configured(env), env[1]
     kb = VerifiableMockKB(settings.mock_kb_path)
     hit = kb.search("农业", None, None, 1)[0]
@@ -113,8 +113,15 @@ async def test_submit_report_review_timeout_fails_closed_without_raw_report(env,
 
     assert result.status == "completed"
     assert result.meta["qa_report"]["semantic_review"] == "timeout"
-    assert result.structured["blocks"] == []
-    assert "农业发展任务" not in result.answer
+    assert result.structured["verification"]["facts"] == "not_reviewed"
+    blocks = result.structured["blocks"]
+    assert len(blocks) == 1
+    assert blocks[0]["kind"] == "fact"
+    assert blocks[0]["verification"] == "quote_verified"
+    assert blocks[0]["text"] == result.claims[0].text
+    assert blocks[0]["supporting_chunk_ids"] == result.claims[0].chunk_ids
+    assert "农业发展任务" in result.answer
+    assert "本报告整理一个政策维度" not in result.answer
 
 
 @pytest.mark.asyncio
