@@ -322,8 +322,11 @@ def _fact_cells(task, plan, collection, generated):
                     quotes=list(dict.fromkeys(fact.text for fact, _ in accepted)))
                 cell["source_contexts"] = list(dict.fromkeys(units[ref].section_path
                                                              for ref in refs if units[ref].section_path))
-                claims.append(Claim(text=cell["text"], chunk_ids=cell["chunk_ids"],
-                                    quotes=cell["quotes"], dimension=dimension))
+                # Each fact retains the exact unit that supplied its sentence.
+                for ref in refs:
+                    unit = units[ref]
+                    claims.append(Claim(text=unit.text, chunk_ids=[unit.chunk_id],
+                                        quotes=[unit.text], dimension=dimension))
             elif any(unit.planid == pid for unit in collection.units):
                 # 此对象读到过正文，但没有通过本维度检查的事实，和“没读到正文”分开。
                 cell.update(status="insufficient", reason="已读取部分原文，但未形成该维度的充分证据")

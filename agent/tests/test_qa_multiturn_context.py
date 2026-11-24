@@ -242,6 +242,14 @@ async def _run_turn(settings, kb, api, monkeypatch, task):
     client = SimpleNamespace(chat=SimpleNamespace(completions=api))
     monkeypatch.setattr("guance_agent.runtime.get_client", lambda _: client)
     monkeypatch.setattr("guance_agent.orchestrator.get_kb", lambda _: kb)
+    from agents.exceptions import ModelBehaviorError
+
+    from .fake_model import FakeModel, sdk_read, sdk_search
+
+    hit = kb.search("农业", None, None, 1, planids=("TEST-001",))[0]
+    model = FakeModel([[sdk_search()], [sdk_read(hit)], ModelBehaviorError("offline stop")])
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda *_: model)
+    api.model = model
     runtime = Runtime(settings, task)
     runtime.received()
     runtime.prepare()
@@ -252,7 +260,7 @@ async def _run_turn(settings, kb, api, monkeypatch, task):
 
 
 @pytest.mark.asyncio
-async def test_controlled_qa_inherits_previous_single_document(env, monkeypatch):
+async def test_sdk_qa_inherits_previous_single_document(env, monkeypatch):
     settings, origin = env
     settings = replace(
         settings, kb_backend="rag", rag_store_project="/offline-rag-test",
@@ -284,15 +292,9 @@ async def test_controlled_qa_inherits_previous_single_document(env, monkeypatch)
     resolution = second.meta["qa_context_resolution"]
     assert resolution["status"] == "continued"
     assert resolution["inherited_planids"] == ["TEST-001"]
-    assert second.meta["qa_controlled_retrieval"]["read_planids"] == ["TEST-001"]
-    assert second.meta["llm"]["model_calls"] == 1
-    # Planner and a bounded empty-evidence retry are separate from extraction.
-    extraction_calls = [messages for messages in second_api.messages
-                        if "多轮上下文" in messages[1]["content"]]
-    assert extraction_calls
-    prompt = extraction_calls[0][1]["content"]
-    assert "多轮上下文" in prompt
-    assert "TEST-001" in prompt
+    assert second.meta["research_core"]["authorized_scope"]["planids"] == ["TEST-001"]
+    assert any(c["name"] == "kb_read" and c["status"] == "ok" for c in second.meta["tool_calls"])
+    assert second_api.model.calls == 3
 
 
 @pytest.mark.asyncio
@@ -308,7 +310,7 @@ async def test_first_turn_policy_summary_retrieves_and_saves_scope_for_followup(
     })
     result = await _run_turn(settings, kb, ChatAPI(), monkeypatch, task)
 
-    assert result.meta["qa_execution_mode"] == "bounded_retrieval"
+    assert result.meta["qa_execution_mode"] == "sdk_research"
     saved = TrustedContextStore(settings.session_path, task.session_id).load()[-1]
     assert saved["user_scope"]["areas"] == ["沧州市"]
     assert saved["user_scope"]["periods"] == ["第十个五年计划"]
@@ -342,9 +344,9 @@ async def test_ambiguous_followup_stops_before_model_call(env, monkeypatch):
     second_api = ChatAPI()
     second = await _run_turn(settings, kb, second_api, monkeypatch, second_task)
     assert second.meta["qa_context_resolution"]["status"] == "ambiguous"
-    assert second_api.calls == 0
+    assert second_api.model.calls == 0
     assert "无法唯一确定" in second.answer
-    assert second.evidence_status == "insufficient"
+    assert second.evidence_status == "none"
 
 
 @pytest.mark.asyncio

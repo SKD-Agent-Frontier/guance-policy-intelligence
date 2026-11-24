@@ -14,8 +14,7 @@ from guance_agent.context import RunContext
 from guance_agent.kb import get_kb
 from guance_agent.runtime import Runtime, open_session
 from guance_agent.schemas import TaskRequest
-from tests.fake_model import FakeModel
-from tests.fake_model import answer as reply
+from tests.sdk_fact_fakes import FACT, install_fact_model
 
 
 def make_settings(tmp_path, **kw):
@@ -30,15 +29,25 @@ def make_task(**kw):
 
 
 async def test_same_session_runs_are_serialized(tmp_path, monkeypatch):
-    """同一 session 的两个回合必须串行：第二个要看到第一个的答案。"""
+    """同一 session 的第二轮在锁内重新加载上一轮刚交付的可信事实。"""
     s = make_settings(tmp_path)
-    slow = FakeModel([reply("答案A")], delay=0.3)
-    fast = FakeModel([reply("答案B")], delay=0.05)
-    active = {"m": slow}
-    monkeypatch.setattr(orchestrator, "chat_model", lambda _s, _c: active["m"])
+    install_fact_model(monkeypatch, s)
+    entered, release = asyncio.Event(), asyncio.Event()
+    seen = []
+    execute = orchestrator.execute_research_core
+
+    async def observe(agent, state, runtime):
+        if runtime.task.run_id == "run_A":
+            entered.set()
+            await release.wait()
+            return await execute(agent, state, runtime)
+        seen.extend(runtime.trusted_turns)
+        return ""
+
+    monkeypatch.setattr(orchestrator, "execute_research_core", observe)
 
     async def run(tag):
-        task = make_task(run_id=f"run_{tag}", session_id="SAME", question=f"问题{tag}")
+        task = make_task(run_id=f"run_{tag}", session_id="SAME", question="甲市农业重点")
         rt = Runtime(s, task)
         rt.prepare()
         try:
@@ -47,13 +56,14 @@ async def test_same_session_runs_are_serialized(tmp_path, monkeypatch):
             rt.close()
 
     first = asyncio.create_task(run("A"))
-    await asyncio.sleep(0.05)
-    active["m"] = fast
+    await asyncio.wait_for(entered.wait(), timeout=3)
     second = asyncio.create_task(run("B"))
-    await asyncio.gather(first, second)
-
-    seen = json.dumps(fast.inputs[0], ensure_ascii=False, default=str)
-    assert "答案A" in seen, "同会话并发未串行化：第二个回合没看到上一个回合的回答"
+    await asyncio.sleep(0)
+    assert not second.done()
+    release.set()
+    result, _ = await asyncio.gather(first, second)
+    assert result.claims[0].text == FACT
+    assert [fact["text"] for turn in seen for fact in turn["verified_facts"]] == [FACT]
 
 
 def test_session_locks_are_per_session():
@@ -202,19 +212,22 @@ async def test_history_trim_returns_empty_without_turn_boundary(tmp_path):
     assert items == []
 
 
-async def test_history_trim_survives_real_tool_turn(tmp_path, monkeypatch):
+async def test_history_trim_survives_real_tool_turn(tmp_path):
     """真实跑一轮带工具的对话，截断后的历史仍然成对完整。"""
-    from tests.fake_model import FakeModel, tool
-    from tests.fake_model import answer as reply
+    from agents import RunConfig, Runner
+
+    from guance_agent.agent import build_agent
+    from tests.fake_model import FakeModel, answer, tool
 
     s = make_settings(tmp_path, max_history_items=5)
-    model = FakeModel([[tool("kb_search", query="农业", area=None, fyp=None, top_k=2)], reply("好")])
-    monkeypatch.setattr(orchestrator, "chat_model", lambda _s, _c: model)
+    model = FakeModel([[tool("kb_search", query="农业", area=None, fyp=None, top_k=2)], answer("好")])
     task = make_task(run_id="r1", session_id="real", question="甲市农业")
     rt = Runtime(s, task)
     rt.prepare()
     try:
-        await orchestrator.run_task(task, s, rt)
+        await Runner.run(build_agent(s, model), task.question,
+                         context=RunContext(s, get_kb(s), task.run_id, task.session_id),
+                         session=rt.session, run_config=RunConfig(tracing_disabled=True))
     finally:
         rt.close()
     session, _ = open_session(s, "real", task.user_id)   # 与 Runtime.prepare 使用同一归属
@@ -259,3 +272,13 @@ def test_cli_closes_shared_client_on_exit(env, monkeypatch):
     monkeypatch.setattr(cli, "aclose_client", fake_close)
     assert cli.main(["ask", "问题", "--json"]) == 0
     assert closed == [True]
+
+
+async def test_waiting_for_session_spends_the_run_deadline(tmp_path, monkeypatch):
+    settings = make_settings(tmp_path, run_timeout=.04)
+    task = make_task(session_id="busy", task_type="extract")
+    lock = orchestrator._session_lock(task.session_id)
+    async with lock:
+        result = await asyncio.wait_for(orchestrator.run_task(task, settings, Runtime(settings, task)), .5)
+    assert result.status == "limit_reached" and result.error.code == "RUN_TIMEOUT"
+    assert result.task_type == "extract" and not result.claims

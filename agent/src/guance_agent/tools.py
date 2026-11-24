@@ -64,6 +64,15 @@ async def _call(ctx, name, fn, *args, **kwargs):
     started, detail = perf_counter(), None
     try:
         args, kwargs = _validate(ctx.settings, name, args, kwargs)
+        if name == "kb_read":
+            plan = getattr(ctx.research, "plan", None)
+            document = next((doc for doc in getattr(plan, "documents", ())
+                             if doc.planid == args[0] and doc.source_verified), None)
+            identity = document or ctx.evidence.get(kwargs.get("chunk_id"))
+            if identity is not None:
+                for key in ("document_id", "generation_id"):
+                    if value := getattr(identity, key, None):
+                        kwargs[key] = value
     except ValueError as exc:
         result = ToolResult(status="invalid_argument", message=f"参数不合法：{exc}")
     else:

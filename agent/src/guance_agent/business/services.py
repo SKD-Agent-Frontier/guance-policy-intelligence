@@ -22,12 +22,14 @@ if TYPE_CHECKING:
 
 
 class BusinessServices:
-    def __init__(self, ctx: RunContext, rt: Runtime, deadline: float):
+    def __init__(self, ctx: RunContext, rt: Runtime, deadline: float,
+                 *, discovered_planids: set[str] | None = None):
         self.ctx = ctx
         self.rt = rt
         self.deadline = deadline
         self._open_discovery = ctx.scope is None
         self._discovery_hits: list[Hit] = []
+        self._discovered_planids = discovered_planids
         self.telemetry = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                           "per_call": []}
         self._model_calls = 0
@@ -152,7 +154,8 @@ class BusinessServices:
         async def invoke() -> str:
             started = time.perf_counter()
             if self._open_discovery:
-                discovered = any(hit.planid == planid for hit in self._discovery_hits)
+                discovered = (planid in self._discovered_planids if self._discovered_planids is not None
+                              else any(hit.planid == planid for hit in self._discovery_hits))
                 blocked = None if discovered else (
                     f"planid={planid} 未由本轮成功检索发现，只能读取已发现对象")
             else:

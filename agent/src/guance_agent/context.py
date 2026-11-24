@@ -244,6 +244,8 @@ class RunContext:
     qa_followup: dict | None = None
     research_intent: dict | None = None
 
+    delivery_notice: str | None = None
+
     def verified_scoped_document(self):
         """Only a catalog-verified single-document research scope can fix filters.
 

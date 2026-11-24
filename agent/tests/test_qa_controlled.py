@@ -459,32 +459,23 @@ def test_explicit_opportunity_challenge_dimension_adds_concrete_facets():
 
 
 @pytest.mark.asyncio
-async def test_real_rag_path_uses_controlled_qa_without_sdk_tool_loop(env, monkeypatch):
-    settings, origin = env
-    settings = replace(
-        settings, kb_backend="rag", rag_store_project="/offline-rag-test",
-        llm_base_url="https://example.invalid/v1", llm_api_key="fake",
-    )
-    task = origin.model_copy(update={"question": "农业"})
-    api = ChatAPI()
-    client = SimpleNamespace(chat=SimpleNamespace(completions=api))
+async def test_rag_backend_uses_the_same_sdk_tools_and_audit(env, monkeypatch):
+    from .fake_model import FakeModel, fact_submission, install_audit, sdk_read, sdk_search
+
+    settings = replace(env[0], kb_backend="rag", rag_store_project="/offline-rag-test",
+                       llm_base_url="https://example.invalid/v1", llm_api_key="offline")
+    task = env[1].model_copy(update={"question": "农业"})
     kb = MockKB(settings.mock_kb_path)
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda _: client)
+    hit = kb.search("农业", None, None, 1)[0]
+    model = FakeModel([[sdk_search()], [sdk_read(hit)], fact_submission(hit)])
     monkeypatch.setattr("guance_agent.orchestrator.get_kb", lambda _: kb)
-    rt = Runtime(settings, task)
-    rt.received()
-    rt.prepare()
-    try:
-        result = await run_task(task, settings, rt)
-    finally:
-        rt.close()
-    assert api.calls == 2  # pre-answer requirements planner + grounded answer
-    assert result.meta.get("qa_execution_mode") == "bounded_retrieval"
-    assert [c["name"] for c in result.meta["tool_calls"]].count("kb_read") >= 1
-    assert result.meta["llm"]["model_calls"] == 1
-    assert result.meta["llm"]["parse"] == "ok"
-    assert result.meta["research_requirement_planner"]["status"] == "invalid_response"
-    assert result.meta["text_model_usage"]["by_purpose"]["requirement_planner"]["model_calls"] == 1
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda *_: model)
+    reviews = install_audit(monkeypatch)
+    result = await run_task(task, settings, Runtime(settings, task))
+    assert result.meta["qa_execution_mode"] == "sdk_research"
+    assert [c["name"] for c in result.meta["tool_calls"]] == ["kb_search", "kb_read"]
+    assert len(reviews) == 1 and model.calls == 3
+    assert result.meta["research_core"]["model_calls"] == 4
 
 
 def test_area_parser_normalizes_verb_prefix_but_keeps_city_scope():

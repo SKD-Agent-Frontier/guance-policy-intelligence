@@ -113,3 +113,24 @@ async def test_claim_with_unknown_title_is_not_authorized():
     assert await verify_numbers(result, ctx) > 0
     assert result.claims == []
     assert not is_number_verified_claim(result, claim)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["补助为30.5亿元", "占比为30%"])
+async def test_numeric_substring_cannot_authorize_a_different_value(source):
+    result, ctx, claim, _ = _case(claim_text="补助30亿元", source=source)
+    assert await verify_numbers(result, ctx) > 0
+    assert not is_number_verified_claim(result, claim)
+
+
+@pytest.mark.asyncio
+async def test_version_and_run_identity_are_part_of_authorization():
+    result, ctx, claim, ref = _case()
+    result.run_id = "first"
+    ref.document_version_id = "v1"
+    assert await verify_numbers(result, ctx) == 0
+    ref.document_version_id = "v2"
+    assert not is_number_verified_claim(result, claim)
+    ref.document_version_id = "v1"
+    result.run_id = "second"
+    assert not is_number_verified_claim(result, claim)

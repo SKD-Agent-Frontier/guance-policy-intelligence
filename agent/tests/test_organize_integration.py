@@ -24,6 +24,8 @@ from .organize_fakes import MultiDocKB, mock_payload
 
 @pytest.fixture
 def mock_setup(env, monkeypatch):
+    from .business_sdk_fakes import install_business_sdk
+    install_business_sdk(monkeypatch)
     kb = MultiDocKB()
     state = SimpleNamespace(kb=kb, messages=[], payload=mock_payload(kb), responses=[], error=None,
                             calls=[], deadline_after_model=None)
@@ -92,7 +94,8 @@ async def test_mock_c_one_policy_is_explicitly_insufficient(mock_setup):
     _, state = mock_setup
     state.kb.hits = [h for h in state.kb.hits if h.planid == "P000"]
     result = await run_mock(mock_setup)
-    assert result.status == "completed" and result.evidence_status == "insufficient"
+    assert result.status == "completed" and result.evidence_status == "verified"
+    assert result.meta["research_delivery"]["status"] == "partial"
     assert result.structured["coverage"]["documents_summarized"] == 1
     assert "有效摘要文献不足" in result.structured["coverage"]["note"]
     assert "证据仍不充分" in result.answer
@@ -248,7 +251,8 @@ async def test_mock_low_budget_keeps_verified_partial_result(mock_setup):
     settings = replace(settings, max_tool_calls=5)
     result = await run_mock((settings, state))
     assert len(result.meta["tool_calls"]) <= 5
-    assert result.evidence_status == "insufficient"
+    assert result.evidence_status == "verified"
+    assert result.meta["research_delivery"]["status"] == "partial"
     assert result.structured["coverage"]["documents_read"] == 1
     assert "max_reads" in result.structured["coverage"]["limits"]
 
@@ -265,7 +269,8 @@ async def test_mock_read_budget_error_keeps_earlier_windows(mock_setup, monkeypa
 
     monkeypatch.setattr(BusinessServices, "read", read)
     result = await run_mock(mock_setup)
-    assert result.status == "completed" and result.evidence_status == "insufficient"
+    assert result.status == "completed" and result.evidence_status == "verified"
+    assert result.meta["research_delivery"]["status"] == "partial"
     assert result.structured["coverage"]["limits"] == ["stopped_for_tool_budget"]
 
 

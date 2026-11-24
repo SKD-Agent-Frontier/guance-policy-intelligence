@@ -160,8 +160,8 @@ async def test_submit_qa_uses_compare_capability_and_publishes_only_verified_fac
                 structured={"unreviewed_business_payload": "do not publish"},
             )
 
-    monkeypatch.setattr(agent_main, "RESEARCH_CAPABILITIES",
-                        {"compare": CompareCapability()})
+    monkeypatch.setattr(agent_main, "research_capabilities",
+                        lambda: {"compare": CompareCapability()})
     model = FakeModel([
         [tool("search", query="农业灌溉设施", top_k=8, requirements=[proposal])],
         [tool("run_capability", capability="compare", targets=targets)],
@@ -232,6 +232,27 @@ def test_capability_import_requires_exact_quote_from_this_run(env):
     invalid = Claim(text="政策新增 99 个设施。", chunk_ids=[chunk_id],
                     quotes=["原文没有的引文"])
 
-    assert _import_capability_claims(state, "organize", [valid, invalid]) == 1
+    composite = Claim(text="综合两个来源得出的结论", chunk_ids=[chunk_id, "another"],
+                      quotes=["完善农业灌溉设施", "第二来源"])
+    assert _import_capability_claims(state, "organize", [valid, invalid, composite]) == 1
     assert len(state.claims) == 1
     assert state.claims[0].quotes == ["完善农业灌溉设施"]
+
+@pytest.mark.asyncio
+async def test_search_candidates_cannot_select_or_replace_comparison_objects(env):
+    settings, task = env
+    ctx = RunContext(settings, MockKB(settings.mock_kb_path), task.run_id, task.session_id)
+    state = ResearchState.create(ctx, task.question, time.monotonic() + 10)
+    state.candidate_planids.update(["first", "second", "third"])
+
+    async def forbidden(*_args):
+        pytest.fail("A search hit cannot silently become a comparison object")
+
+    async def compare(targets):
+        return await orchestrator._execute_research_capability(
+            "compare", state, targets, task, settings, None, ctx, decide(task.question),
+            state.deadline, {"compare": forbidden})
+
+    assert (await compare(["first", "second"]))["needs_targets"]
+    state.confirmed_targets = ("second", "third")
+    assert (await compare(["first", "third"]))["needs_targets"]

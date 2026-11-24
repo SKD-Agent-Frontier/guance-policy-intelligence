@@ -5,7 +5,8 @@ from guance_agent.format_recovery import OutputParseError, parse_agent_output
 from guance_agent.output import insufficient_message
 from guance_agent.schemas import DIMENSIONS, Hit, Passage
 
-from ...extract import MAX_BLOCKS, build_messages
+from ...extract import BLOCK_CHARS, MAX_BLOCKS, MAX_TOTAL_CHARS, build_messages
+from ...verify import NUMBER, SENTENCE
 
 
 class ExtractModule:
@@ -69,18 +70,32 @@ class ExtractModule:
 
 
 def _keep_source_quotes(claims, blocks) -> None:
-    """Keep only model quotes that occur verbatim in a cited, read passage.
-
-    Missing or paraphrased quotes stay as unquoted candidates. The shared
-    verifier may locate an exact sentence from anchors, then must approve it;
-    this module never manufactures a quote.
-    """
-    sources = {block["passage"]["chunk_id"]: block["passage"]["content"]
-               for block in blocks}
+    """Bind model quotes or extraction anchors to the exact displayed sentences."""
+    sources = {}
+    budget = MAX_TOTAL_CHARS
+    for block in blocks:
+        passage = block["passage"]
+        content = passage["content"]
+        visible = content[:min(BLOCK_CHARS, max(0, budget))]
+        sources[passage["chunk_id"]] = (visible, len(visible) < len(content) or passage["truncated"])
+        budget -= len(visible) + (len(visible) < len(content))
     for claim in claims:
-        claim.quotes = [quote for quote in claim.quotes
-                        if any(quote in sources[chunk_id]
-                               for chunk_id in claim.chunk_ids if chunk_id in sources)]
+        if len(claim.chunk_ids) != 1 or claim.chunk_ids[0] not in sources:
+            claim.quotes = []
+            continue
+        visible, truncated = sources[claim.chunk_ids[0]]
+        if claim.quotes:
+            claim.quotes = [q for q in claim.quotes if q and q in visible]
+            continue
+        numbers = set(NUMBER.findall(claim.text))
+        for match in SENTENCE.finditer(visible):
+            sentence = match.group()
+            if truncated and match.end() == len(visible) and sentence[-1] not in "。；;！？!?":
+                continue
+            if any(len(a) >= 2 and a in sentence for a in claim.anchors) and numbers <= set(NUMBER.findall(sentence)):
+                claim.quotes = [sentence]
+                break
+
 
 
 def _insufficient(ctx, task, statuses=()) -> BusinessOutcome:

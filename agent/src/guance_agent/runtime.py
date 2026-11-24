@@ -52,6 +52,7 @@ class Runtime:
         self.session = None
         self.context_store = None
         self.trusted_turns: list[dict] = []
+        self.single_attempt = False
         self.log_error = None
         self.hooks = LogHooks(self)
         self.meta = dict(model=s.llm_model, prompt_version=prompt_version(s.structured_output, task.task_type),
@@ -59,7 +60,10 @@ class Runtime:
 
     @property
     def client(self):
-        return get_client(self.settings)
+        client = get_client(self.settings)
+        if self.single_attempt and hasattr(client, "with_options"):
+            return client.with_options(max_retries=0)
+        return client
 
     async def complete_text(self, messages, *, max_tokens: int, timeout: float,
                             purpose: str = "text_completion") -> str:

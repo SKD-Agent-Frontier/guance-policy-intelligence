@@ -118,7 +118,7 @@ async def test_extract_module_returns_insufficient_when_all_reads_fail(status, r
 @pytest.mark.parametrize(("quote", "expected"), [
     ("政策通过补贴支持企业。", ["政策通过补贴支持企业。"]),
     ("补贴政策大力支持企业发展", []),
-    (None, []),
+    (None, ["政策通过补贴支持企业。"]),
 ])
 async def test_extract_module_never_invents_quotes_and_keeps_candidates(quote, expected):
     payload = {"answer": "通过补贴支持企业。", "claims": [{

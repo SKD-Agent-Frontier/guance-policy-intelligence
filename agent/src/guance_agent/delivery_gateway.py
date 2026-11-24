@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from .context import same_source
-from .research_delivery import _render_structured_report, _signed_block, verify_summary
+from .business.delivery import business_notice, project_business
+from .qa_boundary import boundary_reply
+from .research_delivery import _render_structured_report
+from .review_receipts import fact_signature
 from .schemas import TaskRequest
 from .verify import block_numbers_valid, is_number_verified_claim, is_quote_verified_claim
 
@@ -40,8 +42,11 @@ def _allowed_planids(result, task: TaskRequest, ctx) -> set[str] | None:
     return allowed
 
 
-def _trusted_claims(result, task: TaskRequest, ctx):
+def _trusted_claims(result, task: TaskRequest, ctx, receipts, state, runtime):
     if ctx is None:
+        return [], {}
+    if (getattr(ctx, "run_id", task.run_id) != task.run_id
+            or result.run_id != task.run_id or result.session_id != task.session_id):
         return [], {}
     result_refs = {ref.chunk_id: ref for ref in result.evidence_refs}
     allowed_planids = _allowed_planids(result, task, ctx)
@@ -57,15 +62,27 @@ def _trusted_claims(result, task: TaskRequest, ctx):
             output_ref = result_refs.get(chunk_id)
             registered_ref = ctx.evidence.get(chunk_id)
             if (output_ref is None or registered_ref is None
-                    or not same_source(output_ref, registered_ref)
+                    or output_ref != registered_ref or registered_ref.source != "kb_read"
+                    or not registered_ref.observed_ranges
+                    or (runtime is not None and not runtime.document_ref_matches(registered_ref))
                     or (allowed_planids is not None
                         and registered_ref.planid not in allowed_planids)):
                 valid = False
                 break
             candidate_refs[chunk_id] = output_ref
-        if valid and not is_number_verified_claim(result, claim):
-            valid = False
-        if valid:
+        if valid and state is not None:
+            from .research_core import _identity_matches
+
+            valid = all(
+                (state.authorized_scope is None or ref.planid in state.authorized_scope)
+                and ref.planid not in state.disallowed_planids
+                and _identity_matches(state, ref.area, ref.fyp)
+                for ref in candidate_refs.values())
+        committed_draft = state is not None and (receipts.blocks or (state.check_result or {}).get("audit_performed"))
+        verbatim = (not committed_draft and len(claim.chunk_ids) == 1
+                    and claim.text.strip() in claim.quotes)
+        reviewed = fact_signature(claim, candidate_refs) in receipts.facts if valid else False
+        if valid and (verbatim or reviewed) and is_number_verified_claim(result, claim):
             accepted.append(claim)
             refs.update(candidate_refs)
     return accepted, refs
@@ -83,6 +100,7 @@ def _block_claims(block: dict, claims: list) -> list | None:
         chunk_id for claim in dependencies for chunk_id in claim.chunk_ids))
     chunks = block.get("supporting_chunk_ids")
     if (not isinstance(chunks, list)
+            or any(not isinstance(chunk, str) for chunk in chunks)
             or set(chunks) != set(expected_chunks)
             or len(chunks) != len(set(chunks))):
         return None
@@ -94,7 +112,10 @@ def _remap_report_blocks(structured: dict | None, index_map: dict[int, int]) -> 
         return None
     report = deepcopy(structured)
     kept = []
-    for block in report.get("blocks", []):
+    blocks = report.get("blocks")
+    if not isinstance(blocks, list):
+        return None
+    for block in blocks:
         if not isinstance(block, dict):
             continue
         indexes = block.get("supporting_claim_indexes")
@@ -107,7 +128,7 @@ def _remap_report_blocks(structured: dict | None, index_map: dict[int, int]) -> 
     return report
 
 
-def _approved_report_blocks(result, ctx, claims: list) -> list[dict]:
+def _approved_report_blocks(result, ctx, claims, refs, receipts) -> list[dict]:
     structured = result.structured
     verification = structured.get("verification") if isinstance(structured, dict) else None
     if (not isinstance(structured, dict)
@@ -116,22 +137,13 @@ def _approved_report_blocks(result, ctx, claims: list) -> list[dict]:
             or verification.get("facts") != "semantic_reviewed_against_quotes"):
         return []
 
-    report = deepcopy(structured)
-    original_blocks = [block for block in report.get("blocks", [])
-                       if isinstance(block, dict)]
-    report["blocks"] = original_blocks
-    result.structured = report
-    signed = [_signed_block(result, block) for block in original_blocks]
-    summary = verify_summary(result, signed, require_semantic=True)
-    approved_analysis = set(summary.get("approved") or [])
-
     accepted = []
-    for block in original_blocks:
+    for block in structured["blocks"]:
         block_id = block.get("id")
         kind = block.get("kind")
         dependencies = _block_claims(block, claims)
         if (not isinstance(block_id, str) or not block_id or dependencies is None
-                or kind not in {"fact", "analysis"}):
+                or kind not in ("fact", "analysis")):
             continue
         text = block.get("text")
         title_path = block.get("title_path")
@@ -141,10 +153,9 @@ def _approved_report_blocks(result, ctx, claims: list) -> list[dict]:
             continue
         if not block_numbers_valid("\n".join([*title_path, text]), dependencies, ctx, result):
             continue
-        if kind == "analysis":
-            if block_id not in approved_analysis or len(dependencies) < 2:
-                continue
-        else:
+        if receipts.block_signature(block, dependencies, refs) not in receipts.blocks:
+            continue
+        if kind == "fact":
             # Fact blocks may summarize several claims, but cannot cite facts
             # outside the dependency set.
             supported_texts = {claim.text.strip() for claim in dependencies}
@@ -155,33 +166,29 @@ def _approved_report_blocks(result, ctx, claims: list) -> list[dict]:
     return accepted
 
 
-def _set_structured_report(result, original: dict, blocks: list[dict]) -> None:
-    dimensions = [value for value in original.get("dimensions", [])
-                  if isinstance(value, str)]
-    coverage = deepcopy(original.get("coverage") or {})
-    original_block_ids = {
-        block.get("id") for block in original.get("blocks", [])
-        if isinstance(block, dict)
-    }
-    accepted_ids = {block.get("id") for block in blocks}
-    rejected = bool(original_block_ids - accepted_ids)
-    if rejected:
-        coverage["status"] = "partial"
-        coverage["missing"] = list(dict.fromkeys([
-            *(coverage.get("missing") or []),
-            *(dimension for dimension in dimensions
-              if not any(dimension in (block.get("required_dimensions") or
-                                       [block.get("dimension")]) for block in blocks)),
-        ]))
+def _set_structured_report(result, original: dict, blocks: list[dict], state) -> None:
+    dimensions = list(dict.fromkeys(block["dimension"] for block in blocks))
+    if state is not None:
+        requirements = [item.id for item in state.requirements]
+        covered_set = {rid for block in blocks for rid in block.get("requirement_ids", [])}
+    else:
+        requirements = result._qa_report_dimensions or dimensions
+        covered_set = {dim for block in blocks for dim in
+                       (block.get("required_dimensions") or [block["dimension"]])}
+    covered = [item for item in requirements if item in covered_set]
+    missing = [item for item in requirements if item not in covered_set]
+    rejected = len(blocks) != len(original["blocks"])
+    original_coverage = original.get("coverage")
+    complete = (isinstance(original_coverage, dict)
+                and original_coverage.get("status") == "complete"
+                and not rejected and not missing)
     result.structured = {
-        "schema_version": "qa-report/1",
-        "dimensions": dimensions,
-        "blocks": blocks,
-        "coverage": coverage,
-        "verification": {
-            "facts": "semantic_reviewed_against_quotes" if blocks else "not_reviewed",
-            "blocks": original.get("verification", {}).get("blocks", "not_reviewed"),
-        },
+        "schema_version": "qa-report/1", "dimensions": dimensions, "blocks": blocks,
+        "coverage": {"covered": covered, "missing": missing,
+                     "status": "complete" if complete else "partial"},
+        "verification": {"facts": "semantic_reviewed_against_quotes",
+                         "blocks": ("block_reviewed" if state is not None else
+                                    "model_reviewed_evidence_linked_semantics_not_proven")},
     }
     core_delivery = result.meta.get("research_core_delivery")
     if isinstance(core_delivery, dict):
@@ -192,123 +199,42 @@ def _set_structured_report(result, original: dict, blocks: list[dict]) -> None:
         result.meta["research_core_delivery"] = core_delivery
 
 
+def _sync_research_coverage(result, state, blocks, index_map):
+    """Keep API coverage and claim indexes aligned with the actual delivery."""
+    if state is None:
+        return
+    quality = result.meta.get("research_quality") or {}
+    units = quality.get("requirement_coverage") or []
+    links = {}
+    for block in blocks:
+        for requirement_id in block.get("requirement_ids", []):
+            links.setdefault(requirement_id, set()).update(block["supporting_claim_indexes"])
+    for unit in units:
+        retained = {index_map[i] for i in unit.get("evidence_claim_indexes", []) if i in index_map}
+        retained.intersection_update(links.get(unit["id"], ()))
+        unit.update(status="covered" if retained else "missing",
+                    evidence_claim_indexes=sorted(retained))
+    quality["audited_report_blocks"] = len(blocks)
+    quality["audited_analysis_blocks"] = sum(block["kind"] == "analysis" for block in blocks)
+    for req in state.requirements:
+        if req.id not in links:
+            req.status = "open"
+    if not blocks or any(req.status != "delivered" for req in state.requirements):
+        status = "partial" if result.claims else "insufficient"
+        quality["status"] = status
+        result.meta["research_completion"] = {"status": status}
+        if core := result.meta.get("research_core"):
+            core["status"] = "partial"
+            core["stop_reason"] = core.get("stop_reason") or "有研究要求缺少通过交付核验的证据"
+    result.meta["research_quality"] = quality
+
+
 def _failure_answer(result) -> str:
     if result.error is not None:
         return result.error.message
     return "本轮未能完成政策研究，暂不发布未经最终核验的内容。"
 
 
-def _business_structured(task: TaskRequest, claims: list, refs_by_id: dict) -> dict | None:
-    """Rebuild conservative business views solely from surviving claims/refs."""
-    if not claims:
-        return None
-    refs_by_planid = {}
-    for ref in refs_by_id.values():
-        refs_by_planid.setdefault(ref.planid, ref)
-    if task.task_type == "extract":
-        from .schemas import DIMENSIONS
-
-        dimensions = task.dimensions or list(DIMENSIONS)
-        covered = {claim.dimension for claim in claims if claim.dimension in dimensions}
-        claims = [claim for claim in claims if claim.dimension in dimensions]
-        return {
-            "dimensions": dimensions,
-            "documents": [{key: getattr(ref, key) for key in
-                           ("planid", "title", "area", "fyp")}
-                          for ref in refs_by_planid.values()],
-            "elements": [claim.model_dump(mode="json") for claim in claims],
-            "missing": [{"dimension": name, "reason": "not_verified"}
-                        for name in dimensions if name not in covered],
-        }
-    if task.task_type == "organize":
-        indexes_by_planid = {}
-        topic_map = {}
-        for index, claim in enumerate(claims):
-            cited_refs = [refs_by_id[cid] for cid in claim.chunk_ids if cid in refs_by_id]
-            topic = "已核验事实"
-            topic_entry = topic_map.setdefault(topic, {"planids": [], "claim_indexes": []})
-            topic_entry["claim_indexes"].append(index)
-            for ref in cited_refs:
-                indexes_by_planid.setdefault(ref.planid, []).append(index)
-                if ref.planid not in topic_entry["planids"]:
-                    topic_entry["planids"].append(ref.planid)
-        policies = []
-        for planid, indexes in indexes_by_planid.items():
-            ref = refs_by_planid[planid]
-            policies.append({
-                "planid": planid, "title": ref.title, "area": ref.area, "fyp": ref.fyp,
-                "read_status": "summarized",
-                "summary": "；".join(claims[index].text for index in indexes),
-                "claim_indexes": indexes, "topics": [], "relevance": None,
-                "relevance_note": "未审核的相关性与分类已省略",
-                "full_text_covered": False,
-            })
-        return {
-            "schema_version": "organize/1",
-            "scope": {"targets": task.targets},
-            "coverage": {"documents_summarized": len(policies), "note":
-                         "仅含通过共享原文核验的事实；语义分类已省略。"},
-            "policies": policies,
-            "groups": [{"topic": topic, **entry} for topic, entry in topic_map.items()],
-            "verification": {"policy_facts": "claims_only", "analysis_fields": [],
-                             "note": "未审核的分类和相关性分析已省略。"},
-        }
-    if task.task_type in {"compare", "compare_plans"}:
-        dimensions = list(dict.fromkeys([
-            *(task.dimensions or []),
-            *(claim.dimension for claim in claims if claim.dimension),
-        ]))
-        planids = list(dict.fromkeys([*(task.targets or []), *refs_by_planid]))
-        matrix = []
-        for dimension_index, dimension in enumerate(dimensions):
-            cells = []
-            for planid in planids:
-                found = [(index, claim) for index, claim in enumerate(claims)
-                         if claim.dimension == dimension and any(
-                             refs_by_id[cid].planid == planid
-                             for cid in claim.chunk_ids if cid in refs_by_id)]
-                if found:
-                    cells.append({
-                        "cell_id": f"d{dimension_index}:{planid}", "planid": planid,
-                        "status": "found",
-                        "text": "；".join(claim.text for _, claim in found),
-                        "chunk_ids": list(dict.fromkeys(
-                            cid for _, claim in found for cid in claim.chunk_ids)),
-                        "quotes": list(dict.fromkeys(
-                            quote for _, claim in found for quote in claim.quotes)),
-                    })
-                else:
-                    cells.append({"cell_id": f"d{dimension_index}:{planid}",
-                                  "planid": planid, "status": "insufficient"})
-            matrix.append({"dimension": dimension, "cells": cells,
-                           "difference": {"text": "当前核验事实不足以判断异同。",
-                                          "kind": "analysis", "status": "insufficient",
-                                          "supporting_cells": []},
-                           "comparability": {"comparable": False,
-                                             "reason": "未完成口径审核。"}})
-        output = {
-            "objects": [{"planid": planid,
-                         "title": getattr(refs_by_planid.get(planid), "title", None),
-                         "area": getattr(refs_by_planid.get(planid), "area", None),
-                         "fyp": getattr(refs_by_planid.get(planid), "fyp", None)}
-                        for planid in planids],
-            "dimensions": dimensions, "matrix": matrix,
-            "task_completion": {"status": "partial", "supported_dimensions": [],
-                                "unsupported_dimensions": dimensions},
-            "comparability": {"comparable": False,
-                              "reason": "未发布未通过共享语义审核的比较判断。"},
-            "coverage_notes": ["仅保留通过共享原文核验的事实。"],
-            "analysis_gaps": [{"reason": "semantic_review_missing"}],
-        }
-        if task.task_type == "compare_plans":
-            output.update(
-                scheme_analysis=[{"planid": planid, "advantages": [],
-                                  "limitations": [], "applicability": []}
-                                 for planid in planids],
-                evaluation_criteria=[],
-            )
-        return output
-    return None
 
 
 async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
@@ -319,22 +245,61 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
     result mutation. The function performs no model calls or KB reads; every
     surviving claim must carry current quote- and number-verifier receipts.
     """
-    _ = runtime, research_state
-
-    original_structured = (deepcopy(result.structured)
-                           if isinstance(result.structured, dict) else None)
+    receipts = (research_state.review_receipts if research_state is not None
+                else result._review_receipts)
+    original_structured = result.structured
     original_claims = list(result.claims)
-    claims, refs_by_id = _trusted_claims(result, task, ctx)
+    claims, refs_by_id = _trusted_claims(result, task, ctx, receipts, research_state, runtime)
     if task.task_type == "extract":
         from .schemas import DIMENSIONS
 
         allowed_dimensions = set(task.dimensions or DIMENSIONS)
         claims = [claim for claim in claims if claim.dimension in allowed_dimensions]
-        used_ids = {chunk_id for claim in claims for chunk_id in claim.chunk_ids}
-        refs_by_id = {chunk_id: ref for chunk_id, ref in refs_by_id.items()
-                      if chunk_id in used_ids}
-    claim_indexes = {id(claim): index for index, claim in enumerate(original_claims)}
-    index_map = {claim_indexes[id(claim)]: index for index, claim in enumerate(claims)}
+        used_ids = {cid for claim in claims for cid in claim.chunk_ids}
+        refs_by_id = {cid: ref for cid, ref in refs_by_id.items() if cid in used_ids}
+    indexes = {id(claim): index for index, claim in enumerate(original_claims)}
+    index_map = {indexes[id(claim)]: index for index, claim in enumerate(claims)}
+    result.claims = claims
+    result.evidence_refs = list(refs_by_id.values())
+    result.structured = _remap_report_blocks(original_structured, index_map)
+    approved_blocks = _approved_report_blocks(result, ctx, claims, refs_by_id, receipts)
+    _sync_research_coverage(result, research_state, approved_blocks, index_map)
+    if approved_blocks:
+        _set_structured_report(result, original_structured, approved_blocks, research_state)
+        result.answer = _render_structured_report(result.structured)
+        included = {index for block in approved_blocks
+                    for index in block["supporting_claim_indexes"]}
+        extra = ["- " + claim.text for index, claim in enumerate(claims)
+                 if index not in included]
+        if extra:
+            result.answer += "\n\n" + "\n".join(extra)
+        coverage = result.structured["coverage"]
+        if result.error or result.status != "completed":
+            coverage["status"] = "partial"
+        complete = (coverage.get("status") == "complete"
+                    and (result.meta.get("research_quality") or {}).get("status") == "complete")
+        if task.task_type != "qa":
+            result.structured = project_business(task, claims, refs_by_id, research_state,
+                                                 approved_blocks)
+            if research_state is not None:
+                completion = (result.structured or {}).get("task_completion", {})
+                complete = (complete and not research_state.capability_insufficient.get(task.task_type)
+                            and completion.get("status") not in {"partial", "insufficient"})
+                if notice := business_notice(task, research_state, result.structured):
+                    result.answer += "\n\n" + notice
+        result.evidence_status = "verified"
+        result.meta["research_delivery"] = {
+            "format": "evidence_linked_report",
+            "status": "complete" if complete else "partial",
+            "audited_analysis": any(block["kind"] == "analysis" for block in approved_blocks),
+            "source_planids": list(dict.fromkeys(ref.planid for ref in refs_by_id.values())),
+        }
+        if research_state is not None:
+            missing = set(coverage.get("missing") or ())
+            labels = [req.label for req in research_state.requirements if req.id in missing]
+            if labels:
+                result.answer += "\n\n尚未完成的要求：\n" + "\n".join("- " + label for label in labels)
+        return result
 
     recovery = result.meta.get("execution_recovery") if task.task_type == "qa" else None
     if recovery:
@@ -355,6 +320,7 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
         else:
             result.answer = _EMPTY_ANSWER
             result.structured = None
+        result.evidence_status = "insufficient" if claims else "none"
         result.meta["research_delivery"] = {
             "format": "verbatim_excerpts_or_no_results",
             "status": "partial" if claims else "insufficient",
@@ -363,81 +329,39 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
         }
         return result
 
-    result.claims = claims
-    result.evidence_refs = list(refs_by_id.values())
-    result.structured = _remap_report_blocks(original_structured, index_map)
-    approved_blocks = (_approved_report_blocks(result, ctx, claims)
-                       if ctx is not None and original_structured is not None else [])
-    audited_report = bool(approved_blocks)
-    if audited_report:
-        # Keep only claims that the accepted report actually depends on. This
-        # prevents a rejected block's claim from reappearing through a fallback.
-        used_indexes = sorted({index for block in approved_blocks
-                               for index in block.get("supporting_claim_indexes", [])})
-        result.claims = [claims[index] for index in used_indexes]
-        used_ids = {chunk_id for claim in result.claims for chunk_id in claim.chunk_ids}
-        result.evidence_refs = [ref for ref in refs_by_id.values() if ref.chunk_id in used_ids]
-        reviewed_answer = _render_structured_report(result.structured)
-        if task.task_type == "qa":
-            _set_structured_report(result, original_structured, approved_blocks)
-            if result.status != "completed" or result.error is not None:
-                result.structured["coverage"]["status"] = "partial"
-            result.answer = reviewed_answer
-        else:
-            # Keep task-specific API shapes. The semantically reviewed report
-            # remains in answer/internal delivery metadata; structured facts are
-            # rebuilt only from claims and cannot imply the omitted analysis.
-            result.structured = _business_structured(task, result.claims, refs_by_id)
-            result.answer = reviewed_answer
-            result.evidence_status = "insufficient"
-        coverage = (result.structured.get("coverage", {})
-                    if isinstance(result.structured, dict) else {})
-        if coverage.get("status") != "complete":
-            result.evidence_status = "insufficient"
-        result.meta["research_delivery"] = {
-            "format": "evidence_linked_report",
-            "status": (result.meta.get("research_quality") or {}).get("status", "partial"),
-            "audited_analysis": any(block.get("kind") == "analysis"
-                                     for block in approved_blocks),
-            "source_planids": list(dict.fromkeys(
-                ref.planid for ref in result.evidence_refs)),
-        }
-        result.meta["research_delivery"]["status"] = (
-            "complete" if coverage.get("status") == "complete"
-            and result.evidence_status == "verified" else "partial")
-        if task.task_type != "qa" or result.status != "completed" or result.error is not None:
-            result.meta["research_delivery"]["status"] = "partial"
-        return result
-
     # Business structure is reconstructed from surviving facts; its unreviewed
     # prose and derived analysis are not passed through.
     result.structured = (None if task.task_type == "qa" else
-                         _business_structured(task, claims, refs_by_id))
+                         project_business(task, claims, refs_by_id, research_state))
     if claims:
         result.answer = "\n".join("- " + claim.text for claim in claims)
     else:
-        resolution = result.meta.get("qa_context_resolution")
-        clarification = (resolution.get("clarification")
-                        if isinstance(resolution, dict)
-                        and resolution.get("status") in {"ambiguous", "no_prior"}
-                        else None)
         if result.error is not None:
             result.answer = _failure_answer(result)
+        elif notice := getattr(ctx, "delivery_notice", None):
+            result.answer = notice
         elif (result.meta.get("qa_execution_subtype") == "boundary_response"
-              and isinstance(result.answer, str)):
-            # This is deterministic policy-agent boundary text from qa_boundary,
-            # not model-authored research prose.
-            pass
-        elif isinstance(clarification, str) and clarification.strip():
-            result.answer = clarification
+              and (boundary := boundary_reply(task.question))):
+            result.answer = boundary
         elif result.status != "completed":
             result.answer = _failure_answer(result)
         else:
             result.answer = _EMPTY_ANSWER
+    if claims and task.task_type == "qa" and research_state is not None:
+        result.answer = "本轮研究未完成，以下为已核验事实或逐字原文。\n\n" + result.answer
+        gaps = [req.label for req in research_state.requirements if req.status != "delivered"]
+        if gaps:
+            result.answer += "\n\n尚未完成的要求：\n" + "\n".join("- " + label for label in gaps)
+    if (task.task_type != "qa" and research_state is not None and result.error is None
+            and not getattr(ctx, "delivery_notice", None)):
+        if notice := business_notice(task, research_state, result.structured):
+            result.answer = result.answer + "\n\n" + notice if claims else notice
     quality = result.meta.get("research_quality")
     quality_status = quality.get("status") if isinstance(quality, dict) else None
     if not claims:
-        result.evidence_status = "none"
+        attempted = (research_state is not None and task.task_type != "qa"
+                     and bool(research_state.capabilities_used))
+        result.evidence_status = "insufficient" if attempted else "none"
     elif (result.status != "completed" or result.error is not None
           or task.task_type != "qa" or quality_status != "complete"):
         result.evidence_status = "insufficient"
@@ -449,6 +373,11 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
         result.meta["research_core_delivery"] = core_delivery
     if isinstance(quality, dict):
         quality = dict(quality)
+        if not claims:
+            quality["status"] = "insufficient"
+        elif quality.get("needs_report") or quality.get("needs_analysis"):
+            quality["status"] = "partial"
+        quality_status = quality.get("status")
         quality["audited_report_blocks"] = 0
         quality["audited_analysis_blocks"] = 0
         result.meta["research_quality"] = quality

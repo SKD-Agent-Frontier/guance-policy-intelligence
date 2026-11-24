@@ -19,7 +19,7 @@ from guance_agent.research_core import (
 from guance_agent.runtime import Runtime
 from guance_agent.schemas import EvidenceRef, TaskRequest
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, seed_read_page, tool
 from .test_research_core import _seed_read_fact
 
 
@@ -98,7 +98,7 @@ def test_freeze_keeps_source_period_distinct_from_fact_period(env):
         chunk_char_start=0, chunk_char_end=len(passage), source="kb_read",
         observed_ranges=[(0, len(passage))], complete=True,
     ))
-    state.read_text[chunk_id] = [passage]
+    seed_read_page(state, chunk_id, passage)
     retrospective = _register_evidence(state, EvidenceCandidate(
         candidate_id="retrospective", claim=retrospective_quote, quote=retrospective_quote,
         chunk_id=chunk_id, requirement_ids=[source_requirement.id],

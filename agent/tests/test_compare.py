@@ -151,6 +151,8 @@ def compare_setup(env, monkeypatch):
     """只替换外部 KB/模型连接；保留生产入口和业务注册，使范围与降级测试有意义。"""
     from guance_agent import orchestrator, runtime
     settings = replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="test-key")
+    from .business_sdk_fakes import install_business_sdk
+    install_business_sdk(monkeypatch)
     kb, model = ComparisonKB(), ComparisonModel()
     client = SimpleNamespace(chat=SimpleNamespace(completions=model))
     monkeypatch.setattr(orchestrator, "get_kb", lambda _: kb)
@@ -201,7 +203,8 @@ async def test_missing_fact_downgrades_difference_without_inventing_absence(comp
     row = result.structured["matrix"][-1]
     assert row["cells"][-1]["status"] == "insufficient"
     assert row["difference"]["status"] == "insufficient"
-    assert result.evidence_status == "insufficient"
+    assert result.evidence_status == "verified"
+    assert result.structured["task_completion"]["status"] == "partial"
     assert "政策没有" not in result.answer
 
 
@@ -246,6 +249,7 @@ async def test_empty_retrieval_does_not_call_analysis_or_claim_missing_policy(co
 @pytest.mark.parametrize("count", [3, 8])
 async def test_multi_object_coverage_and_quote_budget(compare_setup, monkeypatch, count):
     settings, _, _ = compare_setup
+    settings = replace(settings, max_tool_calls=64)
     kb = ComparisonKB(count=count)
     monkeypatch.setattr("guance_agent.orchestrator.get_kb", lambda _: kb)
     targets = list(kb.documents)
@@ -259,7 +263,10 @@ async def test_multi_object_coverage_and_quote_budget(compare_setup, monkeypatch
 @pytest.mark.parametrize("task_type", ["compare", "compare_plans"])
 @pytest.mark.parametrize("quote_count", [120, 121])
 async def test_comparison_quote_budget_boundary(compare_setup, monkeypatch, task_type, quote_count):
-    settings, _, _ = compare_setup
+    settings, kb, _ = compare_setup
+    settings = replace(settings, max_tool_calls=122)
+    sentences = [f"政策安排第{i}项农业扶持措施。" for i in range(1, quote_count + 1)]
+    kb.documents["T001"]["body"] = "".join(sentences)
 
     class QuoteBudgetModule:
         name = task_type
@@ -270,9 +277,8 @@ async def test_comparison_quote_budget_boundary(compare_setup, monkeypatch, task
             hit = found.data[0]
             read = await services.read(hit.planid, chunk_id=hit.chunk_id)
             assert read.status == "ok"
-            claims = [Claim(text="claim-" + "x" * index,
-                            chunk_ids=[hit.chunk_id], quotes=[BODY_A])
-                      for index in range(1, quote_count + 1)]
+            claims = [Claim(text=sentence, chunk_ids=[hit.chunk_id], quotes=[sentence])
+                      for sentence in sentences]
             return BusinessOutcome(
                 answer="\n".join(claim.text for claim in claims),
                 claims=claims,
@@ -289,16 +295,17 @@ async def test_comparison_quote_budget_boundary(compare_setup, monkeypatch, task
     if quote_count == 120:
         assert len(result.claims) == 120
         assert verification["unverified"] == 0
-        assert result.structured == {"claim_count": 120}
+        assert [claim.text for claim in result.claims] == sentences
+        assert "claim_count" not in result.structured
         assert result.evidence_status == "verified"
     else:
         assert len(result.claims) == 120
         assert verification["unverified"] == 1
         assert verification["removed_claims"] == 1
-        assert result.structured == {}
-        assert "claim-" + "x" * 121 not in result.answer
-        assert "claim-" + "x" * 120 in result.answer
-        assert result.evidence_status == "insufficient"
+        assert "claim_count" not in result.structured
+        assert sentences[-1] not in result.answer
+        assert sentences[-2] in result.answer
+        assert result.meta["research_delivery"]["status"] == "partial"
 
 
 @pytest.mark.parametrize("task_type", ["compare", "compare_plans"])
@@ -419,7 +426,7 @@ async def test_acquisition_respects_small_tool_budget(compare_setup):
     settings = replace(settings, max_tool_calls=5)
     result = await submit("比较政策", settings=settings, task_type="compare",
                           targets=["T001", "T002"])
-    assert result.status == "completed" and result.structured
+    assert result.status == "completed" and result.structured, result.model_dump_json()
     assert len(kb.read_calls) + len(kb.search_calls) <= 5
 
 
@@ -817,7 +824,8 @@ async def test_scheme_missing_body_explains_gaps_and_keeps_other_policy_facts(co
         return read(planid,*args,**kwargs)
     monkeypatch.setattr(kb,'read',missing)
     result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
-    assert result.evidence_status=='insufficient'
+    assert result.evidence_status == "verified"
+    assert result.structured["task_completion"]["status"] == "partial"
     assert result.claims and all(ref.planid=='T001' for ref in result.evidence_refs)
     assert all(row['difference']['status']=='insufficient' for row in result.structured['matrix'])
     analysis=result.structured['scheme_analysis'][1]
@@ -834,7 +842,8 @@ async def test_analysis_gaps_distinguish_model_omission_from_missing_source(comp
         output['scheme_analysis'][1]['limitations']=[]
     model.mutate_analysis=omit
     result=await submit('分析方案',settings=settings,task_type='compare_plans',targets=['T001','T002'])
-    assert result.evidence_status=='insufficient'
+    assert result.evidence_status == "verified"
+    assert result.structured["task_completion"]["status"] == "partial"
     assert any(gap.get('planid')=='T002' and gap['field']=='limitations'
                and gap['reason']=='analysis_not_generated' for gap in result.structured['analysis_gaps'])
 

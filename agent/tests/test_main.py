@@ -7,7 +7,7 @@ import pytest
 from guance_agent import cli
 from guance_agent.main import submit
 
-from .fake_model import FakeModel, answer, tool
+from .fake_model import FakeModel, answer
 
 
 @pytest.fixture
@@ -121,12 +121,18 @@ async def test_execution_value_error_is_internal(configured, monkeypatch):
 
 
 async def test_submit_tools_and_verified_output(configured, monkeypatch):
-    model = FakeModel([[tool("kb_search", query="农业", area="甲", fyp="十四五", top_k=1)],
-                       [tool("kb_read", planid="TEST-001", section_idx=0)],
-                       answer("农业重点", [{"text":"农业农村发展", "chunk_ids":["TEST-001__s00__p00"]}])])
-    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: model)
+    from guance_agent.kb import MockKB
+
+    from .fake_model import fact_submission, install_audit, sdk_read, sdk_search
+
+    hit = MockKB(configured.mock_kb_path).search("农业", None, None, 1)[0]
+    model = FakeModel([[sdk_search()], [sdk_read(hit)], fact_submission(hit)])
+    install_audit(monkeypatch)
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda *_: model)
     result = await submit("农业重点", settings=configured)
-    assert result.evidence_status == "verified" and len(result.meta["tool_calls"]) == 2
+    assert result.evidence_status == "verified"
+    assert result.claims[0].quotes == [hit.content[:24].strip()]
+    assert [c["name"] for c in result.meta["tool_calls"]] == ["kb_search", "kb_read"]
 
 
 async def test_trimmed_question_limit_accepts_surrounding_whitespace(configured):

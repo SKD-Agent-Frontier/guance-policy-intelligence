@@ -11,6 +11,8 @@ from pydantic import (
     model_validator,
 )
 
+from .review_receipts import ReviewReceipts
+
 ToolStatus = Literal["ok", "empty", "no_text", "not_found", "invalid_argument",
                      "timeout", "backend_error"]
 
@@ -257,6 +259,7 @@ class RunError(BaseModel):
     message: str
 
 class RunResult(BaseModel):
+    _review_receipts: ReviewReceipts = PrivateAttr(default_factory=ReviewReceipts)
     _qa_report_candidates: list[dict] = PrivateAttr(default_factory=list)
     _qa_report_dimensions: list[str] = PrivateAttr(default_factory=list)
     _qa_report_supplied: bool = PrivateAttr(default=False)

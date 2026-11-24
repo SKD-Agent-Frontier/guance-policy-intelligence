@@ -6,11 +6,9 @@ from types import SimpleNamespace
 import pytest
 from agents.tool_context import ToolContext
 
-import guance_agent.orchestrator as orchestrator
 from guance_agent.config import Settings
 from guance_agent.context import RunContext
 from guance_agent.output import finalize_recovered_qa_answer
-from guance_agent.runner import ExecOutcome
 from guance_agent.schemas import Claim, EvidenceRef, RunResult, ToolResult
 from guance_agent.tools import kb_read, kb_search
 
@@ -135,37 +133,15 @@ async def test_unverified_or_multiple_document_plans_preserve_requested_filters(
     assert ctx.kb.search_calls[0][-1] is None
 
 
-@pytest.mark.asyncio
-async def test_qa_model_receives_only_trusted_planner_identity(monkeypatch, env):
-    seen = {}
+def test_sdk_model_receives_only_trusted_planner_identity():
+    from guance_agent.research_core import ResearchState
 
-    class AgentStub:
-        instructions = "保持证据核验"
-
-        def clone(self, **kwargs):
-            child = AgentStub()
-            child.instructions = kwargs["instructions"]
-            return child
-
-    class ClientStub:
-        def with_options(self, **kwargs):
-            return self
-
-    monkeypatch.setattr(orchestrator, "build_agent", lambda *_: AgentStub())
-    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: object())
-
-    async def fake_execute(agent, task, ctx, rt, deadline):
-        seen["instructions"] = agent.instructions
-        return ExecOutcome(None, "MODEL_TIMEOUT")
-
-    monkeypatch.setattr(orchestrator, "execute", fake_execute)
-    ctx = _ctx(("2561",))
-    rt = SimpleNamespace(client=ClientStub(), meta={})
-    await orchestrator._execute_once(
-        env[1], env[0], ctx, rt, time.monotonic() + 90,
-    )
-    assert "planid" in seen["instructions"]
-    assert "2561" in seen["instructions"]
-    assert "第十个五年计划" in seen["instructions"]
-    assert "十五五" in seen["instructions"]  # explicit prohibition, not a new target
-    assert rt.meta["qa_trusted_plan_scope"]["planid"] == "2561"
+    for verified in (True, False):
+        ctx = _ctx(("2561",), verified=verified)
+        state = ResearchState.create(ctx, "沧州市十五计划", time.monotonic() + 90)
+        visible = json.loads(state.status_for_model())["verified_document"]
+        if verified:
+            assert visible == {"planid": "2561", "title": "沧州市第十个五年计划纲要",
+                               "area": "沧州市", "fyp": "第十个五年计划"}
+        else:
+            assert visible is None

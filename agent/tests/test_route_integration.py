@@ -2,39 +2,42 @@
 
 注意：这里用 MockKB 验证控制流程；真实运行库的验收见报告，不能用本文件冒充。
 """
-import asyncio
-import json
 from dataclasses import replace
 
+from guance_agent.kb import MockKB
 from guance_agent.orchestrator import run_task
-from guance_agent.runner import ExecOutcome
 from guance_agent.runtime import Runtime
+
+from .fake_model import FakeModel, tool
+from .sdk_fact_fakes import FACT, SOURCE, install_fact_model
 
 
 def _configured(env):
     return replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
 
 
-def _stub(monkeypatch, seen):
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
-    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
+def _stub(monkeypatch, settings, seen):
+    kb = MockKB(settings.mock_kb_path)
+    search = kb.search
 
-    async def fake_execute(agent, task, ctx, rt, deadline=None):
-        # 记录本次真正生效的范围，以及该范围下后端实际返回的篇目
-        hits = await asyncio.to_thread(ctx.kb.search, "农业", None, None, 5,
-                                       planids=ctx.scope)
-        seen.append({"scope": ctx.scope, "planids": sorted({h.planid for h in hits})})
-        body = json.dumps({"answer": "ok", "claims": [], "insufficient": bool(not hits)})
-        return ExecOutcome(body, None)
+    def observe_search(query, area, fyp, top_k, *, planids=None):
+        hits = search(query, area, fyp, top_k, planids=planids)
+        seen.append({"scope": planids, "planids": sorted({hit.planid for hit in hits}),
+                     "area": area, "fyp": fyp})
+        return hits
 
-    monkeypatch.setattr("guance_agent.orchestrator.execute", fake_execute)
+    monkeypatch.setattr(kb, "search", observe_search)
+    monkeypatch.setattr("guance_agent.orchestrator.get_kb", lambda _settings: kb)
+    model = FakeModel([[tool("search", query="农业", top_k=8, requirements=["农业重点"])],
+                       [tool("submit_draft", evidence_candidates=[], blocks=[],
+                             finish_if_partial=True)]])
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda *_args: model)
 
 
 async def test_single_object_scopes_retrieval_before_search(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "planid TEST-001 的农业重点是什么？"})
     result = await run_task(task, s, Runtime(s, task))
     assert [o["planid"] for o in result.route["objects"]] == ["TEST-001"]
@@ -45,7 +48,7 @@ async def test_single_object_scopes_retrieval_before_search(env, monkeypatch):
 async def test_multi_object_retrieves_each_object_separately(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "比较 planid TEST-001 与 planid TEST-002 的农业重点。"})
     result = await run_task(task, s, Runtime(s, task))
     assert [o["planid"] for o in result.route["objects"]] == ["TEST-001", "TEST-002"]
@@ -57,7 +60,7 @@ async def test_multi_object_retrieves_each_object_separately(env, monkeypatch):
 async def test_open_topic_keeps_global_scope(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "农业有哪些政策要求？"})
     result = await run_task(task, s, Runtime(s, task))
     assert result.route["kind"] == "open"
@@ -68,7 +71,7 @@ async def test_open_topic_keeps_global_scope(env, monkeypatch):
 async def test_invalid_planid_never_falls_back_to_global(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "planid TEST-999 的农业重点是什么？"})
     result = await run_task(task, s, Runtime(s, task))
     assert seen[0]["scope"] == ("TEST-999",)
@@ -80,7 +83,7 @@ async def test_invalid_planid_never_falls_back_to_global(env, monkeypatch):
 async def test_object_without_body_is_reported_not_faked(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "planid TEST-003 的农业重点是什么？"})
     result = await run_task(task, s, Runtime(s, task))
     assert seen[0]["planids"] == []           # TEST-003 没有正文，取不到片段
@@ -92,7 +95,7 @@ async def test_object_without_body_is_reported_not_faked(env, monkeypatch):
 async def test_over_long_question_is_refused_without_retrieval(env, monkeypatch):
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
+    _stub(monkeypatch, s, seen)
     task = base.model_copy(update={"question": "分析" * 300})
     result = await run_task(task, s, Runtime(s, task))
     assert result.route["blocked"] == "query_too_long"
@@ -104,11 +107,12 @@ async def test_area_and_period_filters_use_normalised_period(env, monkeypatch):
     """回归此前发现的期号口径问题：十四五 必须规范成第十四个五年规划。"""
     s, base = _configured(env), env[1]
     seen = []
-    _stub(monkeypatch, seen)
-    task = base.model_copy(update={"question": "十四五期间甲市农业有哪些要求？"})
+    _stub(monkeypatch, s, seen)
+    task = base.model_copy(update={"question": "十四五期间甲市农业有哪些要求？请据十四五规划回答。"})
     result = await run_task(task, s, Runtime(s, task))
     assert result.route["fyps"] == ["第十四个五年规划"]
     assert result.route["areas"] == ["甲市"]
+    assert [(item["area"], item["fyp"]) for item in seen] == [("甲市", "第十四个五年规划")]
 
 
 # ---------------- 回归：遥测、范围约束、证据隔离 ----------------
@@ -143,34 +147,16 @@ def test_kb_read_is_blocked_outside_route_scope():
 
 async def test_multi_object_claims_cannot_borrow_other_object_evidence(env, monkeypatch):
     """每个对象的结论只能引用来自该对象的证据。"""
-    from guance_agent.tools import _call
-
-    s, task = _configured(env), env[1]
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
-    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
-
-    async def fake_execute(agent, task, ctx, rt, deadline=None):
-        await _call(ctx, "kb_search", ctx.kb.search, "农业", None, None, 3, planids=ctx.scope)
-        own = [cid for cid in ctx.evidence.ids()
-               if ctx.evidence.get(cid).planid in ctx.scope]
-        foreign = [cid for cid in ctx.evidence.ids()
-                   if ctx.evidence.get(cid).planid not in ctx.scope]
-        claims = [{"text": "来自本对象", "chunk_ids": own[:1], "quotes": []}]
-        if foreign:   # 故意引用别的对象的证据
-            claims.append({"text": "借用他人", "chunk_ids": foreign[:1], "quotes": []})
-        return ExecOutcome(json.dumps({"answer": "ok", "claims": claims, "insufficient": False}), None)
-
-    monkeypatch.setattr("guance_agent.orchestrator.execute", fake_execute)
-    q = task.model_copy(update={"question": "比较 planid TEST-001 与 planid TEST-002 的农业重点。"})
-    result = await run_task(q, s, Runtime(s, q))
-    for ref in result.evidence_refs:
-        assert ref.planid in {"TEST-001", "TEST-002"}
-    # 合并后的每条结论，其 chunk 必须全部属于同一篇
-    for claim in result.claims:
-        planids = {result.evidence_refs[[r.chunk_id for r in result.evidence_refs].index(c)].planid
-                   for c in claim.chunk_ids if c in [r.chunk_id for r in result.evidence_refs]}
-        assert len(planids) <= 1, claim.text
+    s, base = _configured(env), env[1]
+    model = install_fact_model(monkeypatch, s, borrowed_quote=True)
+    task = base.model_copy(update={
+        "question": "列出 planid TEST-001 与 planid TEST-002 的农业重点。",
+    })
+    result = await run_task(task, s, Runtime(s, task))
+    assert model.calls >= 4
+    assert [claim.text for claim in result.claims] == [FACT]
+    assert result.claims[0].chunk_ids == [SOURCE]
+    assert [(ref.planid, ref.chunk_id) for ref in result.evidence_refs] == [("TEST-001", SOURCE)]
 
 
 # ---------------- 状态一致性：completed 不得与 INTERNAL 并存 ----------------
@@ -200,14 +186,7 @@ async def test_blocked_route_is_completed_without_internal_error(env, monkeypatc
 async def test_no_evidence_objects_is_completed_without_internal_error(env, monkeypatch):
     """所有对象都没取到证据：completed + insufficient，且不带 INTERNAL。"""
     s, base = _configured(env), env[1]
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
-    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
-
-    async def empty_execute(agent, task, ctx, rt, deadline=None):
-        return ExecOutcome(json.dumps({"answer": "没有", "claims": [], "insufficient": True}), None)
-
-    monkeypatch.setattr("guance_agent.orchestrator.execute", empty_execute)
+    _stub(monkeypatch, s, [])
     q = base.model_copy(update={"question": "planid TEST-999 的农业重点是什么？"})
     result = await run_task(q, s, Runtime(s, q))
     assert result.status == "completed"

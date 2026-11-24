@@ -103,10 +103,14 @@ async def collect(task, ctx, services, plan):
     result = Collection()
     metadata, indexes, hits, query_results = {}, {}, [], []
     used = 0
+    # A remote verifier needs at least one call after acquisition. Keep that
+    # call in the same budget so a small run can still return a checked fact.
+    verification_reserve = int(callable(getattr(ctx.kb, "verify_quote", None)))
+    acquisition_budget = max(0, ctx.settings.max_tool_calls - len(ctx.tool_calls) - verification_reserve)
     # 取证接近截止时间时主动停止。八秒只是停止继续取证的保守阈值，不能保证
     # 后续模型一定能完成；实际模型调用仍受共享 deadline 约束并可能返回超时。
     def can_call():
-        return (used < ctx.settings.max_tool_calls
+        return (used < acquisition_budget
                 and services.deadline - time.monotonic() > 8)
 
     # 1. 先读目录，获取真实身份和可定位章节。目录本身不生成原文事实。
@@ -131,7 +135,10 @@ async def collect(task, ctx, services, plan):
 
     # 2. 共同主题检索。先留出每个对象一次正文读取预算，再决定能执行多少查询。
     # search 不传额外地区/时期过滤，避免把跨地区或跨期的显式 targets 截成单侧。
-    search_limit = max(0, ctx.settings.max_tool_calls - used - len(task.targets))
+    # If the catalog supplies no section coordinates, one search is needed
+    # before any object can be read. A single side can still be delivered.
+    read_reserve = len(task.targets) if any(indexes.values()) else 1
+    search_limit = max(0, acquisition_budget - used - read_reserve)
     for query in plan.queries[:search_limit]:
         if not can_call():
             break
@@ -264,6 +271,6 @@ async def collect(task, ctx, services, plan):
     # 覆盖失败只记录“本轮没取得什么”，不能推断政策全文没有相应措施或资格。
     if any(not any(unit.planid == pid for unit in result.units) for pid in task.targets):
         result.notes.append("部分政策尚未取得正文证据，不作缺失条款或优劣判断。")
-    if used >= ctx.settings.max_tool_calls:
+    if used >= acquisition_budget:
         result.notes.append("已用完本次取证预算，未声称覆盖政策全文。")
     return result

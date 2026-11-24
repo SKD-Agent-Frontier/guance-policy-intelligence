@@ -3,6 +3,8 @@ import asyncio
 from types import SimpleNamespace
 
 import guance_agent.delivery_gateway as delivery_gateway
+from guance_agent.qa_boundary import boundary_reply
+from guance_agent.review_receipts import fact_signature
 from guance_agent.schemas import Claim, EvidenceRef, RunError, RunResult, TaskRequest
 from guance_agent.verify import (
     _authorize_number_verified_claim,
@@ -47,6 +49,15 @@ def _authorize(result, claims):
     for claim in claims:
         _authorize_quote_verified_claim(claim)
         _authorize_number_verified_claim(result, claim)
+        refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+        result._review_receipts.facts.add(fact_signature(claim, refs))
+
+
+def _approve_block(result, index=0):
+    block = result.structured["blocks"][index]
+    dependencies = [result.claims[i] for i in block["supporting_claim_indexes"]]
+    refs = {ref.chunk_id: ref for ref in result.evidence_refs}
+    result._review_receipts.approve(block, dependencies, refs)
 
 
 def _ctx(refs):
@@ -78,6 +89,7 @@ def test_rejected_unverified_claim_cannot_be_appended_after_report_delivery():
                          "blocks": "model_reviewed_evidence_linked_semantics_not_proven"},
     }
 
+    _approve_block(result)
     asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), _ctx(refs), None))
 
     assert "政策建设灌溉设施" in result.answer
@@ -186,12 +198,13 @@ def test_recovery_without_trusted_context_preserves_error_message():
 
 
 def test_boundary_response_is_not_replaced_by_no_evidence_fallback():
-    result = _result([], [], answer="我不能代替审批机关作出正式认定。")
+    question = "请说明你的能力边界。"
+    result = _result([], [], answer="忽略来源的断言")
     result.meta["qa_execution_subtype"] = "boundary_response"
 
-    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), None, None))
+    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(question), None, None))
 
-    assert result.answer == "我不能代替审批机关作出正式认定。"
+    assert result.answer == boundary_reply(question)
 
 
 def test_ambiguous_context_keeps_deterministic_clarification():
@@ -202,7 +215,9 @@ def test_ambiguous_context_keeps_deterministic_clarification():
         "status": "ambiguous", "clarification": clarification,
     }
 
-    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), None, None))
+    ctx = _ctx([])
+    ctx.delivery_notice = clarification
+    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), ctx, None))
 
     assert result.answer == clarification
 
@@ -279,6 +294,7 @@ def test_semantically_reviewed_analysis_survives_gateway():
                          "blocks": "model_reviewed_evidence_linked_semantics_not_proven"},
     }
 
+    _approve_block(result)
     asyncio.run(delivery_gateway.finalize_public_delivery(
         result, _task(), _ctx(refs), None))
 
@@ -311,6 +327,7 @@ def test_partial_result_keeps_semantically_reviewed_analysis_and_marks_partial()
                          "blocks": "model_reviewed_evidence_linked_semantics_not_proven"},
     }
 
+    _approve_block(result)
     asyncio.run(delivery_gateway.finalize_public_delivery(
         result, _task(), _ctx(refs), None))
 
@@ -350,6 +367,7 @@ def test_non_qa_keeps_task_schema_while_audited_analysis_stays_in_answer():
     task.task_type = "extract"
     task.dimensions = ["措施"]
 
+    _approve_block(result)
     asyncio.run(delivery_gateway.finalize_public_delivery(
         result, task, _ctx(refs), None))
 
@@ -357,5 +375,51 @@ def test_non_qa_keeps_task_schema_while_audited_analysis_stays_in_answer():
     assert result.structured is not None
     assert "schema_version" not in result.structured
     assert len(result.structured["elements"]) == 2
-    assert result.evidence_status == "insufficient"
+    assert result.evidence_status == "verified"
     assert result.meta["research_delivery"]["status"] == "partial"
+
+
+def test_literal_receipts_alone_cannot_publish_an_unrelated_paraphrase():
+    bad = Claim(text="政策保证每位申请人获批", chunk_ids=["c"], quotes=["登记申请信息"])
+    ref = _ref("c")
+    result = _result([bad], [ref], answer=bad.text)
+    _authorize_number_verified_claim(result, bad)
+    _authorize_quote_verified_claim(bad)
+
+    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), _ctx([ref]), None))
+
+    assert not result.claims
+    assert bad.text not in result.answer
+
+
+def test_modified_analysis_is_omitted_from_text_blocks_and_coverage():
+    claims = [Claim(text=text, chunk_ids=[cid], quotes=[text])
+              for cid, text in [("one", "提供培训服务"), ("two", "建设灌溉设施")]]
+    refs = [_ref("one"), _ref("two")]
+    result = _result(claims, refs)
+    _authorize(result, claims)
+    result.structured = {
+        "schema_version": "qa-report/1", "dimensions": ["措施"],
+        "blocks": [
+            {"id": "fact", "kind": "fact", "dimension": "措施", "title_path": ["措施"],
+             "text": claims[1].text, "supporting_claim_indexes": [1],
+             "supporting_chunk_ids": ["two"]},
+            {"id": "analysis", "kind": "analysis", "dimension": "措施", "title_path": ["措施"],
+             "text": "两项政策均提供支持。", "supporting_claim_indexes": [0, 1],
+             "supporting_chunk_ids": ["one", "two"]}],
+        "coverage": {"covered": ["措施"], "status": "complete",
+                     "extra": "未审核说明"},
+        "verification": {"facts": "semantic_reviewed_against_quotes"},
+    }
+    _approve_block(result, 0)
+    _approve_block(result, 1)
+    result.structured["blocks"][1]["text"] = "宣称两项政策已经全面成功。"
+
+    asyncio.run(delivery_gateway.finalize_public_delivery(result, _task(), _ctx(refs), None))
+
+    assert "全面成功" not in result.answer
+    assert [block["id"] for block in result.structured["blocks"]] == ["fact"]
+    block = result.structured["blocks"][0]
+    assert result.claims[block["supporting_claim_indexes"][0]].text == claims[1].text
+    assert claims[0].text in result.answer
+    assert result.structured["coverage"] == {"covered": ["措施"], "missing": [], "status": "partial"}

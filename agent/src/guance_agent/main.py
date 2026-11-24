@@ -1,14 +1,14 @@
 """CLI 与未来 Web 共用的唯一任务入口：只做校验、装配与转交。"""
+import asyncio
+import inspect
 import re
 import time
 from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from .business import get_module, register
-from .business.compare import PolicyComparisonModule, SchemeComparisonModule
-from .business.extract import ExtractModule
-from .business.organize import OrganizeModule
+from .business import get_module
+from .business.builtins import research_capabilities
 from .config import ConfigurationError, Settings, load_settings
 from .orchestrator import run_sdk_task
 from .output import ERRORS, build_result
@@ -20,20 +20,6 @@ from .runtime import Runtime, SessionForbidden
 from .schemas import RunError, RunResult, TaskRequest
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
-
-_policy_comparison = PolicyComparisonModule()
-_scheme_comparison = SchemeComparisonModule()
-_organize = OrganizeModule()
-_extract = ExtractModule()
-register(_policy_comparison)
-register(_scheme_comparison)
-register(_organize)
-RESEARCH_CAPABILITIES = {
-    "extract": _extract,
-    "organize": _organize,
-    "compare": _policy_comparison,
-    "compare_plans": _scheme_comparison,
-}
 
 def _build_task(question: str, session_id, user_id, task_type, dimensions, targets) -> TaskRequest:
     return TaskRequest(
@@ -111,11 +97,16 @@ async def submit(question: str, session_id: str | None = None,
             result = await finalize_public_delivery(result, task, None, None)
             rt.finish(result, None)
             return result
+        deadline = time.monotonic() + s.run_timeout
         decision = decide(task.question)
         if research_scope_resolver is not None and task.task_type == "qa":
-            resolved_scope = research_scope_resolver(task.question)
-            if hasattr(resolved_scope, "__await__"):
-                resolved_scope = await resolved_scope
+            async with asyncio.timeout_at(deadline):
+                if inspect.iscoroutinefunction(research_scope_resolver):
+                    resolved_scope = await research_scope_resolver(task.question)
+                else:
+                    resolved_scope = await asyncio.to_thread(research_scope_resolver, task.question)
+                    if inspect.isawaitable(resolved_scope):
+                        resolved_scope = await resolved_scope
             if isinstance(resolved_scope, dict):
                 areas = resolved_scope.get("areas")
                 if isinstance(areas, list) and areas:
@@ -125,7 +116,7 @@ async def submit(question: str, session_id: str | None = None,
         research_runtime = ResearchRuntime(
             contract,
             ResearchPlanner.initial(contract),
-            deadline=time.monotonic() + s.run_timeout,
+            deadline=deadline,
             max_revisions=getattr(s, "max_plan_revisions", 1),
         )
         rt.prepare()
@@ -133,11 +124,13 @@ async def submit(question: str, session_id: str | None = None,
             task, s, rt, initial_decision=decision,
             research_discoverer=research_discoverer,
             research_runtime=research_runtime,
-            capability_modules=RESEARCH_CAPABILITIES,
+            capability_modules=research_capabilities(),
         )
     except Exception as exc:
         if isinstance(exc, ConfigurationError):
             code = "CONFIG_ERROR"
+        elif isinstance(exc, TimeoutError):
+            code = "RUN_TIMEOUT"
         elif isinstance(exc, SessionForbidden):
             code = "SESSION_FORBIDDEN"
         else:

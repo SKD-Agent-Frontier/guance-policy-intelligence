@@ -7,14 +7,13 @@ import pytest
 
 import guance_agent.orchestrator as orchestrator
 from guance_agent.context import RunContext
-from guance_agent.kb import MockKB
 from guance_agent.output import to_markdown
 from guance_agent.research_core import ResearchState
 from guance_agent.research_planner import ResearchPlanner
 from guance_agent.routing import decide
 from guance_agent.runtime import Runtime
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, tool, versioned_kb
 
 
 class CapturedContextStore:
@@ -36,7 +35,7 @@ async def test_run_sdk_delivery_exposes_only_claims_from_approved_blocks(env, mo
     question = "请查询planid TEST-001中的农业灌溉措施，并判断这些措施是否提高产量。"
     task = base_task.model_copy(update={"question": question, "targets": ["TEST-001"]})
     decision = decide(question)
-    kb = MockKB(settings.mock_kb_path)
+    kb = versioned_kb(settings.mock_kb_path)
     monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
 
     supported_quote = "完善农业灌溉设施"

@@ -28,40 +28,51 @@ class BusinessSDKModel(Model):
         state = _state_from_instructions(system_instructions)
         question = state.get("original_question", "政策研究")
         required = state.get("required_capability")
-        if self.calls == 1:
-            call = self._tool("search", {
-                "query": question[:200], "top_k": 12,
-                "requirements": [question],
-            })
-        elif self.calls == 2 and required:
-            call = self._tool("run_capability", {"capability": required})
+        if required and required not in state.get("capabilities_used", []):
+            call = self._tool("run_capability", {"capability": required, "requirements": [question]})
         else:
-            claims = state.get("quote_checked_claims", [])
-            requirements = [item["id"] for item in state.get("requirements", [])]
-            candidates = [
-                {"candidate_id": f"offline-{index}", "claim": item["text"],
-                 "evidence_handle": item["fact_handle"],
-                 "requirement_ids": requirements}
-                for index, item in enumerate(claims)
+            facts = state.get("quote_checked_claims", [])
+            root = next((req["id"] for req in state["requirements"] if req["label"] == question),
+                        state["requirements"][0]["id"])
+            facts_per_block = 10
+            blocks = [{"id": f"offline-facts-{index}", "kind": "fact", "title": "核验事实", "text": "",
+                       "requirement_ids": [root], "evidence_ids": [f["fact_handle"] for f in facts[index:index+facts_per_block]]}
+                      for index in range(0, len(facts), facts_per_block)]
+            proposals = state.get("business_analysis_candidates", [])
+            blocks += [
+                {"id": item["id"], "kind": "analysis", "title": item["title"], "text": item["text"],
+                 "requirement_ids": [root], "evidence_ids": item["evidence_ids"]}
+                for item in proposals
             ]
-            block_ids = [item["candidate_id"] for item in candidates]
-            block = [{"id": "offline-result", "title": "核验事实", "kind": "fact",
-                      "text": "", "requirement_ids": requirements,
-                      "evidence_ids": block_ids}]
-            call = self._tool("submit_draft", {
-                "evidence_candidates": candidates, "blocks": block,
-                "finish_if_partial": True,
-            })
+            call = self._tool("submit_draft", {"evidence_candidates": [], "blocks": blocks,
+                                                "finish_if_partial": True})
         return ModelResponse(output=[call], usage=Usage(requests=1),
                              response_id=f"offline-business-{self.calls}")
 
-    @staticmethod
-    def _tool(name, arguments):
+    def _tool(self, name, arguments):
         return ResponseFunctionToolCall(
             type="function_call", name=name,
-            call_id=f"offline-{name}", arguments=json.dumps(arguments, ensure_ascii=False),
+            call_id=f"offline-{self.calls}-{name}", arguments=json.dumps(arguments, ensure_ascii=False),
         )
 
     async def stream_response(self, *args, **kwargs):
         raise NotImplementedError("offline business fake does not stream")
         yield  # pragma: no cover
+
+def install_business_sdk(monkeypatch):
+    from guance_agent import orchestrator
+
+    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: BusinessSDKModel())
+    build = orchestrator.build_research_core_agent
+
+    def build_with_auditor(*args, **kwargs):
+        async def audit(state, _mapped):
+            return json.dumps({
+                "passed": True,
+                "covered_requirement_ids": [item.id for item in state.requirements],
+                "approved_block_ids": [item.id for item in state.draft_blocks],
+                "gaps": [], "unsupported_claims": [],
+            }, ensure_ascii=False)
+        return build(*args, **{**kwargs, "audit": audit})
+
+    monkeypatch.setattr(orchestrator, "build_research_core_agent", build_with_auditor)

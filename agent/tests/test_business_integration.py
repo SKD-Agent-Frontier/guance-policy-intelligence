@@ -130,6 +130,9 @@ class OpenTopic(Module):
 def setup(env, monkeypatch):
     from guance_agent import orchestrator, runtime
 
+    from .business_sdk_fakes import install_business_sdk
+
+    install_business_sdk(monkeypatch)
     settings = replace(env[0], llm_base_url="https://example.invalid/v1",
                        llm_api_key="offline-test-key")
     kb = FakeKB()
@@ -224,7 +227,7 @@ async def test_qa_explicit_targets_keep_existing_long_query_block(setup, monkeyp
     async def forbidden(*args, **kwargs):
         pytest.fail("blocked QA request reached execution")
 
-    monkeypatch.setattr(orchestrator, "_execute_once", forbidden)
+    monkeypatch.setattr(orchestrator, "execute_research_core", forbidden)
     result = await submit("农业" * 110, settings=settings, task_type="qa",
                           targets=["T001"])
     assert result.status == "completed" and result.error is None
@@ -234,16 +237,14 @@ async def test_qa_explicit_targets_keep_existing_long_query_block(setup, monkeyp
 async def test_existing_qa_path_uses_explicit_targets_over_question_ids(setup, monkeypatch):
     settings, _ = setup
     from guance_agent import orchestrator
-    from guance_agent.runner import ExecOutcome
 
     seen = {}
 
-    async def no_evidence(task, s, ctx, rt, deadline):
-        seen["scope"] = ctx.scope
-        return ExecOutcome(json.dumps({"answer": "暂无证据", "claims": [],
-                                       "insufficient": True}, ensure_ascii=False), None)
+    async def no_evidence(_agent, state, rt):
+        seen["scope"] = state.authorized_scope
+        return "暂无证据"
 
-    monkeypatch.setattr(orchestrator, "_execute_once", no_evidence)
+    monkeypatch.setattr(orchestrator, "execute_research_core", no_evidence)
     result = await submit("planid T002 农业", settings=settings, task_type="qa",
                           targets=["T001"])
     assert result.status == "completed" and seen["scope"] == ("T001",)
@@ -441,7 +442,8 @@ async def test_no_claim_answer_and_module_documents_are_discarded_without_search
     assert not result.claims and not result.evidence_refs
     assert result.structured == {}
     assert "已全面覆盖" not in result.answer and "FAKE" not in str(result.structured)
-    assert "未经核验" in " ".join(result.warnings)
+    assert result.meta["research_delivery"]["status"] == "insufficient"
+    assert result.evidence_status != "verified"
 
 
 async def test_no_claim_result_keeps_only_documents_from_successful_search(setup):
@@ -517,7 +519,9 @@ async def test_structured_tuples_are_normalized_to_json_lists(setup):
     result = await submit("分析政策", settings=settings, task_type="organize",
                           targets=["T001"])
     assert result.claims and result.evidence_refs
-    assert result.structured == {"rows": [1, 2]}
+    from guance_agent.business.contract import normalize_structured
+    assert normalize_structured({"rows": (1, 2)}) == {"rows": [1, 2]}
+    assert "rows" not in result.structured
 
 
 async def test_circular_structured_result_fails_with_output_parse(setup):
@@ -569,81 +573,52 @@ async def test_invalid_structured_output_failure_preserves_business_telemetry(se
     assert result.meta["business_telemetry"]["per_call"] == [{"status": "ok"}]
 
 
-async def test_t03_qa_uses_existing_agent_path(setup, monkeypatch):
-    settings, _ = setup
+async def test_qa_uses_sdk_search_read_and_observed_quote(setup, monkeypatch):
     from guance_agent import orchestrator
 
-    from .fake_model import FakeModel, answer, tool
+    from .fake_model import FakeModel, fact_submission, sdk_read, sdk_search
 
-    model = FakeModel([[tool("kb_search", query="农业", top_k=1)],
-                       [tool("kb_read", planid="T001", section_idx=0)],
-                       answer("政策支持农业发展",
-                              [{"text": "政策支持农业发展",
-                                "chunk_ids": ["T001-chunk"]}])])
-    monkeypatch.setattr(orchestrator, "chat_model", lambda s, client: model)
+    settings, kb = setup
+    hit = kb._hit("T001")
+    model = FakeModel([[sdk_search()], [sdk_read(hit)], fact_submission(hit)])
+    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: model)
     result = await submit("planid T001 农业", settings=settings)
     assert result.status == "completed" and result.task_type == "qa"
-    assert result.claims and result.evidence_status == "verified"
-    assert result.claims[0].quotes == []
-    assert len(model.inputs) == 3
+    assert result.evidence_status == "verified" and result.claims[0].quotes == [hit.content[:24]]
+    assert model.calls == 3
 
 
-async def test_t04_extract_keeps_existing_path_and_structured_shape(setup, monkeypatch):
-    settings, _ = setup
-    from guance_agent import orchestrator
-    from guance_agent.runner import ExecOutcome
+async def test_extract_preserves_requested_scope_dimensions_and_missing_elements(setup, monkeypatch):
+    from guance_agent.business.services import BusinessServices
 
-    seen = {}
-
-    async def extract(task, s, ctx, rt, builder):
-        seen["scope"] = ctx.scope
-        seen["dimensions"] = task.dimensions
-        return ExecOutcome(json.dumps({"answer": "没有足够要素", "claims": [],
-                                       "insufficient": True}, ensure_ascii=False), None)
-
-    monkeypatch.setattr(orchestrator, "_run_oneshot", extract)
+    settings, kb = setup
+    async def extract(services, messages, **kwargs):
+        assert services.ctx.scope == ("T001",)
+        return json.dumps({"answer": "", "insufficient": True, "claims": []})
+    monkeypatch.setattr(BusinessServices, "call_model", extract)
     result = await submit("planid T001 农业", settings=settings, task_type="extract",
                           dimensions=["适用对象", "期限"])
-    assert result.status == "completed" and result.task_type == "extract"
-    assert seen == {"scope": ("T001",), "dimensions": ["适用对象", "期限"]}
+    assert result.status == "completed" and result.task_type == "extract" and kb.read_calls
     assert result.structured["dimensions"] == ["适用对象", "期限"]
     assert set(result.structured) == {"dimensions", "documents", "elements", "missing"}
 
 
-async def test_extract_anchors_are_backfilled_before_structured_attach_and_use_extract_budget(
-        setup, monkeypatch):
-    settings, kb = setup
-    from guance_agent import orchestrator
-    from guance_agent.runner import ExecOutcome
-    from guance_agent.verify import quote_budget
-    from guance_agent.verify import verify_quotes as real_verify_quotes
+async def test_extract_binds_numeric_element_to_the_read_sentence(setup, monkeypatch):
+    from guance_agent.business.services import BusinessServices
 
-    seen = {}
-
-    async def extract(task, s, ctx, rt, builder):
-        ctx.evidence.add_result(kb.search("农业", None, None, 1, planids=ctx.scope), "kb_search")
-        return ExecOutcome(json.dumps({"answer": "农业资金100万元",
-                                       "claims": [{"dimension": "量化目标",
-                                                   "text": "安排资金100万元",
-                                                   "chunk_ids": ["T001-chunk"],
-                                                   "anchors": ["该政策支持农业发展"]}],
-                                       "insufficient": False}, ensure_ascii=False), None)
-
-    async def verify(result, ctx):
-        seen["task_type"] = result.task_type
-        seen["quote_budget"] = quote_budget(result)
-        return await real_verify_quotes(result, ctx)
-
-    monkeypatch.setattr(orchestrator, "_run_oneshot", extract)
-    monkeypatch.setattr(orchestrator, "verify_quotes", verify)
+    settings, _ = setup
+    async def extract(services, messages, **kwargs):
+        return json.dumps({"answer": "安排资金100万元", "claims": [{
+            "dimension": "量化目标", "text": "安排资金100万元", "chunk_ids": ["T001-chunk"],
+            "quotes": [QUOTE]}], "insufficient": False}, ensure_ascii=False)
+    monkeypatch.setattr(BusinessServices, "call_model", extract)
     result = await submit("planid T001 农业", settings=settings, task_type="extract",
                           dimensions=["量化目标"])
-    assert seen == {"task_type": "extract", "quote_budget": 120}
     assert result.claims[0].quotes == [QUOTE]
     assert result.structured["elements"][0]["quotes"] == [QUOTE]
 
 
-async def test_business_claim_without_quotes_or_anchors_is_preserved(setup):
+async def test_business_claim_without_quotes_or_anchors_cannot_be_published(setup):
     settings, _ = setup
 
     class Unquoted(Module):
@@ -661,8 +636,8 @@ async def test_business_claim_without_quotes_or_anchors_is_preserved(setup):
     register(Unquoted())
     result = await submit("分析政策", settings=settings, task_type="organize",
                           targets=["T001"])
-    assert result.claims and result.claims[0].quotes == []
-    assert result.structured == {"claim_count": 1}
+    assert not result.claims and not result.evidence_refs
+    assert "claim_count" not in result.structured
 
 
 async def test_t06_search_and_read_use_tool_chain_and_register_evidence(setup):
@@ -707,7 +682,8 @@ async def test_t08_valid_claim_is_verified_and_structured_is_preserved(
                           targets=["T001"])
     assert result.claims and result.claims[0].quotes == [QUOTE]
     assert result.evidence_status == "verified"
-    assert result.structured["summary"] == "农业支持"
+    assert "农业支持" not in str(result.structured)
+    assert result.claims[0].text in result.answer
 
 
 async def test_t09_t10_unverified_claim_is_removed_and_structured_cleared(setup):
@@ -715,8 +691,8 @@ async def test_t09_t10_unverified_claim_is_removed_and_structured_cleared(setup)
     register(Module("organize", claims=True, bad_quote=True))
     result = await submit("分析政策", settings=settings, task_type="organize",
                           targets=["T001"])
-    assert not result.claims and result.structured == {} and not result.evidence_refs
-    assert "answer_rebuilt" in result.meta
+    assert not result.claims and not result.evidence_refs
+    assert set(result.structured) <= {"documents", "verification"}
     assert "政策支持农业发展，资金100万元。" not in result.answer
     assert "100万元" not in result.answer
 
@@ -734,14 +710,14 @@ async def test_build_result_drops_unregistered_claim_and_clears_mixed_structured
             await services.read(hit.planid, chunk_id=hit.chunk_id)
             return BusinessOutcome(answer="未登记结论与有效结论都在原答复",
                                    claims=[{"text": "未登记的100万元", "chunk_ids": ["forged"]},
-                                           {"text": "农业得到支持", "chunk_ids": [hit.chunk_id]}],
+                                           {"text": "农业得到支持", "chunk_ids": [hit.chunk_id], "quotes": [QUOTE]}],
                                    structured={"rows": ["未登记的100万元", "农业得到支持"]})
 
     register(Mixed())
     result = await submit("分析政策", settings=settings, task_type="organize",
                           targets=["T001"])
     assert len(result.claims) == 1 and result.claims[0].text == "农业得到支持"
-    assert result.structured == {} and len(result.evidence_refs) == 1
+    assert "rows" not in result.structured and len(result.evidence_refs) == 1
     assert "未登记的100万元" not in result.answer and "未登记结论与有效结论都在原答复" not in result.answer
 
 
@@ -800,7 +776,7 @@ async def test_business_verification_timeout_discards_unverified_output(setup):
     result = await submit("分析政策", settings=settings, task_type="organize",
                           targets=["T001"])
     assert result.status == "limit_reached" and result.error.code == "RUN_TIMEOUT"
-    assert result.task_type == "organize" and result.structured == {}
+    assert result.task_type == "organize" and set(result.structured) <= {"documents", "verification"}
     assert not result.claims and not result.evidence_refs
 
 
@@ -815,13 +791,11 @@ async def test_t13_existing_blocked_ambiguous_no_evidence_semantics(
     kb.ambiguous, kb.empty = ambiguous, empty
     if empty:
         from guance_agent import orchestrator
-        from guance_agent.runner import ExecOutcome
 
         async def no_evidence(*args, **kwargs):
-            return ExecOutcome(json.dumps({"answer": "暂无证据", "claims": [],
-                                           "insufficient": True}, ensure_ascii=False), None)
+            return "暂无证据"
 
-        monkeypatch.setattr(orchestrator, "_execute_once", no_evidence)
+        monkeypatch.setattr(orchestrator, "execute_research_core", no_evidence)
     result = await submit(question, settings=settings)
     assert result.status == expected_status
     assert (result.error.code if result.error else None) == expected_error
@@ -835,12 +809,12 @@ async def test_t13_all_failed_objects_preserve_failure_status(setup, monkeypatch
     settings, _ = setup
     from guance_agent import orchestrator
     from guance_agent.output import to_markdown
-    from guance_agent.runner import ExecOutcome
 
-    async def fail(*args, **kwargs):
-        return ExecOutcome(None, code)
+    async def fail(_agent, state, _rt):
+        state.execution_error = code
+        return ""
 
-    monkeypatch.setattr(orchestrator, "_execute_once", fail)
+    monkeypatch.setattr(orchestrator, "execute_research_core", fail)
     result = await submit("planid T001 农业", settings=settings)
     assert result.status == status and result.error.code == code
     assert result.evidence_status == "none"
@@ -850,12 +824,12 @@ async def test_t13_all_failed_objects_preserve_failure_status(setup, monkeypatch
 async def test_t13_no_budget_is_limit_not_insufficient(setup, monkeypatch):
     settings, _ = setup
     from guance_agent import orchestrator
-    from guance_agent.runner import ExecOutcome
 
-    async def no_budget(*args, **kwargs):
-        return ExecOutcome(None, "RUN_TIMEOUT")
+    async def no_budget(_agent, state, _rt):
+        state.execution_error = "RUN_TIMEOUT"
+        return ""
 
-    monkeypatch.setattr(orchestrator, "_execute_once", no_budget)
+    monkeypatch.setattr(orchestrator, "execute_research_core", no_budget)
     settings = replace(settings, run_timeout=0.01)
     result = await submit("planid T001 农业", settings=settings)
     assert result.status == "limit_reached" and result.error.code == "RUN_TIMEOUT"

@@ -6,11 +6,12 @@ import asyncio
 import json
 import re
 import time
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from types import SimpleNamespace
 
-from .agent import build_agent, chat_model
-from .business import get_module, group_by_document
+from .agent import chat_model
+from .business import group_by_document
 from .business.contract import BusinessError, BusinessOutcome, normalize_structured
 from .business.services import BusinessServices
 from .client import thinking_off
@@ -26,18 +27,13 @@ from .format_recovery import (
     repair_preserves_content,
 )
 from .kb import get_kb
-from .literal_keywords import enforce_literal_result, literal_keyword
 from .output import (
     ERRORS,
     LIMIT_CODES,
     build_result,
-    enforce_qa_scope,
     finalize_qa_retrieval,
-    finalize_recovered_qa_answer,
     insufficient_message,
-    rebuild_trusted_answer,
 )
-from .qa_analysis import finalize_qa_analysis
 from .qa_context import (
     MAX_QUESTION_CHARS,
     _mentioned_source_periods,
@@ -45,17 +41,9 @@ from .qa_context import (
     public_resolution,
     resolve_followup,
 )
-from .qa_controlled import (
-    execute_controlled,
-    finalize_controlled_facts,
-    verbatim_claims_from_evidence,
-    verbatim_coverage_claims,
-)
 from .qa_report_verification import (
     SAFE_EMPTY_ANSWER,
     finalize_report,
-    prune_report,
-    review_requirement_support,
 )
 from .research_contract import TaskContract
 from .research_core import (
@@ -64,30 +52,22 @@ from .research_core import (
     build_research_core_agent,
     execute_research_core,
 )
-from .research_delivery import add_analysis_block, deliver_research, draft_verified_report
-from .research_fallback import recover_empty_search_failure, recover_read_excerpts
+from .research_delivery import add_analysis_block, draft_verified_report
 from .research_history import (
     build_historical_state,
-    collect_scoped_history,
     collect_scoped_requirements,
-    history_summary_matches_scope,
-    latest_verified_turn,
     requested_history_turn_limit,
     scoped_turn_window,
 )
-from .research_intent import classify_intent, intent_payload
+from .research_intent import intent_payload
 from .research_planner import ResearchDiscovery, ResearchPlanner
 from .research_requirements import parse_requirements
 from .research_runtime import ResearchRuntime
-from .research_supplement import supplement_one
 from .routing import RouteDecision, decide
-from .runner import ExecOutcome, execute
+from .runner import ExecOutcome
 from .runtime import Runtime
 from .schemas import DIMENSIONS, AgentOutput, RunError, RunResult, TaskRequest
-from .verify import is_quote_verified_claim, verify_numbers, verify_quotes
-
-SUPPORTED_TASKS = ("qa", "extract")   # 只有这两个 task_type 有实现，其余显式拒绝
-RESEARCH_TASKS = frozenset({"qa", "extract", "organize", "compare", "compare_plans"})
+from .verify import is_quote_verified_claim
 
 # Keep enough of the existing run deadline for one full report review, a
 # bounded malformed-response retry, and the review's existing 12s headroom.
@@ -272,6 +252,21 @@ def _session_lock(session_id: str) -> asyncio.Lock:
 
 
 
+@asynccontextmanager
+async def _session_turn(session_id, deadline):
+    lock = _session_lock(session_id)
+    try:
+        async with asyncio.timeout_at(deadline):
+            await lock.acquire()
+    except TimeoutError:
+        yield False
+    else:
+        try:
+            yield True
+        finally:
+            lock.release()
+
+
 async def _run_extract(task: TaskRequest, s: Settings, ctx: RunContext, rt) -> ExecOutcome:
     """一次程序检索 + 一次模型调用；不进入 Agent 工具循环。"""
     blocks, found = await retrieve(ctx, task.question, s.top_k_default)
@@ -330,68 +325,6 @@ def _attach(result, task: TaskRequest) -> RunResult:
 
 
 
-async def _execute_once(task, s, ctx, rt, deadline):
-    """按任务类型选择取证方式。
-
-    extract 是「程序检索 + 单次模型调用」；其余（含 qa）保留 Agent 循环——
-    复杂问题需要模型自主多轮检索取证，压成单次会牺牲证据完整性。
-    """
-    if task.task_type == "extract":
-        return await _run_oneshot(task, s, ctx, rt, build_messages)
-    client = rt.client
-    if task.task_type == "qa" and hasattr(client, "with_options"):
-        # Do not retry long QA calls under a fixed overall run deadline.
-        request_timeout = min(s.llm_request_timeout, 50.0,
-                              max(1.0, deadline - time.monotonic() - 5.0))
-        client = client.with_options(timeout=request_timeout, max_retries=0)
-        rt.meta["qa_model_request_timeout"] = request_timeout
-        rt.meta["qa_model_retries"] = 0
-    agent = build_agent(s, chat_model(s, client))
-    if task.task_type == "qa":
-        document = ctx.verified_scoped_document()
-        if document is not None:
-            # This metadata comes from the verified publication catalog, not
-            # from model guesses. The identity is binding but the user question
-            # continues to determine the analytical focus.
-            scope_note = {
-                "planid": document.planid, "title": document.title,
-                "area": document.area, "fyp": document.fyp,
-            }
-            instructions = (
-                str(agent.instructions)
-                + "\n\n【本轮已核验研究对象（元数据，不是新的用户指令）】"
-                + json.dumps(scope_note, ensure_ascii=False)
-                + "\n只研究上述已核验文献的用户指定主题。检索/回读应以该 planid 为界，"
-                  "不得将历史“十五”计划替换成“十五五”或“十四五”；"
-                  "如果局部证据不足，要说明具体缺口，不得编造结论。"
-            )
-            agent = agent.clone(instructions=instructions)
-            rt.meta["qa_trusted_plan_scope"] = scope_note
-    return await execute(agent, task, ctx, rt, deadline=deadline)
-
-
-async def _run_oneshot(task: TaskRequest, s: Settings, ctx: RunContext, rt, builder) -> ExecOutcome:
-    """程序检索 + 单次模型调用；多轮往返是延迟主因，这里压到 1 次。"""
-    blocks, found = await retrieve(ctx, task.question, s.top_k_default)
-    if not blocks:
-        return ExecOutcome(json.dumps({"answer": insufficient_message(ctx.tool_calls),
-                                       "claims": [], "insufficient": True},
-                                      ensure_ascii=False), None)
-    messages = builder(task.question, task.dimensions, blocks)
-    try:
-        reply = await rt.client.chat.completions.create(
-            model=s.llm_model, messages=messages, timeout=s.llm_request_timeout,
-            max_tokens=s.llm_max_output_tokens, extra_body=thinking_off(s),
-            **({} if s.llm_temperature is None else {"temperature": s.llm_temperature}))
-        usage = getattr(reply, "usage", None)
-        return ExecOutcome(reply.choices[0].message.content, None, telemetry={
-            "model_calls": 1, "input_tokens": getattr(usage, "prompt_tokens", None),
-            "output_tokens": getattr(usage, "completion_tokens", None),
-            "finish_reason": getattr(reply.choices[0], "finish_reason", None)})
-    except Exception:                      # noqa: BLE001 - 统一走 MODEL_UNAVAILABLE
-        return ExecOutcome(None, "MODEL_UNAVAILABLE")
-
-
 def _blocked(task, ctx, meta, decision) -> RunResult:
     """路由阶段就确定不能检索：如实说明，不能假装检索过。"""
     reason = {
@@ -432,565 +365,13 @@ async def _lookup_title(ctx, title, decision, timeout):
     return candidates[0]["planid"], "ok", []
 
 
-async def _run_objects(task, s, ctx, rt, decision, deadline):
-    """多/单对象：逐个定位、逐个取证；证据按对象隔离，失败逐对象记录。"""
-    meta = dict(rt.meta)
-    objects = [{"label": f"planid {pid}", "planid": pid, "origin": "planid"} for pid in decision.planids]
-    for title in decision.titles:
-        planid, status, candidates = await _lookup_title(ctx, title, decision, s.tool_timeout)
-        if status == "ok":
-            objects.append({"label": title, "planid": planid, "origin": "title"})
-        else:
-            objects.append({"label": title, "planid": None, "origin": "title",
-                            "status": status, "candidates": candidates})
-    if any(obj.get("status") == "ambiguous" for obj in objects):
-        result = build_result(task, None, ctx, meta)
-        result.status, result.evidence_status = "completed", "none"
-        result.error = None   # 正常结束，不是内部错误
-        result.answer = "标题对应多篇政策，请确认是哪一篇：" + "；".join(
-            f"《{o['label']}》候选 planid={o['candidates']}" for o in objects if o.get("status") == "ambiguous")
-        result.route = {**_route_head(decision), "objects": objects}
-        return result
-    runs, claims, refs = [], [], {}
-    parse_entries, repair_budget = [], {"remaining": 1}
-    for obj in objects:
-        if not obj.get("planid"):
-            continue
-        # 统一截止时间：剩余预算不足就停，不再开新对象，避免整体超时
-        if deadline - time.monotonic() < 5:
-            obj["status"] = "skipped_no_budget"
-            obj["error_code"] = "RUN_TIMEOUT"
-            continue
-        ctx.scope, ctx.object_label = (obj["planid"],), obj["label"]
-        try:
-            outcome = await _execute_once(task, s, ctx, rt, deadline)
-            outcome, parse_meta = await _recover_qa_output(
-                outcome, s, rt, deadline, repair_budget=repair_budget,
-                min_remaining=REPAIR_TIMEOUT_RESERVE_S + REPAIR_OBJECTS_HEADROOM_S)
-            if parse_meta:
-                parse_entries.append(parse_meta.get("output_parse"))
-        except Exception as exc:            # noqa: BLE001 - 单个对象失败不拖垮整体
-            obj["status"] = f"failed:{type(exc).__name__}"
-            obj["error_code"] = "INTERNAL"
-            continue
-        part = build_result(task, outcome, ctx, meta)
-        if outcome.telemetry:
-            obj["llm"] = outcome.telemetry
-        if parse_meta:
-            part.meta.update(parse_meta)
-        # 证据隔离：只保留确实引自本对象的结论，防止跨对象借证据
-        own = {cid for cid in (c for claim in part.claims for c in claim.chunk_ids)
-               if getattr(ctx.evidence.get(cid), "planid", None) == obj["planid"]}        part.claims = [claim for claim in part.claims                       if claim.chunk_ids and all(cid in own for cid in claim.chunk_ids)]        if part._qa_report_supplied:            prune_report(part, ctx, "object_scope_filter")        if not part.claims and part.status == "completed":            part.status = "completed"        obj["status"] = part.status if part.status != "completed" else "ok"
-        obj["error_code"] = part.error.code if part.error else None
-        if part.status == "completed" and part.claims:
-            obj["claims"] = len(part.claims)
-            obj["evidence"] = len(part.evidence_refs)
-            claims.extend(part.claims)
-            refs.update({r.chunk_id: r for r in part.evidence_refs})
-            runs.append((obj, part))
-        elif part.status == "completed":
-            obj["status"] = "no_evidence"
-    ctx.scope = None
-    aggregate_meta = _objects_parse_meta([entry for entry in parse_entries if entry])
-    if not runs:
-        failures = [obj for obj in objects if obj.get("error_code")]
-        budget_stops = [obj for obj in objects
-                        if obj.get("status") == "skipped_no_budget"
-                        or obj.get("error_code") in LIMIT_CODES]
-        if budget_stops:
-            code = next((obj.get("error_code") for obj in budget_stops
-                         if obj.get("error_code") in LIMIT_CODES), "RUN_TIMEOUT")
-            result = build_result(task, None, ctx, meta,
-                                  RunError(code=code, message=ERRORS[code]))
-            if aggregate_meta:
-                result.meta.update(aggregate_meta)
-            result.route = {**_route_head(decision), "objects": objects}
-            return result
-        if failures:
-            code = failures[0]["error_code"]
-            if code not in ERRORS:
-                code = "INTERNAL"
-            result = build_result(task, None, ctx, meta,
-                                  RunError(code=code, message=ERRORS[code]))
-            if aggregate_meta:
-                result.meta.update(aggregate_meta)
-            result.route = {**_route_head(decision), "objects": objects}
-            return result
-        result = build_result(task, None, ctx, meta)
-        result.status, result.evidence_status = "completed", "insufficient"
-        result.error = None   # 正常结束，不是内部错误
-        result.answer = "以下对象都没有取得可用证据：" + "；".join(
-            f"{o['label']}({o.get('status')})" for o in objects)
-        if aggregate_meta:
-            result.meta.update(aggregate_meta)
-        result.route = {**_route_head(decision), "objects": objects}
-        return result
-    result = runs[0][1].model_copy(deep=True)
-    if aggregate_meta:
-        result.meta.update(aggregate_meta)
-    result.claims, result.evidence_refs = claims, list(refs.values())    result.dropped_chunk_ids = []    result.answer = "\n\n".join(f"【{obj['label']}】\n{part.answer}" for obj, part in runs)    report_parts = [(index, obj, part) for index, (obj, part) in enumerate(runs)                    if part._qa_report_supplied and task.task_type == "qa"]    if report_parts:        # 多对象 report 在每篇对象内完成 claims 签名绑定后才合并；统一审核仍只调用一次。        # 若对象没有提供结构化 report，其自由文本答案不进入合并报告正文。        result._qa_report_supplied = True        result._qa_report_dimensions = []        result._qa_report_candidates = []        seen_dimensions, seen_ids = set(), set()        for index, (obj, part) in enumerate(runs):            if not part._qa_report_supplied:                dimension = f"{obj['label']}（未提供结构化报告）"                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)                continue            dimension_map = {                dimension: f"{obj['label']} / {dimension}"                for dimension in part._qa_report_dimensions            }            for dimension in dimension_map.values():                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)            for candidate in part._qa_report_candidates:                block = dict(candidate)                block_id = f"{index}:{obj['planid']}:{block['id']}"                while block_id in seen_ids:                    block_id = "_" + block_id                seen_ids.add(block_id)                block["id"] = block_id                block["dimension"] = dimension_map[block["dimension"]]                path = list(block["title_path"])                path[0] = f"{obj['label']} / {path[0]}"                block["title_path"] = path[:2]                result._qa_report_candidates.append(block)        covered_objects = {obj["label"] for obj, _ in runs}        for obj in objects:            if obj["label"] not in covered_objects:                dimension = f"{obj['label']}（未取得证据）"                if dimension not in seen_dimensions:                    result._qa_report_dimensions.append(dimension)                    seen_dimensions.add(dimension)        # 当前对话里声明过证据不足的对象即使其余维度有段落，也不能报告为完整覆盖。        declared_insufficient = any(            "本次证据不足，以上结论可能不完整" in part.warnings            for _, _, part in report_parts)        # 部分对象返回 legacy 答案时只保留结构化 report 块；不让自由文本分析绕开审核。        result.answer = SAFE_EMPTY_ANSWER        result.meta["qa_report"] = {            "received": sum((part.meta.get("qa_report") or {}).get("received", 0)                            for _, _, part in report_parts),            "retained": 0, "withdrawn": 0, "reason": "awaiting_verification",            "semantic_review": "pending", "objects_without_report": [                obj["label"] for obj, part in runs if not part._qa_report_supplied],            "declared_insufficient": declared_insufficient,        }        if (len(result._qa_report_dimensions) > 8                or len(result._qa_report_candidates) > 12):            result._qa_report_candidates = []            result.meta["qa_report"]["aggregation_limit_exceeded"] = True            result.warnings.append("多对象结构化报告超过合并上限，报告段落已全部撤回")        if result.meta["qa_report"]["objects_without_report"]:            result.warnings.append("部分对象未提供结构化报告，其自由文本分析已省略")        prune_report(result, ctx, "multi_object_aggregation")    missing = [o for o in objects if o.get("status") != "ok"]    if missing:        result.warnings.append("以下对象未取得证据：" + "；".join(
-            f"{o['label']}({o.get('status')})" for o in missing))
-    llms = [o["llm"] for o in objects if o.get("llm")]
-    if llms:
-        result.meta["llm"] = {
-            "model_calls": sum(x.get("model_calls") or 0 for x in llms),
-            "input_tokens": sum(x.get("input_tokens") or 0 for x in llms),
-            "output_tokens": sum(x.get("output_tokens") or 0 for x in llms),
-            "per_call": [c for x in llms for c in x.get("per_call", [])],
-            "parse": "ok" if result.status == "completed" else "failed"}
-    result.route = {**_route_head(decision), "objects": objects}
-    return result
-
-
 async def run_task(task: TaskRequest, s: Settings, rt: Runtime,
                    research_discoverer=None, research_runtime: ResearchRuntime | None = None,
                    initial_decision=None) -> RunResult:
-    """Execute the task selected by the locked plan within one run deadline."""
-    deadline = research_runtime.deadline if research_runtime is not None else time.monotonic() + s.run_timeout
-    rt.meta["research_question"] = task.question
-    if task.task_type in RESEARCH_TASKS:
-        contract = research_runtime.contract if research_runtime is not None else TaskContract.from_task(task)
-        if research_runtime is None:
-            research_runtime = ResearchRuntime(
-                contract, ResearchPlanner.initial(contract), deadline,
-                max_revisions=getattr(s, "max_plan_revisions", 1),
-            )
-        if research_runtime.status == "created":
-            research_runtime.transition("planning")
-    module = None if task.task_type in SUPPORTED_TASKS else get_module(task.task_type)
-    if task.task_type not in SUPPORTED_TASKS and module is None:
-        result = build_result(task, None, None, rt.meta, RunError(
-            code="INVALID_INPUT", message="不支持的 task_type：" + task.task_type))
-        result.task_type = task.task_type
-        rt.finish(result, None)
-        return result
-
-    ctx = None
-    if not s.llm_base_url or not s.llm_api_key:
-        result = build_result(task, None, None, rt.meta,
-                              RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
-        if research_runtime is not None and research_runtime.status == "planning":
-            research_runtime.transition("failed", "model_unavailable")
-    else:
-        try:
-            kb = get_kb(s)
-        except (ValueError, KeyError) as exc:
-            raise ConfigurationError from exc
-        ctx = RunContext(s, kb, task.run_id, task.session_id,
-                         question=task.question, research=research_runtime,
-                         trusted_turns=list(getattr(rt, "trusted_turns", []) or []))
-        async with _session_lock(task.session_id):
-            result = None
-            planned_task = task
-            if research_runtime is not None:
-                if research_discoverer is not None:
-                    research_runtime.transition("discovering")
-                    research_runtime.set_step_status("discover", "running")
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        research_runtime.set_step_status("discover", "partial", "run deadline reached")
-                        research_runtime.transition("limit_reached", "deadline exceeded during discovery")
-                        result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
-                    else:
-                        try:
-                            discovery = await asyncio.wait_for(
-                                research_discoverer(task, research_runtime.contract,
-                                                    research_runtime.plan, deadline),
-                                timeout=remaining,
-                            )
-                        except TimeoutError:
-                            research_runtime.set_step_status("discover", "partial", "run deadline reached")
-                            research_runtime.transition("limit_reached", "deadline exceeded during discovery")
-                            result = _discovery_result(task, rt, "研究预算已耗尽，未能完成对象发现。", limited=True)
-                        if result is None:
-                            if not isinstance(discovery, ResearchDiscovery):
-                                discovery = ResearchDiscovery.model_validate(discovery)
-                            research_runtime.accept_discovery(discovery.plan)
-                            if discovery.status in {"needs_clarification", "insufficient", "unavailable"}:
-                                reason = discovery.message or "当前证据不足以继续研究。"
-                                research_runtime.set_step_status("discover", "running")
-                                research_runtime.set_step_status("discover", "partial", reason)
-                                research_runtime.transition("insufficient", reason)
-                                result = _discovery_result(task, rt, reason)
-                                # Discovery is not a research conclusion; expose only
-                                # verified identity and coverage, never synthesize a
-                                # comparison claim from an anchor without peers.
-                                result.structured["research_discovery"] = {
-                                    "status": discovery.status,
-                                    "reason_code": discovery.reason_code,
-                                    "documents": [
-                                        {"planid": doc.planid, "title": doc.title,
-                                         "area": doc.area, "fyp": doc.fyp}
-                                        for doc in research_runtime.plan.documents
-                                        if doc.source_verified
-                                    ],
-                                    "subject_gaps": list(research_runtime.plan.coverage.subject_gaps),
-                                    "coverage_limited_subjects": list(
-                                        research_runtime.plan.coverage.coverage_limited_subjects),
-                                }
-                            else:
-                                discovered_plan = research_runtime.plan
-                                requested_subjects = list(dict.fromkeys(
-                                    discovery.requested_subjects
-                                    or discovered_plan.requested_subjects
-                                ))
-                                missing_subjects = list(discovered_plan.coverage.subject_gaps)
-                                if (task.task_type in {"compare", "compare_plans"}
-                                        and len(discovered_plan.documents) >= 2
-                                        and requested_subjects
-                                        and missing_subjects):
-                                    if research_runtime.revision_count >= research_runtime.max_revisions:
-                                        reason = "研究计划修订预算已耗尽，缺少部分请求对象文献。"
-                                        research_runtime.transition("insufficient", reason)
-                                        result = _discovery_result(task, rt, reason)
-                                    else:
-                                        revised_data = discovered_plan.model_dump(mode="python")
-                                        steps = revised_data["steps"]
-                                        for step in steps:
-                                            if step["step_id"] == "execute":
-                                                step["input_refs"] = [
-                                                    f"document:{doc.planid}"
-                                                    for doc in discovered_plan.documents
-                                                ]
-                                        revised_data.update({
-                                            "revision": discovered_plan.revision + 1,
-                                            "scope": discovered_plan.scope.model_copy(update={
-                                                "target_planids": [doc.planid for doc in discovered_plan.documents],
-                                            }),
-                                            "steps": steps,
-                                            "coverage": discovered_plan.coverage.model_copy(update={
-                                                "subject_gaps": missing_subjects,
-                                            }),
-                                        })
-                                        revised_plan = type(discovered_plan).model_validate(revised_data)
-                                        research_runtime.revise(
-                                            revised_plan,
-                                            "missing_document_coverage: " + ", ".join(missing_subjects),
-                                        )
-                                        discovered_plan = research_runtime.plan
-                                discover_step = next(
-                                    (step for step in research_runtime.plan.steps
-                                     if step.step_id == "discover"), None)
-                                if discover_step is not None and discover_step.status == "pending":
-                                    research_runtime.set_step_status("discover", "running")
-                                execution_step = next(
-                                    (step for step in discovered_plan.steps
-                                     if step.step_id == "execute"), None)
-                                document_targets = [
-                                    ref.removeprefix("document:")
-                                    for ref in (execution_step.input_refs if execution_step else [])
-                                    if ref.startswith("document:")
-                                ]
-                                if document_targets:
-                                    planned_task = task.model_copy(update={
-                                        "targets": document_targets,
-                                        "dimensions": list(discovered_plan.dimensions) or task.dimensions,
-                                    })
-                else:
-                    research_runtime.set_step_status("discover", "running")
-
-                if result is None:
-                    plan = research_runtime.plan
-                    executor_steps = [step for step in plan.steps if step.step_id == "execute"]
-                    if len(executor_steps) != 1 or executor_steps[0].capability != plan.task_type:
-                        raise ValueError("research plan must select exactly one locked task capability")
-                    research_runtime.transition("ready")
-                    research_runtime.transition("executing")
-                    research_runtime.set_step_status("execute", "running")
-                    decision = initial_decision or decide(planned_task.question)
-                    if planned_task.targets is not None:
-                        decision = RouteDecision(kind="objects", planids=tuple(planned_task.targets),
-                                                 areas=decision.areas, fyps=decision.fyps,
-                                                 canonical_areas=decision.canonical_areas,
-                                                 sub_query=decision.sub_query, blocked=decision.blocked)
-                    ctx.route = decision
-                    ctx.scope = tuple(planned_task.targets) if planned_task.targets is not None else None
-                    if plan.task_type == "qa" and decision.kind == "open":
-                        ctx.literal_keyword = literal_keyword(planned_task.question)
-                    module = get_module(executor_steps[0].capability)
-                    if module is not None:
-                        result = await _run_business(planned_task, s, rt, ctx, deadline, decision, module)
-                    elif decision.blocked:
-                        result = _blocked(planned_task, ctx, rt.meta, decision)
-                    elif (task.task_type == "qa" and s.kb_backend == "rag"
-                          and not s.structured_output
-                          and (decision.kind == "open" or planned_task.targets
-                               or decision.planids)):
-                        # Programmatic source retrieval with one grounded LLM call.
-                        result = await _run_controlled_qa(planned_task, s, ctx, rt, deadline)
-                    elif decision.kind == "objects":
-                        result = await _run_objects(planned_task, s, ctx, rt, decision, deadline)
-                    else:
-                        result = await _run_single(planned_task, s, ctx, rt, deadline, decision)
-                    if task.task_type == "qa" and result.status == "failed":
-                        # Only RAG-verified original excerpts can survive model failure.
-                        recovered = await recover_read_excerpts(result, ctx, deadline)
-                        if not recovered:
-                            recover_empty_search_failure(result, ctx)
-                    if result.status == "failed":
-                        research_runtime.set_step_status("execute", "failed",
-                                                         result.error.message if result.error else "执行失败")
-                    elif result.status == "limit_reached":
-                        research_runtime.set_step_status("execute", "partial",
-                                                         result.error.message if result.error else "运行预算已耗尽")
-                    elif result.status == "partial":
-                        research_runtime.set_step_status("execute", "partial", "业务能力返回部分结果")
-                    else:
-                        research_runtime.set_step_status("execute", "completed")
-                    if any(step.step_id == "discover" and step.status == "running"
-                           for step in research_runtime.plan.steps):
-                        research_runtime.set_step_status("discover", "completed")
-            else:
-                decision = initial_decision or decide(task.question)
-                if task.targets is not None:
-                    decision = RouteDecision(kind="objects", planids=tuple(task.targets),
-                                             areas=decision.areas, fyps=decision.fyps,
-                                             canonical_areas=decision.canonical_areas,
-                                             sub_query=decision.sub_query, blocked=decision.blocked)
-                ctx.route = decision
-                if task.task_type == "qa" and decision.kind == "open":
-                    ctx.literal_keyword = literal_keyword(task.question)
-                if module is not None:
-                    result = await _run_business(task, s, rt, ctx, deadline, decision, module)
-                elif decision.blocked:
-                    result = _blocked(task, ctx, rt.meta, decision)
-                elif (task.task_type == "qa" and s.kb_backend == "rag"
-                      and not s.structured_output
-                      and (decision.kind == "open" or task.targets or decision.planids)):
-                    result = await _run_controlled_qa(task, s, ctx, rt, deadline)
-                elif decision.kind == "objects":
-                    result = await _run_objects(task, s, ctx, rt, decision, deadline)
-                else:
-                    result = await _run_single(task, s, ctx, rt, deadline, decision)
-            if result is None:
-                result = _discovery_result(task, rt, "研究未能产生结果。")
-            if (task.task_type == "qa" and result.status == "failed"
-                    and not result.meta.get("execution_recovery")):
-                recovered = await recover_read_excerpts(result, ctx, deadline)
-                if not recovered:
-                    recover_empty_search_failure(result, ctx)
-            if research_runtime is not None and research_runtime.status == "executing":
-                if result.status == "limit_reached":
-                    research_runtime.transition("limit_reached", result.error.message if result.error else "运行预算已耗尽")
-                elif result.status == "failed":
-                    research_runtime.transition("failed", result.error.message if result.error else "执行失败")
-                else:
-                    research_runtime.transition("verifying")
-                    research_runtime.set_step_status("verify", "running")
-            result.task_type = task.task_type
-            if task.task_type == "qa" and not result.meta.get("llm"):
-                calls = list(getattr(rt.hooks, "usage_per_call", []) or [])
-                if calls:
-                    result.meta["llm"] = {
-                        "model_calls": len(calls),
-                        "input_tokens": sum(item.get("input") or 0 for item in calls),
-                        "output_tokens": sum(item.get("output") or 0 for item in calls),
-                        "per_call": calls,
-                        "parse": "ok" if result.status == "completed" else "failed",
-                    }
-            if (result.status == "completed" and module is None
-                    and not result.meta.get("historical_reuse")):
-                try:
-                    await asyncio.wait_for(verify_quotes(result, ctx),
-                                           timeout=max(deadline - time.monotonic(), 0.05))
-                    await asyncio.wait_for(verify_numbers(result, ctx),
-                                           timeout=max(deadline - time.monotonic(), 0.05))
-                except TimeoutError:
-                    result.warnings.append("核验超出本次运行时限，未完成逐条核验")
-                    result.evidence_status = "insufficient"
-                    if task.task_type == "qa" and result._qa_report_supplied:
-                        result.meta["verification_incomplete"] = True
-                        result.claims = []
-                        result.evidence_refs = []
-            if research_runtime is not None and research_runtime.status == "verifying":
-                if module is None and task.task_type == "qa":
-                    enforce_literal_result(result, ctx)
-                if module is None:
-                    _attach(result, planned_task)
-                research_runtime.set_step_status("verify", "completed")
-    result.task_type = task.task_type
-    finalize_controlled_facts(result)
-    if (task.task_type == "qa" and ctx is not None
-            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
-        enforce_qa_scope(result, ctx)
-        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
-    result = finalize_qa_retrieval(result, task)
-    if not result.meta.get("execution_recovery"):
-        result = finalize_qa_analysis(result, task.question)
-    if (task.task_type == "qa" and ctx is not None
-            and result.status == "completed"
-            and not result.meta.get("execution_recovery")
-            and not result.meta.get("historical_reuse")):
-        # Synthesis is a draft only; supplementary facts must pass fresh checks.
-        # Both share the original task deadline and preserve the existing result
-        # when the remaining budget is insufficient.
-        # Resolve one evidence gap BEFORE synthesizing the report so added
-        # verified claims can support its draft and final semantic review.
-        intent_meta = result.meta.get("research_intent") or {}
-        needs_report = _needs_research_report(result)
-        review_reserve = _report_review_reserve(rt, result)
-        # Requirement mapping is an optional extra model call. Keep simple QA
-        # on its original path and leave report-review time untouched.
-        if (needs_report
-                and deadline - time.monotonic() >= review_reserve + 18.0):
-            await review_requirement_support(result, ctx, rt, deadline)
-        # supplement_one keeps its existing 35s headroom; the remaining
-        # review_reserve protects the subsequent draft call and its review.
-        supplement_deadline = deadline - review_reserve
-        if (needs_report
-                and supplement_deadline - time.monotonic() >= 75.0):
-            await supplement_one(result, task, s, ctx, rt, supplement_deadline,
-                                 _execute_once, _recover_qa_output)
-        else:
-            result.meta["research_supplement"] = {
-                "attempted": False, "status": "skipped_budget",
-                "iterations": 0, "attempts": [],
-                "stop_reason": "report_review_reserved",
-            }
-        if (ctx is not None
-                and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
-            result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
-        if needs_report:
-            if deadline - time.monotonic() >= max(75.0, 35.0 + review_reserve):
-                await draft_verified_report(
-                    result, task.question, rt, deadline,
-                    force=True, intent=intent_meta.get("primary"))
-            else:
-                result.meta["research_report_draft"] = "skipped_budget_or_evidence"
-    if (task.task_type == "qa" and result._qa_report_supplied
-            and not result.meta.get("historical_reuse")):
-        remaining = max(deadline - time.monotonic(), 0.05)
-        try:
-            result = await asyncio.wait_for(
-                finalize_report(result, ctx, rt, deadline), timeout=remaining)
-            if (result.meta.get("qa_report") or {}).get("semantic_review") == "timeout":
-                _retain_verified_facts_after_report_timeout(result)
-        except TimeoutError:
-            result.meta["verification_incomplete"] = True
-            result.meta.setdefault("qa_report", {}).update(
-                reason="semantic_review_timeout", semantic_review="timeout")
-            _retain_verified_facts_after_report_timeout(result)
-    if (task.task_type == "qa" and result.status == "completed"
-            and not result._qa_report_supplied
-            and not result.meta.get("historical_reuse")
-            and not result.meta.get("execution_recovery")):
-        intent_meta = result.meta.get("research_intent") or {}
-        if (_needs_research_report(result)
-                and deadline - time.monotonic() >= _report_review_reserve(rt) + 18.0):
-            await review_requirement_support(result, ctx, rt, deadline)
-    if (task.task_type == "qa" and result._qa_report_supplied
-            and not result.meta.get("historical_reuse")):
-        intent_meta = result.meta.get("research_intent") or {}
-        if (intent_meta.get("primary") in {"organize", "analyze", "compare", "synthesize"}
-                and deadline - time.monotonic() >= 33.0 + _report_review_reserve(rt)
-                and (result.meta.get("qa_report") or {}).get("semantic_review") != "timeout"):
-            remaining = max(deadline - time.monotonic(), 0.05)
-            if await add_analysis_block(result, task.question, rt, deadline):
-                try:
-                    result = await asyncio.wait_for(
-                        finalize_report(result, ctx, rt, deadline), timeout=remaining)
-                    if (result.meta.get("qa_report") or {}).get("semantic_review") == "timeout":
-                        _retain_verified_facts_after_report_timeout(result)
-                except TimeoutError:
-                    result.meta["analysis_add_timeout"] = True
-                    _retain_verified_facts_after_report_timeout(result)
-        report_blocks = ((result.structured or {}).get("blocks") or []
-                         if isinstance(result.structured, dict) else [])
-        has_analysis = any(block.get("kind") == "analysis" for block in report_blocks)
-        if (not has_analysis
-                and intent_meta.get("primary") in {"compare", "synthesize"}):
-            added = await _summarize_historical(
-                result, task, rt, deadline, compare=True, prepend=True)
-            summary_text = result.meta.pop("_research_summary_text", None)
-            if added and summary_text:
-                required = result.meta.get("qa_report_required_dimensions")
-                dimension = (str(required[0]) if isinstance(required, list) and required
-                             else "综合判断")
-                signatures = [(claim.text, tuple(claim.chunk_ids))
-                              for claim in result.claims
-                              if claim.quotes and claim.chunk_ids][:8]
-                if len(signatures) >= 2:
-                    result._qa_report_candidates.append({
-                        "id": "comparison-summary",
-                        "title_path": ["共同点与差异"],
-                        "dimension": dimension, "kind": "analysis",
-                        "text": summary_text[:1200],
-                        "support_signatures": signatures,
-                    })
-                    if dimension not in result._qa_report_dimensions:
-                        result._qa_report_dimensions.append(dimension)
-                    meta = result.meta.setdefault("qa_report", {})
-                    meta["received"] = int(meta.get("received", 0)) + 1
-                    try:
-                        result = await asyncio.wait_for(
-                            finalize_report(result, ctx, rt, deadline),
-                            timeout=max(deadline - time.monotonic(), 0.05))
-                    except TimeoutError:
-                        result.meta["comparison_summary_review_timeout"] = True
-    # Recovery from token-cap truncation is allowed to publish only the
-    # surviving, quote-verified facts. Do it after all verification gates and
-    # before ResearchRuntime assesses final completion.
-    finalize_recovered_qa_answer(result, task.question)
-    if (task.task_type == "qa" and ctx is not None
-            and result.meta.get("qa_execution_mode") == "bounded_retrieval"):
-        # Semantic report review may remove claims and refs after the first
-        # coverage calculation. Completion must use the final surviving set.
-        result.meta["evidence_coverage"] = build_coverage(result, task.question, ctx)
-    if task.task_type == "qa" and not result.meta.get("historical_reuse"):
-        deliver_research(result, task.question)
-    if task.task_type == "qa" and result.status == "completed":
-        _remove_internal_empty_answer(result)
-        _append_unrepresented_source_facts(result)
-    resolution = result.meta.get("qa_context_resolution")
-    if (task.task_type == "qa" and isinstance(resolution, dict)
-            and resolution.get("status") == "ambiguous"):
-        # Ambiguous pronoun references must never silently reuse the first
-        # previous document as if it were uniquely identified.
-        clarification = resolution.get("clarification")
-        if clarification:
-            result.answer = clarification
-            result.evidence_status = "insufficient"
-            result.warnings.append(
-                "多轮指代无法唯一确定，已停止检索并要求用户明确研究对象；未混合上一轮证据。")
-    if (task.task_type == "qa" and not result.claims
-            and isinstance(resolution, dict)
-            and resolution.get("status") == "scope_changed"):
-        constraints = resolution.get("requested_constraints") or {}
-        areas = "、".join(constraints.get("areas") or []) or "未指定地区"
-        periods = "、".join(constraints.get("periods") or []) or "未指定时期"
-        result.answer = (
-            f"本轮未能取得与所请求范围（{areas}，{periods}）相匹配的可核验政策原文，"
-            "因此暂时无法依据目标文献回答。可以补充政策篇名或选择此前引用的具体文献继续研究。"
-        )
-        result.evidence_status = "insufficient"
-        result.warnings.append("多轮范围变更后未找到匹配的新研究对象，已按新范围安全拒答。")
-    if task.task_type == "qa" and isinstance(result.meta.get("llm"), dict):
-        if result.meta.get("original_execution_error") or result.error:
-            result.meta["llm"]["parse"] = "failed"
-        elif result.meta["llm"].get("parse") == "pending":
-            result.meta["llm"]["parse"] = (
-                "ok" if not result.meta.get("output_parse")
-                or result.meta["output_parse"].get("classification") == "ok"
-                else "failed"
-            )
-    if research_runtime is not None:
-        try:
-            research_runtime.finish(result, ctx)
-        except (ValueError, TypeError) as exc:
-            result.status = "failed"
-            result.evidence_status = "insufficient"
-            result.error = RunError(code="INTERNAL", message="研究任务契约验收失败，结果未通过验证。")
-            result.warnings.append("研究运行时无法完成任务契约验收")
-            result.meta["research_runtime_error"] = type(exc).__name__
-    if task.task_type == "qa" and ctx is not None:
-        # Save user-authored scope even when discovery or retrieval failed.
-        # Source identities and facts remain behind their verification gates.
-        rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
-    try:
-        rt.finish(result, ctx)
-    except OSError as exc:
-        result.meta["finish_failed"] = type(exc).__name__
-    return result
+    """Compatibility entry for callers supplying an existing run and runtime."""
+    return await run_sdk_task(task, s, rt, initial_decision=initial_decision,
+                              research_discoverer=research_discoverer,
+                              research_runtime=research_runtime)
 
 
 async def _execute_research_capability(capability: str, state: ResearchState,
@@ -998,59 +379,61 @@ async def _execute_research_capability(capability: str, state: ResearchState,
                                        s, rt, ctx, decision, deadline, capability_modules):
     module = capability_modules.get(capability)
     if module is None:
-        return {"claims": []}
-    effective_task = task.model_copy(update={"task_type": capability})
-    if task.targets is not None:
-        if requested_targets is not None and list(task.targets) != requested_targets:
-            return {"claims": []}
-    elif requested_targets is not None:
-        allowed = set(state.authorized_scope or ()) | state.candidate_planids
-        if not requested_targets or any(target not in allowed for target in requested_targets):
-            return {"claims": []}
-        effective_task = effective_task.model_copy(update={"targets": requested_targets})
-    elif capability in {"compare", "compare_plans"}:
-        return {"claims": [], "needs_targets": True}
-    if (capability in {"compare", "compare_plans"}
-            and (not effective_task.targets or len(effective_task.targets) < 2)):
-        return {"claims": [], "needs_targets": True}
+        raise BusinessError("INVALID_INPUT")
+    # Search results never select the user's comparison objects.
+    targets = list(task.targets or state.confirmed_targets or ()) or None
+    if requested_targets is not None and requested_targets != targets:
+        return {"needs_targets": True}
+    if getattr(module, "requires_targets", True) and not targets:
+        return {"needs_targets": True}
+    if capability in {"compare", "compare_plans"} and len(targets or ()) < 2:
+        return {"needs_targets": True}
 
-    prior_scope, prior_label = ctx.scope, ctx.object_label
+    effective_task = task.model_copy(update={"task_type": capability, "targets": targets})
+    prior_scope = ctx.scope
+    ctx.scope = tuple(targets) if targets else state.authorized_scope
+    services = BusinessServices(ctx, rt, deadline, discovered_planids=state.candidate_planids)
+    _bind_research_budget(services, state)
     try:
-        result = await _run_business(
-            effective_task, s, rt, ctx, deadline, decision, module,
-            research_state=state,
-        )
+        async with asyncio.timeout_at(deadline):
+            outcome = await module(effective_task, ctx, services)
+        if not isinstance(outcome, BusinessOutcome):
+            raise BusinessError("OUTPUT_PARSE")
+        try:
+            candidate = normalize_structured(outcome.structured)
+        except ValueError as exc:
+            raise BusinessError("OUTPUT_PARSE") from exc
+        state.capability_targets[capability] = list(targets or [])
+        state.capability_structured[capability] = candidate
+        state.capability_insufficient[capability] = outcome.insufficient
+        state.capability_documents[capability] = _business_document_metadata(services)
+        from .business.compare import PolicyComparisonModule, SchemeComparisonModule
+        from .business.organize import OrganizeModule
+        if type(module) in (PolicyComparisonModule, SchemeComparisonModule, OrganizeModule):
+            state.builtin_capabilities.add(capability)
+        return {"claims": outcome.claims}
     finally:
-        ctx.scope, ctx.object_label = prior_scope, prior_label
-    # The business result remains an internal candidate. Only claims that passed
-    # the existing quote/number checks enter ResearchState for the main audit.
-    claims = list(result.claims) if result.evidence_refs else []
-    if claims and isinstance(result.structured, dict):
-        state.capability_structured[capability] = result.structured
-        result_route = result.route if isinstance(result.route, dict) else {}
-        state.capability_targets[capability] = list(result_route.get("targets") or
-                                                     effective_task.targets or [])
-    return {"claims": claims}
+        rt.meta["business_telemetry"] = dict(services.telemetry)
+        ctx.scope = prior_scope
 
 
 async def _finalize_sdk_result(task, result, ctx, rt, research_runtime, research_state=None):
-    terminal = {"completed", "partial", "insufficient", "failed", "limit_reached"}
-    if (ctx is not None and result.claims
-            and not result.meta.get("unified_claim_verification_completed")
-            and not result.meta.get("verification_incomplete")):
-        deadline = (research_runtime.deadline if research_runtime is not None
-                    else time.monotonic() + ctx.settings.run_timeout)
-        try:
-            await asyncio.wait_for(verify_quotes(result, ctx),
-                                   timeout=max(deadline - time.monotonic(), 0.05))
-            await asyncio.wait_for(verify_numbers(result, ctx),
-                                   timeout=max(deadline - time.monotonic(), 0.05))
-            result.meta["unified_claim_verification_completed"] = True
-        except TimeoutError:
-            result.meta["verification_incomplete"] = True
+    result.task_type = task.task_type
+    if not result.route and ctx is not None and ctx.route is not None:
+        result.route = {**_route_head(ctx.route), "targets": list(ctx.scope) if ctx.scope else None}
+    from .delivery_gateway import finalize_public_delivery
+
+    result = await finalize_public_delivery(
+        result, task, ctx, research_runtime, research_state=research_state,
+    )
+    if ctx is not None:
+        result.meta["no_tool_answer"] = not any(call.get("name") in {"kb_search", "kb_read"}
+                                                for call in ctx.tool_calls)
+        if (not result.claims and not result.error and any(
+                call.get("status") in {"empty", "no_text", "not_found"} for call in ctx.tool_calls)):
             result.evidence_status = "insufficient"
-            result.warnings.append("核验超出本次运行时限，未完成逐条核验")
-    if research_runtime is not None and research_runtime.status not in terminal:
+    finalize_qa_retrieval(result, task)
+    if research_runtime is not None:
         try:
             research_runtime.finish(result, ctx)
         except (ValueError, TypeError) as exc:
@@ -1061,11 +444,15 @@ async def _finalize_sdk_result(task, result, ctx, rt, research_runtime, research
             result.warnings.append("研究运行时无法完成任务契约验收")
             result.meta["research_runtime_error"] = type(exc).__name__
 
-    from .delivery_gateway import finalize_public_delivery
-
-    result = await finalize_public_delivery(
-        result, task, ctx, research_runtime, research_state=research_state,
-    )
+    if ctx is not None and ctx.scope and result.route is not None:
+        objects = []
+        for planid in ctx.scope:
+            ids = {ref.chunk_id for ref in result.evidence_refs if ref.planid == planid}
+            count = sum(bool(ids.intersection(claim.chunk_ids)) for claim in result.claims)
+            objects.append({"label": f"planid {planid}", "planid": planid, "origin": "planid",
+                            "status": "ok" if count else "insufficient",
+                            "claims": count, "evidence_ids": sorted(ids)})
+        result.route["objects"] = objects
     if task.task_type == "qa" and ctx is not None:
         rt.save_trusted_turn(build_trusted_turn(task.question, ctx, result))
     try:
@@ -1080,13 +467,25 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                        research_runtime: ResearchRuntime | None = None,
                        capability_modules: dict | None = None) -> RunResult:
     """One model-directed QA core with trusted discovery and programmatic gates."""
+    if capability_modules is None:
+        from .business.builtins import research_capabilities
+
+        capability_modules = research_capabilities()
+    if task.task_type != "qa" and task.task_type not in capability_modules:
+        result = build_result(task, None, None, rt.meta, RunError(
+            code="INVALID_INPUT", message="不支持的 task_type：" + task.task_type))
+        return await _finalize_sdk_result(task, result, None, rt, research_runtime)
     if not s.llm_base_url or not s.llm_api_key:
         result = build_result(task, None, None, rt.meta,
                               RunError(code="MODEL_UNAVAILABLE", message=ERRORS["MODEL_UNAVAILABLE"]))
         return await _finalize_sdk_result(task, result, None, rt, research_runtime)
-    kb = get_kb(s)
+    try:
+        kb = get_kb(s)
+    except (ValueError, KeyError) as exc:
+        raise ConfigurationError from exc
     decision = initial_decision or decide(task.question)
-    decision = replace(decision, fyps=tuple(_mentioned_source_periods(task.question, decision)))
+    if task.task_type == "qa":
+        decision = replace(decision, fyps=tuple(_mentioned_source_periods(task.question, decision)))
     deadline = research_runtime.deadline if research_runtime is not None else time.monotonic() + s.run_timeout
     if task.targets is not None and not task.targets:
         result = build_result(task, None, None, rt.meta,
@@ -1099,20 +498,31 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         ResearchPlanner.initial(TaskContract.from_task(task, decision=decision)),
         deadline,
     )
+    rt.single_attempt = True
     rt.meta.update(qa_execution_mode="sdk_research", research_engine="sdk")
-    async with _session_lock(task.session_id):
+    async with _session_turn(task.session_id, deadline) as acquired:
+        if not acquired:
+            result = build_result(task, None, None, rt.meta, RunError(
+                code="RUN_TIMEOUT", message=ERRORS["RUN_TIMEOUT"]))
+            return await _finalize_sdk_result(task, result, None, rt, research_runtime)
         rt.trusted_turns = rt.context_store.load() if rt.context_store else []
         ctx = RunContext(s, kb, task.run_id, task.session_id,
                          question=task.question, route=decision,
                          scope=tuple(task.targets) if task.targets is not None else (
                              tuple(decision.planids) if decision.planids else None),
                          trusted_turns=list(rt.trusted_turns))
+        ctx.research = research_runtime
+        if decision.blocked and task.task_type == "qa":
+            result = _blocked(task, ctx, rt.meta, decision)
+            ctx.delivery_notice = result.answer
+            return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
         from .qa_boundary import boundary_reply
-        boundary = boundary_reply(task.question)
+        boundary = boundary_reply(task.question) if task.task_type == "qa" else None
         if boundary is not None:
-            result = build_result(task, ExecOutcome(json.dumps({
+            ctx.delivery_notice = boundary
+            result = build_result(task, ExecOutcome(AgentOutput.model_validate({
                 "answer": boundary, "claims": [], "insufficient": True,
-            }, ensure_ascii=False), None), ctx, {
+            }), None), ctx, {
                 **rt.meta, "qa_execution_mode": "sdk_research",
                 "qa_execution_subtype": "boundary_response",
             })
@@ -1127,9 +537,9 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             answer = resolution.get("clarification") or (
                 "当前问题引用了前文，但本会话没有可复用的可信研究范围。"
                 "请补充地区、规划期或文献名称后再继续。")
-            result = build_result(task, ExecOutcome(json.dumps({
+            result = build_result(task, ExecOutcome(AgentOutput.model_validate({
                 "answer": answer, "claims": [], "insufficient": True,
-            }, ensure_ascii=False), None), ctx, {
+            }), None), ctx, {
                 **rt.meta, "qa_execution_mode": "sdk_research",
                 "qa_context_resolution": public_resolution(resolution),
                 "research": {"status": "partial", "reason": "ambiguous_context"},
@@ -1139,6 +549,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 "research_delivery": {"status": "partial"},
                 "research_quality": {"status": "partial"},
             })
+            ctx.delivery_notice = answer
             result.evidence_status = "none"
             return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
         resolved_documents = [item for item in (resolution.get("documents") or [])
@@ -1184,27 +595,43 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         allowed_planids = tuple(task.targets) if task.targets is not None else None
         if research_runtime.status == "created":
             research_runtime.transition("planning")
+        requested_ids = tuple(task.targets or decision.planids)
+        confirmed_targets = requested_ids
+        discovered = ()
         if research_discoverer is not None:
             research_runtime.transition("discovering")
+            ctx.tool_calls.append({"name": "catalog_discovery", "status": "started"})
             try:
                 discovery = await asyncio.wait_for(
                     research_discoverer(task_for_discovery, research_runtime.contract,
                                         research_runtime.plan, deadline),
-                    timeout=max(0.05, deadline - time.monotonic()),
+                    timeout=max(0, deadline - time.monotonic()),
                 )
                 if not isinstance(discovery, ResearchDiscovery):
                     discovery = ResearchDiscovery.model_validate(discovery)
                 research_runtime.accept_discovery(discovery.plan)
+                ctx.tool_calls[-1]["status"] = discovery.status
             except TimeoutError:
+                ctx.tool_calls[-1]["status"] = "timeout"
                 discovery = None
             if discovery is None or discovery.status in {
                     "needs_clarification", "insufficient", "unavailable"}:
-                message = ((discovery.message if discovery else None)
-                           or "目录身份尚未确认，暂不能开始研究。")
+                if discovery is None or discovery.status == "unavailable":
+                    code = "RAG_TIMEOUT" if discovery is None else "RAG_BACKEND_ERROR"
+                    result = build_result(task, None, ctx, rt.meta, RunError(code=code, message=ERRORS[code]))
+                    result.meta["research_discovery"] = {"status": "timeout" if discovery is None else "unavailable",
+                                                         "reason_code": "catalog_unavailable"}
+                    return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+                message = {
+                    "user_scope_missing": "请补充要研究的地区、时期或政策对象。",
+                    "ambiguous_document_identity": "政策标题无法唯一定位，请补充完整标题或 planid。",
+                    "requested_document_missing": "指定的政策文献未在当前目录中找到。",
+                    "insufficient_document_coverage": "当前目录中的文献不足以覆盖请求的全部对象。",
+                }.get(discovery.reason_code, "目录身份尚未确认，暂不能开始研究。")
                 research_runtime.transition("insufficient", message)
-                result = build_result(task, ExecOutcome(json.dumps({
+                result = build_result(task, ExecOutcome(AgentOutput.model_validate({
                     "answer": message, "claims": [], "insufficient": True,
-                }, ensure_ascii=False), None), ctx, {
+                }), None), ctx, {
                     **rt.meta, "qa_context_resolution": public_resolution(resolution),
                     "research_discovery": {"status": discovery.status if discovery else "timeout",
                                             "reason_code": discovery.reason_code if discovery else "catalog_unavailable"},
@@ -1213,17 +640,18 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                     "research_delivery": {"status": "partial"},
                     "research_quality": {"status": "partial"},
                 })
+                ctx.delivery_notice = message
                 result.evidence_status = "none"
                 result.meta["research"] = {"status": "insufficient", "reason": message}
                 return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
             discovered = tuple(doc.planid for doc in research_runtime.plan.documents
                                if doc.source_verified)
-            if (task.targets is not None and not set(task.targets) <= set(discovered)):
+            if requested_ids and not set(requested_ids) <= set(discovered):
                 message = "指定文献未能由当前目录验证身份，暂不能开始研究。"
                 research_runtime.transition("insufficient", message)
-                result = build_result(task, ExecOutcome(json.dumps({
+                result = build_result(task, ExecOutcome(AgentOutput.model_validate({
                     "answer": message, "claims": [], "insufficient": True,
-                }, ensure_ascii=False), None), ctx, {
+                }), None), ctx, {
                     **rt.meta, "research_discovery": {
                         "status": "insufficient", "reason_code": "requested_document_missing"},
                     "research": {"status": "insufficient", "reason": message},
@@ -1231,11 +659,38 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                     "research_delivery": {"status": "partial"},
                     "research_quality": {"status": "partial"},
                 })
+                ctx.delivery_notice = message
                 result.evidence_status = "none"
                 result.meta["research"] = {"status": "insufficient", "reason": message}
                 return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
-            allowed_planids = tuple(task.targets) if task.targets is not None else (
-                discovered or None)
+            plan = research_runtime.plan
+            if task.task_type in {"compare", "compare_plans"} and plan.requested_subjects:
+                if plan.coverage.subject_gaps and discovered and not requested_ids:
+                    if research_runtime.revision_count >= research_runtime.max_revisions:
+                        ctx.delivery_notice = "研究计划修订预算已耗尽，部分请求对象缺少已确认文献。"
+                        research_runtime.transition("insufficient", ctx.delivery_notice)
+                        result = _discovery_result(task, rt, ctx.delivery_notice)
+                        return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+                    steps = [step.model_copy(update={"input_refs": [
+                        f"document:{pid}" for pid in discovered]}) if step.step_id == "execute"
+                             else step for step in plan.steps]
+                    research_runtime.revise(plan.model_copy(update={
+                        "revision": plan.revision + 1, "steps": steps,
+                        "scope": plan.scope.model_copy(update={"target_planids": list(discovered)}),
+                    }), "missing_document_coverage: " + ", ".join(plan.coverage.subject_gaps))
+                confirmed_targets = requested_ids or discovered
+            if decision.titles and task.targets is None:
+                ids = list(requested_ids)
+                for title in decision.titles:
+                    matches = [doc.planid for doc in plan.documents
+                               if doc.source_verified and doc.title == title]
+                    if len(matches) != 1:
+                        ctx.delivery_notice = "有政策标题无法唯一定位，请补充 planid 或完整标题。"
+                        result = _business_prompt(task, ctx, rt.meta, decision, ctx.delivery_notice)
+                        return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+                    ids.extend(matches)
+                confirmed_targets = tuple(dict.fromkeys(ids))
+            allowed_planids = confirmed_targets or discovered or None
             if task.targets is None and resolution_status == "extended":
                 prior_ids = [str(item["planid"]) for item in resolved_documents
                              if item.get("planid")]
@@ -1261,8 +716,37 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 "documents": [{"planid": doc.planid, "title": doc.title}
                                for doc in research_runtime.plan.documents if doc.source_verified],
             }
-        else:
-            pass
+        # Names and IDs constrain every subsequent tool call. Catalog discovery
+        # may identify documents for named subjects, but open retrieval hits
+        # alone never turn into a comparison selected on behalf of the user.
+        module = capability_modules.get(task.task_type)
+        comparison = task.task_type in {"compare", "compare_plans"}
+        if not discovered and (decision.titles or module is not None):
+            try:
+                targets, notice = await _business_targets(task, s, ctx, decision, deadline, module)
+            except TimeoutError:
+                result = _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
+                return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+            if comparison and not decision.titles and len(targets or []) < 2:
+                notice = "比较任务至少需要两个不同的政策对象。" + (notice or "")
+            if targets and len(targets) > 8:
+                result = _business_failure(task, ctx, rt, decision, "INVALID_INPUT",
+                                           targets=targets, message="业务任务最多支持 8 个政策对象。")
+                return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+            if notice or (comparison and len(targets or []) < 2):
+                ctx.delivery_notice = notice or "比较任务至少需要两个不同的政策对象。"
+                result = _business_prompt(task, ctx, rt.meta, decision, ctx.delivery_notice, targets)
+                return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+            if targets:
+                confirmed_targets = allowed_planids = tuple(targets)
+                ctx.scope = allowed_planids
+                decision = replace(decision, kind="objects", planids=allowed_planids)
+                ctx.route = decision
+        if comparison and len(confirmed_targets) < 2:
+            ctx.delivery_notice = "比较任务至少需要两个不同的政策对象，请提供 planid 或唯一标题。"
+            result = _business_prompt(task, ctx, rt.meta, decision, ctx.delivery_notice)
+            return await _finalize_sdk_result(task, result, ctx, rt, research_runtime)
+        ctx.research = research_runtime
         research_runtime.transition("ready")
         research_runtime.transition("executing")
         history_questions = []
@@ -1317,10 +801,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             approved_source_periods=tuple(decision.fyps),
             prior_facts=prior_facts, prior_documents=prior_documents,
         )
-        capability_modules = capability_modules or {
-            name: get_module(name) for name in ("organize", "compare", "compare_plans")
-            if get_module(name) is not None
-        }
+        state.confirmed_targets = tuple(confirmed_targets)
         registered_capabilities = tuple(capability_modules)
         state.allowed_capabilities = allowed_capabilities_for(
             task.task_type, registered_capabilities)
@@ -1339,11 +820,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         answer = await execute_research_core(agent, state, rt)
         passed = bool(state.check_result and state.check_result.get("passed")
                       and state.final_answer)
-        payload = json.dumps({
-            "answer": answer,
-            "claims": [claim.model_dump(mode="json") for claim in state.claims],
-            "insufficient": not passed,
-        }, ensure_ascii=False)
+        payload = AgentOutput(answer=answer, claims=state.claims, insufficient=not passed)
         meta = {
             **rt.meta,
             "qa_execution_mode": "sdk_research",
@@ -1377,18 +854,17 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             },
         }
         result = build_result(task, ExecOutcome(payload, None), ctx, meta)
-        if result.status == "completed" and result.claims:
-            try:
-                await asyncio.wait_for(verify_quotes(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-                await asyncio.wait_for(verify_numbers(result, ctx),
-                                       timeout=max(deadline - time.monotonic(), 0.05))
-            except TimeoutError:
-                result.meta["verification_incomplete"] = True
-                result.evidence_status = "insufficient"
-                result.warnings.append("事实核验超出本轮时限；仅保留已完成核验的事实")
-            else:
-                result.meta["unified_claim_verification_completed"] = True
+        result.task_type = task.task_type
+        result.route = {**_route_head(decision), "targets": list(ctx.scope) if ctx.scope else None}
+        result.meta["no_tool_answer"] = not any(
+            call.get("name") in {"kb_search", "kb_read"} for call in ctx.tool_calls)
+        code = getattr(state, "execution_error", None)
+        if task.task_type != "qa":
+            code = getattr(state, "capability_error", None) or code
+        if code:
+            result.status = "limit_reached" if code in LIMIT_CODES else "failed"
+            result.error = RunError(code=code, message=ERRORS[code])
+        state.read_verification.verify_result(result, ctx)
         verified_claims = [claim for claim in result.claims if claim.quotes and claim.chunk_ids]
         passed = bool(passed and not result.meta.get("verification_incomplete")
                       and verified_claims)
@@ -1407,7 +883,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             for fact_id in claim.fact_ids
         }
         surviving_blocks = []
-        for block in ([] if result.meta.get("verification_incomplete") else state.approved_blocks):
+        for block in state.approved_blocks:
             indexes = sorted({fact_to_result_index[fact_id] for fact_id in block.evidence_ids
                               if fact_id in fact_to_result_index})
             if len(indexes) != len(set(block.evidence_ids)) or not indexes:
@@ -1425,25 +901,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                 "supporting_evidence_ids": list(block.evidence_ids),
                 "requirement_ids": list(block.requirement_ids),
             })
-        kept_old_indexes = sorted({index for block in surviving_blocks
-                                   for index in block["supporting_claim_indexes"]})
-        old_to_new = {old: new for new, old in enumerate(kept_old_indexes)}
-        result.claims = [result.claims[index] for index in kept_old_indexes]
-        kept_chunk_ids = {chunk_id for claim in result.claims for chunk_id in claim.chunk_ids}
-        result.evidence_refs = [ref for ref in result.evidence_refs
-                                if ref.chunk_id in kept_chunk_ids]
-        for block in surviving_blocks:
-            block["supporting_claim_indexes"] = [
-                old_to_new[index] for index in block["supporting_claim_indexes"]
-            ]
-        fact_to_result_index = {
-            fact_id: index for index, claim in enumerate(result.claims)
-            for fact_id in claim.fact_ids
-        }
-        result.evidence_status = ("verified" if result.claims else
-                                  "insufficient" if state.claims else "none")
-        audited_requirement_ids = set((state.check_result or {}).get(
-            "covered_requirement_ids", []))
+        audited_requirement_ids = state.approved_requirements
         indexes_by_requirement = {}
         for block in surviving_blocks:
             block["requirement_ids"] = list(dict.fromkeys(
@@ -1469,7 +927,10 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
         result.meta["research_core"]["requirements"] = [vars(item) for item in state.requirements]
         result.meta["research_requirements"] = [vars(item) for item in state.requirements]
         gaps = [item for item in state.requirements if item.status != "delivered"]
-        passed = bool(passed and not gaps and
+        approved_sources = {ref.planid for ref in result.evidence_refs
+                            if any(ref.chunk_id in block["supporting_chunk_ids"] for block in surviving_blocks)}
+        missing_targets = [pid for pid in state.confirmed_targets if pid not in approved_sources]
+        passed = bool(passed and not gaps and not missing_targets and
                       (not state.needs_analysis or any(
                           block["kind"] == "analysis" for block in surviving_blocks)))
         if not passed:
@@ -1487,7 +948,7 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
             "dimensions": ["研究结论"] if surviving_blocks else [],
             "blocks": surviving_blocks,
             "coverage": {"covered": sorted(approved_requirement_ids),
-                         "missing": [item.id for item in gaps],
+                         "missing": [item.id for item in gaps] + [f"planid {pid}（未取得证据）" for pid in missing_targets],
                          "status": "complete" if passed else "partial"},
             "verification": {"facts": "semantic_reviewed_against_quotes"
                              if surviving_blocks else "not_reviewed",
@@ -1564,8 +1025,12 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError
+        if len(ctx.tool_calls) >= s.max_tool_calls:
+            raise TimeoutError
+        ctx.tool_calls.append({"name": "title_lookup", "status": "started"})
         pid, status, candidates = await _lookup_title(
             ctx, title, title_decision, min(s.tool_timeout, remaining))
+        ctx.tool_calls[-1]["status"] = status
         if status == "ok":
             targets.append(pid)
         else:
@@ -1581,6 +1046,9 @@ async def _business_targets(task, s, ctx, decision, deadline, module):
 
 def _bind_research_budget(services: BusinessServices, state: ResearchState) -> None:
     """Make legacy business adapters spend the active ResearchState budgets."""
+    from .research_core import ModelCallBudgetExceeded, _cache_passage, _identity_matches
+    from .schemas import Passage, ToolResult
+
     original_search = services.search
     original_read = services.read
     original_call_model = services.call_model
@@ -1588,30 +1056,37 @@ def _bind_research_budget(services: BusinessServices, state: ResearchState) -> N
     async def search(*args, **kwargs):
         problem = state.spend_io("kb_search")
         if problem:
-            raise BusinessError("RUN_TIMEOUT")
+            raise BusinessError("RUN_TIMEOUT" if time.monotonic() >= state.deadline else "TOOL_BUDGET")
+        prior_hits = len(services._discovery_hits)
         result = await original_search(*args, **kwargs)
         if result.status == "ok" and isinstance(result.data, list):
-            state.candidate_planids.update(
-                hit.planid for hit in result.data if getattr(hit, "planid", None))
+            result.data = [hit for hit in result.data if _identity_matches(state, hit.area, hit.fyp)
+                           and (state.authorized_scope is None or hit.planid in state.authorized_scope)]
+            services._discovery_hits[prior_hits:] = result.data
+            state.candidate_planids.update(hit.planid for hit in result.data)
+            if not result.data:
+                result.status = "empty"
         return result
 
     async def read(*args, **kwargs):
         problem = state.spend_io("kb_read")
         if problem:
-            raise BusinessError("RUN_TIMEOUT")
+            raise BusinessError("RUN_TIMEOUT" if time.monotonic() >= state.deadline else "TOOL_BUDGET")
         result = await original_read(*args, **kwargs)
         passage = result.data
-        chunk_id = getattr(passage, "chunk_id", None)
-        content = getattr(passage, "content", None)
-        if result.status == "ok" and chunk_id and isinstance(content, str):
-            state.read_text.setdefault(chunk_id, []).append(content)
+        if result.status == "ok" and isinstance(passage, Passage):
+            requested = args[0] if args else kwargs.get("planid")
+            if (passage.planid != requested or passage.planid in state.disallowed_planids
+                    or not _identity_matches(state, passage.area, passage.fyp)):
+                return ToolResult(status="invalid_argument", message="来源身份超出研究范围")
+            _cache_passage(state, passage)
         return result
 
     async def call_model(*args, **kwargs):
         try:
             state.begin_model_call()
-        except Exception as exc:
-            raise BusinessError("RUN_TIMEOUT") from exc
+        except ModelCallBudgetExceeded as exc:
+            raise BusinessError("MAX_TURNS") from exc
         per_call = services.telemetry.get("per_call", [])
         start = len(per_call)
         try:
@@ -1626,114 +1101,6 @@ def _bind_research_budget(services: BusinessServices, state: ResearchState) -> N
     services.search = search
     services.read = read
     services.call_model = call_model
-
-
-async def _run_business(task, s, rt, ctx, deadline, decision, module,
-                        *, research_state: ResearchState | None = None):
-    """一次调用业务模块，并统一检查结果形状、引文、数字与降级一致性。"""
-    try:
-        targets, message = await _business_targets(task, s, ctx, decision, deadline, module)
-    except TimeoutError:
-        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
-    if time.monotonic() >= deadline:
-        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT")
-    if task.task_type in ("compare", "compare_plans") and task.targets is None and decision.kind == "open":
-        return _business_prompt(task, ctx, rt.meta, decision,
-                                "比较任务至少需要两个不同的政策对象。", [])
-    if message:
-        return _business_prompt(task, ctx, rt.meta, decision, message, targets)
-    if targets == []:
-        return _business_prompt(task, ctx, rt.meta, decision,
-                                "请提供至少一个明确政策对象。", targets)
-    if targets is not None and len(targets) > 8:
-        return _business_failure(task, ctx, rt, decision, "INVALID_INPUT",
-                                 targets=targets,
-                                 message="业务任务最多支持 8 个政策对象，请缩小对象范围。")
-    if task.task_type in ("compare", "compare_plans") and targets is not None and len(targets) < 2:
-        return _business_prompt(task, ctx, rt.meta, decision,
-                                "比较任务至少需要两个不同的政策对象。", targets)
-
-    # 冻结完整对象范围并构造本次有效任务；共享服务据此约束所有 search/read。
-    # 比较模块只调用一次，不能在这里按对象循环后把独立结果拼成矩阵。
-    ctx.scope = tuple(targets) if targets is not None else None
-    effective_task = task.model_copy(update={"targets": targets})
-    services = BusinessServices(ctx, rt, deadline)
-    if research_state is not None:
-        _bind_research_budget(services, research_state)
-    try:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError
-        outcome = await asyncio.wait_for(module(effective_task, ctx, services), timeout=remaining)
-        if not isinstance(outcome, BusinessOutcome):
-            raise TypeError("业务模块必须返回 BusinessOutcome")
-        try:
-            outcome.structured = normalize_structured(outcome.structured)
-        except (TypeError, ValueError) as exc:
-            raise BusinessError("OUTPUT_PARSE") from exc
-    except BusinessError as exc:
-        code = exc.code if exc.code in ERRORS else "INTERNAL"
-        return _business_failure(task, ctx, rt, decision, code, services, targets)
-    except TimeoutError:
-        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT", services, targets)
-    except Exception as exc:  # noqa: BLE001 - 业务模块失败统一映射为 INTERNAL
-        rt.log("business_error", task_type=task.task_type,
-               error_detail=f"{type(exc).__name__}: {exc}")
-        return _business_failure(task, ctx, rt, decision, "INTERNAL", services, targets)
-
-    # 保存业务事实及来源的快照。structured 可能包含依赖它们的矩阵/分析，
-    # 不能在核验删改事实后继续原样展示这些派生内容。
-    research_gate = outcome.structured.get("research_gate")
-    original_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in outcome.claims]
-    output = AgentOutput(answer=outcome.answer, claims=outcome.claims,
-                         insufficient=outcome.insufficient)
-    result = build_result(effective_task, ExecOutcome(output, None), ctx, rt.meta)
-    result.task_type = task.task_type
-    result.structured = outcome.structured
-    result.route = {**_route_head(decision),
-                    "targets": list(targets) if targets is not None else None}
-    if isinstance(services.telemetry, dict) and services.telemetry:
-        result.meta["business_telemetry"] = dict(services.telemetry)
-    if not result.claims and outcome.insufficient:
-        result.evidence_status = "insufficient" if ctx.tool_calls else "none"
-
-    try:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError
-        await asyncio.wait_for(verify_quotes(result, ctx), timeout=remaining)
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError
-        await asyncio.wait_for(verify_numbers(result, ctx), timeout=remaining)
-    except TimeoutError:
-        return _business_failure(task, ctx, rt, decision, "RUN_TIMEOUT", services, targets)
-
-    final_claims = [(claim.text, tuple(claim.chunk_ids)) for claim in result.claims]
-    # 当前共享契约采用整份 structured 清空的保守策略；引句空白回贴本身不是
-    # 事实正文或来源变化，不单独触发此条件。业务模块不得绕过清空后重放旧矩阵。
-    if final_claims != original_claims or result.meta.get("answer_rebuilt"):
-        result.structured = {}
-        result.warnings.append("部分结论或引用未通过统一核验，已清空业务结构化结果")
-    # 没有有效正文事实时只允许保留本轮真实发现的身份元数据，不保留未经核验的
-    # 业务回答。显式 targets 只是输入，不是自动获得信任的检索证据。
-    if not result.claims or not result.evidence_refs:
-        if result.claims and not result.evidence_refs:
-            result.claims = []
-            result.structured = {}
-        elif not original_claims and not result.meta.get("answer_rebuilt"):
-            result.structured = _business_document_metadata(services)
-        rebuild_trusted_answer(result, ctx, "no_valid_claims")
-        # A deterministic eligibility rejection can be explained without claiming
-        # the policy document was searched exhaustively.
-        if (isinstance(research_gate, dict)
-                and research_gate.get("status") == "blocked"
-                and research_gate.get("reason") == "topic_mismatch"):
-            result.answer = outcome.answer
-            result.meta["research_gate"] = research_gate
-            result.evidence_status = "insufficient"
-        result.warnings.append("未形成可核验的有效结论；原始回答和业务事实已移除，正文事实未经核验")
-    return result
 
 
 def _business_document_metadata(services):
@@ -1785,23 +1152,6 @@ def _business_failure(task, ctx, rt, decision, code, services=None, targets=None
 
 REPAIR_MIN_TIMEOUT_S = 1.0       # 剩余时间不够一次可用的修复调用时不做
 REPAIR_TIMEOUT_RESERVE_S = 5.0   # 修复后给核验与收尾保留的时间
-REPAIR_OBJECTS_HEADROOM_S = 6.0  # 多对象路径：修复前要给后续对象留出预算
-
-
-def _objects_parse_meta(entries):
-    """把多对象路径的解析记录聚合成一份 meta，避免只保留第一个对象。"""
-    if not entries:
-        return None
-    failed = [entry.get("classification") for entry in entries
-              if entry.get("classification") not in (None, "ok")]
-    merged = {"classification": failed[0] if failed else "ok", "objects": entries}
-    if any(entry.get("repair") for entry in entries):
-        merged["repair"] = "attempted"
-    if any(entry.get("repair_rejected") for entry in entries):
-        merged["repair_rejected"] = "content_changed"
-    if any(entry.get("deterministic_repair") for entry in entries):
-        merged["deterministic_repair"] = True
-    return {"output_parse": merged}
 
 
 async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
@@ -1832,7 +1182,18 @@ async def _recover_qa_output(outcome, s, rt, deadline, *, repair_budget=None,
             payload = None
         if isinstance(payload, dict) and isinstance(payload.get("analyses"), list):
             dropped = len(payload["analyses"]) - len(parsed.analyses)
-            if dropped > 0:                meta["output_parse"]["analyses_dropped"] = dropped        if deterministic:            if (getattr(parsed, "report", None) is not None                    and not repair_preserves_content(outcome.final_output, parsed)):                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")                rt.log("qa_output_repair_failed", classification=classification,                       result="content_changed")                return outcome, meta            meta["output_parse"]["deterministic_repair"] = deterministic            rt.log("qa_output_parse_repaired", classification=classification,                   method=deterministic)
+            if dropped > 0:
+                meta["output_parse"]["analyses_dropped"] = dropped
+        if deterministic:
+            if (getattr(parsed, "report", None) is not None
+                    and not repair_preserves_content(outcome.final_output, parsed)):
+                meta["output_parse"].update(repair="rejected", repair_rejected="content_changed")
+                rt.log("qa_output_repair_failed", classification=classification,
+                       result="content_changed")
+                return outcome, meta
+            meta["output_parse"]["deterministic_repair"] = deterministic
+            rt.log("qa_output_parse_repaired", classification=classification,
+                   method=deterministic)
             return replace(outcome, final_output=parsed), meta
         return outcome, meta
     if classification == "incomplete_json" and cap_reached:
@@ -1950,76 +1311,6 @@ async def _summarize_historical(result, task, rt, deadline, *, analyze: bool = F
     return True
 
 
-def _remove_internal_empty_answer(result) -> None:
-    """Never expose the internal empty-report sentinel as user-facing prose."""
-    answer = result.answer or ""
-    if SAFE_EMPTY_ANSWER not in answer:
-        return
-    report_meta = result.meta.get("qa_report") or {}
-    # A timeout/invalid review is fail-closed: no report prose may leak just
-    # because a sentinel was replaced with fallback facts.
-    if (report_meta.get("semantic_review") != "model_reviewed"
-            or result.meta.get("verification_incomplete")):
-        return
-    cleaned = answer.replace(SAFE_EMPTY_ANSWER, "").strip()
-    if cleaned:
-        result.answer = cleaned
-    elif result.claims:
-        result.answer = "\n".join("- " + claim.text for claim in result.claims)
-    else:
-        result.answer = "本轮未取得可核验的政策原文事实。"
-    result.meta["internal_empty_answer_removed"] = True
-
-
-def _append_unrepresented_source_facts(result) -> None:
-    """Keep surviving verified facts visible when a report review dropped a source.
-
-    The report reviewer may withdraw an unsupported block, but a separate
-    quote-verified claim from another policy must not disappear from the user's
-    answer merely because its block was withdrawn.  This is a display-level
-    repair using the same surviving Claim/EvidenceRef coupling.
-    """
-    blocks = ((result.structured or {}).get("blocks")
-              if isinstance(result.structured, dict) else None)
-    if not blocks or not result.answer or not result.claims:
-        return
-    refs = {ref.chunk_id: ref for ref in result.evidence_refs}
-    represented = set()
-    for block in blocks:
-        for index in block.get("supporting_claim_indexes") or []:
-            if not isinstance(index, int) or not 0 <= index < len(result.claims):
-                continue
-            for chunk_id in result.claims[index].chunk_ids:
-                ref = refs.get(chunk_id)
-                if ref is not None:
-                    represented.add(ref.planid)
-    missing_by_planid: dict[str, list] = {}
-    for claim in result.claims:
-        if not claim.chunk_ids:
-            continue
-        ref = refs.get(claim.chunk_ids[0])
-        if ref is None or ref.planid in represented:
-            continue
-        if claim.text in result.answer:
-            continue
-        missing_by_planid.setdefault(ref.planid, []).append((ref, claim))
-    if not missing_by_planid:
-        return
-    additions = []
-    for planid, items in list(missing_by_planid.items())[:3]:
-        ref, _ = items[0]
-        title = str(getattr(ref, "title", "") or "").strip()
-        heading = f"## {title}" if title else "## 补充政策事实"
-        if heading not in result.answer:
-            additions.append(heading)
-        for _, claim in items[:3]:
-            additions.append("- " + claim.text)
-    if additions:
-        result.answer = (result.answer or "").rstrip() + "\n\n" + "\n".join(additions)
-        result.meta["unrepresented_source_facts"] = sum(
-            len(items) for items in missing_by_planid.values())
-
-
 async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent):
     """Answer a summarize/analyze turn from the latest verified research state.
 
@@ -2064,7 +1355,7 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
         historical_result, task.question, rt, deadline,
         force=True, intent=intent.primary)
     if drafted:
-        remaining = max(deadline - time.monotonic(), 0.05)
+        remaining = max(0, deadline - time.monotonic())
         try:
             historical_result = await asyncio.wait_for(
                 finalize_report(historical_result, historical_ctx, rt, deadline),
@@ -2074,7 +1365,7 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
             historical_result._qa_report_candidates = []
             historical_result.structured = None
         if historical_result._qa_report_supplied:
-            remaining = max(deadline - time.monotonic(), 0.05)
+            remaining = max(0, deadline - time.monotonic())
             if await add_analysis_block(historical_result, task.question, rt, deadline):
                 try:
                     historical_result = await asyncio.wait_for(
@@ -2132,262 +1423,3 @@ async def _run_historical_research(task, ctx, rt, deadline, prior: dict, intent)
             ref.planid for ref in historical_result.evidence_refs)),
     }
     return historical_result
-
-
-async def _run_controlled_qa(task, s, ctx, rt, deadline):
-    """Keep all existing QA parse, quote, number and report audit gates."""
-    # Read inside the session execution lock, not only at Runtime.prepare(),
-    # so queued turns see the previous turn's most recent persisted state.
-    store = getattr(rt, "context_store", None)
-    if store is not None:
-        ctx.trusted_turns = store.load()
-    # Not every turn calls for a source retrieval. Role framing, capability
-    # explanation and unsupported institutional certifications need an honest,
-    # task-specific response, not a generic "no policy fact" fallback.
-    from .qa_boundary import boundary_reply
-
-    boundary = boundary_reply(task.question)
-    if boundary is not None:
-        outcome = ExecOutcome(json.dumps({
-            "answer": boundary, "claims": [], "insufficient": True,
-        }, ensure_ascii=False), None)
-        result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "boundary_response"
-        return result
-    prior = latest_verified_turn(getattr(ctx, "trusted_turns", []) or [])
-    intent = classify_intent(task.question, prior)
-    ctx.research_intent = intent_payload(intent)
-    rt.meta["research_intent"] = ctx.research_intent
-    resolution = resolve_followup(task.question, getattr(ctx, "trusted_turns", []) or [],
-                                  getattr(ctx, "route", None))
-    ctx.qa_context_resolution = public_resolution(resolution)
-    rt.meta["qa_context_resolution"] = ctx.qa_context_resolution
-    if resolution["status"] == "ambiguous":
-        outcome = ExecOutcome(json.dumps({
-            "answer": resolution.get("clarification")
-            or "无法唯一确定上一轮的研究对象，请明确具体文献或地区后再提问。",
-            "claims": [], "insufficient": True,
-        }, ensure_ascii=False), None)
-        result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "clarification"
-        return result
-    planning_prior = prior
-    summary_turn_limit = requested_history_turn_limit(task.question)
-    history_requirement_limit = summary_turn_limit
-    summary_scope_history = bool(summary_turn_limit and
-                                 history_summary_matches_scope(task.question, prior))
-    if (history_requirement_limit is None and prior and intent.comparison_expansion
-            and resolution.get("status") in {"continued", "extended"}):
-        history_requirement_limit = 8
-    history_window = []
-    if (history_requirement_limit and prior
-            and (resolution.get("status") in {"continued", "extended"}
-                 or summary_scope_history)
-            and (summary_turn_limit is not None or intent.comparison_expansion)):
-        trusted_turns = getattr(ctx, "trusted_turns", []) or []
-        planids = {str(doc.get("planid")) for doc in prior.get("documents") or []
-                   if isinstance(doc, dict) and doc.get("planid")}
-        scope = prior.get("user_scope") or {}
-        prior_areas = {str(value) for value in scope.get("areas") or [] if value}
-        prior_periods = {str(value) for value in scope.get("periods") or [] if value}
-        prior_titles = {str(value) for value in scope.get("titles") or [] if value}
-        if summary_scope_history:
-            requested = resolution.get("requested_constraints") or {}
-            current_areas = (getattr(ctx.route, "canonical_areas", ()) or
-                             getattr(ctx.route, "areas", ()) or
-                             requested.get("areas") or ())
-            current_periods = (getattr(ctx.route, "fyps", ()) or
-                               requested.get("periods") or ())
-            if current_areas:
-                prior_areas = {str(value) for value in current_areas if value}
-            if current_periods:
-                prior_periods = {str(value) for value in current_periods if value}
-            # Let the contiguous window establish the set of identities. The
-            # latest comparison turn may add a second document while older
-            # same-scope turns still carry the target facts to summarize.
-            planids = set()
-            prior_titles = set()
-        history_window = scoped_turn_window(
-            trusted_turns, max_turns=history_requirement_limit,
-            areas=prior_areas, periods=prior_periods, planids=planids,
-            titles=prior_titles)
-        history_planids = set(planids)
-        if summary_scope_history:
-            history_planids.update(
-                str(doc.get("planid"))
-                for turn in history_window
-                for doc in [*(turn.get("documents") or []),
-                            *(turn.get("context_documents") or [])]
-                if isinstance(doc, dict) and doc.get("planid")
-            )
-        historic_requirements = collect_scoped_requirements(
-            history_window, max_turns=history_requirement_limit,
-            areas=prior_areas, periods=prior_periods, planids=planids,
-            titles=prior_titles)
-        planning_prior = dict(prior)
-        if summary_turn_limit:
-            historic = collect_scoped_history(history_window, history_planids,
-                                              max_turns=summary_turn_limit)
-            if historic:
-                planning_prior.update(historic)
-        if historic_requirements:
-            planning_prior["requirements"] = historic_requirements
-        planning_prior["research_query"] = " ".join(
-            str(turn.get("question") or "")[:300] for turn in history_window
-        )[:MAX_QUESTION_CHARS]
-    if prior is None and resolution.get("status") == "fresh_research":
-        raw_prior = next((turn for turn in reversed(getattr(ctx, "trusted_turns", []) or [])
-                          if isinstance(turn, dict)), None)
-        if isinstance(raw_prior, dict):
-            planning_prior = {
-                "question": raw_prior.get("question"),
-                "research_query": (raw_prior.get("user_scope") or {}).get("research_query"),
-                "requirements": (raw_prior.get("user_scope") or {}).get("requirements") or [],
-                "documents": [],
-            }
-    await _freeze_research_requirements(task, ctx, rt, deadline, planning_prior)
-    if history_requirement_limit and isinstance(planning_prior, dict):
-        prior_units = planning_prior.get("requirements") or []
-        if isinstance(prior_units, list):
-            current_units = list(rt.meta.get("research_requirements") or [])
-            seen_units = {json.dumps(unit, ensure_ascii=False, sort_keys=True)
-                          for unit in current_units if isinstance(unit, dict)}
-            for unit in prior_units:
-                if (not isinstance(unit, dict)
-                        or unit.get("kind") in {"output_section", "source_citation"}):
-                    continue
-                signature = json.dumps(unit, ensure_ascii=False, sort_keys=True)
-                if signature not in seen_units:
-                    current_units.append(dict(unit))
-                    seen_units.add(signature)
-            from .research_quality import requirements as quality_requirements
-
-            rt.meta["research_requirements"] = quality_requirements(
-                task.question, current_units)["units"]
-
-    if intent.compare_without_new_object and not intent.comparison_expansion:
-        outcome = ExecOutcome(json.dumps({
-            "answer": "请明确要与哪一个地区或哪一篇政策比较；当前会话只确认了上一轮的"
-                      "研究对象，不能把旧政策当作其他地区的证据。",
-            "claims": [], "insufficient": True,
-        }, ensure_ascii=False), None)
-        result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "clarification"
-        return result
-
-    if (prior and intent.use_history and not intent.comparison_expansion
-            and intent.primary in {"summarize", "analyze", "organize",
-                                   "synthesize", "compare"}):
-        historical = await _run_historical_research(
-            task, ctx, rt, deadline, planning_prior or prior, intent)
-        if historical is not None:
-            return historical
-
-    route = getattr(ctx, "route", None)
-    has_explicit_user_scope = bool(
-        task.targets
-        or getattr(route, "planids", ())
-        or getattr(route, "titles", ())
-        or getattr(route, "areas", ())
-        or getattr(route, "fyps", ())
-    )
-    if intent.primary == "summarize" and prior is None and not has_explicit_user_scope:
-        outcome = ExecOutcome(json.dumps({
-            "answer": "当前会话还没有可总结的已核验研究成果。请先完成一轮政策检索，"
-                      "或明确要总结的政策文献。",
-            "claims": [], "insufficient": True,
-        }, ensure_ascii=False), None)
-        result = build_result(task, outcome, ctx, rt.meta)
-        result.meta["qa_execution_mode"] = "clarification"
-        return result
-
-    if (resolution.get("inherited_planids") and resolution.get("status") == "continued"
-            and not intent.compare_without_new_object):
-        # The prior source identity is trusted only after the current session
-        # was claimed; current evidence is still re-read and re-verified below.
-        ctx.scope = tuple(resolution["inherited_planids"])
-    if (resolution.get("inherited_planids") or resolution.get("context_note")
-            or resolution.get("status") == "fresh_research"):
-        # Extended/comparison turns reuse identity as context but search beyond
-        # the old planids so the new side cannot be silently omitted.
-        ctx.qa_followup = resolution
-    section_focuses = [unit["label"] for unit in rt.meta.get("research_requirements") or []
-                       if unit.get("kind") == "output_section"
-                       and len(unit.get("label", "")) <= 24
-                       and not any(term in unit["label"] for term in ("出处", "标注", "引用"))]
-    if section_focuses:
-        outcome = await execute_controlled(task, s, ctx, rt, deadline, focuses=section_focuses)
-    else:
-        outcome = await execute_controlled(task, s, ctx, rt, deadline)
-    outcome, parse_meta = await _recover_qa_output(
-        outcome, s, rt, deadline, repair_budget={"remaining": 0})
-    result = build_result(task, outcome, ctx, rt.meta)
-    if parse_meta:
-        result.meta.update(parse_meta)
-    if not result.claims:
-        fallback_claims = verbatim_claims_from_evidence(
-            task, getattr(rt, "_qa_evidence", []) or [], ctx)
-        if fallback_claims:
-            result.claims = fallback_claims
-            result.evidence_refs = [
-                ref for ref in (ctx.evidence.get(chunk_id)
-                                for chunk_id in dict.fromkeys(
-                                    chunk_id for claim in fallback_claims
-                                    for chunk_id in claim.chunk_ids))
-                if ref is not None
-            ]
-            result.answer = "\n".join("- " + claim.text for claim in fallback_claims)
-            result.meta["verbatim_evidence_fallback"] = {
-                "reason": "model_returned_no_claims",
-                "claim_count": len(fallback_claims),
-            }
-    coverage_claims = verbatim_coverage_claims(
-        result, task, getattr(rt, "_qa_evidence", []) or [], ctx)
-    additions = [claim for claim in coverage_claims
-                 if claim.text not in {item.text for item in result.claims}]
-    if additions:
-        result.claims.extend(additions)
-        existing_chunks = {ref.chunk_id for ref in result.evidence_refs}
-        result.evidence_refs.extend(
-            ref for ref in (ctx.evidence.get(chunk_id)
-                            for chunk_id in dict.fromkeys(
-                                chunk_id for claim in additions
-                                for chunk_id in claim.chunk_ids))
-            if ref is not None and ref.chunk_id not in existing_chunks)
-        result.meta["verbatim_coverage_repair"] = len(additions)
-    if (resolution.get("status") == "continued"
-            and re.search(r"前三轮|前几轮|前面|以上|上述|总结|摘要|整理", task.question)):
-        history = collect_scoped_history(
-            getattr(ctx, "trusted_turns", []) or [], set(resolution.get("inherited_planids") or []))
-        if history:
-            previous, _ = build_historical_state(ctx, task, history)
-            if previous is not None:
-                signatures = {(claim.text, tuple(claim.chunk_ids)) for claim in result.claims}
-                for ref in previous.evidence_refs:
-                    ctx.evidence.register(ref)
-                valid_refs = {ref.chunk_id: ref for ref in previous.evidence_refs
-                              if ctx.evidence.get(ref.chunk_id) == ref}
-                for claim in previous.claims:
-                    if ((claim.text, tuple(claim.chunk_ids)) not in signatures
-                            and set(claim.chunk_ids) <= set(valid_refs)):
-                        result.claims.append(claim)
-                known_refs = {ref.chunk_id for ref in result.evidence_refs}
-                result.evidence_refs.extend(ref for cid, ref in valid_refs.items() if cid not in known_refs)
-                result.meta["historical_facts_rechecked"] = len(previous.claims)
-    return result
-
-
-async def _run_single(task, s, ctx, rt, deadline, decision):
-    """开放主题：沿用原有行为，只把识别出的地区/时期作为检索约束传下去。"""
-    ctx.scope = None
-    outcome = await _execute_once(task, s, ctx, rt, deadline)
-    outcome, parse_meta = await _recover_qa_output(outcome, s, rt, deadline,
-                                                  repair_budget={"remaining": 1})
-    result = build_result(task, outcome, ctx, rt.meta)
-    if parse_meta:
-        result.meta.update(parse_meta)
-    if outcome.telemetry:
-        result.meta["llm"] = {**outcome.telemetry,
-                              "parse": "ok" if result.status == "completed" else "failed"}
-    result.route = _route_head(decision)
-    return result
