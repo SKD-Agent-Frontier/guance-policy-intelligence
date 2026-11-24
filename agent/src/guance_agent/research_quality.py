@@ -191,7 +191,21 @@ def evaluate(result, question: str) -> dict:
                           if quotes_verified and claim.chunk_ids and claim.quotes
                           and set(claim.chunk_ids) <= refs]
     verified_claims = [result.claims[index] for index in verified_positions]
-    analytical_blocks = [block for block in blocks if block.get("kind") == "analysis"]
+    analytical_blocks = []
+    seen_analysis_text = set()
+    for block in blocks:
+        if block.get("kind") != "analysis":
+            continue
+        normalized = re.sub(r"\s+", "", str(block.get("text") or ""))
+        if not normalized or normalized in seen_analysis_text:
+            continue
+        seen_analysis_text.add(normalized)
+        analytical_blocks.append(block)
+    # Repeated wording is one delivered judgment even when duplicate blocks
+    # carry different model-supplied headings or dimensions.
+    unique_analysis_blocks = {id(block) for block in analytical_blocks}
+    blocks = [block for block in blocks if block.get("kind") != "analysis"
+              or id(block) in unique_analysis_blocks]
     report_audited = bool(is_report and report_verified and blocks)
     verified_texts = [
         " ".join([claim.text, *claim.quotes, *[
@@ -513,6 +527,9 @@ def evaluate(result, question: str) -> dict:
         "factual_answer_coverage": bool(simple_fact),
         "audited_report_blocks": len(blocks),
         "audited_analysis_blocks": len(analytical_blocks),
+        "audited_analysis_propositions": sum(
+            len([part for part in re.split(r"[。！？\n]+", str(block.get("text") or ""))
+                 if part.strip()]) for block in analytical_blocks),
         "required_planids": coverage.get("required_planids", []) if isinstance(coverage, dict) else [],
         "covered_planids": coverage.get("covered_planids", []) if isinstance(coverage, dict) else [],
         "missing_planids": coverage.get("missing_planids", []) if isinstance(coverage, dict) else [],

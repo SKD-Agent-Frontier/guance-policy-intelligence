@@ -23,14 +23,18 @@ supporting_claim_indexes(从0开始)。fact 块不输出text，程序会按首�
 不要重复抄写facts；analysis 块必须输出text，通常至少
 引用两个不同事实索引。仅当 requested 中存在 value_check 时，可用一个已核验事实做阈值判断；
 其它单事实analysis会被程序撤回。分析必须受引用事实支持，不得虚构因果或效果。
-请按 intent 组织研究结果：organize 要分类梳理并形成一个总体概括；
-analyze 要形成有事实支持的判断；compare按用户指定的比较对象组织，对象可以来自同一文献，
-只比较原文中的支持对象、措施或目标，不假设必须比较地区；synthesize按研究主题组织，
-明确共同点、差异或综合结论；summarize 要形成简洁、连贯的概括。
-先输出1–2个“研究结论”analysis块，再输出逐条对应已核验事实的fact块。
+请按 intent 组织研究结果：organize 要围绕用户要求归类，再概括事实之间可见的联系；
+analyze 要提出直接回应问题的有事实支持的判断；compare按用户指定的比较对象组织，
+对象可以来自同一文献，只比较原文中可比的对象、措施或目标；synthesize按研究主题组织，
+明确共同点、实质差异及其对研究问题的含义；summarize 要形成简洁、连贯的概括。
+先输出1–2个“研究结论”analysis块，并使其直接回答问题，再输出相关事实依据。
 每个结论块用 supporting_claim_indexes 显式绑定支持事实，程序会将索引绑定为
 support_signatures；结论必须归纳这些事实，不得引入新数字、新planid或新政策标题。
 事实不足以支撑结论时不要凑结构，也不要生成没有事实支撑的主题。
+先利用 research_map 中已被语义审核的需求-事实关联和证据来源分组组织推理：
+归纳多条事实的共同方向，区分目标与措施，并指出不同对象/来源间有证据支撑的实质差异。
+只有原文记载目标或措施时，不得推断实际成效、因果或政策有效性；不能从缺少证据推断“不存在”。
+每个结论应说明事实之间的关系或对问题的有限含义，避免把事实换词后当结论，也避免重复事实。
 事实部分优先使用3–5个高层主题，用户指定板块时逐项保留，不要把每条事实各自
 换成一个标题；每个block的dimension必须属于dimensions；最多12个块、8个维度。
 不得把输入 facts 之外的数字说成政策事实。若 requested 中含 value_check，
@@ -73,6 +77,48 @@ def _install_draft(result, draft: QAReportDraft, status: str):
     result.meta.setdefault("qa_report", {})["received"] = len(draft.blocks)
     result.meta["research_report_draft"] = status
     return True
+
+
+def _research_map(result, facts: list[dict], req: dict) -> dict:
+    """Build a bounded drafting outline from verified facts and current reviewed links."""
+    units = req.get("units") if isinstance(req.get("units"), list) else []
+    claim_units = result.meta.get("research_requirements")
+    fingerprint_units = claim_units if isinstance(claim_units, list) and claim_units else units
+    review = result.meta.get("requirement_support") or {}
+    current = (
+        isinstance(review, dict)
+        and review.get("verification") == "semantic_reviewed_against_quotes"
+        and review.get("claim_fingerprint") == claim_fingerprint(result.claims)
+        and review.get("requirements_fingerprint")
+        == requirements_fingerprint(fingerprint_units)
+        and isinstance(review.get("supports"), dict)
+    )
+    local_index = {item["claim_index"]: item["index"] for item in facts}
+    focus = []
+    if current:
+        supports = review["supports"]
+        for unit in units:
+            indexes = supports.get(unit.get("id"), [])
+            if not isinstance(indexes, list):
+                continue
+            fact_indexes = [local_index[index] for index in indexes
+                            if type(index) is int and index in local_index]
+            focus.append({"requirement": str(unit.get("label") or unit.get("id") or ""),
+                          "phase": unit.get("phase", "evidence"),
+                          "fact_indexes": list(dict.fromkeys(fact_indexes))})
+    sources = {}
+    for item in facts:
+        for source in item.get("sources") or []:
+            key = str(source.get("planid") or "")
+            if key:
+                sources.setdefault(key, []).append(item["index"])
+    return {
+        "requirement_links": focus,
+        "source_groups": [{"planid": planid,
+                           "fact_indexes": list(dict.fromkeys(indexes))}
+                          for planid, indexes in list(sources.items())[:12]],
+        "link_basis": "semantic_reviewed_requirement_support" if current else "none",
+    }
 
 
 async def add_analysis_block(result, question: str, rt, deadline: float) -> bool:
@@ -245,7 +291,9 @@ async def draft_verified_report(result, question, rt, deadline: float,
                       "text": claim.text[:500],
                       "quotes": claim.quotes[:3], "sources": sources})
     payload = json.dumps({"question": question[:1000], "intent": intent or "organize",
-                          "facts": facts, "requested": req}, ensure_ascii=False)
+                          "facts": facts, "requested": req,
+                          "research_map": _research_map(result, facts, req)},
+                         ensure_ascii=False)
     timeout = min(35.0, float(rt.settings.llm_request_timeout), remaining - 35)
     if timeout <= 5:
         return False
@@ -370,16 +418,29 @@ def _render_structured_report(structured: dict) -> str:
     lines = []
     blocks = [block for block in structured.get("blocks") or []
               if isinstance(block, dict)]
+    seen_text = set()
     for block in sorted(blocks, key=lambda item: item.get("kind") != "analysis"):
+        text = str(block.get("text") or "").strip()
+        normalized = re.sub(r"\s+", "", text)
+        if not normalized or normalized in seen_text:
+            continue
+        seen_text.add(normalized)
         for depth, title in enumerate(block.get("title_path") or [], start=2):
             lines.append("#" * depth + " " + str(title))
-        lines.append(str(block.get("text") or ""))
+        lines.append(text)
         lines.append("")
     return "\n".join(lines).strip()
 
 
-def verify_summary(result, blocks, *, min_coverage: float = 0.6) -> dict:
-    """Check analysis coverage and quote-bound numbers without another model call."""
+def verify_summary(result, blocks, *, min_coverage: float = 0.6,
+                   require_semantic: bool = False) -> dict:
+    """Check signatures/numbers, optionally requiring final semantic review.
+
+    The default mode is a local precheck retained for compatibility; its coverage
+    only means the block has live evidence signatures and quote-bound numbers.
+    Delivery must use ``require_semantic=True`` so only propositions exactly
+    present in the final audited structure can count as covered.
+    """
     current, refs = _current_claims(result)
     checked = 0
     approved = []
@@ -418,17 +479,63 @@ def verify_summary(result, blocks, *, min_coverage: float = 0.6) -> dict:
                 prose.append(line)
         sentences = [part.strip() for part in re.split(r"[。！？\n]", "\n".join(prose))
                      if part.strip()]
-        ratio = (len(sentences) if supported else 0) / len(sentences) if sentences else 0.0
+        final_matches = []
+        if isinstance(result.structured, dict):
+            for final in result.structured.get("blocks") or []:
+                if not isinstance(final, dict) or str(final.get("id") or "") != block_id:
+                    continue
+                if (str(final.get("text") or "").strip() != text
+                        or (final.get("verification") not in {
+                            None, "model_reviewed_evidence_linked"})):
+                    continue
+                final_signatures = _signed_block(result, final).get("support_signatures") or []
+                candidate_signatures = block.get("support_signatures") or []
+                try:
+                    same_supports = set(map(tuple, final_signatures)) == set(
+                        map(tuple, candidate_signatures))
+                except TypeError:
+                    same_supports = False
+                final_chunks = set(final.get("supporting_chunk_ids") or [])
+                candidate_chunks = {chunk for signature in candidate_signatures
+                                    if isinstance(signature, (list, tuple)) and len(signature) == 2
+                                    and isinstance(signature[1], (list, tuple))
+                                    for chunk in signature[1]}
+                if same_supports and final_chunks == candidate_chunks:
+                    final_matches.append(final)
+        audited = (
+            isinstance(result.structured, dict)
+            and result.structured.get("schema_version") == "qa-report/1"
+            and result.structured.get("verification", {}).get("facts")
+            == "semantic_reviewed_against_quotes"
+            and bool(final_matches)
+        )
+        ratio = (1.0 if supported and sentences else 0.0)
+        if require_semantic:
+            ratio = (len(sentences) / len(sentences)
+                     if supported and audited and sentences else 0.0)
         coverage[block_id] = ratio
-        if ratio < min_coverage:
+        if not supported:
             rejected.append({"block_id": block_id, "reason": "low_evidence_coverage"})
         elif any(not any(_present(token, quote) for claim in claims for quote in claim.quotes)
                  for token in _tokens(text)):
             rejected.append({"block_id": block_id, "reason": "number_not_in_quotes"})
+        elif require_semantic and not audited:
+            rejected.append({"block_id": block_id, "reason": "semantic_review_missing"})
+        elif ratio < min_coverage:
+            rejected.append({"block_id": block_id, "reason": "low_evidence_coverage"})
         else:
             approved.append(block_id)
     outcome = {"checked": checked, "approved": approved, "rejected": rejected,
                "coverage": coverage}
+    if checked and require_semantic:
+        outcome["proposition_review"] = {
+                   "reviewed": int((result.meta.get("qa_report") or {}).get(
+                       "propositions_reviewed", 0) or 0),
+                   "semantically_withdrawn": int((result.meta.get("qa_report") or {}).get(
+                       "propositions_withdrawn", 0) or 0),
+                   "locally_withdrawn": int((result.meta.get("qa_report") or {}).get(
+                       "propositions_locally_withdrawn", 0) or 0),
+               }
     result.meta["summary_verification"] = outcome
     return outcome
 
@@ -543,11 +650,23 @@ def _gap_label(gap: str) -> str:
     return gap
 
 
-def _append_completion(result, quality: dict, coverage: dict) -> None:
+def _append_completion(result, quality: dict, coverage: dict,
+                       source_planids: list[str] | None = None) -> None:
     if quality.get("status") == "complete" or "研究完成情况" in (result.answer or ""):
         return
     status = _COMPLETION_STATUS.get(quality.get("status"), quality.get("status"))
     lines = ["", "研究完成情况", "", f"完成状态：{status}"]
+    planids = list(dict.fromkeys(source_planids or []))
+    if planids:
+        lines.extend(["", "研究范围与局限",
+                      "本次结论仅基于已审核并保留的文献："
+                      + "、".join("planid=" + pid for pid in planids) + "。"])
+    missing_requirements = list(dict.fromkeys(quality.get("missing_requirements") or []))
+    if missing_requirements:
+        lines.append("尚未覆盖或尚未形成综合判断的要求："
+                     + "、".join(missing_requirements[:8]) + "。")
+    elif planids:
+        lines.append("范围受本轮已核验并通过审核的材料限制。")
     if quality.get("missing_dimensions"):
         prefix = ("缺少经审核分析的维度：" if "audited_analysis_missing" in (quality.get("gaps") or [])
                   else "未满足维度：")
@@ -591,7 +710,18 @@ def deliver_research(result, question: str) -> None:
     if report_audited:
         blocks = [block for block in structured.get("blocks") or []
                   if isinstance(block, dict)]
-        summary = verify_summary(result, [_signed_block(result, block) for block in blocks])
+        summary = verify_summary(result, [_signed_block(result, block) for block in blocks],
+                                 require_semantic=True)
+        proposition_review = summary.get("proposition_review") or {}
+        withdrawn = (proposition_review.get("semantically_withdrawn", 0)
+                     + proposition_review.get("locally_withdrawn", 0))
+        if withdrawn:
+            result.warnings.append(
+                "研究结论命题审核统计：审核 "
+                + str(proposition_review.get("reviewed", 0)) + " 项，语义撤回 "
+                + str(proposition_review.get("semantically_withdrawn", 0))
+                + " 项，本地预检撤回 "
+                + str(proposition_review.get("locally_withdrawn", 0)) + " 项。")
         rejected_ids = {item["block_id"] for item in summary["rejected"]}
         if rejected_ids:
             for item in summary["rejected"]:
@@ -618,7 +748,8 @@ def deliver_research(result, question: str) -> None:
                 "source_planids": source_planids,
             }
             if quality["status"] != "complete":
-                _append_completion(result, quality, result.meta.get("evidence_coverage") or {})
+                _append_completion(result, quality, result.meta.get("evidence_coverage") or {},
+                                   source_planids)
             _record_funnel(result, approved=len(approved_blocks), shown=len(approved_blocks),
                            generated=len(blocks))
             return
