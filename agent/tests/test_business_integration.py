@@ -843,3 +843,25 @@ async def test_t14_business_without_claims_discards_structured_facts(setup):
     assert result.task_type == "compare"
     assert result.structured == {} and not result.claims
     assert "农业支持" not in result.answer
+
+
+@pytest.mark.parametrize("kind", ["compare", "compare_plans"])
+async def test_explicit_dimensions_bound_public_facts_and_matrix(setup, kind):
+    settings, _ = setup
+
+    class ExtraDimension(Module):
+        async def __call__(self, task, ctx, services):
+            hit = (await services.search("农业")).data[0]
+            await services.read(hit.planid, chunk_id=hit.chunk_id)
+            return BusinessOutcome(answer="额外维度", claims=[{
+                "dimension": "额外维度", "text": QUOTE, "chunk_ids": [hit.chunk_id],
+                "quotes": [QUOTE],
+            }], structured={"dimensions": ["额外维度"]})
+
+    register(ExtraDimension(kind))
+    result = await submit("比较农业政策", settings=settings, task_type=kind,
+                          targets=["T001", "T002"], dimensions=["期限"])
+    assert result.status == "completed"
+    assert not result.claims and not result.evidence_refs
+    assert "额外维度" not in str(result.structured)
+    assert QUOTE not in result.answer

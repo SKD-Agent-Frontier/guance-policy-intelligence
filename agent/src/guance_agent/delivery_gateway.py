@@ -241,8 +241,8 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
                                    research_state=None):
     """Rebuild the outward payload from verifier-authorized state.
 
-    Call after execution, semantic review, runtime completion checks, and every
-    result mutation. The function performs no model calls or KB reads; every
+    Call after execution and semantic review, before completion evaluation.
+    Completion evaluation consumes the projected public evidence. The function performs no model calls or KB reads; every
     surviving claim must carry current quote- and number-verifier receipts.
     """
     receipts = (research_state.review_receipts if research_state is not None
@@ -250,7 +250,7 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
     original_structured = result.structured
     original_claims = list(result.claims)
     claims, refs_by_id = _trusted_claims(result, task, ctx, receipts, research_state, runtime)
-    if task.task_type == "extract":
+    if task.task_type == "extract" or (task.dimensions and task.task_type in {"compare", "compare_plans"}):
         from .schemas import DIMENSIONS
 
         allowed_dimensions = set(task.dimensions or DIMENSIONS)
