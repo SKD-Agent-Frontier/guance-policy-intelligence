@@ -11,7 +11,7 @@ from pathlib import Path
 from .kb import KBNoText, KBNotFound
 from .schemas import ChunkSpan, Hit, Passage
 
-META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label")
+META = ("planid", "title", "area", "fyp", "admin_level", "plantype_label", "plan_stage")
 SPAN = ("chunk_char_start", "chunk_char_end", "char_start", "char_end")
 CONTRACT = ("document_id", "document_version_id", "generation_id", "source_hash",
             "section_id", "section_char_start", "section_char_end",
@@ -80,7 +80,9 @@ class SampleKB:
         }
 
     # ---------- 检索 ----------
-    def search(self, query, area, fyp, top_k, *, planids=None):
+    def search(self, query, area, fyp, top_k, *, planids=None, admin_level=None,
+               plantype=None, plan_stage=None):
+        filters = {"admin_level": admin_level, "plantype_label": plantype, "plan_stage": plan_stage}
         grams = {query[i:i + 2] for i in range(max(len(query) - 1, 0))} or {query}
         hits = []
         for chunk_id, item in self.chunks.items():
@@ -88,6 +90,10 @@ class SampleKB:
             if area and area not in (meta["area"] or ""):
                 continue
             if fyp is not None and meta["fyp"] != fyp:
+                continue
+            if planids is not None and meta["planid"] not in planids:
+                continue
+            if any(value is not None and meta[key] != value for key, value in filters.items()):
                 continue
             blob = " ".join([meta["title"], item["section_path"], item["text"]])
             score = sum(gram in blob for gram in grams)

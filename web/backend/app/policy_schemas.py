@@ -34,6 +34,7 @@ class PolicyItem(BaseModel):
     area: str | None
     fyp: str | None
     plantype_label: str | None
+    plan_stage: str | None = None
     year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     admin_level: str
     region_code: str | None
@@ -47,6 +48,7 @@ class QueryInfo(BaseModel):
     area: str | None
     fyp: str | None
     plantype: str | None
+    plan_stage: str | None = None
     admin_level: str | None = None
     province_code: str | None = None
     prefecture_code: str | None = None
@@ -71,6 +73,7 @@ class FacetQueryInfo(BaseModel):
     fyp_status: str | None = None
     plantype: str | None = None
     plantype_status: str | None = None
+    plan_stage: str | None = None
 
 
 class FacetOption(BaseModel):
@@ -171,6 +174,10 @@ class PolicyDetail(BaseModel):
     area: str | None
     fyp: str | None
     plantype_label: str | None
+    plan_stage: str | None = None
+    generation_id: str | None = None
+    document_id: str | None = None
+    source_hash: str | None = None
     year: int | None = Field(description="政策标题或规范规划期推导的参考年份；不是发布日期")
     body_chars: int
     body_status: Literal["available", "missing", "suspected_garbled"] = "available"

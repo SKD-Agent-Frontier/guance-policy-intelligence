@@ -3,6 +3,7 @@
 这一步只做字面核对，不判断语义是否支撑结论；输出必须按这个边界说明。
 """
 import asyncio
+import json
 import re
 import unicodedata
 import weakref
@@ -13,6 +14,8 @@ MAX_QUOTES = 20          # 问答：一次运行最多核这么多句，避免�
 EXTRACT_MAX_QUOTES = 120  # 提取：六个维度各若干条、每条一两句，实测 20 句远远不够
 _QUOTE_VERIFICATION_TOKEN = object()
 _QUOTE_VERIFIED_CLAIMS = {}
+_NUMBER_VERIFICATION_TOKEN = object()
+_NUMBER_VERIFIED_CLAIMS = {}
 
 
 def _claim_quote_signature(claim):
@@ -46,6 +49,52 @@ def is_quote_verified_claim(result, claim) -> bool:
     return bool(entry and entry[0]() is claim
                 and entry[1] is _QUOTE_VERIFICATION_TOKEN
                 and entry[2] == _claim_quote_signature(claim))
+
+
+def _claim_number_signature(result, claim):
+    content = claim.model_dump_json()
+
+    def ref_signature(ref):
+        values = ref.model_dump(mode="json") if hasattr(ref, "model_dump") else vars(ref)
+        return json.dumps(values, ensure_ascii=False, sort_keys=True)
+
+    refs_by_chunk = {}
+    for ref in getattr(result, "evidence_refs", None) or ():
+        chunk_id = getattr(ref, "chunk_id", None)
+        if chunk_id in claim.chunk_ids:
+            refs_by_chunk.setdefault(chunk_id, []).append(ref_signature(ref))
+    citations = tuple((chunk_id, tuple(refs_by_chunk.get(chunk_id, ())))
+                      for chunk_id in claim.chunk_ids)
+    return getattr(result, "run_id", None), content, citations
+
+
+def _revoke_number_verification(claim) -> None:
+    entry = _NUMBER_VERIFIED_CLAIMS.get(id(claim))
+    if entry is not None and entry[0]() is claim:
+        _NUMBER_VERIFIED_CLAIMS.pop(id(claim), None)
+
+
+def _authorize_number_verified_claim(result, claim) -> None:
+    claim_id = id(claim)
+
+    def remove_dead_claim(ref, key=claim_id):
+        current = _NUMBER_VERIFIED_CLAIMS.get(key)
+        if current is not None and current[0] is ref:
+            _NUMBER_VERIFIED_CLAIMS.pop(key, None)
+
+    _NUMBER_VERIFIED_CLAIMS[claim_id] = (
+        weakref.ref(claim, remove_dead_claim), _NUMBER_VERIFICATION_TOKEN,
+        _claim_number_signature(result, claim))
+
+
+def is_number_verified_claim(result, claim) -> bool:
+    """Return true only for a current Claim authorized by this verifier run."""
+    if not any(current is claim for current in result.claims):
+        return False
+    entry = _NUMBER_VERIFIED_CLAIMS.get(id(claim))
+    return bool(entry and entry[0]() is claim
+                and entry[1] is _NUMBER_VERIFICATION_TOKEN
+                and entry[2] == _claim_number_signature(result, claim))
 
 
 def quote_budget(result) -> int:
@@ -239,6 +288,7 @@ async def verify_quotes(result, ctx) -> int:
             kept_claims.append(claim)
             continue
         approved = []
+        matched_chunks = set()
         for quote_index, quote in enumerate(claim.quotes):
 
             if checker is None or checked >= budget:
@@ -251,7 +301,7 @@ async def verify_quotes(result, ctx) -> int:
 
                 continue
             checked += 1
-            ok, base_reason = await _check_quote(checker, ctx, claim, quote)
+            ok, base_reason = await _check_quote(checker, ctx, claim, quote, matched_chunks)
 
             if ok:
 
@@ -271,7 +321,7 @@ async def verify_quotes(result, ctx) -> int:
                             and checked < budget else None)
                 if repaired is not None and repaired != quote:
                     checked += 1
-                    repaired_ok, _ = await _check_quote(checker, ctx, claim, repaired)
+                    repaired_ok, _ = await _check_quote(checker, ctx, claim, repaired, matched_chunks)
                     if repaired_ok:
                         claim.quotes[quote_index] = repaired
                         approved.append(repaired)
@@ -286,18 +336,16 @@ async def verify_quotes(result, ctx) -> int:
                     category, context=context))
 
         # 一条结论的所有模型引句都必须逐字核验；否则不能保留其政策判断。
-        if len(approved) != len(claim.quotes):
+        if len(approved) != len(claim.quotes) or set(claim.chunk_ids) != matched_chunks:
             removed_claims += 1
             removed_quotes += len(claim.quotes)
             continue
+        _authorize_quote_verified_claim(claim)
         kept_claims.append(claim)
     if removed_claims:
 
         result.claims = kept_claims
 
-    for claim in kept_claims:
-        if claim.quotes:
-            _authorize_quote_verified_claim(claim)
 
     categories = {}
 
@@ -601,11 +649,12 @@ def _classify_rejected_quote(ctx, claim, quote, base_reason, cache) -> tuple[str
 
 
 
-async def _check_quote(checker, ctx, claim, quote) -> tuple[bool, str | None]:
+async def _check_quote(checker, ctx, claim, quote, matched_chunks=None) -> tuple[bool, str | None]:
 
     """Return approval plus a safe reason for rejection (no quote text)."""
 
     last_reason = None
+    found = False
 
     for chunk_id in claim.chunk_ids:
         ref = ctx.evidence.get(chunk_id)
@@ -627,11 +676,14 @@ async def _check_quote(checker, ctx, claim, quote) -> tuple[bool, str | None]:
 
             continue
         if ok:
-            return True, None
+            if matched_chunks is None:
+                return True, None
+            matched_chunks.add(chunk_id)
+            found = True
 
         last_reason = last_reason or "verification_service_false"
 
-    return False, last_reason or "invalid_evidence_ref"
+    return (True, None) if found else (False, last_reason or "invalid_evidence_ref")
 
 
 
@@ -849,9 +901,11 @@ def _unknown_titles(text: str, known: set[str]) -> list[str]:
 
 async def verify_numbers(result, ctx) -> int:
     """核对政策事实数字；文献身份字段走元数据核对，不要求出现在原文引句中。"""
-    getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
     if not result.claims:
         return 0
+    for claim in result.claims:
+        _revoke_number_verification(claim)
+    getter = getattr(ctx.kb, "get_chunk_source", None) if ctx else None
     run_refs = _all_refs(ctx, result)
     # 身份核对依据是本轮检索实际返回的元数据；用户输入的 targets/路由编号属于输入身份。
     user_identities = _user_identity_values(ctx)
@@ -879,6 +933,7 @@ async def verify_numbers(result, ctx) -> int:
         tokens = _tokens(_mask_identities(claim.text, strict=metadata_identities,
                                           loose=user_identities))
         if not tokens:
+            _authorize_number_verified_claim(result, claim)
             continue
         result.meta["number_verification"] = "literal_only"
         own = await _seen_text(ctx, getter, [claim], cache, failed) if getter else None
@@ -887,13 +942,15 @@ async def verify_numbers(result, ctx) -> int:
             problems += 1
             rejected_claims.append(claim)
             continue
-        missing = [token for token in tokens if not _present(token, own)]
+        missing = [token for token in tokens if not _fact_number_present(token, own)]
         if missing:
             result.warnings.append(
                 "结论「" + _clip(claim.text) + "」中的 " + "、".join(missing[:6])
                 + " 未在其所引原文中出现")
             problems += len(missing)
             rejected_claims.append(claim)
+        else:
+            _authorize_number_verified_claim(result, claim)
 
     if rejected_claims:
         rejected_ids = {id(claim) for claim in rejected_claims}
@@ -941,17 +998,13 @@ def _clip(text: str, width: int = 24) -> str:
 
 
 def _present(token: str, text: str) -> bool:
-    """左右都不能紧邻数字，避免 100 命中 1000。"""
-    start = 0
-    while True:
-        index = text.find(token, start)
-        if index < 0:
-            return False
-        before = text[index - 1] if index else ""
-        after = text[index + len(token)] if index + len(token) < len(text) else ""
-        if not before.isdigit() and not after.isdigit():
-            return True
-        start = index + 1
+    """Compatibility lookup: a percentage also contains its numeric magnitude."""
+    return any(match.group() in (token, token + "%") for match in NUMBER.finditer(text))
+
+
+def _fact_number_present(token: str, text: str) -> bool:
+    """Require a complete numeric token (5 cannot match 5.1 or 5%)."""
+    return any(match.group() == token for match in NUMBER.finditer(text))
 
 
 def block_numbers_valid(text: str, claims, ctx, result) -> bool:

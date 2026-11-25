@@ -20,7 +20,7 @@ from guance_agent.routing import decide
 from guance_agent.runtime import Runtime
 from guance_agent.schemas import EvidenceRef
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, seed_read_page, tool
 
 
 def _make_state(settings, task, question, *, explicit_targets=("TEST-001",)):
@@ -48,7 +48,7 @@ def _seed_read_fact(state, quote="完善农业灌溉设施", *, source="kb_read"
         chunk_char_start=0, chunk_char_end=len(text), source=source,
         observed_ranges=[(0, len(text))], complete=complete,
     ))
-    state.read_text[chunk_id] = [text]
+    seed_read_page(state, chunk_id, text)
     return chunk_id
 
 

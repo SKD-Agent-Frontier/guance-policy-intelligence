@@ -3,26 +3,19 @@
 政策文本检索与分析助手，支持问答、要素提取、政策对比、多方案分析、原文出处和 JSON 输出。
 默认 mock 后端只有五篇合成测试资料；真实研究需配置 rag 后端、恢复运行库并完成真实业务验收。
 
-## 模块结构
+## 研究执行与交付
 
-`src/guance_agent/` 按单向依赖分层。`tests/test_architecture.py` 用 AST 强制校验三项结构性约束：单文件不超过 150 行、只有工具层与执行层可导入 Agent SDK、模块依赖必须单向。
+CLI 和 Web 的 `POST /api/runs` 都调用 `main.submit()`。保留的 Python 入口 `orchestrator.run_task()` 也进入同一个 SDK 研究循环。每个请求建立一个 `ResearchState`。模型按问题选择检索、回读和研究能力；显式的业务任务只能调用同名能力。
 
-| 模块 | 职责 |
+| 环节 | 实现与约定 |
 | --- | --- |
-| `config.py` | 环境变量与配置装载、边界校验 |
-| `schemas.py` | 工具契约与对外结果的 Pydantic 模型，不依赖 Agent SDK |
-| `kb.py` | 检索后端契约与 MockKB 实现 |
-| `context.py` | 每次运行独立的证据注册表与工具调用记录 |
-| `tools.py` | `kb_search` / `kb_read` 包装：参数校验、超时、统一 ToolResult |
-| `agent.py` | 单 Agent 配置与版本化提示词 |
-| `runtime.py` | 会话持久化、客户端复用、脱敏运行日志 |
-| `runner.py` | 调用 SDK 执行循环并映射执行异常 |
-| `output.py` | 证据 ID 校验、确定性结果与出处组装 |
-| `orchestrator.py` | 执行编排：建立检索与证据上下文，调用执行核心，返回结构化结果 |
-| `main.py` | 任务入口：只做校验、装配与转交，不直接访问 RAG |
-| `cli.py` | 标准库命令行，调用 `main.submit` |
+| 研究对象 | `orchestrator.py` 优先采用显式 targets，再使用可信目录或唯一标题定位。标题有歧义时返回澄清。 |
+| 取证 | SDK 的 `search` 和 `read_batch` 使用原有 `kb_search` 和 `kb_read` 接口。各次实际读取向本轮证据表登记位置与来源身份。 |
+| 业务能力 | `run_capability` 调用 `extract`、`organize`、`compare` 或 `compare_plans`。业务模块通过 `BusinessServices` 使用当前运行的知识库、预算和截止时间，返回候选事实、结构和分析。 |
+| 预算 | `MAX_TOOL_CALLS` 约束检索、回读和后端引句确认；可信目录发现、标题定位也占用本轮额度。`MAX_TURNS` 与执行器上限共同约束主模型、业务生成和语义审核。运行时关闭客户端自动重试。 |
+| 交付 | `read_verification.py` 依据本次实际看到的原文页核对引句、数字与来源。`delivery_gateway.py` 检查事实和审核记录，再生成公开答案及结构化结果。审核未完成时，可保留独立成立的逐字事实和此前获准的分析块。 |
 
-依赖方向：`config -> schemas -> kb -> context -> tools -> agent -> runtime -> runner -> output -> orchestrator -> main -> cli`，不得反向或循环。入口层不持有检索与模型实现，替换 `get_kb()` 分支或调整模型连接参数都不需要修改 `main.py`。
+`research_core.py` 暴露 SDK 工具并运行主 Agent，`runtime.py` 管理会话与日志，`research_runtime.py` 依据最终交付结果评估任务完成度。RAG 后端的调用签名、坐标基准、版本字段及错误约定见 [冻结检索接口](contracts/kb_contract.md)。
 
 ## 安装
 
@@ -56,6 +49,7 @@ python -m pip install -e '.[dev]'
 | --- | --- |
 | LLM_BASE_URL、LLM_API_KEY | 必填；未配置时问答返回 MODEL_UNAVAILABLE |
 | LLM_MODEL | qwen3.8-27b |
+| QA_ENGINE | 历史配置，接受 controlled 和 sdk。两个值均进入 SDK 主 Agent，可在 meta.qa_engine_effective 查看实际执行器。 |
 | STRUCTURED_OUTPUT | off；模型接口实测支持 json_schema 后可改 on |
 | LLM_TEMPERATURE | 留空，不发送该参数；接口实测支持后再填 0 |
 | LLM_REQUEST_TIMEOUT、LLM_MAX_RETRIES | 单次模型请求 60 秒、最多重试 2 次 |
@@ -96,11 +90,9 @@ python -m guance_agent chat --session s_xxx
 不传 `--session` 会新建会话；`chat` 中输入空行或文件结束符退出，Ctrl+C 取消。
 `--json` 的标准输出只包含 RunResult JSON，可重定向保存或交给其他程序。
 
-JSON 中 `status` 表示执行完成、失败或达到限制；`evidence_status=verified` 仅表示出处 ID
-来自本轮工具结果，不代表结论经过事实核验。
+`status` 表示执行是否结束或达到限制。`evidence_status` 表示公开证据的核验情况；客户端可在 `claims` 和 `evidence_refs` 回看每条事实的原文。`meta.research_delivery.status`、`meta.research` 及业务结构中的缺口说明哪些研究要求已完成。执行结束时仍可能只有部分事实可交付。
 
-`warnings` 是面向使用方的风险提示列表：未检索原文、有结论未被采信、部分引用无法核验、证据不足等都会写在这里。**客户端必须展示该字段**——只渲染 `answer` 会丢失全部风险提示。脚本如需比对模型原话，请用 `answer`；`answer` 不含系统追加的提示。`insufficient` 表示证据不足；`none` 表示未引用政策原文。
-有效出处包含篇名、地区、规划期、章节和片段编号。
+客户端应同时展示 `answer`、`warnings` 和原文出处。检索服务故障与正常检索无匹配分别记录。已有可交付事实时，局部检索失败会附带说明。
 
 退出码：0=执行完成（也可能证据不足），1=执行失败，2=输入不合法，3=达到运行限制。
 
@@ -151,27 +143,15 @@ python scripts/live_acceptance.py
 CLI 会在接收请求前的 `_run()` 阶段在线程池中完成真实 RAG 预热；请求编排拒绝未预热的真实 RAG。
 首轮只取 `source_types=("text_chunk",)`，OCR 与图片留到第二阶段。
 
-证据诚信由三层确定性校验保证：坐标自洽（跨度非空、长度与坐标一致）、章节包含（块不得越出
-登记章节，除非后端已标 `chunk_outside_section`）、版本一致（版本/哈希/坐标基准）。后端提供
-`verify_quote` 时，`verify.py` 还会把每条引文换回原文逐字核对，只批准来自本次已见范围的句子。
-这一步只做字面核对，不判断语义是否支撑结论。
+原文坐标、引句和数字的核验只使用本轮已见范围。后端提供 `verify_quote` 时，登记引句会按文献和发布代次向后端确认。事实概括、对比及方案判断还要通过与证据绑定的审核，最终由网关组装成答案。
 
-同一层还有第二道核对：`verify_numbers` 只把每条结论中的数字拿去该结论自身、同版本的已见原文里做
-字面核对；未绑定到结论的答案数字不跨证据宽松匹配。找不到、读不到或超时的结论会从可信输出中移除，
-并写入 `warnings`。数字字面存在不代表它单独足以支持对应政策结论；有序列表的行首编号（`1.` `2、`）
-会先剥离，避免误报。
-正式接入前需要与 RAG 负责人确认字段、章节定位参数和规划期分类。
-
-只提供 `kb_search` 与 `kb_read` 两个只读工具，不提供 Web 服务或文档导出；真实语料通过 rag 后端接入。
 匿名会话不绑定客户端身份；持有同一 `session_id` 的匿名调用方都可以读取该会话历史。
 新会话 ID 含 32 位随机字符，难以猜测；生产环境应由 Web 认证层签发不可伪造的凭证。
-逐字引文与数字只做确定性字面核对，不做语义支持校验，也未验证五人并发。
-模型若不调工具直接回答政策问题，结果只能标为“未引用政策原文”。
 章节超长时只返回开头部分；工具超时会停止等待，但不能强制终止后端线程，正式后端仍需自身查询超时。
 
 ## 政策整理、比较与多方案分析
 
-统一入口 `guance_agent.main` 显式注册 `organize`、`compare` 和 `compare_plans`；普通导入业务包或单个模块不会注册。政策整理支持开放主题，也可传入明确的 `targets`：
+`business.builtins` 注册 `organize`、`compare` 和 `compare_plans`；普通导入业务包或单个模块不会注册。政策整理支持开放主题，也可传入明确的 `targets`：
 
 ```python
 result = await submit(

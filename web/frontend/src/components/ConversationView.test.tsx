@@ -210,8 +210,8 @@ describe("conversation simplification and original source reader", () => {
     expect(screen.getByRole("main", { name: "政策原文阅读" })).toBeInTheDocument();
     expect(screen.queryByRole("main", { name: "研究工作区" })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("真实政策正文")).toBeInTheDocument());
-    expect(catalogClient.detail).toHaveBeenCalledWith("P-1", expect.any(AbortSignal));
-    expect(catalogClient.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal));
+    expect(catalogClient.detail).toHaveBeenCalledWith("P-1", expect.any(AbortSignal), expect.objectContaining({ planid: "P-1", generation_id: "gen-1" }));
+    expect(catalogClient.content).toHaveBeenCalledWith("P-1", 0, 4000, expect.any(AbortSignal), expect.objectContaining({ planid: "P-1", generation_id: "gen-1" }));
     fireEvent.click(screen.getByRole("button", { name: "返回研究对话" }));
     expect(screen.getByRole("heading", { name: "研究结果" })).toBeInTheDocument();
   });

@@ -53,6 +53,9 @@ def test_bm25_pre_topk_filter_reopen_and_tamper(tmp_path):
     index.close();index=BM25SLexical(tmp_path/'bm25');index.load('g')
     assert index.search('农业',3)[0]['id']=='b'
     index.close()
+    mapped_file = tmp_path / 'bm25/g/data.csc.index.npy'
+    moved_file = mapped_file.rename(mapped_file.with_suffix('.moved'))
+    moved_file.rename(mapped_file)
     path=tmp_path/'bm25/g/params.index.json';path.write_bytes(path.read_bytes()+b' ')
     with pytest.raises(ValueError,match='file changed'):index.load('g')
 
@@ -126,3 +129,42 @@ def test_checkpoint_resume_real_local_indexes_and_closed_restore(tmp_path,monkey
     check=verify(restored)
     assert check['passed'] and check['vectors_checked']==2
     assert read_json(restored/'outputs/local_generation_test/manifest.json')['prepared_path']==str(restored/'outputs/prepared_test')
+
+
+def test_markdown_edge_cases_and_no_evidence_registration(tmp_path):
+    """Empty edge-case Markdown stays in the published catalogue, never BM25 evidence."""
+    from expand_md import prepare_document, stratified
+    dataset = tmp_path / "dataset"
+    source_dir = dataset / "edge_cases" / "9002"
+    source_dir.mkdir(parents=True)
+    (source_dir / "9002.md").write_text(
+        "---\\nplanid: 9002\\ntitle: 只有元数据的规划\\n---\\n",
+        encoding="utf-8",
+    )
+    rows = {
+        "9001": {"split": "corpus", "admin_level": "市", "fyp_name": "十四五"},
+        "9002": {"split": "edge_cases", "admin_level": "市", "fyp_name": "十四五"},
+    }
+    assert set(stratified(rows, set())) == {"9001", "9002"}
+    assert stratified(rows, {"9001"}) == ["9002"]
+    checksum, status, prepared = prepare_document(
+        dataset, {"planid": "9002", **rows["9002"]}, None, {}, "fixture",
+    )
+    raw, data, detail = prepared
+    assert status == "indexed"
+    assert detail["catalog_only"] is True
+    assert detail["chunks"] == 0
+    assert data["chunks"] == []
+    assert data["documents"][0]["planid"] == "9002"
+    assert data["documents"][0]["catalog_only"] is True
+
+
+def test_empty_bm25_shard_is_a_valid_catalog_only_batch(tmp_path):
+    """A batch that contains only no-text sources must remain publishable."""
+    index = BM25SLexical(tmp_path / "bm25")
+    try:
+        assert index.build("empty", [])["documents"] == 0
+        assert index.validate("empty", [])["passed"]
+        assert index.search("规划", 5) == []
+    finally:
+        index.close()

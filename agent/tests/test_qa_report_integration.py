@@ -6,32 +6,14 @@ from types import SimpleNamespace
 import pytest
 
 import guance_agent.orchestrator as orchestrator
-from guance_agent.agent import build_agent as real_build_agent
 from guance_agent.kb import MockKB
 from guance_agent.runtime import Runtime
-from guance_agent.schemas import RunResult
 
 from .fake_model import FakeModel, tool
 
 
 def _configured(env):
     return replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
-
-
-def _report_payload(hit):
-    quote = hit.content[:24]
-    claim = {"text": "政策条文提出农业发展任务。", "chunk_ids": [hit.chunk_id],
-             "quotes": [quote]}
-    return json.dumps({
-        "answer": "本报告整理一个政策维度。",
-        "claims": [claim],
-        "insufficient": False,
-        "report": {"dimensions": ["支持措施"], "blocks": [{
-            "id": "fact-1", "title_path": ["支持措施"], "dimension": "支持措施",
-            "kind": "fact", "text": "政策条文提出农业发展任务。",
-            "supporting_claim_indexes": [0],
-        }]},
-    }, ensure_ascii=False)
 
 
 class VerifiableMockKB(MockKB):
@@ -53,210 +35,81 @@ class VerifiableMockKB(MockKB):
         raise KeyError(chunk_id)
 
 
-def _install_model(monkeypatch, settings, script):
+async def _run_report(env, monkeypatch, *, approve=True, targets=None, text=None,
+                      truncate=False):
+    from agents.exceptions import ModelBehaviorError
+
+    from .fake_model import fact_submission, install_audit, sdk_read, sdk_search
+
+    settings, task = _configured(env), env[1]
+    kb = VerifiableMockKB(settings.mock_kb_path)
+    hit = kb.search("农业", None, None, 1)[0]
+    task = task.model_copy(update={"targets": targets, "question": "农业"})
+    script = [[sdk_search()], [sdk_read(hit)], fact_submission(hit, text=text)]
+    if truncate:
+        def record(instructions):
+            submission = fact_submission(hit)(instructions)[0]
+            candidates = json.loads(submission.arguments)["evidence_candidates"]
+            return [tool("record_evidence_batch", items=candidates)]
+        script[2:] = [record, ModelBehaviorError("truncated draft")]
     model = FakeModel(script)
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda _settings: object())
-    monkeypatch.setattr(orchestrator, "chat_model", lambda _settings, _client: object())
-    monkeypatch.setattr(orchestrator, "build_agent",
-                        lambda _settings, _model: real_build_agent(settings, model))
-
-
-@pytest.mark.asyncio
-async def test_submit_reviews_verified_report_once_and_publishes_qa_report_1(env, monkeypatch):
-    settings, task = _configured(env), env[1]
-    kb = VerifiableMockKB(settings.mock_kb_path)
-    hit = kb.search("农业", None, None, 1)[0]
-    _install_model(monkeypatch, settings, [
-        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
-        _report_payload(hit),
-    ])
-    reviewed = []
-
-    async def review(self, messages, *, max_tokens, timeout, purpose="text_completion"):
-        payload = json.loads(messages[1]["content"].split("\n", 1)[1])
-        reviewed.append((messages, max_tokens, timeout))
-        return json.dumps({
-            "facts": [{"index": item["index"], "supported": True}
-                      for item in payload["facts"]],
-            "blocks": [{"id": item["id"], "supported": True}
-                       for item in payload["blocks"]],
-        }, ensure_ascii=False)
-
-    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr(Runtime, "complete_text", review)
+    reviews = install_audit(monkeypatch, approve=approve)
+    monkeypatch.setattr(orchestrator, "get_kb", lambda _: kb)
+    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: model)
     result = await orchestrator.run_task(task, settings, Runtime(settings, task))
+    return result, hit, reviews
 
-    assert result.status == "completed"
-    assert result.meta["qa_report"]["review_model_calls"] == 1
-    assert len(reviewed) == 1 and reviewed[0][1] > 0 and reviewed[0][2] > 0
+
+async def test_report_review_once_on_the_sdk_path(env, monkeypatch):
+    result, hit, reviews = await _run_report(env, monkeypatch)
+    assert len(reviews) == 1 and reviews[0][1] > 0 and reviews[0][2] > 0
     assert result.structured["schema_version"] == "qa-report/1"
-    assert result.structured["blocks"][0]["verification"] == "model_reviewed_evidence_linked"
-    assert "农业发展任务" in result.answer
+    assert result.structured["blocks"][0]["supporting_chunk_ids"] == [hit.chunk_id]
+    assert result.evidence_status == "verified" and hit.content[:24].strip() in result.answer
 
 
-@pytest.mark.asyncio
-async def test_submit_report_review_timeout_keeps_only_quote_verified_facts(env, monkeypatch):
-    settings, task = _configured(env), env[1]
-    kb = VerifiableMockKB(settings.mock_kb_path)
-    hit = kb.search("农业", None, None, 1)[0]
-    _install_model(monkeypatch, settings, [
-        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
-        _report_payload(hit),
-    ])
-
-    async def timeout(self, messages, *, max_tokens, timeout, purpose="text_completion"):
-        raise TimeoutError
-
-    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr(Runtime, "complete_text", timeout)
-    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
-
-    assert result.status == "completed"
-    assert result.meta["qa_report"]["semantic_review"] == "timeout"
-    assert result.structured["verification"]["facts"] == "not_reviewed"
-    blocks = result.structured["blocks"]
-    assert len(blocks) == 1
-    assert blocks[0]["kind"] == "fact"
-    assert blocks[0]["verification"] == "quote_verified"
-    assert blocks[0]["text"] == result.claims[0].text
-    assert blocks[0]["supporting_chunk_ids"] == result.claims[0].chunk_ids
-    assert "农业发展任务" in result.answer
-    assert "本报告整理一个政策维度" not in result.answer
+async def test_review_timeout_keeps_only_the_verified_excerpt(env, monkeypatch):
+    result, hit, reviews = await _run_report(env, monkeypatch, approve=TimeoutError())
+    assert reviews and result.claims and result.claims[0].text == hit.content[:24].strip()
+    assert [r.chunk_id for r in result.evidence_refs] == [hit.chunk_id]
+    assert hit.content[:24].strip() in result.answer
+    assert result.meta["research_delivery"]["status"] == "partial"
+    assert not result.meta["research_delivery"]["audited_analysis"]
 
 
-@pytest.mark.asyncio
-async def test_multiobject_report_marks_object_without_evidence_as_missing(env, monkeypatch):
-    settings, base_task = _configured(env), env[1]
-    kb = VerifiableMockKB(settings.mock_kb_path)
-    hit = kb.search("农业", None, None, 1)[0]
-    task = base_task.model_copy(update={"targets": [hit.planid, "MISSING-POLICY"]})
-    _install_model(monkeypatch, settings, [
-        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
-        _report_payload(hit),
-        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
-        json.dumps({"answer": "没有取得正文", "claims": [], "insufficient": True},
-                   ensure_ascii=False),
-    ])
-
-    async def review(self, messages, *, max_tokens, timeout, purpose="text_completion"):
-        payload = json.loads(messages[1]["content"].split("\n", 1)[1])
-        return json.dumps({
-            "facts": [{"index": item["index"], "supported": True}
-                      for item in payload["facts"]],
-            "blocks": [{"id": item["id"], "supported": True}
-                       for item in payload["blocks"]],
-        }, ensure_ascii=False)
-
-    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr(Runtime, "complete_text", review)
-    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
-
+async def test_object_without_evidence_is_a_report_gap(env, monkeypatch):
+    result, hit, _ = await _run_report(env, monkeypatch, targets=["TEST-001", "MISSING-POLICY"])
+    assert hit.planid == "TEST-001" and result.claims
+    assert result.route["objects"][1]["status"] == "insufficient"
     assert result.structured["coverage"]["status"] == "partial"
-    assert "planid MISSING-POLICY（未取得证据）" in result.structured["coverage"]["missing"]
     assert len(result.structured["blocks"]) == 1
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("task_type", ["qa", "extract"])
-async def test_no_report_or_non_qa_never_calls_report_finalizer(env, monkeypatch, task_type):
-    settings = _configured(env)
-    task = env[1].model_copy(update={"task_type": task_type})
-    calls = []
+async def test_unstructured_model_prose_does_not_trigger_review_or_delivery(env, monkeypatch, task_type):
+    from .fake_model import install_audit
 
-    async def fake_single(task, _settings, _ctx, _rt, _deadline, _decision):
-        return RunResult(run_id=task.run_id, session_id=task.session_id,
-                         status="completed", evidence_status="none", answer="旧格式回答",
-                         claims=[], evidence_refs=[], dropped_chunk_ids=[], error=None, meta={})
-
-    async def no_verify(_result, _ctx):
-        return 0
-
-    async def should_not_finalize(*args):
-        calls.append(args)
-        raise AssertionError("未提供 report 或非 QA 任务不应进行语义审核")
-
-    monkeypatch.setattr(orchestrator, "_run_single", fake_single)
-    monkeypatch.setattr(orchestrator, "verify_quotes", no_verify)
-    monkeypatch.setattr(orchestrator, "verify_numbers", no_verify)
-    monkeypatch.setattr(orchestrator, "finalize_report", should_not_finalize)
+    settings, task = _configured(env), env[1].model_copy(update={"task_type": task_type})
+    model = FakeModel(["旧格式回答"])
+    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: model)
+    reviews = install_audit(monkeypatch)
     result = await orchestrator.run_task(task, settings, Runtime(settings, task))
+    assert "旧格式回答" not in result.answer and not result.claims
+    assert reviews == []
 
-    assert result.answer == "旧格式回答"
-    assert calls == []
 
-
-@pytest.mark.asyncio
-async def test_qa_report_retractions_happen_before_research_contract_evaluation(env, monkeypatch):
-    """A QA report must not remain contract-complete after semantic review withdraws its evidence."""
-    settings, task = _configured(env), env[1]
-    kb = VerifiableMockKB(settings.mock_kb_path)
-    hit = kb.search("农业", None, None, 1)[0]
-    _install_model(monkeypatch, settings, [
-        [tool("kb_search", query="农业", area=None, fyp=None, top_k=1)],
-        _report_payload(hit),
-    ])
-
-    async def reject(self, messages, *, max_tokens, timeout, purpose="text_completion"):
-        payload = json.loads(messages[1]["content"].split("\n", 1)[1])
-        return json.dumps({
-            "facts": [{"index": item["index"], "supported": False}
-                      for item in payload["facts"]],
-            "blocks": [{"id": item["id"], "supported": False}
-                       for item in payload["blocks"]],
-        }, ensure_ascii=False)
-
-    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr(Runtime, "complete_text", reject)
-    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
-
-    assert result.meta["qa_report"]["semantic_review"] == "model_reviewed"
-    assert result.structured["schema_version"] == "qa-report/1"
-    assert result.structured["blocks"] == []
-    assert result.claims == []
+async def test_rejected_paraphrase_is_removed_before_contract_evaluation(env, monkeypatch):
+    result, _, reviews = await _run_report(env, monkeypatch, text="农业发展任务", approve=False)
+    assert reviews and not result.claims and not result.evidence_refs
+    assert not result.structured and "农业发展任务" not in result.answer
     assert result.meta["research"]["status"] == "insufficient"
     assert "verified_claims_missing" in result.meta["research"]["gaps"]
-    assert "农业发展任务" not in result.answer
 
 
-@pytest.mark.asyncio
-async def test_truncated_claims_reach_readable_answer_after_actual_verification(env, monkeypatch):
-    """The ordinary run_task pipeline must publish a verified partial report, not placeholder text."""
-    from guance_agent.runner import ExecOutcome
-
-    settings, task = _configured(env), env[1]
-    settings = replace(settings, llm_max_output_tokens=8)
-    kb = VerifiableMockKB(settings.mock_kb_path)
-    hit = kb.search("农业", None, None, 1)[0]
-    quote = hit.content[:24]
-    raw = json.dumps({
-        "answer": "未完成",
-        "claims": [{"text": "农业发展任务", "chunk_ids": [hit.chunk_id],
-                    "quotes": [quote]}],
-    }, ensure_ascii=False)
-    # The final claim must be fully closed, while the following JSON content
-    # is truncated at the output cap; do not recover an unfinished claim.
-    raw = raw[:-1] + ', "report": {"dimensions": ['
-    monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda _settings: object())
-
-    async def limited_response(_task, _settings, ctx, rt, _deadline):
-        ctx.evidence.add_result([hit], "kb_search")
-        ctx.tool_calls.append({"name": "kb_search", "status": "ok", "message": ""})
-        return ExecOutcome(raw, None, telemetry={
-            "model_calls": 1, "input_tokens": 200, "output_tokens": 8,
-            "per_call": [{"input": 200, "output": 8}],
-        })
-
-    monkeypatch.setattr(orchestrator, "_execute_once", limited_response)
-    result = await orchestrator.run_task(task, settings, Runtime(settings, task))
-
-    assert result.status == "completed"
-    assert result.meta["output_parse"]["recovery"] == "complete_claims_only"
-    assert result.claims
-    assert result.evidence_refs
-    assert "农业发展任务" in result.answer
-    assert "planid=" in result.answer
-    assert "仅保留已完整生成的政策事实" not in result.answer
-    assert result.structured["qa_recovery"]["status"] == "partial"
-    assert result.evidence_status == "insufficient"
-    assert result.meta["research"]["status"] == "partial"
+async def test_truncated_draft_keeps_only_previously_recorded_verbatim_facts(env, monkeypatch):
+    result, hit, reviews = await _run_report(env, monkeypatch, truncate=True)
+    assert not reviews and result.claims and result.evidence_refs
+    assert hit.content[:24].strip() in result.answer
+    assert result.meta["research_core"]["protocol_error_type"] == "ModelBehaviorError"
+    assert result.meta["research_delivery"]["status"] == "partial"
+    assert not result.meta["research_delivery"]["audited_analysis"]

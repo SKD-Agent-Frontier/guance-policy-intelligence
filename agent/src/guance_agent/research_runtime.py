@@ -262,7 +262,7 @@ class ResearchRuntime:
         identity_gaps = []
         for document in self._plan.documents:
             source_refs = [ref for ref in refs.values() if ref.planid == document.planid]
-            if source_refs and all(self._document_ref_matches(ref) for ref in source_refs):
+            if source_refs and all(self.document_ref_matches(ref) for ref in source_refs):
                 identity_verified.append(document.planid)
             else:
                 identity_gaps.append(document.planid)
@@ -288,7 +288,7 @@ class ResearchRuntime:
         claims = list(getattr(result, "claims", None) or [])
         trusted_claims = [claim for claim in claims if claim.chunk_ids
                           and set(claim.chunk_ids) <= set(refs)
-                          and all(self._document_ref_matches(refs[cid]) for cid in claim.chunk_ids)]
+                          and all(self.document_ref_matches(refs[cid]) for cid in claim.chunk_ids)]
         refs_by_id = {ref.chunk_id: ref for ref in getattr(result, "evidence_refs", None) or []}
         result_ids = {chunk_id for chunk_id, ref in refs_by_id.items()
                       if chunk_id in refs and self._same_source(refs[chunk_id], ref)}
@@ -558,7 +558,7 @@ class ResearchRuntime:
                 return False
         return True
 
-    def _document_ref_matches(self, ref) -> bool:
+    def document_ref_matches(self, ref) -> bool:
         document = next((item for item in self._plan.documents if item.planid == ref.planid), None)
         if document is None:
             return True
@@ -576,7 +576,7 @@ class ResearchRuntime:
                 and isinstance(chunk_ids, list) and bool(chunk_ids)
                 and set(chunk_ids) <= set(result_ids) and set(chunk_ids) <= set(used_ids)
                 and all(registry_refs[cid].planid == planid
-                        and self._document_ref_matches(registry_refs[cid]) for cid in chunk_ids))
+                        and self.document_ref_matches(registry_refs[cid]) for cid in chunk_ids))
 
     @staticmethod
     def _valid_analysis_entry(entry, planid, field, valid_cells) -> bool:

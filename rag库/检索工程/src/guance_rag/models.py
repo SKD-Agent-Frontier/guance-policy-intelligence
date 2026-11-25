@@ -13,6 +13,7 @@ class SourceInfo(BaseModel):
     fyp: str | None
     admin_level: str | None
     plantype_label: str | None
+    plan_stage: str | None = None
     document_id: str
     document_version_id: str | None
     source_hash: str

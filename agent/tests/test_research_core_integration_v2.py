@@ -16,11 +16,12 @@ from guance_agent.runtime import Runtime
 from guance_agent.schemas import Claim, EvidenceRef, RunResult
 from guance_agent.verify import verify_quotes
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, tool, versioned_kb
 
 
 @pytest.mark.asyncio
-async def test_run_sdk_task_full_offline_native_research_path(env, monkeypatch):
+@pytest.mark.parametrize("generation", ["generation-test", "another-generation"])
+async def test_run_sdk_task_full_offline_native_research_path(env, monkeypatch, generation):
     settings, base_task = env
     question = "请查询planid TEST-001中的农业灌溉设施事实。"
     settings = replace(settings, llm_base_url="https://fake.invalid/v1",
@@ -31,7 +32,7 @@ async def test_run_sdk_task_full_offline_native_research_path(env, monkeypatch):
         "created_at": "2026-10-23T00:00:00Z",
     })
     decision = decide(question)
-    kb = MockKB(settings.mock_kb_path)
+    kb = versioned_kb(settings.mock_kb_path, generation)
     monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
 
     run_context = orchestrator.RunContext(
@@ -47,9 +48,6 @@ async def test_run_sdk_task_full_offline_native_research_path(env, monkeypatch):
     frozen = planned_state.freeze_requirements(proposals)
     requirement_ids = [item["id"] for item in frozen["requirements"]]
     source_quote = "完善农业灌溉设施"
-    monkeypatch.setattr(kb, "verify_quote",
-                        lambda _chunk_id, quote, *_args, **_kwargs: quote == source_quote,
-                        raising=False)
 
     async def audit(state, _mapped):
         return json.dumps({
@@ -109,6 +107,16 @@ async def test_run_sdk_task_full_offline_native_research_path(env, monkeypatch):
     assert result.meta["qa_execution_mode"] == "sdk_research"
     assert result.meta["research_discovery"]["documents"][0]["planid"] == "TEST-001"
     assert result.meta["research_core"]["audit"]["passed"] is True
+    if generation != "generation-test":
+        assert result.claims == [] and result.evidence_refs == []
+        assert result.structured is None
+        assert source_quote not in result.answer
+        assert result.meta["research_delivery"]["status"] == "insufficient"
+        assert result.meta["research_quality"]["status"] == "insufficient"
+        assert result.meta["research_core"]["status"] != "complete"
+        assert all(unit["evidence_claim_indexes"] == [] for unit in
+                   result.meta["research_quality"]["requirement_coverage"])
+        return
     assert result.meta["research_quality"]["status"] == "complete"
     assert result.structured["schema_version"] == "qa-report/1"
     assert result.structured["blocks"][0]["text"] == source_quote
@@ -218,17 +226,13 @@ async def test_research_core_quote_budget_verifies_over_twenty_reread_facts(env,
 @pytest.mark.asyncio
 async def test_semantically_rejected_block_claims_do_not_escape_delivery(env, monkeypatch):
     settings, base_task = env
-    settings = replace(settings, max_tool_calls=2,
+    settings = replace(settings, max_tool_calls=3,
                        llm_base_url="https://fake.invalid/v1", llm_api_key="offline-test-key")
     question = "請查planid TEST-001中的灌溉事實和灌溉作用分析。"
     task = base_task.model_copy(update={"question": question, "targets": ["TEST-001"]})
     decision = decide(question)
-    kb = MockKB(settings.mock_kb_path)
-    source = "完善农业灌溉设施，发展绿色农业。"
+    kb = versioned_kb(settings.mock_kb_path)
     monkeypatch.setattr(orchestrator, "get_kb", lambda _settings: kb)
-    monkeypatch.setattr(kb, "verify_quote",
-                        lambda _chunk_id, quote, *_args, **_kwargs: quote in source,
-                        raising=False)
 
     planned = ResearchState.create(
         orchestrator.RunContext(settings, kb, task.run_id, task.session_id,
@@ -301,3 +305,34 @@ async def test_semantically_rejected_block_claims_do_not_escape_delivery(env, mo
     assert [block["id"] for block in result.structured["blocks"]] == ["supported-fact"]
     assert rejected_quote not in result.answer
     assert rejected_quote not in to_markdown(result)
+
+@pytest.mark.asyncio
+async def test_source_confirmation_consumes_one_shared_call_and_survives_deadline(env, monkeypatch):
+    from .test_research_core import _make_state, _seed_read_fact
+
+    settings, task = env
+    run, _, state = _make_state(settings, task, "核对灌溉措施。")
+    quote = "完善农业灌溉设施"
+    cid = _seed_read_fact(state)
+    calls = []
+
+    def checker(chunk_id, text, ranges, **identity):
+        calls.append((chunk_id, text, ranges, identity))
+        return text == quote
+
+    monkeypatch.setattr(run.kb, "verify_quote", checker, raising=False)
+    assert await state.read_verification.confirm(state, cid, quote)
+    assert await state.read_verification.confirm(state, cid, quote)
+    assert state.io_calls == len(calls) == 1
+    state.deadline = time.monotonic() - 1
+    assert not await state.read_verification.confirm(state, cid, "发展绿色农业")
+    result = RunResult(run_id=task.run_id, session_id=task.session_id, status="limit_reached",
+                       evidence_status="insufficient", answer="", error=None, dropped_chunk_ids=[],
+                       claims=[Claim(text=quote, chunk_ids=[cid], quotes=[quote])],
+                       evidence_refs=[run.evidence.get(cid)], meta={})
+    state.read_verification.verify_result(result, run)
+    from guance_agent.delivery_gateway import finalize_public_delivery
+    await finalize_public_delivery(result, task, run, None, research_state=state)
+    assert len(calls) == 1
+    assert [claim.text for claim in result.claims] == [quote]
+    assert quote in result.answer

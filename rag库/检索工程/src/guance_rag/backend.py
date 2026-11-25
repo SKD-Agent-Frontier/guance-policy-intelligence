@@ -5,23 +5,15 @@ import time
 from filelock import FileLock, Timeout
 
 from .errors import BackendError, InvalidArgument, KBNoText, KBNotFound, RetrievalTimeout
+from .config import DEFAULT_STORE
+from .expansion import matches_metadata, metadata_value, normalized, validate_filters
 from .models import ChunkSpan, ContextSpan, DocCandidate, HitV03, PassageV03, TitleLookup
 from .media import MediaLibrary, SOURCE_TYPES
 from .retrieval import DenseReader, LexicalReader, QueryEncoder, fuse_sources
 from .storage import ReadStore
 
-FYP = {f"{n}五": f"第{n}个五年规划" for n in ("十一", "十二", "十三", "十四", "十五")}
-
-
-def normalize_fyp(value):
-    if value is None:
-        return None
-    key = "".join(c for c in value if not c.isspace() and c not in '\"\'“”‘’')
-    return FYP.get(key, value)
-
-
 class StoreBackend:
-    def __init__(self, options):
+    def __init__(self, options, *, lexical_tokenizer=None):
         self.options = options
         self.store = self.lexical = self.dense = self.encoder = None
         self.media = None
@@ -36,8 +28,10 @@ class StoreBackend:
             self.store.__init__(options.store_project)
             self.media = MediaLibrary(self.store, options)
             if options.mode in {"bm25", "hybrid"}:
-                self.lexical = LexicalReader(options.store_project, self.store.root / "bm25",
-                                             self.store.generation, options.cache_directory / "jieba")
+                components = DEFAULT_STORE if self.store.text_only else options.store_project
+                self.lexical = LexicalReader(components, self.store.root / "bm25",
+                                             self.store.generation, options.cache_directory / "jieba",
+                                             tokenizer=lexical_tokenizer)
                 self.lexical_ids = set(self.lexical.index.ids)
                 required = {rid for rid, row in self.store.all_members.items() if row["record"].get("representation_type", "text") == "text"}
                 if not required <= self.lexical_ids:
@@ -73,7 +67,8 @@ class StoreBackend:
                 return text[len(left):-len(right)].strip()
         return text
 
-    def find_by_title(self, title, *, area=None, fyp=None, deadline):
+    def find_by_title(self, title, *, area=None, fyp=None, admin_level=None,
+                      plantype=None, plan_stage=None, deadline):
         """按标题精确定位当前发布中的文档；返回候选与真实匹配数量。
 
         只遍历当前发布的文档元数据，不碰检索索引、不调模型。
@@ -88,27 +83,36 @@ class StoreBackend:
         if not wanted:
             raise InvalidArgument("title规范化后为空")
         area = (area.strip() or None) if area is not None else None
-        fyp = normalize_fyp(fyp.strip() or None) if fyp is not None else None
+        fyp = normalized("fyp_name", fyp)
+        filters = validate_filters(admin_level, plantype, plan_stage)
         candidates = []
-        for did in sorted(self.store.current_documents):
+        for did, document in self.store.document_records.items():
             self._deadline(deadline)
-            meta = self.store.metadata(self.store.document(did, self.store.generation))
-            if self._title_key(meta["title"]) != wanted:
+            meta = document["metadata"]
+            if self._title_key(metadata_value(document, "title")) != wanted or not matches_metadata(document, filters):
                 continue
-            own_area, own_fyp = meta["area"], meta["fyp"]
+            own_area = metadata_value(document, "area_name")
+            own_fyp = metadata_value(document, "fyp_name")
             if area is not None and not (own_area and area in own_area):
                 continue
             # fyp_name 是展示名（十四五），过滤值已规范成期号，两边必须同口径比较
-            if fyp is not None and normalize_fyp(own_fyp or "") != fyp:
+            if fyp is not None and normalized("fyp_name", own_fyp) != fyp:
                 continue
             candidates.append(DocCandidate(
-                planid=meta["planid"], title=meta["title"], area=own_area, fyp=own_fyp,
-                document_id=meta["document_id"],
-                document_version_id=meta["document_version_id"],
-                generation_id=meta["generation_id"]))
+                planid=document["planid"], title=meta["title"], area=own_area, fyp=own_fyp,
+                document_id=did, document_version_id=self.store.versions.get(did),
+                generation_id=self.store.generation))
         return TitleLookup(matched=len(candidates), candidates=candidates)
 
-    def search(self, query, area, fyp, top_k, *, source_types=None, planids=None, deadline):
+    def search(self, query, area, fyp, top_k, *, source_types=None, planids=None, deadline,
+               admin_level=None, plantype=None, plan_stage=None):
+        ranked = self.rank(query, area, fyp, top_k, source_types=source_types, planids=planids,
+                           admin_level=admin_level, plantype=plantype, plan_stage=plan_stage,
+                           deadline=deadline)
+        return self.render(ranked, top_k, deadline)
+
+    def rank(self, query, area, fyp, top_k, *, source_types=None, planids=None, deadline,
+             admin_level=None, plantype=None, plan_stage=None):
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 200:
             raise InvalidArgument("query须为1–200字符")
         for key, value in (("area", area), ("fyp", fyp)):
@@ -130,12 +134,18 @@ class StoreBackend:
             planids = set(planids)
         query = query.strip()
         area = (area.strip() or None) if area is not None else None
-        fyp = normalize_fyp(fyp.strip() or None) if fyp is not None else None
+        fyp = normalized("fyp_name", fyp)
+        filters = validate_filters(admin_level, plantype, plan_stage)
+        allowed_documents = None
+        if any(value is not None for value in filters.values()):
+            allowed_documents = {did for did, doc in self.store.document_records.items()
+                                 if matches_metadata(doc, filters)}
         members = self.store.all_members
         allowed = {rid for rid, row in members.items()
                    if row["record"]["source_type"] in source_types
                    and (area is None or (row["payload"].get("area_name") and area in row["payload"]["area_name"]))
-                   and (fyp is None or row["payload"].get("period_key") == fyp)
+                   and (fyp is None or normalized("fyp_name", row["payload"].get("period_key")) == fyp)
+                   and (allowed_documents is None or row["record"]["document_id"] in allowed_documents)
                    and (planids is None or row["payload"].get("planid") in planids)}
         self._deadline(deadline)
         if not allowed:
@@ -154,8 +164,15 @@ class StoreBackend:
                     raise BackendError("索引返回未发布或不满足条件的来源")
                 if "point_id" in hit and hit["point_id"] != members[hit["id"]]["record"]["point_id"]:
                     raise BackendError("向量身份与来源映射不一致")
-        ranked = fuse_sources(channels, members)
-        results, seen_contexts, remaining = [], set(), self.options.max_search_chars
+        return fuse_sources(channels, members)
+
+    def render(self, ranked, top_k, deadline, *, remaining=None, seen_contexts=None):
+        members = self.store.all_members
+        if remaining is None:
+            remaining = self.options.max_search_chars
+        if seen_contexts is None:
+            seen_contexts = set()
+        results = []
         for source, score, rid in ranked:
             self._deadline(deadline)
             row = members[rid]

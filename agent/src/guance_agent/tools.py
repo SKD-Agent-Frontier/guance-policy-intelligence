@@ -43,7 +43,18 @@ def _validate(s, name, args, kwargs):
                            for p in planids)):
                 raise ValueError("planids须为非空政策编号列表")
             planids = tuple(planids)
-        return (query.strip(), area, normalize_fyp(fyp), top_k), ({"planids": planids} if planids else {})
+        # Preserve user-specified structured constraints through the tool adapter.
+        # Previously _validate rebuilt kwargs with only planids and silently
+        # dropped admin_level/plantype/plan_stage before the RAG call.
+        search_kwargs = {"planids": planids} if planids else {}
+        for key in ("admin_level", "plantype", "plan_stage"):
+            value = kwargs.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or not 1 <= len(value.strip()) <= 50:
+                raise ValueError(f"{key}须为1–50字符的字符串")
+            search_kwargs[key] = value.strip()
+        return (query.strip(), area, normalize_fyp(fyp), top_k), search_kwargs
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):
         raise ValueError("planid须为 1–64 位字母、数字、下划线或连字符")
@@ -64,6 +75,15 @@ async def _call(ctx, name, fn, *args, **kwargs):
     started, detail = perf_counter(), None
     try:
         args, kwargs = _validate(ctx.settings, name, args, kwargs)
+        if name == "kb_read":
+            plan = getattr(ctx.research, "plan", None)
+            document = next((doc for doc in getattr(plan, "documents", ())
+                             if doc.planid == args[0] and doc.source_verified), None)
+            identity = document or ctx.evidence.get(kwargs.get("chunk_id"))
+            if identity is not None:
+                for key in ("document_id", "generation_id"):
+                    if value := getattr(identity, key, None):
+                        kwargs[key] = value
     except ValueError as exc:
         result = ToolResult(status="invalid_argument", message=f"参数不合法：{exc}")
     else:
@@ -137,8 +157,10 @@ async def _call(ctx, name, fn, *args, **kwargs):
 @function_tool(failure_error_function=None)
 async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
                     area: str | None = None, fyp: str | None = None,
-                    top_k: int | None = None) -> str:
+                    top_k: int | None = None, admin_level: str | None = None,
+                    plantype: str | None = None, plan_stage: str | None = None) -> str:
     """检索政策片段。area 可用地区简称；fyp 可用十四五；top_k 为 1–20，不填用服务默认值。
+    admin_level、plantype、plan_stage 用于用户明确要求的行政级别、规划类型和规划阶段。
     返回 status 和片段列表，含 chunk_id、planid、篇名、地区、规划期、章节路径和原文。
     """
     if top_k is None:
@@ -146,11 +168,14 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     # 路由确定的范围在整轮任务内持续生效：每次检索都限定，不是只在第一次限定
     scope = ctx.context.scope
     decision = ctx.context.route
+    filters = {key: value for key, value in dict(admin_level=admin_level, plantype=plantype,
+                                               plan_stage=plan_stage).items() if value is not None}
     # A trusted single-document planid is the authoritative scope.
     # Model-generated wrong area/period filters cannot exclude that document.
     # The planid restriction still applies to every search.
     if ctx.context.verified_scoped_document() is not None:
         area, fyp = None, None
+        filters.clear()
     # 开放式问答的明确地区/规划期是用户约束，不能由模型漏填或误写覆盖。
     # 多地区/多规划期查询保留模型多轮取证能力，不强行收窄至一个对象。
     if scope is None and getattr(decision, "kind", None) == "open":
@@ -159,7 +184,7 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
         if len(decision.fyps) == 1:
             fyp = decision.fyps[0]
     return await _call(ctx.context, "kb_search", ctx.context.kb.search,
-                       query, area, fyp, top_k, planids=scope)
+                       query, area, fyp, top_k, planids=scope, **filters)
 
 @function_tool(failure_error_function=None)
 async def kb_read(ctx: RunContextWrapper[RunContext], planid: str,

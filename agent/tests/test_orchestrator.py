@@ -1,36 +1,28 @@
-import json
 import time
 from dataclasses import replace
 
 from guance_agent.orchestrator import run_task
-from guance_agent.runner import ExecOutcome
 from guance_agent.runtime import Runtime
+
+from .sdk_fact_fakes import FACT, install_fact_model
 
 
 def _configured(env):
     return replace(env[0], llm_base_url="https://example.invalid/v1", llm_api_key="offline-key")
 
 
-def _stub_model(monkeypatch):
-    monkeypatch.setattr("guance_agent.runtime.get_client", lambda s: object())
-    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda s, c: object())
-    monkeypatch.setattr("guance_agent.orchestrator.build_agent", lambda s, m: object())
-
-
-def _answer():
-    return json.dumps({"answer": "ok", "claims": [], "insufficient": False})
-
-
 async def test_execute_receives_absolute_deadline(env, monkeypatch):
     s, task = _configured(env), env[1]
-    _stub_model(monkeypatch)
+    install_fact_model(monkeypatch, s)
     seen = {}
 
-    async def fake_execute(agent, task, ctx, rt, deadline=None):
-        seen["deadline"] = deadline
-        return ExecOutcome(_answer(), None)
+    from guance_agent.research_core import execute_research_core
 
-    monkeypatch.setattr("guance_agent.orchestrator.execute", fake_execute)
+    async def observe_execute(agent, state, runtime):
+        seen["deadline"] = state.deadline
+        return await execute_research_core(agent, state, runtime)
+
+    monkeypatch.setattr("guance_agent.orchestrator.execute_research_core", observe_execute)
     before = time.monotonic()
     result = await run_task(task, s, Runtime(s, task))
     after = time.monotonic()
@@ -47,12 +39,8 @@ async def test_missing_config_does_not_touch_kb(env, tmp_path):
 
 async def test_finish_oserror_keeps_answer(env, monkeypatch):
     s, task = _configured(env), env[1]
-    _stub_model(monkeypatch)
+    install_fact_model(monkeypatch, s)
 
-    async def fake_execute(agent, task, ctx, rt, deadline=None):
-        return ExecOutcome(_answer(), None)
-
-    monkeypatch.setattr("guance_agent.orchestrator.execute", fake_execute)
     rt = Runtime(s, task)
 
     def fail_finish(result, ctx):
@@ -61,5 +49,6 @@ async def test_finish_oserror_keeps_answer(env, monkeypatch):
     monkeypatch.setattr(rt, "finish", fail_finish)
     result = await run_task(task, s, rt)
     assert result.status == "completed"
-    assert result.answer == "ok"
+    assert FACT in result.answer
+    assert result.claims[0].text == FACT
     assert result.meta["finish_failed"] == "PermissionError"

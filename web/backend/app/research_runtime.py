@@ -111,7 +111,7 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
             "admin_level": record.admin_level,
             "plantype_label": record.plantype_label,
             "document_id": record.document_id,
-            "generation_id": catalog.snapshot.generation_id,
+            "generation_id": record.generation_id or catalog.snapshot.generation_id,
             "source": "policy_catalog",
         })
     # Do not validate regions by copying discovered city names into user

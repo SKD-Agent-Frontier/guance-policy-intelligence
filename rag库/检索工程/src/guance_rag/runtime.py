@@ -6,7 +6,7 @@ import queue
 import threading
 import time
 
-from .backend import StoreBackend
+from .published import PublishedBackend
 from .config import RuntimeOptions
 from .errors import BackendError, RetrievalError, RetrievalTimeout
 
@@ -24,7 +24,7 @@ class _Job:
 class RagKnowledgeBase:
     name = "guance-rag-local"
 
-    def __init__(self, options=None, *, backend_factory=StoreBackend):
+    def __init__(self, options=None, *, backend_factory=PublishedBackend):
         self.options = options or RuntimeOptions()
         self._queue = queue.Queue(self.options.queue_capacity)
         self._stop = threading.Event()
@@ -107,13 +107,18 @@ class RagKnowledgeBase:
             job.future.cancel()
             raise RetrievalTimeout("RAG执行等待超时；库线程仍拥有资源直到实际任务结束") from None
 
-    def search(self, query, area=None, fyp=None, top_k=8, *, source_types=None, planids=None):
+    def search(self, query, area=None, fyp=None, top_k=8, *, source_types=None, planids=None,
+               admin_level=None, plantype=None, plan_stage=None):
+        fields = {k: v for k, v in dict(admin_level=admin_level, plantype=plantype,
+                                       plan_stage=plan_stage).items() if v is not None}
         return self._submit("search", query=query, area=area, fyp=fyp, top_k=top_k,
-                            source_types=source_types, planids=planids)
+                            source_types=source_types, planids=planids, **fields)
 
-    def find_by_title(self, title, *, area=None, fyp=None):
+    def find_by_title(self, title, *, area=None, fyp=None, admin_level=None, plantype=None, plan_stage=None):
         """按标题精确定位当前发布中的文档，返回候选与真实匹配数量。"""
-        return self._submit("find_by_title", title=title, area=area, fyp=fyp)
+        fields = {k: v for k, v in dict(admin_level=admin_level, plantype=plantype,
+                                       plan_stage=plan_stage).items() if v is not None}
+        return self._submit("find_by_title", title=title, area=area, fyp=fyp, **fields)
 
     def read(self, planid, section_idx=None, max_chars=None, *, chunk_id=None, source_id=None, offset=0,
              document_id=None, generation_id=None):

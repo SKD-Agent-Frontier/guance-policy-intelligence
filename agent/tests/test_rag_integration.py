@@ -274,28 +274,32 @@ async def test_no_verify_quote_backend_removes_unverified_claim(tmp_path):
 
 
 async def test_orchestrator_actually_calls_verify_quotes(tmp_path, monkeypatch):
-    """守卫：核验必须真的挂在执行链上，不能只是 verify.py 里有个函数。"""
+    """验证已回读的候选结论进入真实核验器，并在引用验证失败时被拒绝。"""
     import guance_agent.orchestrator as orch
     from guance_agent.runtime import Runtime
     from guance_agent.schemas import TaskRequest
+    from tests.sdk_fact_fakes import FACT, install_fact_model
 
-    calls = []
-
-    async def fake_verify(result, ctx):
-        calls.append(True)
-
-    monkeypatch.setattr(orch, "verify_quotes", fake_verify)
     s = Settings(session_path=tmp_path / "s.sqlite", run_log=tmp_path / "r.jsonl",
-                 llm_base_url="", llm_api_key="")
-    task = TaskRequest(run_id="r", session_id="s", question="q", created_at="x")
+                 llm_base_url="https://model.invalid/v1", llm_api_key="offline-test-key")
+    task = TaskRequest(run_id="r", session_id="s", question="甲市农业重点", created_at="x")
+    install_fact_model(monkeypatch, s)
+    checked = []
+
+    def reject_quote(chunk_id, quote, observed_ranges, **_identity):
+        checked.append((chunk_id, quote, observed_ranges))
+        return False
+
+    monkeypatch.setattr(orch.get_kb(s), "verify_quote", reject_quote)
     rt = Runtime(s, task)
     rt.prepare()
     try:
-        await orch.run_task(task, s, rt)
+        result = await orch.run_task(task, s, rt)
     finally:
         rt.close()
-    # 无模型配置时走 MODEL_UNAVAILABLE 分支，不进入执行链；这里只验证接线存在
-    assert hasattr(orch, "verify_quotes")
+    assert any(quote == FACT and observed for _chunk, quote, observed in checked)
+    assert not result.claims and not result.evidence_refs
+    assert FACT not in result.answer
 
 
 # ---------------- 答案正文的数字核对（⑤-06） ----------------

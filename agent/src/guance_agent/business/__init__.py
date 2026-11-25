@@ -23,6 +23,11 @@ def register(module: BusinessModule) -> None:
     _MODULES[name] = module
 
 
+def registered_modules() -> dict[str, BusinessModule]:
+    """Snapshot installed capabilities once per request."""
+    return dict(_MODULES)
+
+
 def get_module(name: str) -> BusinessModule | None:
     return _MODULES.get(name)
 

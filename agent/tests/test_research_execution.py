@@ -7,7 +7,7 @@ from guance_agent.research_contract import TaskContract
 from guance_agent.research_planner import ResearchPlanner
 from guance_agent.research_runtime import ResearchRuntime
 from guance_agent.runtime import Runtime
-from guance_agent.schemas import RunResult, TaskRequest
+from guance_agent.schemas import TaskRequest
 
 
 def _task():
@@ -68,29 +68,17 @@ async def _run_case(env, monkeypatch, *, max_revisions):
     seen = []
 
     monkeypatch.setattr("guance_agent.orchestrator.get_kb", lambda _settings: object())
-    monkeypatch.setattr("guance_agent.orchestrator.get_module", lambda _name: object())
+    monkeypatch.setattr("guance_agent.orchestrator.chat_model", lambda *_args: "offline")
 
     async def discover(_task, _contract, _plan, _deadline):
         return _discovery(task, contract)
 
-    async def execute_business(planned_task, _settings, run_runtime, _ctx, _deadline, _decision, _module):
-        seen.append(list(planned_task.targets or []))
-        return RunResult(
-            run_id=planned_task.run_id,
-            session_id=planned_task.session_id,
-            status="completed",
-            evidence_status="none",
-            answer="已按发现结果执行",
-            claims=[],
-            evidence_refs=[],
-            dropped_chunk_ids=[],
-            error=None,
-            meta=dict(run_runtime.meta),
-            task_type=planned_task.task_type,
-            structured={},
-        )
+    async def execute_research(_agent, state, _runtime):
+        assert state.required_capability == "compare"
+        seen.append(list(state.authorized_scope or []))
+        return ""
 
-    monkeypatch.setattr("guance_agent.orchestrator._run_business", execute_business)
+    monkeypatch.setattr("guance_agent.orchestrator.execute_research_core", execute_research)
     result = await run_task(task, s, Runtime(s, task),
                             research_discoverer=discover, research_runtime=research)
     return result, research, seen

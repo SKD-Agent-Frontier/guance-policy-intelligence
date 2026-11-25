@@ -543,6 +543,11 @@ def _to_structured(result: RunResult, candidates: list[dict], current: dict,
                        if semantic_review == "model_reviewed" else "not_reviewed"),
         },
     }
+    if semantic_review == "model_reviewed":
+        refs_by_id = {ref.chunk_id: ref for ref in result.evidence_refs}
+        for block in blocks:
+            dependencies = [result.claims[i] for i in block["supporting_claim_indexes"]]
+            result._review_receipts.approve(block, dependencies, refs_by_id)
     # Render only the validated, source-safe blocks. Candidate text rejected by
     # local source checks must not survive solely in the readable answer.
     accepted_ids = {block["id"] for block in blocks}

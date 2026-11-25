@@ -13,6 +13,7 @@ from guance_agent.business.organize import OrganizeModule
 from guance_agent.main import submit
 
 from . import fake_model
+from .business_sdk_fakes import install_business_sdk
 from .organize_fakes import MultiDocKB, mock_payload
 from .test_compare import ComparisonKB, ComparisonModel
 
@@ -25,9 +26,14 @@ def production_modules():
     assert isinstance(business.get_module("organize"), OrganizeModule)
 
 
+@pytest.fixture
+def sdk_business_driver(monkeypatch):
+    install_business_sdk(monkeypatch)
+
+
 @pytest.mark.parametrize("targets", [None, ["P000", "P001"]])
 async def test_production_organize_submit_supports_open_topic_and_targets(
-        env, monkeypatch, production_modules, targets):
+        env, monkeypatch, production_modules, sdk_business_driver, targets):
     settings = replace(env[0], llm_base_url="https://example.invalid/v1",
                        llm_api_key="offline-test-key")
     kb = MultiDocKB()
@@ -44,7 +50,7 @@ async def test_production_organize_submit_supports_open_topic_and_targets(
                           task_type="organize", targets=targets)
 
     assert result.status == "completed" and result.error is None
-    assert result.evidence_status == "verified" and result.structured["schema_version"] == "organize/1"
+    assert result.evidence_status == "verified" and result.structured["schema_version"] == "organize/1", result.model_dump_json()
     assert result.route["targets"] == targets
     assert result.structured["scope"]["targets"] == targets
     assert all(call[-1] == (tuple(targets) if targets is not None else None)
@@ -53,7 +59,7 @@ async def test_production_organize_submit_supports_open_topic_and_targets(
 
 @pytest.mark.parametrize("task_type", ["compare", "compare_plans"])
 async def test_production_comparison_submit_remains_available(
-        env, monkeypatch, production_modules, task_type):
+        env, monkeypatch, production_modules, sdk_business_driver, task_type):
     settings = replace(env[0], llm_base_url="https://example.invalid/v1",
                        llm_api_key="offline-test-key")
     kb, model = ComparisonKB(), ComparisonModel()
@@ -85,10 +91,13 @@ async def test_production_qa_and_extract_submit_keep_claim_evidence_links(
     quote = "完善成果转化服务体系。"
     claims = [{"text": quote, "chunk_ids": ["policyA-c0"], "quotes": [quote],
                "dimension": "政策工具"}]
+    install_business_sdk(monkeypatch)
+    from .business_sdk_fakes import BusinessSDKModel
+
+    hit = kb.hits[0]
     qa_model = fake_model.FakeModel([
-        [fake_model.tool("kb_search", query="科技创新", area=None, fyp=None, top_k=8)],
-        [fake_model.tool("kb_read", planid="policyA", chunk_id="policyA-c0")],
-        fake_model.answer(quote, claims),
+        [fake_model.sdk_search("科技创新")], [fake_model.sdk_read(hit)],
+        fake_model.fact_submission(hit, text=quote, quote=quote),
     ])
     monkeypatch.setattr(orchestrator, "chat_model", lambda _settings, _client: qa_model)
 
@@ -103,6 +112,7 @@ async def test_production_qa_and_extract_submit_keep_claim_evidence_links(
 
     client = SimpleNamespace(chat=SimpleNamespace(completions=ExtractModel()))
     monkeypatch.setattr(runtime, "get_client", lambda _settings: client)
+    monkeypatch.setattr(orchestrator, "chat_model", lambda *_: BusinessSDKModel())
     extracted = await submit("提取科技创新政策工具", settings=settings, task_type="extract",
                              targets=["policyA"], dimensions=["政策工具"])
 
@@ -112,13 +122,13 @@ async def test_production_qa_and_extract_submit_keep_claim_evidence_links(
             result.model_dump_json()
         ref_ids = {ref.chunk_id for ref in result.evidence_refs}
         assert all(set(claim.chunk_ids) <= ref_ids for claim in result.claims)
-    assert qa.structured is None
+    assert qa.structured["schema_version"] == "qa-report/1"
     assert extracted.structured["elements"][0]["dimension"] == "政策工具"
     assert qa.run_id != extracted.run_id
 
 
 async def test_production_business_calls_in_one_session_do_not_share_results(
-        env, monkeypatch, production_modules):
+        env, monkeypatch, production_modules, sdk_business_driver):
     settings = replace(env[0], llm_base_url="https://example.invalid/v1",
                        llm_api_key="offline-test-key")
     kb_state = {"value": MultiDocKB()}

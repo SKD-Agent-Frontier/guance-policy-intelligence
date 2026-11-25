@@ -12,7 +12,7 @@ from guance_agent.research_core import (
 )
 from guance_agent.schemas import ChunkSpan, EvidenceRef, Passage, RunError
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, seed_read_page, tool
 from .test_research_core import _make_state, _seed_read_fact
 
 
@@ -31,7 +31,7 @@ def _seed_two_sentence_passage(state):
             chunk_char_start=cursor, chunk_char_end=end, source="kb_read",
             observed_ranges=[(cursor, end)], complete=True,
         ))
-        state.read_text[chunk_id] = [quote]
+        seed_read_page(state, chunk_id, quote)
         spans.append(ChunkSpan(chunk_id=chunk_id, char_start=cursor, char_end=end,
                                 complete=True))
         cursor = end

@@ -19,7 +19,7 @@ from guance_agent.routing import decide
 from guance_agent.runtime import Runtime
 from guance_agent.schemas import EvidenceRef
 
-from .fake_model import FakeModel, tool
+from .fake_model import FakeModel, seed_read_page, tool
 
 
 def _run_context(env, question, route, *, scope=None):
@@ -148,7 +148,7 @@ def test_same_document_comparison_can_support_both_content_periods(env):
         chunk_char_end=len(passage),
         source="kb_read",
     ))
-    state.read_text[chunk_id] = [passage]
+    seed_read_page(state, chunk_id, passage)
 
     assert frozen["frozen"] is True
     assert set(requirements) == {
@@ -221,7 +221,7 @@ async def test_partial_delivery_keeps_supported_block_and_rejects_unsupported_bl
         section_path="农业发展", char_start=0, char_end=len(source_sentence),
         chunk_char_start=0, chunk_char_end=len(source_sentence), source="kb_read",
     ))
-    state.read_text[chunk_id] = [source_sentence]
+    seed_read_page(state, chunk_id, source_sentence)
     state.io_calls = settings.max_tool_calls
 
     async def audit(current, _mapped):
