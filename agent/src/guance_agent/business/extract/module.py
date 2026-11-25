@@ -5,7 +5,7 @@ from guance_agent.format_recovery import OutputParseError, parse_agent_output
 from guance_agent.output import insufficient_message
 from guance_agent.schemas import DIMENSIONS, Hit, Passage
 
-from ...extract import BLOCK_CHARS, MAX_BLOCKS, MAX_TOTAL_CHARS, build_messages
+from ...extract import BLOCK_CHARS, MAX_BLOCKS, MAX_TOTAL_CHARS, build_messages, extraction_query
 from ...verify import NUMBER, SENTENCE
 
 
@@ -16,7 +16,9 @@ class ExtractModule:
     requires_targets = False
 
     async def __call__(self, task, ctx, services) -> BusinessOutcome:
-        found = await services.search(task.question)
+        scoped = bool(task.targets or getattr(ctx, "scope", None))
+        query = extraction_query(task.question, task.dimensions, scoped=scoped)
+        found = await services.search(query)
         if found.status != "ok" or not isinstance(found.data, list):
             return _insufficient(ctx, task, [found.status])
 

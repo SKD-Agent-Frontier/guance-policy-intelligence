@@ -6,8 +6,11 @@ Agent 多轮往返（检索→读目录→逐节读→出结果）轻松超过 3
 把确定性步骤放进程序，模型只保留唯一必须它做的那一步。
 """
 import json
+import re
+from collections.abc import Sequence
 
 from .context import RunContext
+from .routing import task_text
 from .schemas import DIMENSIONS
 from .tools import _call
 
@@ -18,6 +21,21 @@ BLOCK_CHARS = 3000
 MAX_TOTAL_CHARS = 6000
 
 
+def extraction_query(question: str, dimensions: Sequence[str] | None, *, scoped: bool) -> str:
+    """In a confirmed document, search for the subject instead of its title."""
+    if not scoped:
+        return question
+    text = task_text(question)
+    text = re.sub(r"(?:[，,。；;]\s*)?(?:并请|并|请)?(?:引用|附上|给出|列出)(?:相关)?原文(?:依据|出处)?[。！!]?\s*$", "", text)
+    text = re.sub(r"^\s*(?:请)?(?:从\s*)?(?:中|里)?\s*(?:提取|抽取|摘录|找出)\s*", "", text)
+    text = re.sub(r"^(?:(?:当年|本年度)为|关于|有关|其中的|中的)\s*", "", text)
+    text = text.strip(" ，,。；;：:？！?")
+    facets = dimensions or DIMENSIONS
+    suffix = "|".join(re.escape(facet) for facet in facets)
+    subject = re.sub(rf"的(?:{suffix})(?:[、和及与](?:{suffix}))*$", "", text)
+    return subject.strip() or text or " ".join(facets)
+
+
 def _clip(text: str, budget: int) -> str:
     return text if len(text) <= budget else text[:budget] + "…"
 
@@ -25,8 +43,9 @@ def _clip(text: str, budget: int) -> str:
 async def retrieve(ctx: RunContext, question: str, top_k: int) -> tuple[list[dict], dict]:
     """程序侧检索并读回原文；返回可直接塞进提示词的片段列表。"""
     # 路由确定的范围必须带下去，否则指定编号/多对象取证会被忽略
+    query = extraction_query(question, None, scoped=bool(ctx.scope))
     found = json.loads(await _call(ctx, "kb_search", ctx.kb.search,
-                                   question, None, None, top_k,
+                                   query, None, None, top_k,
                                    planids=ctx.scope))
     if found["status"] != "ok":
         return [], found

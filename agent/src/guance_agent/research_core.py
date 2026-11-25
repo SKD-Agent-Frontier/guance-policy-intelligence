@@ -24,9 +24,11 @@ from agents import (
     function_tool,
 )
 from agents.exceptions import MaxTurnsExceeded, ModelBehaviorError
+from agents.tool_context import ToolContext
 from pydantic import BaseModel, Field
 
 from .business.analysis import single_clause_proposal
+from .business.delivery import extract_source_lines
 from .client import thinking_off
 from .context import RunContext
 from .kb import normalize_fyp
@@ -36,7 +38,7 @@ from .research_requirements import parse_requirements
 from .review_receipts import ReviewReceipts
 from .routing import parse_fyps
 from .runtime import ToolBudgetExceeded
-from .schemas import Claim, Passage, ToolResult
+from .schemas import DIMENSIONS, Claim, Passage, ToolResult
 from .tools import _call, out_of_scope
 
 MAX_REQUIREMENTS = 128
@@ -46,6 +48,7 @@ MAX_MODEL_CALLS = 18
 MAX_QUERY_CHARS = 200
 MAX_READ_CHARS = 6000
 MAX_BATCH_READ_CHARS = 18000
+MAX_DRAFT_BLOCKS = 24
 MAX_QUOTE_HANDLE_CHARS = 320
 
 
@@ -718,6 +721,11 @@ def _render_blocks(state: ResearchState, blocks: list[ResearchBlock]) -> str:
         text = _block_text(state, block)
         if text:
             lines.append(f"### {block.title}\n{text}")
+    if state.required_capability == "extract":
+        indexes = sorted({i for block in blocks for i in _claim_indexes_for_block(state, block)})
+        sources = extract_source_lines([state.claims[i] for i in indexes], state.run.evidence)
+        if sources:
+            lines.append(sources)
     return "\n\n".join(lines)
 
 
@@ -864,6 +872,8 @@ def _import_capability_claims(state: ResearchState, capability: str,
     if root is None:
         return 0
     imported = 0
+    dimension_ids = {item.label: item.id for item in state.requirements
+                     if item.origin_question == state.question and item.label in DIMENSIONS}
     for index, claim in enumerate(claims):
         if len(state.claims) >= MAX_EVIDENCE:
             break
@@ -874,12 +884,15 @@ def _import_capability_claims(state: ResearchState, capability: str,
                 zip(claim.chunk_ids, claim.quotes, strict=True)):
             if not _quote_is_read(state, chunk_id, quote):
                 continue
+            requirement_ids = [root.id]
+            if capability == "extract" and claim.dimension in dimension_ids:
+                requirement_ids.append(dimension_ids[claim.dimension])
             candidate = EvidenceCandidate(
                 candidate_id=f"{capability}-{index}-{source_index}",
                 claim=claim.text,
                 quote=quote,
                 chunk_id=chunk_id,
-                requirement_ids=[root.id],
+                requirement_ids=list(dict.fromkeys(requirement_ids)),
                 content_period=claim.content_period, fact_year=claim.fact_year,
                 fact_status=claim.fact_status,
                 time_anchor=claim.time_anchor,
@@ -1323,7 +1336,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
             state.check_result = {"passed": False, "reason": "no_verified_evidence",
                                   "gaps": [item.id for item in state.requirements]}
             return json.dumps(state.check_result, ensure_ascii=False)
-        if not isinstance(blocks, list) or not blocks or len(blocks) > 24:
+        if not isinstance(blocks, list) or not blocks or len(blocks) > MAX_DRAFT_BLOCKS:
             return json.dumps({"passed": False, "gaps": ["blocks_required_or_limit"]})
         outcomes = []
         candidate_facts = {}
@@ -1484,6 +1497,38 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
     )
 
 
+async def _draft_scoped_extraction(agent, state, runtime):
+    """Run the two known SDK tools directly once the single document is confirmed."""
+    tools = {tool.name: tool for tool in agent.tools}
+
+    async def invoke(name, arguments):
+        tool = tools[name]
+        args = json.dumps(arguments, ensure_ascii=False)
+        ctx = ToolContext.from_agent_context(
+            RunContextWrapper(context=state), "scoped-extract-" + name,
+            agent=agent, tool_name=name, tool_arguments=args)
+        await runtime.hooks.on_tool_start(ctx, agent, tool)
+        result = None
+        try:
+            result = await tool.on_invoke_tool(ctx, args)
+        finally:
+            await runtime.hooks.on_tool_end(ctx, agent, tool, result)
+
+    dimensions = runtime.task.dimensions or list(DIMENSIONS)
+    await invoke("run_capability", {"capability": "extract", "targets": None,
+                                    "requirements": dimensions})
+    blocks = [
+        ResearchBlock(id=f"extract-{i + 1}", title=claim.dimension, kind="fact",
+                      evidence_ids=state.claim_fact_ids[i],
+                      requirement_ids=state.claim_requirement_ids[i]).model_dump()
+        for i, claim in enumerate(state.claims) if claim.dimension in dimensions
+    ]
+    # Oversized drafts stay with the existing SDK loop, which can group related facts.
+    if 0 < len(blocks) <= MAX_DRAFT_BLOCKS:
+        await invoke("submit_draft", {"blocks": blocks, "evidence_candidates": [],
+                                      "finish_if_partial": True})
+
+
 async def execute_research_core(agent: Agent[ResearchState], state: ResearchState,
                                runtime, *, max_cycles: int = MAX_MODEL_CALLS) -> str:
     """Run the SDK tool loop; resume after an unfinalized plain-text early exit."""
@@ -1497,6 +1542,16 @@ async def execute_research_core(agent: Agent[ResearchState], state: ResearchStat
     runtime.hooks.core_state = state
     try:
         async with asyncio.timeout_at(deadline):
+            if state.required_capability == "extract" and len(state.confirmed_targets or ()) == 1:
+                await _draft_scoped_extraction(agent, state, runtime)
+                if state.capability_error or state.capability_empty:
+                    return ""
+                if (state.check_result and not state.needs_analysis
+                        and all(req.label == state.question or req.label in DIMENSIONS
+                                for req in state.requirements)):
+                    # The scoped pass already extracted and audited the requested facets.
+                    # A missing or rejected facet stays missing in the public projection.
+                    return state.final_answer or _render_blocks(state, state.approved_blocks)
             for _ in range(min(max_cycles, call_limit)):
                 if state.final_answer:
                     return state.final_answer

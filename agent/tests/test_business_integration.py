@@ -607,6 +607,12 @@ async def test_extract_binds_numeric_element_to_the_read_sentence(setup, monkeyp
     from guance_agent.business.services import BusinessServices
 
     settings, _ = setup
+    async def unexpected_planning_call(*_args, **_kwargs):
+        pytest.fail("A confirmed single-document extraction already has its execution plan")
+
+    from .business_sdk_fakes import BusinessSDKModel
+    monkeypatch.setattr(BusinessSDKModel, "get_response", unexpected_planning_call)
+
     async def extract(services, messages, **kwargs):
         return json.dumps({"answer": "安排资金100万元", "claims": [{
             "dimension": "量化目标", "text": "安排资金100万元", "chunk_ids": ["T001-chunk"],
@@ -616,6 +622,35 @@ async def test_extract_binds_numeric_element_to_the_read_sentence(setup, monkeyp
                           dimensions=["量化目标"])
     assert result.claims[0].quotes == [QUOTE]
     assert result.structured["elements"][0]["quotes"] == [QUOTE]
+    assert result.meta["research_delivery"]["status"] == "complete"
+    assert QUOTE in result.answer
+
+
+async def test_scoped_extract_rejected_by_auditor_stays_missing(setup, monkeypatch):
+    from guance_agent import orchestrator
+    from guance_agent.business.services import BusinessServices
+    from guance_agent.research_core import build_research_core_agent
+
+    settings, _ = setup
+
+    async def extract(_services, _messages, **_kwargs):
+        return json.dumps({"answer": "", "claims": [{
+            "dimension": "量化目标", "text": "安排资金100万元", "chunk_ids": ["T001-chunk"],
+            "quotes": [QUOTE]}]}, ensure_ascii=False)
+
+    async def reject(state, _mapped):
+        return json.dumps({"passed": False, "covered_requirement_ids": [], "approved_block_ids": [],
+                           "gaps": [item.id for item in state.requirements],
+                           "unsupported_claims": [block.id for block in state.draft_blocks]})
+
+    monkeypatch.setattr(BusinessServices, "call_model", extract)
+    monkeypatch.setattr(orchestrator, "build_research_core_agent", lambda *args, **kwargs:
+                        build_research_core_agent(*args, **kwargs, audit=reject))
+    result = await submit("planid T001 农业", settings=settings, task_type="extract",
+                          dimensions=["量化目标"])
+    assert not result.claims and not result.structured["elements"]
+    assert result.structured["missing"] == [{"dimension": "量化目标", "reason": "not_verified"}]
+    assert result.meta["research_core"]["audit"]["audit_performed"]
 
 
 async def test_business_claim_without_quotes_or_anchors_cannot_be_published(setup):
