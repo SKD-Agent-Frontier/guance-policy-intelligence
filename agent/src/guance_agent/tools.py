@@ -43,7 +43,18 @@ def _validate(s, name, args, kwargs):
                            for p in planids)):
                 raise ValueError("planids须为非空政策编号列表")
             planids = tuple(planids)
-        return (query.strip(), area, normalize_fyp(fyp), top_k), ({"planids": planids} if planids else {})
+        # Preserve user-specified structured constraints through the tool adapter.
+        # Previously _validate rebuilt kwargs with only planids and silently
+        # dropped admin_level/plantype/plan_stage before the RAG call.
+        search_kwargs = {"planids": planids} if planids else {}
+        for key in ("admin_level", "plantype", "plan_stage"):
+            value = kwargs.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or not 1 <= len(value.strip()) <= 50:
+                raise ValueError(f"{key}须为1–50字符的字符串")
+            search_kwargs[key] = value.strip()
+        return (query.strip(), area, normalize_fyp(fyp), top_k), search_kwargs
     planid, section_idx, max_chars = args
     if not isinstance(planid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", planid):
         raise ValueError("planid须为 1–64 位字母、数字、下划线或连字符")
