@@ -130,3 +130,42 @@ def test_samples_exist_and_parse(name):
     """样例必须随仓库交付，不能引用外部路径，否则 CI 跑不了。"""
     assert (SAMPLES / name).exists(), f"缺少样例 {name}"
     assert isinstance(load(name), dict)
+
+
+async def test_tool_keeps_structured_search_filters():
+    """SDK tool adapter must not silently discard filters supported by RagKB."""
+    settings = sample_settings()
+    ctx = RunContext(settings, get_kb(settings), "run", "sess")
+    received = {}
+
+    def capture(query, area, fyp, top_k, **kwargs):
+        received.update(kwargs)
+        return []
+
+    response = json.loads(await _call(
+        ctx, "kb_search", capture, "数字经济", None, None, 5,
+        planids=("20699",), admin_level="prefecture",
+        plantype="专项规划", plan_stage="审议",
+    ))
+    assert response["status"] == "empty"
+    assert received == {
+        "planids": ("20699",),
+        "admin_level": "prefecture",
+        "plantype": "专项规划",
+        "plan_stage": "审议",
+    }
+
+
+@pytest.mark.parametrize("field,value", [
+    ("admin_level", ""),
+    ("plantype", 42),
+    ("plan_stage", "x" * 51),
+])
+async def test_tool_rejects_invalid_structured_filters(field, value):
+    settings = sample_settings()
+    ctx = RunContext(settings, get_kb(settings), "run", "sess")
+    response = json.loads(await _call(
+        ctx, "kb_search", ctx.kb.search, "数字经济", None, None, 5,
+        **{field: value},
+    ))
+    assert response["status"] == "invalid_argument"
