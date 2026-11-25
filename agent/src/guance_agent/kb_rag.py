@@ -23,9 +23,12 @@ class RagKB:
             else RuntimeOptions(mode=mode)
         self._kb = RagKnowledgeBase(options)
 
-    def search(self, query, area, fyp, top_k, *, planids=None):
+    def search(self, query, area, fyp, top_k, *, planids=None, admin_level=None,
+               plantype=None, plan_stage=None):
+        filters = {key: value for key, value in dict(admin_level=admin_level, plantype=plantype,
+                                                      plan_stage=plan_stage).items() if value is not None}
         raws = self._kb.search(query, area, fyp, top_k,
-                               source_types=list(SOURCE_TYPES), planids=planids)
+                               source_types=list(SOURCE_TYPES), planids=planids, **filters)
         return [Hit(**raw.model_dump()) for raw in raws]
 
     def find_by_title(self, title, *, area=None, fyp=None):

@@ -164,7 +164,7 @@ export interface PolicyRegionOption {
 }
 
 export interface PolicyFacetsResponse {
-  dataset: CatalogDatasetInfo & { region_version: string; region_mapping_version: string | null };
+  dataset: CatalogDatasetInfo & { region_version: string | null; region_mapping_version: string | null };
   query: PolicyFacetQuery;
   facets: {
     admin_level: {
@@ -261,6 +261,9 @@ export interface PolicyDetailResponse {
     year?: number | null;
     plantype_label: string | null;
     body_chars: number;
+    generation_id?: string | null;
+    document_id?: string | null;
+    source_hash?: string | null;
     body_status?: "available" | "missing" | "suspected_garbled";
     printed_toc?: [number, number] | null;
     sections: PolicySection[];

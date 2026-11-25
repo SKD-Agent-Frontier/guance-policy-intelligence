@@ -13,17 +13,19 @@ const ADMIN_LEVELS: PolicyAdminLevel[] = ["national", "province", "prefecture", 
 
 export function extractPolicyVersionPin(dataset: CatalogDatasetInfo): PolicyVersionPin | null {
   const mappingVersion = dataset.region_mapping_version;
+  const regionVersion = dataset.region_version;
+  const absentRegion = regionVersion === null && mappingVersion === null;
   if (
     typeof dataset.generation_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(dataset.generation_id)
     || !Number.isInteger(dataset.revision) || dataset.revision < 1
-    || typeof dataset.region_version !== "string" || !VERSION_PATTERN.test(dataset.region_version)
+    || (!absentRegion && (typeof regionVersion !== "string" || !VERSION_PATTERN.test(regionVersion)))
     || (mappingVersion !== null && (typeof mappingVersion !== "string" || !VERSION_PATTERN.test(mappingVersion)))
   ) return null;
 
   return {
     generation_id: dataset.generation_id,
     revision: dataset.revision,
-    region_version: dataset.region_version,
+    region_version: absentRegion ? "unavailable" : regionVersion as string,
     region_mapping_version: mappingVersion ?? "unavailable",
   };
 }

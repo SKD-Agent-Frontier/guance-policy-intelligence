@@ -137,8 +137,10 @@ async def _call(ctx, name, fn, *args, **kwargs):
 @function_tool(failure_error_function=None)
 async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
                     area: str | None = None, fyp: str | None = None,
-                    top_k: int | None = None) -> str:
+                    top_k: int | None = None, admin_level: str | None = None,
+                    plantype: str | None = None, plan_stage: str | None = None) -> str:
     """检索政策片段。area 可用地区简称；fyp 可用十四五；top_k 为 1–20，不填用服务默认值。
+    admin_level、plantype、plan_stage 用于用户明确要求的行政级别、规划类型和规划阶段。
     返回 status 和片段列表，含 chunk_id、planid、篇名、地区、规划期、章节路径和原文。
     """
     if top_k is None:
@@ -146,11 +148,14 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
     # 路由确定的范围在整轮任务内持续生效：每次检索都限定，不是只在第一次限定
     scope = ctx.context.scope
     decision = ctx.context.route
+    filters = {key: value for key, value in dict(admin_level=admin_level, plantype=plantype,
+                                               plan_stage=plan_stage).items() if value is not None}
     # A trusted single-document planid is the authoritative scope.
     # Model-generated wrong area/period filters cannot exclude that document.
     # The planid restriction still applies to every search.
     if ctx.context.verified_scoped_document() is not None:
         area, fyp = None, None
+        filters.clear()
     # 开放式问答的明确地区/规划期是用户约束，不能由模型漏填或误写覆盖。
     # 多地区/多规划期查询保留模型多轮取证能力，不强行收窄至一个对象。
     if scope is None and getattr(decision, "kind", None) == "open":
@@ -159,7 +164,7 @@ async def kb_search(ctx: RunContextWrapper[RunContext], query: str,
         if len(decision.fyps) == 1:
             fyp = decision.fyps[0]
     return await _call(ctx.context, "kb_search", ctx.context.kb.search,
-                       query, area, fyp, top_k, planids=scope)
+                       query, area, fyp, top_k, planids=scope, **filters)
 
 @function_tool(failure_error_function=None)
 async def kb_read(ctx: RunContextWrapper[RunContext], planid: str,

@@ -42,6 +42,7 @@ class SourceMeta(BaseModel):
     body_origin: int | None = None
     contract_version: str | None = None
     quality_warnings: list[str] = Field(default_factory=list)
+    plan_stage: str | None = None
 
 
 class Hit(SourceMeta):

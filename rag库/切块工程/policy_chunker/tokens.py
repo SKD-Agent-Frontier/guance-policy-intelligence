@@ -11,10 +11,10 @@ from .source import sha, stable_id
 
 class TokenCounter:
     # 一个构建/校验过程复用一个计数器，避免每个子块都重新加载分词词表。
-    def __init__(self, project, config):
+    def __init__(self, project, config, *, tokenizer_directory=None):
         self.config = config
         self.profile = json.loads((project / "model_profile.json").read_text(encoding="utf-8"))
-        directory = project / ".cache" / "qwen-tokenizer"
+        directory = tokenizer_directory or project / ".cache" / "qwen-tokenizer"
         # profile 固定模型修订与各文件摘要。即使目录名称相同，文件被换过也会报错，
         # 防止构建和校验实际使用了不同的分词规则却仍声称长度一致。
         for name, expected in self.profile["files"].items():

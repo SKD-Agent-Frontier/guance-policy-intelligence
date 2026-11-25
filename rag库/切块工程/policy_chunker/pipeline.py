@@ -27,7 +27,7 @@ def code_fingerprint(project):
     return sha(b"".join(p.name.encode() + p.read_bytes() for p in files))
 
 
-def process(source, root, counter, config, config_hash):
+def process(source, root, counter, config, config_hash, *, include_media=True):
     # 一篇文档的主链：质量登记 -> 单元/章节 -> 父块 -> 子块草稿 -> 关系 -> 定稿。
     # source 已经严格解码，root 是批准输入库根，counter 只分词计数，config_hash 绑定规则。
     quality, metrics = source_quality(source)
@@ -39,7 +39,7 @@ def process(source, root, counter, config, config_hash):
         chunks = make_chunks(source, parents, units, counter, config, config_hash)
         relations = build_relations(source, units, structures, parents, config_hash)
         chunks = assemble(source, parents, units, chunks, relations, counter, config, config_hash)
-    assets, occurrences, problems = register(source, root, units, parents)
+    assets, occurrences, problems = register(source, root, units, parents) if include_media else ([], [], [])
     # 媒体登记不依赖是否有正文：纯图片文件也需要资源清单与缺图记录。
     issues = []
     def issue(reason, start=None, end=None, **extra):

@@ -40,7 +40,7 @@ _GENERATION_ID = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _FILTERS = {"q", "area", "fyp", "plantype", "admin_level", "province_code",
             "prefecture_code", "county_code", "region_status", "year", "fyp_status",
-            "plantype_status"}
+            "plantype_status", "plan_stage"}
 _PINS = {"generation_id", "revision", "region_version", "region_mapping_version"}
 
 
@@ -95,7 +95,8 @@ async def _catalog(request: Request) -> PolicyCatalogService:
             existing = getattr(app.state, "policy_catalog", None)
             if existing is not None:
                 return existing
-            snapshot = load_published_catalog(settings.rag_store_project)
+            snapshot = load_published_catalog(settings.rag_store_project,
+                                              expand=getattr(settings, "rag_mode", "bm25") == "bm25")
             try:
                 region_payload = load_region_tree(_resource_dir())
             except RegionResourceUnavailable:
@@ -135,16 +136,19 @@ def _check_pins(request: Request, service: PolicyCatalogService) -> None:
     revision_text = query.get("revision", "")
     region_version = query.get("region_version", "")
     mapping_version = query.get("region_mapping_version", "")
-    if not _GENERATION_ID.fullmatch(generation) or not _SHA256.fullmatch(region_version):
+    if not _GENERATION_ID.fullmatch(generation) or (
+        region_version != "unavailable" and not _SHA256.fullmatch(region_version)
+    ):
         raise HTTPException(status_code=400, detail="版本固定参数格式无效")
     if not re.fullmatch(r"\d+", revision_text) or int(revision_text) < 1:
         raise HTTPException(status_code=422, detail="请求参数无效")
     if mapping_version != "unavailable" and not _SHA256.fullmatch(mapping_version):
         raise HTTPException(status_code=400, detail="版本固定参数格式无效")
     current = service.dataset()
+    expected_region = current["region_version"] or "unavailable"
     expected_mapping = current["region_mapping_version"] or "unavailable"
     if (generation != current["generation_id"] or int(revision_text) != current["revision"]
-            or region_version != current["region_version"]
+            or region_version != expected_region
             or mapping_version != expected_mapping):
         raise _VersionPinConflict(_current_payload(service))
 
@@ -188,7 +192,7 @@ async def policy_regions(request: Request, region_version: str | None = None):
     return payload
 
 
-@router.get("/policies/facets", response_model=PolicyFacetsResponse)
+@router.get("/policies/facets", response_model=PolicyFacetsResponse, response_model_exclude_unset=True)
 async def policy_facets(
     request: Request,
     q: str | None = None, area: str | None = None, fyp: str | None = None,
@@ -196,7 +200,8 @@ async def policy_facets(
     province_code: str | None = None, prefecture_code: str | None = None,
     county_code: str | None = None, region_status: str | None = None,
     year: str | None = None, fyp_status: str | None = None,
-    plantype_status: str | None = None, generation_id: str | None = None,
+    plantype_status: str | None = None, plan_stage: str | None = None,
+    generation_id: str | None = None,
     revision: int | None = Query(default=None, ge=1), region_version: str | None = None,
     region_mapping_version: str | None = None,
 ):
@@ -209,14 +214,14 @@ async def policy_facets(
             plantype=plantype, admin_level=admin_level, province_code=province_code,
             prefecture_code=prefecture_code, county_code=county_code,
             region_status=region_status, year=year, fyp_status=fyp_status,
-            plantype_status=plantype_status)
+            plantype_status=plantype_status, plan_stage=plan_stage)
     except InvalidParameter as exc:
         _raise_parameter(exc)
     except CatalogUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@router.get("/policies", response_model=PolicyListResponse)
+@router.get("/policies", response_model=PolicyListResponse, response_model_exclude_unset=True)
 async def list_policies(
     request: Request,
     q: str | None = Query(default=None, description="标题与正文的字面连续子串；省略则列举目录"),
@@ -229,6 +234,7 @@ async def list_policies(
     prefecture_code: str | None = None, county_code: str | None = None,
     region_status: str | None = None, year: str | None = None,
     fyp_status: str | None = None, plantype_status: str | None = None,
+    plan_stage: str | None = None,
     generation_id: str | None = None, revision: int | None = Query(default=None, ge=1),
     region_version: str | None = None, region_mapping_version: str | None = None,
 ):
@@ -241,7 +247,7 @@ async def list_policies(
             plantype=plantype, page=page, page_size=page_size, admin_level=admin_level,
             province_code=province_code, prefecture_code=prefecture_code,
             county_code=county_code, region_status=region_status, year=year,
-            fyp_status=fyp_status, plantype_status=plantype_status)
+            fyp_status=fyp_status, plantype_status=plantype_status, plan_stage=plan_stage)
     except InvalidParameter as exc:
         _raise_parameter(exc)
     except CatalogUnavailable as exc:
@@ -249,11 +255,15 @@ async def list_policies(
 
 
 @router.get("/policies/{planid}", response_model=PolicyDetailResponse)
-async def get_policy(request: Request, planid: str):
-    _reject_unknown_query(request, set())
+async def get_policy(request: Request, planid: str, generation_id: str | None = None,
+                     document_id: str | None = None):
+    _reject_unknown_query(request, {"generation_id", "document_id"})
     service = await _catalog(request)
     try:
-        return await asyncio.to_thread(service.get_policy, planid)
+        return await asyncio.to_thread(service.get_policy, planid, generation_id=generation_id,
+                                       document_id=document_id)
+    except CatalogUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except InvalidParameter as exc:
         _raise_parameter(exc)
     except LookupError as exc:
@@ -265,11 +275,15 @@ async def get_policy_content(
     request: Request, planid: str,
     offset: int = Query(default=0, ge=0, description="正文码点偏移，0 为正文起点"),
     limit: int = Query(default=DEFAULT_CONTENT_LIMIT, ge=1, le=MAX_CONTENT_LIMIT),
+    generation_id: str | None = None, document_id: str | None = None,
 ):
-    _reject_unknown_query(request, {"offset", "limit"})
+    _reject_unknown_query(request, {"offset", "limit", "generation_id", "document_id"})
     service = await _catalog(request)
     try:
-        return await asyncio.to_thread(service.read_content, planid, offset=offset, limit=limit)
+        return await asyncio.to_thread(service.read_content, planid, offset=offset, limit=limit,
+                                       generation_id=generation_id, document_id=document_id)
+    except CatalogUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except InvalidParameter as exc:
         _raise_parameter(exc)
     except LookupError as exc:
@@ -287,6 +301,8 @@ async def get_policy_reading_page(
     service = await _catalog(request)
     try:
         return await asyncio.to_thread(service.read_display_page, planid, page=page, page_chars=page_chars)
+    except CatalogUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except InvalidParameter as exc:
         _raise_parameter(exc)
     except LookupError as exc:

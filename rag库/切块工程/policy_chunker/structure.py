@@ -13,13 +13,27 @@ HAN = "〇零一二三四五六七八九十百千万两0-9"
 ARTICLE = re.compile(rf"^第([{HAN}]+)条(?:\s|[、：:]|$)")
 CHAPTER = re.compile(rf"^第([{HAN}]+)(篇|编|部分|章|节)(?:\s|[、：:]|$)")
 LIST = re.compile(r"^(?:[（(][一二三四五六七八九十百0-9]+[）)]|\d{1,3}[、．.]\s*(?!\d))")
-TOC_ITEM = re.compile(r"(?:[.．…·]{3,}|\s{2,})\s*\d+\s*$")
 # 目录通常带点引线与页码；PAGE 单独登记常见页码行，不能当作正文段落。
 PAGE = re.compile(r"^(?:[—–-]\s*\d+\s*[—–-]|[IVX]{1,5})$")
 CAPTION = re.compile(r"^(?:表\s*[\d一二三四五六七八九十]+|附表|专栏\s*[\d一二三四五六七八九十]+)")
 # caption/note 是表题、单位、附注的候选类型，后续还要结合邻接表格决定归组。
 NOTE = re.compile(r"^(?:注[：:]|备注[：:]|说明[：:]|单位[：:（(]|数据来源[：:])")
 IMAGE_ONLY = re.compile(r"^(?:!\[[^\]]*\]\([^\n]*?\)\s*)+$")
+
+
+def has_toc_page_number(content):
+    """检查已去掉首尾空白的目录候选行末，避免长空白段触发正则回溯。"""
+    page_start = len(content)
+    while page_start and content[page_start - 1].isdecimal():
+        page_start -= 1
+    if page_start == len(content):
+        return False
+    leader_end = page_start
+    while leader_end and content[leader_end - 1].isspace():
+        leader_end -= 1
+    return page_start - leader_end >= 2 or (
+        leader_end >= 3 and all(char in ".．…·" for char in content[leader_end - 3:leader_end])
+    )
 
 
 def number(value):
@@ -135,7 +149,7 @@ def parse(source, config_hash):
                 kind = "whitespace"
             elif re.fullmatch(r"(?:#{1,6}\s*)?目\s*录", content):
                 kind, in_toc = "toc", True
-            elif TOC_ITEM.search(content) and (in_toc or content.startswith("第")):
+            elif (in_toc or content.startswith("第")) and has_toc_page_number(content):
                 # 有目录上下文，或本行本身像带页码的“第×章”，才按目录项排除。
                 kind = "toc"
             elif PAGE.match(content):

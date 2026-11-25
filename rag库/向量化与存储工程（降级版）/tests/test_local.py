@@ -53,6 +53,9 @@ def test_bm25_pre_topk_filter_reopen_and_tamper(tmp_path):
     index.close();index=BM25SLexical(tmp_path/'bm25');index.load('g')
     assert index.search('农业',3)[0]['id']=='b'
     index.close()
+    mapped_file = tmp_path / 'bm25/g/data.csc.index.npy'
+    moved_file = mapped_file.rename(mapped_file.with_suffix('.moved'))
+    moved_file.rename(mapped_file)
     path=tmp_path/'bm25/g/params.index.json';path.write_bytes(path.read_bytes()+b' ')
     with pytest.raises(ValueError,match='file changed'):index.load('g')
 

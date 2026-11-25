@@ -71,6 +71,17 @@ def test_toc_is_excluded(tmp_path, counter):
     assert not check_document(s, data, counter, config)
 
 
+def test_toc_page_detection_handles_long_whitespace_and_preserves_body(tmp_path):
+    body_line = "第三章" + " " * 12000 + "这是政策正文。"
+    s = source(tmp_path, "目录\n第一章 引言·．… １２\n第二章 目标  3\n" + body_line + "\n")
+    units, _, _ = parse(s, "test")
+    assert "".join(u["text"] for u in units if u["kind"] == "toc").splitlines() == [
+        "目录", "第一章 引言·．… １２", "第二章 目标  3",
+    ]
+    assert any(u["kind"] == "paragraph" and body_line in u["text"] for u in units)
+    assert "".join(u["text"] for u in units) == s.text
+
+
 def test_list_shared_condition_retained(tmp_path, counter):
     body = "申请人应满足以下条件：\n\n1. " + "支持创新企业发展，" * 30 + "。\n\n2. " + "符合相关规定，" * 30 + "。\n"
     s, data, config = run(tmp_path, body, counter, child_target_tokens=100, parent_target_tokens=150)

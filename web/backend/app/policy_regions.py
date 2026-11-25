@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .policy_catalog import CatalogSnapshot, CatalogUnavailable
+from .policy_catalog import ADMIN_LEVEL_NORMALIZATION, CatalogSnapshot, CatalogUnavailable
 
 RESOURCE_DIR = Path(__file__).parent / "resources" / "regions"
 REGION_VERSION = "sha256:94e2bdbeb629a4e523a1c0581f8d234844a81a36066ade59f06e08eb143e9cdb"
@@ -110,6 +110,11 @@ def load_region_mapping(
     resource_dir: str | Path | None, snapshot: CatalogSnapshot, region_payload: dict | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], str] | None:
     """Load only a reviewed map bound to this exact catalog generation/revision."""
+    if snapshot.base_snapshot is not None and region_payload is not None:
+        reviewed = load_region_mapping(resource_dir, snapshot.base_snapshot, region_payload)
+        if reviewed is not None:
+            approved, base_version = reviewed
+            return _append_region_mapping(snapshot, region_payload, approved, base_version)
     directory = Path(resource_dir) if resource_dir is not None else RESOURCE_DIR
     mapping_path = directory / "policy-region-map.json"
     manifest_path = directory / "manifest.json"
@@ -169,3 +174,27 @@ def load_region_mapping(
     if set(entries) != expected_planids:
         return None
     return entries, version
+
+
+def _append_region_mapping(snapshot, region_payload, approved, base_version):
+    pairs = list(_walk(region_payload["data"]))
+    nodes = {node["code"]: node for node, _ in pairs}
+    by_name = {}
+    for node, parent in pairs:
+        by_name.setdefault((node["tier"], node["name"]), []).append((node["code"], parent))
+    combined = dict(approved)
+    for record in snapshot.records:
+        if record.planid in combined:
+            continue
+        tier = ADMIN_LEVEL_NORMALIZATION.get(record.admin_level)
+        candidates = by_name.get((tier, record.area), ())
+        if tier in {"prefecture", "county"}:
+            candidates = [(code, parent) for code, parent in candidates if parent
+                          and nodes[parent]["name"] == record.parent_area]
+        code = candidates[0][0] if len(candidates) == 1 else None
+        state = "mapped" if code else "not_applicable" if tier == "national" else "unclassified"
+        combined[record.planid] = {"region_status": state, "region_code": code}
+    version = "sha256:" + hashlib.sha256(_canonical(
+        ["md-v1-exact-area-parent", base_version, snapshot.generation_id, combined]
+    )).hexdigest()
+    return combined, version

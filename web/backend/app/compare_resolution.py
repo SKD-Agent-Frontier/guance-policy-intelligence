@@ -174,7 +174,7 @@ def _resolve_compare(question: str, catalog: PolicyCatalogService) -> dict:
             score = _score(record, period, topic)
             if score is not None:
                 candidates.append((score, record))
-            elif topic in (record.body or ""):
+            elif topic in record.body_text:
                 # Only for an explanation when no topical title exists. No auto substitution.
                 requested = normalize_fyp(period)
                 metadata = normalize_fyp(record.fyp)

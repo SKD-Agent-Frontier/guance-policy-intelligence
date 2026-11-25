@@ -152,7 +152,7 @@ assert result.content == body[result.char_start:result.char_end]
 
 当前排序仅为RRF融合，没有独立重排模型。BM25分词器、Qdrant客户端、查询编码器、向量缓存、来源对象LRU及统计计数均由同一库线程访问，不对请求线程暴露。以后接入重排时，候选排序和中间张量仍须按请求独立；共享重排器应留在该线程，或先确认其并发安全并保护可变状态，再开放并行推理。
 
-默认队列容量 32、排队 20 秒、每任务执行等待 30 秒、启动 180 秒、关闭 60 秒，可通过不可变 `RuntimeOptions` 调整。排队任务可以取消；已经运行的底层计算无法强行取消，等待超时后仍由库线程持有资源直到真正结束。关闭停止接收请求并收尾，超时会明确报告尚未释放。参考 [Python Future 的取消语义](https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.Future.cancel)。
+默认队列容量 32、排队 20 秒、每任务执行等待 30 秒、启动 180 秒、关闭 60 秒。BM25 模式每启用一个增量批次，默认启动等待增加 8 秒。可通过不可变 `RuntimeOptions` 显式覆盖这些设置。排队任务可以取消；已经运行的底层计算无法强行取消，等待超时后仍由库线程持有资源直到真正结束。关闭停止接收请求并收尾，超时会明确报告尚未释放。参考 [Python Future 的取消语义](https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.Future.cancel)。
 
 持有既有项目锁和 Qdrant 路径锁；同目录只允许一个运行时，不删除锁，不让多个 Web worker 各自打开同一 Local 库。更新发布需受控关闭后重开。SQLite 使用 `mode=ro`、`query_only` 和固定读事务；源文件、切片、发布成员与索引业务数据不回写。SDK 锁/WAL 维护可能产生文件系统写入，查询缓存仅写本工程 `.cache`。
 
@@ -183,3 +183,6 @@ outputs/        本地复验原始输出，忽略提交
 临时测试库位于本工程 `.cache` 下；测试不读取鉴权、不调用模型。完整库验收会读取真实快照和索引，hybrid 模式在缓存未命中时发送测试查询到已配置服务。核对加载次数、并发请求、真实样例、全部超长块分页重建和数据库文件哈希；这些结果不等同于端到端问答准确率。
 
 并发回归还覆盖入队后修改来源过滤/嵌套已见范围、20次交错查询与返回结果修改，以及第二个服务进程被本地库锁拒绝；用于验证请求隔离和单进程共享边界。
+## 增量发布接入
+
+在 BM25 模式下，既有运行库会读取同级 `rag-md-expansion/registry.sqlite3` 的当前累计发布。新增和原库共用检索契约，各来源返回各自文档发布版本。可选检索参数新增 `admin_level`、`plantype`、`plan_stage`。增量索引只包含 Markdown 正文，历史原文可按分片版本及文档 ID 回读。建库及回退命令见 [Markdown 增量入口](../向量化与存储工程（降级版）/README.md)。

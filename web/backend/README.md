@@ -41,6 +41,8 @@ RAG_MODE=bm25
 
 `RAG_STORE_PROJECT` 应指向已恢复的运行库目录；`RAG_MODE` 支持 `bm25`、`dense` 或 `hybrid`。
 
+BM25 模式自动接入与原运行库同级的 `rag-md-expansion` 发布记录。自定义增量位置可设置 `RAG_EXPANSION_ROOT`。目录和维度统计共享累计发布版本，正文详情及分页可用 `generation_id` 和 `document_id` 固定引用版本。目录可按 `plan_stage` 筛选源数据明确提供的规划阶段。未配置地区树时，行政级别、规划期和政策类型仍可筛选，地区代码筛选需加载地区资源。
+
 ### 政策正文图片与 HTML 格式（只读）
 
 文献阅读器的文字证据仍来自 RAG 当前发布快照。表格由快照中的 Markdown 表格语法渲染；图片按政策编号与文件名查找干净语料的 `media/`，标题优先参照同一文献的原始 HTML（存在时仅提取结构化标题提示）。**不编辑、修复、重新保存任何原始 HTML、图片、Markdown 或冻结快照**。

@@ -81,6 +81,10 @@ async def test_samplekb_serves_contract_shaped_responses():
     assert kb.name == "sample"
     hit = kb.search("养老服务", None, None, 1)[0]
     assert hit.chunk_id == "chunk_c5481643e7c67d653e29160c30719104"
+    assert kb.search("养老服务", None, None, 1, planids=(hit.planid,),
+                     admin_level=hit.admin_level, plantype=hit.plantype_label) == [hit]
+    assert kb.search("养老服务", None, None, 1, plan_stage="审议") == []
+    assert kb.search("养老服务", None, None, 1, planids=("other",)) == []
     full = kb.read(hit.planid, None, 6000, chunk_id=hit.chunk_id)
     assert full.read_scope == "chunk" and len(full.content) == 451
     assert full.chunk_char_start <= full.char_start <= full.char_end <= full.chunk_char_end
