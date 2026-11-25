@@ -63,7 +63,9 @@ def catalogue(dataset):
 def stratified(rows, exclude):
     groups = defaultdict(list)
     for pid, row in rows.items():
-        if row["split"] == "corpus" and pid not in exclude:
+        # Include edge_cases in the published catalogue. Empty Markdown belongs to
+        # the catalogue even when it cannot contribute searchable evidence.
+        if row["split"] in ("corpus", "edge_cases") and pid not in exclude:
             groups[(row["admin_level"], row["fyp_name"])].append(pid)
     candidates = []
     for ids in groups.values():
@@ -195,14 +197,17 @@ def prepare_document(dataset, row, counter, config, config_hash):
     ready = [chunk for chunk in data["chunks"] if chunk["status"] == "ready"
              and len(chunk["source_segments"]) == 1
              and chunk["source_segments"][0]["start"] >= origin]
-    if not ready:
-        status = doc["status"] if not data["chunks"] else "no_valid_evidence"
-        return source.source_hash, status, {}
+    # A document with no safe chunks must still be discoverable by planid/title,
+    # while its Markdown remains the only permitted original-source snapshot.
+    # Never manufacture a searchable chunk from metadata or an empty body.
+    no_evidence_reason = (doc["status"] if not data["chunks"] else "no_valid_evidence") if not ready else None
     doc.update(raw_metadata=raw_metadata, csv_metadata=csv_fields, filter_conflicts=conflicts,
                body_origin=origin, body_codepoints=len(source.text) - origin,
-               dataset="guance-finals-v2.1", split=row["split"])
+               dataset="guance-finals-v2.1", split=row["split"],
+               catalog_only=not bool(ready))
     detail = {"chunks": len(ready), "excluded_chunks": len(data["chunks"]) - len(ready),
-              "field_conflicts": conflicts, "explicit_stage": bool(source.metadata.get("plan_stage"))}
+              "field_conflicts": conflicts, "explicit_stage": bool(source.metadata.get("plan_stage")),
+              "catalog_only": not bool(ready), "no_evidence_reason": no_evidence_reason}
     data["chunks"] = ready
     return source.source_hash, "indexed", (source.raw, data, detail)
 
@@ -374,11 +379,13 @@ def build_batch(path, batch, dataset, rows, config, config_hash, tokenizer, budg
         conflicts = Counter()
         omitted = 0
         stages = 0
+        catalog_only = 0
         for (detail,) in db.connection.execute("SELECT detail FROM md_imports WHERE status='indexed'"):
             detail = json.loads(detail)
             conflicts.update(detail["field_conflicts"])
             omitted += detail["excluded_chunks"]
             stages += detail["explicit_stage"]
+            catalog_only += int(detail.get("catalog_only", False))
         expected = {"passed": True, "documents": len(docs), "chunks": len(records)}
         db.ready(path.name, expected)
         if not db.active():
@@ -390,6 +397,7 @@ def build_batch(path, batch, dataset, rows, config, config_hash, tokenizer, budg
         raise ValueError("shard verification totals disagree")
     budget.check(path)
     return {**expected, "results": stats, "field_conflicts": dict(conflicts),
+            "catalog_only_documents": catalog_only,
             "excluded_chunks": omitted, "explicit_stages": stages,
             "input_bytes": batch["input_bytes"], "stored_bytes": bytes_used(path),
             "peak_added_bytes": budget.peak - budget.start_used,
@@ -585,7 +593,10 @@ def main():
                     write_json(args.root / "release_summary.json", {
                         "revision": revision, "generation": generation, "base_documents": len(base_docs),
                         "added_documents": len(occupied) - len(base_docs), "total_documents": len(occupied),
-                        "text_chunks_added": chunks, "shards": len(selected), "overlap": overlap,
+                        "text_chunks_added": chunks,
+                        "catalog_only_documents": sum(s.get("catalog_only_documents", 0) for _, s in batches),
+                        "searchable_documents": len(occupied) - sum(s.get("catalog_only_documents", 0) for _, s in batches),
+                        "shards": len(selected), "overlap": overlap,
                         "build_results": dict(results), "field_conflicts": dict(conflicts),
                         "explicit_stages": sum(s["explicit_stages"] for _, s in batches),
                         "excluded_chunks": sum(s["excluded_chunks"] for _, s in batches),
