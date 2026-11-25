@@ -72,7 +72,8 @@ async def submit(question: str, session_id: str | None = None,
                  task_type: str = "qa",
                  dimensions: list[str] | None = None,
                  targets: list[str] | None = None,
-                 research_discoverer=None, research_scope_resolver=None) -> RunResult:
+                 research_discoverer=None, research_scope_resolver=None,
+                 request_id: str | None = None) -> RunResult:
     task = _build_task(question, session_id, user_id, task_type, dimensions, targets)
     rt = None
     research_runtime = None
@@ -84,6 +85,8 @@ async def submit(question: str, session_id: str | None = None,
         rt = Runtime(s, task)
         rt.meta.update(qa_engine_configured=s.qa_engine,
                        qa_engine_effective="sdk_unified")
+        if request_id and re.fullmatch(r"[0-9a-f]{32}", request_id):
+            rt.meta["request_id"] = request_id
         rt.received()
         message = _reject_reason(question, task, session_id, user_id, s,
                                  task_type, dimensions, targets)

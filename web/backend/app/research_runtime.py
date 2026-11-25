@@ -7,6 +7,7 @@ import time
 
 from guance_agent.research_contract import ResearchPlan, TaskContract
 from guance_agent.research_planner import ResearchDiscovery, ResearchPlanner
+from guance_agent.routing import parse_planids, parse_titles
 
 from .policy_catalog import PolicyCatalogService
 from .research_planning import resolve_research_internal
@@ -65,15 +66,14 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError
-    records = {record.planid: record for record in catalog.snapshot.records}
     if task.targets is not None:
-        missing = [target for target in task.targets if target not in records]
+        missing = [target for target in task.targets if catalog.record_by_id(target) is None]
         if missing:
             return ResearchPlanner.with_catalog_documents(
                 contract, plan, [], status="insufficient", reason_code="requested_document_missing",
                 message="指定的政策文献不在当前发布目录中，不能执行该研究。",
             )
-        selected = [records[target] for target in task.targets]
+        selected = [catalog.record_by_id(target) for target in task.targets]
         required = max(contract.completion.min_documents,
                        contract.completion.min_subjects,
                        contract.completion.min_summarized_documents)
@@ -95,7 +95,7 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
     policies = resolution.get("policies", [])
     trusted = []
     for policy in policies:
-        record = records.get(policy.get("planid")) if isinstance(policy, dict) else None
+        record = catalog.record_by_id(policy.get("planid")) if isinstance(policy, dict) else None
         if record is None:
             continue
         if not isinstance(record.title, str) or not record.title.strip():
@@ -130,7 +130,7 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
                                  and entry["area"] in {"中华人民共和国", "全国", "国家"})
         out_of_scope = [entry["planid"] for entry in trusted
                         if not _catalog_region_within_scope(
-                            catalog, records[entry["planid"]], allowed_areas)]
+                            catalog, catalog.record_by_id(entry["planid"]), allowed_areas)]
         if out_of_scope:
             return ResearchPlanner.with_catalog_documents(
                 contract, plan, [], status="insufficient",
@@ -156,7 +156,8 @@ async def discover_run_plan(task, contract: TaskContract, plan: ResearchPlan,
             return ResearchPlanner.fallback(
                 plan, resolution.get("message"),
                 reason_code="organize_fallback" if task.task_type == "organize" else "kb_fallback")
-        if task.task_type == "organize" and task.targets is None:
+        if (task.task_type == "organize" and task.targets is None
+                and not (parse_titles(task.question) or parse_planids(task.question))):
             return ResearchPlanner.fallback(plan, resolution.get("message"), reason_code="organize_fallback")
         return ResearchPlanner.with_catalog_documents(
             contract, plan, trusted if resolution.get("status") == "insufficient" else [],

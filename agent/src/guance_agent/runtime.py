@@ -66,7 +66,7 @@ class Runtime:
         return client
 
     async def complete_text(self, messages, *, max_tokens: int, timeout: float,
-                            purpose: str = "text_completion") -> str:
+                            purpose: str = "text_completion", json_object: bool = False) -> str:
         """Call the text model and record privacy-safe per-purpose telemetry."""
         started = perf_counter()
         request_status = "failed"
@@ -75,7 +75,8 @@ class Runtime:
         try:
             response = await self.client.chat.completions.create(
                 model=self.settings.llm_model, messages=messages, max_tokens=max_tokens,
-                extra_body=thinking_off(self.settings), timeout=timeout)
+                extra_body=thinking_off(self.settings), timeout=timeout,
+                **({"response_format": {"type": "json_object"}} if json_object else {}))
             finish_reason = getattr(response.choices[0], "finish_reason", None)
             if finish_reason not in {"stop", "length", "tool_calls", "content_filter", "function_call"}:
                 finish_reason = None
@@ -185,6 +186,8 @@ class Runtime:
     def received(self):
         question = self.task.question
         content = {"question": question} if self.settings.log_content else {}
+        if self.meta.get("request_id"):
+            content["request_id"] = self.meta["request_id"]
         self.log("received", question_chars=len(question),
                  question_hash=sha256(question.encode()).hexdigest()[:12], **content)
 

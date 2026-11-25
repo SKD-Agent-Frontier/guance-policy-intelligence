@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from guance_agent.routing import parse_planids, parse_titles
 from pydantic import ValidationError
 
 from app.preparation_models import (
@@ -80,6 +81,7 @@ class _Entry:
     response: ResearchPrepareResponse | None = None
     previous: tuple[int, ResearchMode, str, ResearchPrepareResponse] | None = None
     question_text: str = ""
+    named_request: str | None = None
 
 
 class ResearchPreparationService:
@@ -202,6 +204,7 @@ class ResearchPreparationService:
         )
         if topic and (initial or awaiting_topic or explicit_topic_change):
             entry.topic = topic
+            entry.named_request = message if parse_titles(message) or parse_planids(message) else None
             if awaiting_topic and not initial:
                 entry.completed_questions.append(CompletedQuestion(question_id="topic", answer=message))
         elif prior_topic:
@@ -680,7 +683,17 @@ class ResearchPreparationService:
             return f"{question}；关注{aspect}" if aspect else question
         topic = entry.topic or "政策"
         area = entry.area_text or entry.area
-        if entry.area_unrestricted:
+        if entry.named_request:
+            # A document's title may itself contain an area or year.
+            # Keep the source wording intact and append only the active conditions.
+            if len(entry.messages) == 1:
+                return entry.named_request
+            question = entry.named_request
+            if entry.area_unrestricted:
+                question += "；确认地区范围：不限地区"
+            elif area:
+                question += f"；确认地区范围：{area}"
+        elif entry.area_unrestricted:
             question = f"不限地区梳理{topic}"
         elif entry.area_text == "全国范围":
             question = f"全国范围内梳理{topic}"

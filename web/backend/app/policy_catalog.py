@@ -156,6 +156,7 @@ class CatalogSnapshot:
     media_roots: tuple[Path, ...] = ()
     base_snapshot: CatalogSnapshot | None = None
     historical_projects: dict[str, Path] = field(default_factory=dict)
+    literal_indexes: dict[str, Path] = field(default_factory=dict)
 
     @property
     def total_documents(self) -> int:
@@ -280,12 +281,20 @@ def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
     return sections
 
 
+def _with_indexes(snapshot: CatalogSnapshot, root: Path) -> CatalogSnapshot:
+    if not (root / "catalog-index-v1").is_dir():
+        return snapshot
+    from guance_rag.catalog_index import index_path
+    paths = {g: index_path(root, g) for g in {r.generation_id for r in snapshot.records} if g}
+    return replace(snapshot, literal_indexes={g: p for g, p in paths.items() if p.is_file()})
+
+
 def load_published_catalog(project: str | Path, *, expand: bool = True, release=None) -> CatalogSnapshot:
     """目录和检索使用同一 SQLite 累计发布，独立保留原库的地区映射身份。"""
     project = Path(project).resolve()
     expansion_root = Path(os.environ.get("RAG_EXPANSION_ROOT") or project.parent / "rag-md-expansion")
     if not expand or (release is None and not (expansion_root / "registry.sqlite3").is_file()):
-        return _load_project(project)
+        return _with_indexes(_load_project(project), expansion_root)
     try:
         from guance_rag.expansion import database_path, load_release, read_database
         if release is None:
@@ -295,7 +304,7 @@ def load_published_catalog(project: str | Path, *, expand: bool = True, release=
     except (ImportError, OSError, sqlite3.Error, ValueError, KeyError, TypeError) as exc:
         raise CatalogUnavailable("累计发布清单不可用") from exc
     if release is None:
-        return _load_project(project)
+        return _with_indexes(_load_project(project), expansion_root)
     base = _load_project(project, lazy=True)
     records = {record.planid: record for record in base.records}
     for shard in release.active:
@@ -306,10 +315,11 @@ def load_published_catalog(project: str | Path, *, expand: bool = True, release=
             if record.planid in records:
                 raise CatalogUnavailable("累计发布存在重复政策编号")
             records[record.planid] = record
-    return CatalogSnapshot(release.generation, release.revision,
+    snapshot = CatalogSnapshot(release.generation, release.revision,
                            True if release.active else base.partial,
                            tuple(sorted(records.values(), key=lambda record: record.planid)),
                            base.media_roots, base, release.history)
+    return _with_indexes(snapshot, expansion_root)
 
 
 def _load_project(project: str | Path, *, lazy: bool = False) -> CatalogSnapshot:
@@ -441,6 +451,10 @@ class PolicyCatalogService:
         self.region_mapping = region_mapping
         self.region_mapping_version = region_mapping_version
         self._by_planid = {record.planid: record for record in snapshot.records}
+        self._by_title: dict[str, list[PolicyRecord]] = {}
+        for record in snapshot.records:
+            if record.title:
+                self._by_title.setdefault(record.title.strip("“”"), []).append(record)
         if len(self._by_planid) != len(snapshot.records):
             raise CatalogUnavailable("当前发布存在重复政策编号")
         self._region_nodes: dict[str, dict] = {}
@@ -476,6 +490,29 @@ class PolicyCatalogService:
         return {key: value for key, value in self.dataset().items()
                 if key not in {"region_version", "region_mapping_version"}}
 
+    def record_by_id(self, planid):
+        return self._by_planid.get(planid)
+
+    def records_by_title(self, title):
+        return self._by_title.get(title.strip("“”"), ())
+
+    def _keyword_ids(self, records, keyword):
+        indexes = self.snapshot.literal_indexes
+        hits = set()
+        if indexes:
+            from guance_rag.catalog_index import matching_ids
+            try:
+                for generation in {r.generation_id for r in records} & indexes.keys():
+                    hits.update(matching_ids(indexes[generation], generation, keyword))
+            except (sqlite3.Error, ValueError, OSError) as exc:
+                raise CatalogUnavailable("目录索引不可用") from exc
+        for record in records:
+            if record.title and keyword in record.title:
+                hits.add(record.planid)
+            elif record.generation_id not in indexes and keyword in record.body_text:
+                hits.add(record.planid)
+        return hits
+
     def list_policies(self, *, q: str | None = None, area: str | None = None,
                       fyp: str | None = None, plantype: str | None = None,
                       page: int = 1, page_size: int = DEFAULT_PAGE_SIZE,
@@ -490,19 +527,19 @@ class PolicyCatalogService:
             county_code=county_code, region_status=region_status, year=year,
             fyp_status=fyp_status, plantype_status=plantype_status, plan_stage=plan_stage)
         page, page_size = self._check_paging(page, page_size)
-        matched = []
         keyword = filters["q"]
         structured = self._without(filters, "q")
-        for record in self.snapshot.records:
-            if self._matches(record, structured):
-                matches = self._match_record(record, keyword) if keyword else []
-                if matches or not keyword:
-                    matched.append((record, matches))
-        matched.sort(key=lambda item: _sort_key(item[0], filters["q"]))
+        matched = [record for record in self.snapshot.records if self._matches(record, structured)]
+        if keyword:
+            hit_ids = self._keyword_ids(matched, keyword)
+            matched = [record for record in matched if record.planid in hit_ids]
+        matched.sort(key=lambda record: _sort_key(record, keyword))
         total = len(matched)
         start = (page - 1) * page_size
         items = []
-        for record, matches in matched[start:start + page_size]:
+        for record in matched[start:start + page_size]:
+            body = record.body_text if keyword else ""
+            matches = self._match_record(record, keyword, body) if keyword else []
             mapping = (self.region_mapping or {}).get(record.planid)
             items.append({"planid": record.planid, "title": record.title, "area": record.area,
                           "fyp": record.fyp, "plantype_label": record.plantype_label,
@@ -512,7 +549,7 @@ class PolicyCatalogService:
                           "region_code": mapping.get("region_code") if mapping else None,
                           "region_status": mapping.get("region_status") if mapping else None,
                           "matches": matches,
-                          "preview": search_preview(record.body_text, record.title, filters["q"])
+                          "preview": search_preview(body, record.title, filters["q"])
                           if filters["q"] else None})
         return {"dataset": self.dataset(), "query": {**query,
                 "match_mode": "literal" if filters["q"] is not None else None},
@@ -527,8 +564,7 @@ class PolicyCatalogService:
             raise CatalogUnavailable("地区映射尚未就绪")
         base, query = self._normalize_filters(**params)
         if base["q"]:
-            base["_keyword_ids"] = {record.planid for record in self.snapshot.records
-                                    if self._match_record(record, base["q"])}
+            base["_keyword_ids"] = self._keyword_ids(self.snapshot.records, base["q"])
         def counts(filters: dict) -> dict[str, int]:
             result: dict[str, int] = {}
             for record in self.snapshot.records:
@@ -961,14 +997,15 @@ class PolicyCatalogService:
         return page, page_size
 
     @staticmethod
-    def _match_record(record: PolicyRecord, q: str) -> list[dict]:
+    def _match_record(record: PolicyRecord, q: str, body: str | None = None) -> list[dict]:
         matches: list[dict] = []
         if record.title:
             position = record.title.find(q)
             if position >= 0:
                 matches.append({"field": "title", "offset": position,
                                 "snippet": _snippet(record.title, position, len(q))})
-        body = record.body_text
+        if body is None:
+            body = record.body_text
         position = body.find(q)
         if position >= 0:
             matches.append({"field": "body", "offset": position,

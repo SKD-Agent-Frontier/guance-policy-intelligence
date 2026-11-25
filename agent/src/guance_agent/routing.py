@@ -9,9 +9,9 @@ from typing import Literal
 
 # 只认带标签的编号。题干里 planid 是明确写出来的（形如 planid 10032），
 # 裸数字一律不认——训练集里 （2016）（2010）这类是年份，认成编号会拿错政策。
-PLANID = re.compile(r"planid\s*[=:：]?\s*([A-Za-z0-9_-]{2,32})", re.IGNORECASE)
+PLANID = re.compile(r"planid\s*[=:：]?\s*([A-Za-z0-9_-]{1,64})(?![A-Za-z0-9_-])", re.IGNORECASE)
 # 政策标题用书名号标注；只剥这一种最明确的写法
-TITLE = re.compile(r"《([^《》]{2,80})》")
+TITLE = re.compile(r"《([^《》]{2,120})》")
 # 地区名必须带行政后缀，并排除「地区/各地/本市/全县」这类泛指。
 # 自治县/自治州名称可达 8 个字以上（如“长白朝鲜族自治县”），不能用 2-4
 # 字前缀截断；最长后缀必须优先匹配，否则会误识别成“鲜族自治县”。

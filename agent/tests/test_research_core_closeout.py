@@ -12,6 +12,8 @@ from guance_agent.research_core import (
     EvidenceCandidate,
     ResearchBlock,
     ResearchState,
+    _check_summary,
+    _parse_audit,
     _register_evidence,
     build_research_core_agent,
     execute_research_core,
@@ -199,3 +201,38 @@ async def test_resubmitting_candidate_id_validates_corrected_evidence(env):
     assert audited == [[first_quote], [corrected_quote]]
     assert state.check_result["passed"] is True
     assert corrected_quote in answer
+
+
+@pytest.mark.parametrize(("prefix", "expected_year"), [("", 2015), ("2014年", 2014)])
+def test_report_year_cannot_replace_observed_fact_year(env, prefix, expected_year):
+    runtime, state = _make_state(env[0], "回顾的上一年生产总值是多少？", ())
+    state.freeze_requirements(["生产总值和增速"])
+    quote = prefix + "国内生产总值达到67.7万亿元，增长6.9%"
+    cid = "CLOSEOUT-DOC__gdp"
+    state.run.evidence.register(EvidenceRef(
+        planid="CLOSEOUT-DOC", chunk_id=cid, title="2016年政府工作报告", area="全国",
+        fyp=None, admin_level=None, plantype_label=None,
+        section_path="2016年政府工作报告 / 一、2015年工作回顾", section_idx=0,
+        char_start=0, char_end=len(quote), chunk_char_start=0, chunk_char_end=len(quote),
+        source="kb_read", observed_ranges=[(0, len(quote))], complete=True))
+    seed_read_page(state, cid, quote)
+    candidate = EvidenceCandidate(candidate_id="gdp", quote=quote, claim=quote,
+                                  chunk_id=cid, requirement_ids=[state.requirements[0].id])
+    invalid = _register_evidence(state, candidate.model_copy(update={"fact_year": 2016}))
+    assert invalid["error"] == "fact_year_not_in_read_context"
+    if prefix:
+        heading_year = _register_evidence(state, candidate.model_copy(update={"fact_year": 2015}))
+        assert heading_year["error"] == "fact_year_not_in_read_context"
+    old = _register_evidence(state, candidate.model_copy(update={"content_period": f"{expected_year}年"}))
+    new = _register_evidence(state, candidate.model_copy(update={"fact_year": expected_year}))
+    assert old["accepted"] and new["fact_id"] == old["fact_id"]
+    assert state.claims[0].fact_year == expected_year and state.claims[0].content_period is None
+    runtime.close()
+
+
+@pytest.mark.parametrize("raw", ["not json", '{"passed":true,"approved_block_ids":["b"]}'])
+def test_invalid_audit_has_diagnostic_and_approves_nothing(raw):
+    result = _parse_audit(raw, {"r"}, {"b"})
+    assert result["passed"] is False and result["gaps"] == ["r"]
+    assert result["covered_requirement_ids"] == result["approved_block_ids"] == []
+    assert "audit_invalid_format" in _check_summary(result)["error_codes"]

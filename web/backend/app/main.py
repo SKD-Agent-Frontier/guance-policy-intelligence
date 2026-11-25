@@ -102,7 +102,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
         allow_origins=configured_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Request-ID"],
     )
 
     @application.exception_handler(RequestValidationError)
@@ -194,6 +194,7 @@ def create_app(settings=None, env_file=None, preparation_service=None) -> FastAP
                 settings=application.state.settings,
                 research_discoverer=discoverer,
                 research_scope_resolver=scope_resolver,
+                **({"request_id": request.headers["X-Request-ID"]} if "X-Request-ID" in request.headers else {}),
             )
             return JSONResponse(content=jsonable_encoder(result))
         except Exception:  # noqa: BLE001

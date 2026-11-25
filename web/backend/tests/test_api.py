@@ -1,3 +1,4 @@
+import json
 import logging
 from unittest.mock import AsyncMock, Mock
 
@@ -545,3 +546,15 @@ def test_readiness_uses_real_configuration_not_model_network_probe(monkeypatch, 
         # A configured endpoint can still be unreachable: never label this
         # result as a live model canary or successful policy answer.
         assert "不等于" in response.json()["note"]
+
+
+def test_client_request_id_correlates_with_backend_run(client, settings):
+    request_id = "12ab" * 8
+    response = client.post("/api/runs", headers={"X-Request-ID": request_id},
+                           json={"question": "问题", "targets": []})
+    assert response.status_code == 200
+    result = response.json()
+    events = [json.loads(line) for line in settings.run_log.read_text(encoding="utf-8").splitlines()]
+    received = next(event for event in events if event["stage"] == "received")
+    assert result["meta"]["request_id"] == received["request_id"] == request_id
+    assert received["run_id"] == result["run_id"]
