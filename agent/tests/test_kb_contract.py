@@ -126,3 +126,27 @@ def test_samples_exist_and_parse(name):
     """样例必须随仓库交付，不能引用外部路径，否则 CI 跑不了。"""
     assert (SAMPLES / name).exists(), f"缺少样例 {name}"
     assert isinstance(load(name), dict)
+
+
+async def test_tool_keeps_structured_search_filters():
+    """Preserve metadata filters in the shared search adapter for expanded RAG."""
+    settings = sample_settings()
+    ctx = RunContext(settings, get_kb(settings), "run", "sess")
+    received = {}
+
+    def capture(query, area, fyp, top_k, **kwargs):
+        received.update(kwargs)
+        return []
+
+    response = json.loads(await _call(
+        ctx, "kb_search", capture, "数字经济", None, None, 5,
+        planids=("20699",), admin_level="prefecture",
+        plantype="专项规划", plan_stage="审议",
+    ))
+    assert response["status"] == "empty"
+    assert received == {
+        "planids": ("20699",),
+        "admin_level": "prefecture",
+        "plantype": "专项规划",
+        "plan_stage": "审议",
+    }
