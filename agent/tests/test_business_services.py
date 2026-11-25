@@ -403,7 +403,9 @@ async def test_early_model_timeout_is_not_global_timeout(monkeypatch, business_c
     deadline = time.monotonic() + 5
     async def fail_early(**kwargs):
         if error_kind == "request":
-            raise APITimeoutError(request=None)
+            # API timeout exception requires a valid request object.
+            raise APITimeoutError(request=SimpleNamespace(
+                method="POST", url="https://example.invalid/chat/completions", headers={}))
         raise TimeoutError("request timed out early")
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=fail_early)))
     monkeypatch.setattr(Runtime, "client", property(lambda self: client))
