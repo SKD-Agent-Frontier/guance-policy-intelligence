@@ -2,6 +2,7 @@ import asyncio
 import time
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from openai import APITimeoutError
 
@@ -403,7 +404,9 @@ async def test_early_model_timeout_is_not_global_timeout(monkeypatch, business_c
     deadline = time.monotonic() + 5
     async def fail_early(**kwargs):
         if error_kind == "request":
-            raise APITimeoutError(request=None)
+            # OpenAI SDK expects a concrete HTTP request to construct its error.
+            raise APITimeoutError(request=httpx.Request(
+                "POST", "https://example.invalid/chat/completions"))
         raise TimeoutError("request timed out early")
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=fail_early)))
     monkeypatch.setattr(Runtime, "client", property(lambda self: client))

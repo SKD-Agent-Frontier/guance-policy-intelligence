@@ -15,7 +15,8 @@ import json
 import os
 import re
 import sqlite3
-from dataclasses import dataclass
+from contextlib import closing
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .policy_format import read_original_html_headings
@@ -39,11 +40,12 @@ DEFAULT_CONTENT_LIMIT = 4000
 
 # 与 guance_rag.storage.body_origin 同语义：跳过 BOM 与正文前的空白。
 FYP_ALIASES = {f"{n}五": f"第{n}个五年规划" for n in
-               ("十", "十一", "十二", "十三", "十四", "十五")}
+               ("一", "二", "三", "四", "五", "六", "七", "八", "九",
+                "十", "十一", "十二", "十三", "十四", "十五")}
 PLANNING_YEARS = {"第十个五年规划": 2001, "第十一个五年规划": 2006,
                   "第十二个五年规划": 2011, "第十三个五年规划": 2016,
                   "第十四个五年规划": 2021, "第十五个五年规划": 2026}
-PLANNING_ORDINALS = re.compile(r"第(十|十一|十二|十三|十四|十五)个五年(?:规划|计划)\Z")
+PLANNING_ORDINALS = re.compile(r"第([一二三四五六七八九十]{1,2})个五年(?:规划|计划)\Z")
 TITLE_YEARS = re.compile(r"(?<!\d)((?:19|20)\d{2})年")
 TITLE_YEAR_TOKENS = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 VISION_YEAR = re.compile(r"((?:19|20)\d{2})年\s*远景")
@@ -81,6 +83,35 @@ class SectionMeta:
 
 
 @dataclass(frozen=True)
+class FrozenMarkdown:
+    path: Path
+    database: Path
+    document_id: str
+    source_hash: str
+    body_start: int
+
+    def read(self) -> tuple[str, int]:
+        try:
+            raw = self.path.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != self.source_hash:
+                raise CatalogUnavailable("冻结原文校验失败")
+            text = raw.decode("utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise CatalogUnavailable("冻结原文不可读") from exc
+        origin = body_origin(text, self.body_start)
+        return text[origin:], origin
+
+    def sections(self, origin: int, body_size: int) -> tuple[SectionMeta, ...]:
+        did = self.document_id
+        try:
+            with closing(sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True)) as db:
+                db.row_factory = sqlite3.Row
+                return _read_sections(db, {did}, {did: origin}, {did: origin + body_size}).get(did, ())
+        except (sqlite3.Error, ValueError, KeyError, TypeError) as exc:
+            raise CatalogUnavailable("冻结章节不可读") from exc
+
+
+@dataclass(frozen=True)
 class PolicyRecord:
     planid: str
     title: str | None
@@ -91,6 +122,13 @@ class PolicyRecord:
     body: str
     sections: tuple[SectionMeta, ...]
     admin_level: str | None = None
+    plan_stage: str | None = None
+    plantype_code: str | None = None
+    parent_area: str | None = None
+    frozen: FrozenMarkdown | None = None
+    text_only: bool = False
+    generation_id: str | None = None
+    source_hash: str | None = None
 
     @property
     def year(self) -> int | None:
@@ -98,7 +136,15 @@ class PolicyRecord:
 
     @property
     def body_status(self) -> str:
-        return body_status(self.body, self.title)
+        return body_status(self.body_text, self.title)
+
+    @property
+    def body_text(self) -> str:
+        return self.frozen.read()[0] if self.frozen else self.body
+
+    @property
+    def has_body(self) -> bool:
+        return self.text_only or bool(self.body_text.strip())
 
 
 @dataclass(frozen=True)
@@ -108,6 +154,8 @@ class CatalogSnapshot:
     partial: bool | None
     records: tuple[PolicyRecord, ...]
     media_roots: tuple[Path, ...] = ()
+    base_snapshot: CatalogSnapshot | None = None
+    historical_projects: dict[str, Path] = field(default_factory=dict)
 
     @property
     def total_documents(self) -> int:
@@ -180,8 +228,9 @@ def _relative(path: Path, root: Path) -> Path:
 def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
                    origins: dict[str, int], lengths: dict[str, int]) -> dict[str, tuple[SectionMeta, ...]]:
     grouped: dict[str, list[SectionMeta]] = {did: [] for did in document_ids}
-    rows = conn.execute(
-        "SELECT document_id,data,data_hash FROM objects WHERE kind='structure'").fetchall()
+    sql = "SELECT document_id,data,data_hash FROM objects WHERE kind='structure'"
+    rows = (conn.execute(sql + " AND document_id=?", tuple(document_ids)) if len(document_ids) == 1
+            else conn.execute(sql))
     for row in rows:
         did = row["document_id"]
         if did not in grouped:
@@ -231,7 +280,39 @@ def _read_sections(conn: sqlite3.Connection, document_ids: set[str],
     return sections
 
 
-def load_published_catalog(project: str | Path) -> CatalogSnapshot:
+def load_published_catalog(project: str | Path, *, expand: bool = True, release=None) -> CatalogSnapshot:
+    """目录和检索使用同一 SQLite 累计发布，独立保留原库的地区映射身份。"""
+    project = Path(project).resolve()
+    expansion_root = Path(os.environ.get("RAG_EXPANSION_ROOT") or project.parent / "rag-md-expansion")
+    if not expand or (release is None and not (expansion_root / "registry.sqlite3").is_file()):
+        return _load_project(project)
+    try:
+        from guance_rag.expansion import database_path, load_release, read_database
+        if release is None:
+            with closing(read_database(database_path(project))) as db:
+                generation = db.execute("SELECT generation FROM runtime").fetchone()[0]
+            release = load_release(project, generation)
+    except (ImportError, OSError, sqlite3.Error, ValueError, KeyError, TypeError) as exc:
+        raise CatalogUnavailable("累计发布清单不可用") from exc
+    if release is None:
+        return _load_project(project)
+    base = _load_project(project, lazy=True)
+    records = {record.planid: record for record in base.records}
+    for shard in release.active:
+        current = _load_project(shard, lazy=True)
+        if current.generation_id != shard.name:
+            raise CatalogUnavailable("增量发布身份不一致")
+        for record in current.records:
+            if record.planid in records:
+                raise CatalogUnavailable("累计发布存在重复政策编号")
+            records[record.planid] = record
+    return CatalogSnapshot(release.generation, release.revision,
+                           True if release.active else base.partial,
+                           tuple(sorted(records.values(), key=lambda record: record.planid)),
+                           base.media_roots, base, release.history)
+
+
+def _load_project(project: str | Path, *, lazy: bool = False) -> CatalogSnapshot:
     """读取当前已发布的冻结知识库；失败一律抛 CatalogUnavailable（不伪造数据）。"""
     project_path = Path(project).resolve()
     config_path = project_path / "config.json"
@@ -265,19 +346,19 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
         documents_file = prepared / "documents.jsonl"
         if not documents_file.is_file():
             raise CatalogUnavailable("当前发布缺少文档清单")
-        document_ids = []
-        for line in documents_file.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            did = json.loads(line)["id"]
-            if not isinstance(did, str) or did in document_ids:
-                raise CatalogUnavailable("当前发布文档清单无效")
-            document_ids.append(did)
+        document_ids = set()
+        with documents_file.open(encoding="utf-8") as stream:
+            for line in stream:
+                if not line.strip():
+                    continue
+                did = json.loads(line)["id"]
+                if not isinstance(did, str) or did in document_ids:
+                    raise CatalogUnavailable("当前发布文档清单无效")
+                document_ids.add(did)
         records: list[PolicyRecord] = []
         planids: set[str] = set()
         origins: dict[str, int] = {}
         lengths: dict[str, int] = {}
-        bodies: dict[str, str] = {}
         for did in document_ids:
             row = conn.execute("SELECT data,data_hash FROM documents WHERE id=?",
                                (did,)).fetchone()
@@ -288,17 +369,17 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
                 raise CatalogUnavailable("来源对象内容校验失败")
             data = json.loads(raw_data)
             snapshot = _relative(prepared / data["snapshot"], prepared)
-            snapshot_bytes = snapshot.read_bytes()
-            if hashlib.sha256(snapshot_bytes).hexdigest() != data["source_hash"]:
-                raise CatalogUnavailable("冻结原文校验失败")
-            text = snapshot_bytes.decode("utf-8")
-            origin = body_origin(text, data["body_start"])
-            meta = data["metadata"]
+            frozen = FrozenMarkdown(snapshot, database, did, data["source_hash"], data["body_start"])
+            body = ""
+            if not lazy:
+                body, origin = frozen.read()
+                origins[did], lengths[did] = origin, len(body) + origin
+            meta = {key: value for key, value in data["metadata"].items()
+                    if key not in data.get("filter_conflicts", ())}
             planid = data["planid"]
             if not isinstance(planid, str) or planid in planids:
                 raise CatalogUnavailable("当前发布存在重复或无效的政策编号")
             planids.add(planid)
-            origins[did], lengths[did], bodies[did] = origin, len(text), text[origin:]
             records.append(PolicyRecord(
                 planid=planid,
                 title=(meta.get("title") or None),
@@ -306,13 +387,20 @@ def load_published_catalog(project: str | Path) -> CatalogSnapshot:
                 fyp=(meta.get("fyp_name") or None),
                 plantype_label=(meta.get("plantype_label") or None),
                 document_id=did,
-                body=bodies[did],
+                body=body,
                 sections=(),
                 admin_level=(meta.get("admin_level") or None),
+                plan_stage=(str(meta["plan_stage"]).strip() if meta.get("plan_stage") else None),
+                plantype_code=(str(meta["plantype"]).strip() if meta.get("plantype") else None),
+                parent_area=(meta.get("parent_area_name") or None),
+                frozen=frozen if lazy else None,
+                text_only=manifest.get("text_only", False),
+                generation_id=generation,
+                source_hash=data["source_hash"],
             ))
-        sections = _read_sections(conn, set(document_ids), origins, lengths)
-        records = [PolicyRecord(**{**record.__dict__, "sections": sections.get(
-            record.document_id, ())}) for record in records]
+        if not lazy:
+            sections = _read_sections(conn, document_ids, origins, lengths)
+            records = [replace(record, sections=sections.get(record.document_id, ())) for record in records]
         records.sort(key=lambda record: record.planid)
     except CatalogUnavailable:
         raise
@@ -394,15 +482,22 @@ class PolicyCatalogService:
                       admin_level: str | None = None, province_code: str | None = None,
                       prefecture_code: str | None = None, county_code: str | None = None,
                       region_status: str | None = None, year: str | int | None = None,
-                      fyp_status: str | None = None, plantype_status: str | None = None) -> dict:
+                      fyp_status: str | None = None, plantype_status: str | None = None,
+                      plan_stage: str | None = None) -> dict:
         filters, query = self._normalize_filters(
             q=q, area=area, fyp=fyp, plantype=plantype, admin_level=admin_level,
             province_code=province_code, prefecture_code=prefecture_code,
             county_code=county_code, region_status=region_status, year=year,
-            fyp_status=fyp_status, plantype_status=plantype_status)
+            fyp_status=fyp_status, plantype_status=plantype_status, plan_stage=plan_stage)
         page, page_size = self._check_paging(page, page_size)
-        matched = [(record, self._match_record(record, filters["q"]) if filters["q"] else [])
-                   for record in self.snapshot.records if self._matches(record, filters)]
+        matched = []
+        keyword = filters["q"]
+        structured = self._without(filters, "q")
+        for record in self.snapshot.records:
+            if self._matches(record, structured):
+                matches = self._match_record(record, keyword) if keyword else []
+                if matches or not keyword:
+                    matched.append((record, matches))
         matched.sort(key=lambda item: _sort_key(item[0], filters["q"]))
         total = len(matched)
         start = (page - 1) * page_size
@@ -411,12 +506,13 @@ class PolicyCatalogService:
             mapping = (self.region_mapping or {}).get(record.planid)
             items.append({"planid": record.planid, "title": record.title, "area": record.area,
                           "fyp": record.fyp, "plantype_label": record.plantype_label,
+                          "plan_stage": record.plan_stage,
                           "year": record.year,
                           "admin_level": self._admin_level(record),
                           "region_code": mapping.get("region_code") if mapping else None,
                           "region_status": mapping.get("region_status") if mapping else None,
                           "matches": matches,
-                          "preview": search_preview(record.body, record.title, filters["q"])
+                          "preview": search_preview(record.body_text, record.title, filters["q"])
                           if filters["q"] else None})
         return {"dataset": self.dataset(), "query": {**query,
                 "match_mode": "literal" if filters["q"] is not None else None},
@@ -425,11 +521,14 @@ class PolicyCatalogService:
                 "items": items}
 
     def facets(self, **params) -> dict:
-        if self.region_payload is None:
+        if self.region_payload is None and self.snapshot.base_snapshot is None:
             raise CatalogUnavailable("地区树资源不可用")
-        if self.region_mapping is None or self.region_mapping_version is None:
+        if self.region_mapping is None and self.snapshot.base_snapshot is None:
             raise CatalogUnavailable("地区映射尚未就绪")
         base, query = self._normalize_filters(**params)
+        if base["q"]:
+            base["_keyword_ids"] = {record.planid for record in self.snapshot.records
+                                    if self._match_record(record, base["q"])}
         def counts(filters: dict) -> dict[str, int]:
             result: dict[str, int] = {}
             for record in self.snapshot.records:
@@ -461,8 +560,9 @@ class PolicyCatalogService:
         plantype_missing = count({**plantype_filters, "plantype_status": "unclassified"})
         region_filter_base = self._without(base, "province_code", "prefecture_code", "county_code",
                                            "region_status", "area")
-        province_options = [self._region_option(node, region_filter_base) for node in self.region_payload["data"]
-                            if node["tier"] == "province"]
+        province_options = [self._region_option(node, region_filter_base)
+                            for node in ((self.region_payload or {}).get("data", ()))
+                            if self.region_mapping is not None and node["tier"] == "province"]
         province = base.get("province_code")
         prefecture = base.get("prefecture_code")
         prefecture_options = []
@@ -517,9 +617,9 @@ class PolicyCatalogService:
     def _normalize_filters(self, *, q=None, area=None, fyp=None, plantype=None,
                            admin_level=None, province_code=None, prefecture_code=None,
                            county_code=None, region_status=None, year=None, fyp_status=None,
-                           plantype_status=None) -> tuple[dict, dict]:
+                           plantype_status=None, plan_stage=None) -> tuple[dict, dict]:
         q = self._check_query(q)
-        for name, value in (("area", area), ("fyp", fyp), ("plantype", plantype)):
+        for name, value in (("area", area), ("fyp", fyp), ("plantype", plantype), ("plan_stage", plan_stage)):
             self._check_filter(value, name)
         fyp = normalize_fyp(fyp)
         if admin_level is not None and admin_level not in ADMIN_LEVEL_VALUES:
@@ -580,6 +680,8 @@ class PolicyCatalogService:
                    "region_status": region_status, "year": normalized_year,
                    "fyp_status": fyp_status, "plantype_status": plantype_status}
         query = {key: value for key, value in filters.items()}
+        if plan_stage is not None:
+            filters["plan_stage"] = query["plan_stage"] = plan_stage
         return filters, query
 
     def _ancestor(self, code: str, tier: str) -> str | None:
@@ -620,40 +722,66 @@ class PolicyCatalogService:
             return False
         if filters.get("plantype_status") == "unclassified" and record.plantype_label is not None:
             return False
-        if filters.get("plantype") is not None and record.plantype_label != filters["plantype"]:
+        if filters.get("plantype") is not None and filters["plantype"] not in (
+            record.plantype_label, record.plantype_code
+        ):
+            return False
+        if filters.get("plan_stage") is not None and record.plan_stage != filters["plan_stage"]:
             return False
         if "year" in filters and filters["year"] is not None:
             if filters["year"] == "unknown" and record.year is not None:
                 return False
             if isinstance(filters["year"], int) and record.year != filters["year"]:
                 return False
+        if "_keyword_ids" in filters:
+            return record.planid in filters["_keyword_ids"]
         return filters.get("q") is None or self._match_record(record, filters["q"])
 
-    def get_policy(self, planid: str) -> dict:
+    def _source_record(self, planid, generation_id=None, document_id=None) -> PolicyRecord:
         planid = self._check_planid(planid)
+        for identity in (generation_id, document_id):
+            if identity is not None and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", identity):
+                raise InvalidParameter("来源版本标识无效")
         record = self._by_planid.get(planid)
-        if record is None:
-            raise LookupError("未找到该政策")
+        actual = record.generation_id if record and record.generation_id else self.snapshot.generation_id
+        if generation_id is not None and actual != generation_id:
+            project = self.snapshot.historical_projects.get(generation_id)
+            if project is None:
+                raise LookupError("未找到该原文版本")
+            historical = _load_project(project, lazy=True)
+            if historical.generation_id != generation_id:
+                raise CatalogUnavailable("历史发布身份不一致")
+            record = next((item for item in historical.records if item.planid == planid), None)
+        if record is None or (document_id is not None and document_id != record.document_id):
+            raise LookupError("未找到该原文版本")
+        return record
+
+    def get_policy(self, planid: str, *, generation_id=None, document_id=None) -> dict:
+        record = self._source_record(planid, generation_id, document_id)
+        body, origin = record.frozen.read() if record.frozen else (record.body, 0)
+        sections = record.frozen.sections(origin, len(body)) if record.frozen else record.sections
         return {"dataset": self._legacy_dataset(),
                 "policy": {"planid": record.planid, "title": record.title,
                            "area": record.area, "fyp": record.fyp,
                            "plantype_label": record.plantype_label,
+                           "plan_stage": record.plan_stage,
+                           "generation_id": record.generation_id,
+                           "document_id": record.document_id,
+                           "source_hash": record.source_hash,
                            "year": record.year,
-                           "body_chars": len(record.body),
-                           "printed_toc": printed_toc_range(record.body),
-                           "body_status": record.body_status,
-                           "sections": [section.as_dict() for section in record.sections]}}
+                           "body_chars": len(body),
+                           "printed_toc": printed_toc_range(body),
+                           "body_status": body_status(body, record.title),
+                           "sections": [section.as_dict() for section in sections]}}
 
-    def read_content(self, planid: str, *, offset: int, limit: int) -> dict:
-        planid = self._check_planid(planid)
+    def read_content(self, planid: str, *, offset: int, limit: int, generation_id=None, document_id=None) -> dict:
         if type(offset) is not int or offset < 0:
             raise InvalidParameter("offset 必须为非负整数")
         if type(limit) is not int or not 1 <= limit <= MAX_CONTENT_LIMIT:
             raise InvalidParameter(f"limit 必须为 1–{MAX_CONTENT_LIMIT} 的整数")
-        record = self._by_planid.get(planid)
-        if record is None:
-            raise LookupError("未找到该政策")
-        total = len(record.body)
+        record = self._source_record(planid, generation_id, document_id)
+        body = record.body_text
+        total = len(body)
         if offset > total:
             raise InvalidParameter("offset 超出正文长度")
         end = min(offset + limit, total)
@@ -661,7 +789,7 @@ class PolicyCatalogService:
                 "title": record.title, "offset": offset, "limit": limit,
                 "total_chars": total, "has_more": end < total,
                 "body_status": record.body_status,
-                "text": record.body[offset:end]}
+                "text": body[offset:end]}
 
     @staticmethod
     def _reading_boundary(body: str, target: int, page_chars: int = 4000) -> int:
@@ -706,13 +834,14 @@ class PolicyCatalogService:
             raise LookupError("未找到该政策")
         if type(page_chars) is not int or not 500 <= page_chars <= 10000:
             raise InvalidParameter("page_chars 必须在 500–10000 范围")
-        total = len(record.body)
+        body = record.body_text
+        total = len(body)
         page_count = max(1, (total + page_chars - 1) // page_chars)
         if type(page) is not int or page < 1 or page > page_count:
             raise InvalidParameter("页码超出正文范围")
         nominal_start, nominal_end = (page - 1) * page_chars, min(page * page_chars, total)
-        start = self._reading_boundary(record.body, nominal_start, page_chars)
-        end = self._reading_boundary(record.body, nominal_end, page_chars)
+        start = self._reading_boundary(body, nominal_start, page_chars)
+        end = self._reading_boundary(body, nominal_end, page_chars)
         if end < start or end - start > MAX_CONTENT_LIMIT:
             # This can only occur for an unusual source; keep exact boundaries.
             start, end = nominal_start, nominal_end
@@ -720,8 +849,8 @@ class PolicyCatalogService:
             "dataset": self._legacy_dataset(), "planid": record.planid,
             "title": record.title, "offset": start, "limit": end - start,
             "total_chars": total, "has_more": end < total,
-            "body_status": record.body_status,
-            "text": record.body[start:end], "page": page, "page_count": page_count,
+            "body_status": body_status(body, record.title),
+            "text": body[start:end], "page": page, "page_count": page_count,
         }
 
     def heading_hints(self, planid: str) -> dict:
@@ -729,6 +858,8 @@ class PolicyCatalogService:
         planid = self._check_planid(planid)
         if planid not in self._by_planid:
             raise LookupError("未找到该政策")
+        if self._by_planid[planid].text_only:
+            return {"source": "unavailable", "headings": []}
         root_override = (os.environ.get("GUANCE_POLICY_ORIGINAL_ROOT")
                          or os.environ.get("GUANCE_POLICY_CLEAN_ROOT"))
         root = (Path(root_override) if root_override
@@ -741,6 +872,8 @@ class PolicyCatalogService:
         record = self._by_planid.get(planid)
         if record is None:
             raise LookupError("未找到该政策")
+        if record.text_only:
+            raise LookupError("图片原件未发布")
         if not isinstance(filename, str) or not IMAGE_NAME.fullmatch(filename) or ".." in filename:
             raise InvalidParameter("图片文件名无效")
         mime = IMAGE_TYPES.get(Path(filename).suffix.lower())
@@ -754,7 +887,7 @@ class PolicyCatalogService:
             + r'>|media/' + local_target + r')(?:\s+"[^"]*")?\s*\)',
             re.IGNORECASE,
         )
-        if not reference.search(record.body):
+        if not reference.search(record.body_text):
             raise LookupError("原文没有引用此图片")
         for root in self.snapshot.media_roots:
             root = root.resolve()
@@ -835,10 +968,11 @@ class PolicyCatalogService:
             if position >= 0:
                 matches.append({"field": "title", "offset": position,
                                 "snippet": _snippet(record.title, position, len(q))})
-        position = record.body.find(q)
+        body = record.body_text
+        position = body.find(q)
         if position >= 0:
             matches.append({"field": "body", "offset": position,
-                            "snippet": _snippet(record.body, position, len(q))})
+                            "snippet": _snippet(body, position, len(q))})
         return matches[:2]
 
 

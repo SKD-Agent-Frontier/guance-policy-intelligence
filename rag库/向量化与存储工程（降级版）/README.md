@@ -196,7 +196,7 @@ Copy-Item secrets.example.json secrets.local.json
 
 ## 本地版的限制与空间
 
-Qdrant Local为单进程本地精确向量搜索，不能当作Qdrant Server的HNSW、网络并发或服务端snapshot。47,477×4096个float32的纯向量约0.724GiB，打开时还存在矩阵容量、payload、Python对象和来源表等内存开销。BM25S索引采用mmap；关键词单路不加载dense库。后续面向多用户或更大语料，可实现相同接口切回服务端。
+Qdrant Local为单进程本地精确向量搜索，不能当作Qdrant Server的HNSW、网络并发或服务端snapshot。47,477×4096个float32的纯向量约0.724GiB，打开时还存在矩阵容量、payload、Python对象和来源表等内存开销。BM25S索引采用mmap，关闭时释放模型引用解除索引文件映射。关键词单路不加载dense库。后续面向多用户或更大语料，可实现相同接口切回服务端。
 
 本机实测：本地存储合计约 **2.43GiB**（SQLite约0.66GiB、Qdrant Local约1.72GiB、BM25S约0.05GiB）；独立环境约0.42GiB。向量缓存按路径计约0.72GiB，90,966个缓存文件与原版共享硬链接，不能重复算成新增物理占用。以上为文件逻辑大小，不是NTFS精确分配空间。
 
@@ -209,3 +209,8 @@ Local持久化文件启用WAL，保留默认FULL同步，降低逐point回滚日
 官方组件依据：[Qdrant Client Local实现（固定1.15.1）](https://github.com/qdrant/qdrant-client/blob/v1.15.1/qdrant_client/local/qdrant_local.py)、[BM25S](https://github.com/xhluca/bm25s)。Qwen模型服务可能不公开服务端权重修订，固定输入探针只检查明显空间变化，不等同于服务端修订证明。
 
 后续增删文件、变更入口或生成新正式批次时，必须同步更新本README的结构/状态，以及`outputs/README.md`的当前版本标记。
+## 复赛 Markdown 增量批次
+
+`expand_md.py` 在本机按批读取复赛 Markdown，复用章节、父子切片、SQLite 来源对象和 BM25S。原库仍由自己的发布指针管理。新增仅保存入库 Markdown 的原字节快照与该批索引，数据库中记录空文档、不可引用范围、元数据冲突及去重结果。日志只输出统计和错误码。
+
+预检、构建、复核和发布都通过 `--dataset` 指定本机数据集。完整的复现命令、运行配置、回退方式及 15,506 篇真实库验收结果见 [Markdown 增量扩容交接](../Markdown增量扩容交接.md)。

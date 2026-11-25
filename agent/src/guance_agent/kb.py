@@ -30,7 +30,8 @@ class KnowledgeBase(Protocol):
     name: str
 
     def search(self, query: str, area: str | None, fyp: str | None, top_k: int, *,
-               planids: tuple[str, ...] | None = None) -> list[Hit]: ...
+               planids: tuple[str, ...] | None = None, admin_level: str | None = None,
+               plantype: str | None = None, plan_stage: str | None = None) -> list[Hit]: ...
     def find_by_title(self, title: str, *, area: str | None = None,
                       fyp: str | None = None) -> tuple[list[dict], int]: ...
     def read(self, planid: str, section_idx: int | None, max_chars: int, *,
@@ -50,7 +51,8 @@ class MockKB:
         if self.fail == operation:
             raise RuntimeError("mock backend fault")
 
-    def search(self, query, area, fyp, top_k, *, planids=None):
+    def search(self, query, area, fyp, top_k, *, planids=None, admin_level=None,
+               plantype=None, plan_stage=None):
         self._fault("search")
         # 模拟库同样在候选之前限定范围，保持与真实后端一致；这里只筛本次视图，不改库
         visible = [d for d in self.docs if planids is None or d["planid"] in planids]
@@ -60,6 +62,12 @@ class MockKB:
             if area and area not in (doc["area"] or ""):
                 continue
             if fyp is not None and doc["fyp"] != fyp:
+                continue
+            if admin_level is not None and doc.get("admin_level") != admin_level:
+                continue
+            if plantype is not None and doc.get("plantype_label") != plantype:
+                continue
+            if plan_stage is not None and doc.get("plan_stage") != plan_stage:
                 continue
             for chunk in doc["chunks"]:
                 start, end = chunk["char_start"], chunk["char_end"]

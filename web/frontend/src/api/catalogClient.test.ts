@@ -158,6 +158,26 @@ describe("catalogClient", () => {
     expect(samePolicyVersionPin(dataset, { ...dataset, revision: 2 })).toBe(false);
   });
 
+  it("pins metadata-only facets and original requests when the region tree is unavailable", async () => {
+    const response = facetsFixture();
+    response.dataset.region_version = null;
+    response.dataset.region_mapping_version = null;
+    vi.mocked(fetch).mockImplementation(async () => jsonResponse(response));
+    const facets = await catalogClient.facets();
+    const pin = extractPolicyVersionPin(facets.dataset);
+    expect(pin).toMatchObject({ region_version: "unavailable", region_mapping_version: "unavailable" });
+    await catalogClient.list({ ...pin, admin_level: "province" });
+    const listQuery = new URL(String(vi.mocked(fetch).mock.calls[1][0])).searchParams;
+    expect(listQuery.get("region_version")).toBe("unavailable");
+    expect(listQuery.get("admin_level")).toBe("province");
+    await catalogClient.content("1001", 12, 20, undefined, {
+      document_id: "doc_a", generation_id: "shard_a",
+    });
+    const sourceQuery = new URL(String(vi.mocked(fetch).mock.calls[2][0])).searchParams;
+    expect(sourceQuery.get("document_id")).toBe("doc_a");
+    expect(sourceQuery.get("generation_id")).toBe("shard_a");
+  });
+
   it("keeps missing-value sentinels separate from real values and requires all facet siblings", () => {
     const response = facetsFixture();
     expect(validatePolicyFacetsResponse(response).facets.fyp.options[0]?.value).toBe("unclassified");

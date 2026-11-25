@@ -51,6 +51,11 @@ export function usePolicyCatalogFacets() {
       pinRef.current = pin;
       datasetMetaRef.current = { total_documents: response.dataset.total_documents, partial: response.dataset.partial };
       setFacets(response);
+      if (pin.region_version === "unavailable") {
+        setRegions(null);
+        setStatus("ready");
+        return { pin, status: "ready", dataset: response.dataset };
+      }
       try {
         const tree = await catalogClient.regions(pin.region_version, requestController.signal);
         if (requestSequence !== sequence.current) return { pin: null, status: "error" };

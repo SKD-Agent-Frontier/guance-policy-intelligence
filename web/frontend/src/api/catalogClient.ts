@@ -14,6 +14,13 @@ import { validatePolicyFacetsResponse, validatePolicyRegionsResponse } from "./p
 
 const DEMO_FACETS_UNAVAILABLE = "演示目录暂未提供维度筛选";
 
+type PolicySourceVersion = { generation_id?: string | null; document_id?: string | null };
+
+function addSourceVersion(params: URLSearchParams, source?: PolicySourceVersion) {
+  if (source?.generation_id) params.set("generation_id", source.generation_id);
+  if (source?.document_id) params.set("document_id", source.document_id);
+}
+
 function assertCompletePin(params: PolicyListParams | PolicyFacetRequest): void {
   const values = params as unknown as Record<string, unknown>;
   const pinKeys = ["generation_id", "revision", "region_version", "region_mapping_version"];
@@ -23,7 +30,8 @@ function assertCompletePin(params: PolicyListParams | PolicyFacetRequest): void 
   }
   if (typeof values.generation_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(values.generation_id)
     || !Number.isInteger(values.revision) || (values.revision as number) < 1
-    || typeof values.region_version !== "string" || !/^sha256:[0-9a-f]{64}$/.test(values.region_version)
+    || (values.region_version !== "unavailable"
+      && (typeof values.region_version !== "string" || !/^sha256:[0-9a-f]{64}$/.test(values.region_version)))
     || (values.region_mapping_version !== "unavailable"
       && (typeof values.region_mapping_version !== "string" || !/^sha256:[0-9a-f]{64}$/.test(values.region_mapping_version)))) {
     throw new TypeError("版本固定参数格式无效");
@@ -70,10 +78,13 @@ export const catalogClient = {
     ).then(validatePolicyRegionsResponse);
   },
 
-  detail(planid: string, signal?: AbortSignal): Promise<PolicyDetailResponse> {
+  detail(planid: string, signal?: AbortSignal, source?: PolicySourceVersion): Promise<PolicyDetailResponse> {
     if (!isRealMode) return demoCatalogClient.detail(planid, signal);
+    const params = new URLSearchParams();
+    addSourceVersion(params, source);
+    const query = params.size ? `?${params}` : "";
     return requestJson<PolicyDetailResponse>(
-      `/api/policies/${encodeURIComponent(planid)}`,
+      `/api/policies/${encodeURIComponent(planid)}${query}`,
       { method: "GET" },
       { signal, timeoutMs: API_REQUEST_TIMEOUT_MS },
     );
@@ -111,9 +122,11 @@ export const catalogClient = {
     offset = 0,
     limit = 4000,
     signal?: AbortSignal,
+    source?: PolicySourceVersion,
   ): Promise<PolicyContentResponse> {
     if (!isRealMode) return demoCatalogClient.content(planid, offset, limit, signal);
     const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+    addSourceVersion(query, source);
     return requestJson<PolicyContentResponse>(
       `/api/policies/${encodeURIComponent(planid)}/content?${query.toString()}`,
       { method: "GET" },

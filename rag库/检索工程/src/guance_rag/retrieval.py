@@ -29,16 +29,20 @@ def fuse_sources(channels, members, rrf_k=60):
 
 
 class LexicalReader:
-    def __init__(self, project, root, generation, cache):
+    def __init__(self, project, root, generation, cache, *, tokenizer=None):
         if not root.is_dir():
             raise BackendError("BM25索引目录不存在")
         cls = component(project, "bm25s_index").BM25SLexical
         self.index = cls(root)
         # jieba仅在独立运行缓存中写分词缓存，不回写语料索引。
-        cache.mkdir(parents=True, exist_ok=True)
-        self.index.tokenizer.tmp_dir = str(cache)
+        if tokenizer is None:
+            cache.mkdir(parents=True, exist_ok=True)
+            self.index.tokenizer.tmp_dir = str(cache)
+        else:
+            self.index.tokenizer = tokenizer
         self.index.load(generation)
-        self.index.tokenizer.initialize()
+        if tokenizer is None:
+            self.index.tokenizer.initialize()
         self.loads = 1
 
     def search(self, query, limit, allowed):

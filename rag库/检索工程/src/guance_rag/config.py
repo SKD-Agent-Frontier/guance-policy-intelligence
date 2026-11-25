@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import math
 
+from .expansion import active_shard_count
+
 ENGINE_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STORE = ENGINE_ROOT.parent / "向量化与存储工程（降级版）"
 
@@ -15,7 +17,7 @@ class RuntimeOptions:
     queue_capacity: int = 32
     queue_timeout: float = 20.0
     execution_timeout: float = 30.0
-    startup_timeout: float = 180.0
+    startup_timeout: float | None = None
     close_timeout: float = 60.0
     snippet_chars: int = 300
     max_read_chars: int = 6000
@@ -23,12 +25,18 @@ class RuntimeOptions:
     max_search_chars: int = 16000
     top_k_max: int = 20
     max_image_bytes: int = 20 * 1024 * 1024
+    expansion_root: Path | None = None
 
     def __post_init__(self):
         for name in ("store_project", "cache_directory"):
             object.__setattr__(self, name, Path(getattr(self, name)).resolve())
+        if self.expansion_root is not None:
+            object.__setattr__(self, "expansion_root", Path(self.expansion_root).resolve())
         if self.mode not in {"bm25", "dense", "hybrid"}:
             raise ValueError("mode必须为bm25、dense或hybrid")
+        if self.startup_timeout is None:
+            shards = active_shard_count(self.store_project, self.expansion_root) if self.mode == "bm25" else 0
+            object.__setattr__(self, "startup_timeout", 180.0 + 8.0 * shards)
         for name in ("queue_capacity", "snippet_chars", "max_read_chars", "max_context_chars", "max_search_chars", "top_k_max", "max_image_bytes"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise ValueError(name + "必须为正整数")

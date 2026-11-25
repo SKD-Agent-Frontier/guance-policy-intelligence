@@ -94,7 +94,7 @@ def _score(record: PolicyRecord, question: str, period: str | None) -> int:
     if not _period_matches(record, period):
         return -1
     title = record.title or ""
-    if not title or not record.body.strip():
+    if not title or not record.has_body:
         return -1
     score = 0
     if GENERAL_PLAN.search(title):
@@ -113,11 +113,15 @@ def _score(record: PolicyRecord, question: str, period: str | None) -> int:
         # of a specialized topic into an identified thematic document.
         if any(token in TITLE_REQUIRED_THEMES and token not in title for token in related):
             return -1
+        body = None
         for token in related:
             if token in title:
                 score += 70
-            elif token in record.body and GENERAL_PLAN.search(title):
-                score += 10
+            elif GENERAL_PLAN.search(title):
+                if body is None:
+                    body = record.body_text
+                if token in body:
+                    score += 10
         if score < 45:
             return -1
     return score
@@ -254,7 +258,7 @@ def _unperioded_comparison_coverage(question: str, catalog: PolicyCatalogService
     for area in areas:
         canonical = _PROVINCES.get(area, (area,))[0]
         matches = [record for record in _area_records(catalog, canonical)
-                   if topic in (record.title or "") and (record.body or "").strip()]
+                   if topic in (record.title or "") and record.has_body]
         counts[area] = len(matches)
         if not matches:
             gaps.append(canonical)

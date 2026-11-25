@@ -72,4 +72,20 @@ class BM25SLexical:
         return {'passed':True,'documents':len(self.ids),'mmap':True}
 
     def close(self):
-        self.model=None;gc.collect()
+        # BM25S 模型持有 mmap 数组，释放模型引用即可解除文件映射。
+        self.model = None
+
+    def rerank(self, query, documents):
+        """对有界候选共享词表与文档频率，避免直接比较各分片原始分值。"""
+        if not documents:
+            return []
+        model = bm25s.BM25(method='lucene', k1=1.5, b=.75, backend='numpy')
+        model.index([self.tokens(text) for _, text in documents], show_progress=False)
+        tokens = self.tokens(query)
+        if not any(token in model.vocab_dict for token in tokens):
+            return []
+        indices, scores = model.retrieve([tokens], k=len(documents), show_progress=False,
+                                         backend_selection='numpy')
+        ranked = [(documents[int(index)][0], float(score)) for index, score in zip(indices[0], scores[0])
+                  if score > 0]
+        return sorted(ranked, key=lambda item: (-item[1], item[0]))

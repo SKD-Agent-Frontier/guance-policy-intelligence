@@ -49,24 +49,24 @@ export function EvidenceOriginalReader({ source, onBack }: { source: Source; onB
     const controller = new AbortController();
     setDetail(null);
     setDetailError(null);
-    void catalogClient.detail(reference.planid, controller.signal).then(
+    void catalogClient.detail(reference.planid, controller.signal, reference).then(
       value => { if (!controller.signal.aborted) setDetail(value); },
       error => { if (!controller.signal.aborted) setDetailError(error instanceof Error ? error.message : "无法读取政策信息。"); },
     );
     return () => controller.abort();
-  }, [reference.planid]);
+  }, [reference.planid, reference.generation_id, reference.document_id]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setPage(null);
     setPageError(null);
-    void catalogClient.content(reference.planid, offset, 4000, controller.signal).then(
+    void catalogClient.content(reference.planid, offset, 4000, controller.signal, reference).then(
       value => { if (!controller.signal.aborted) setPage(value); },
       error => { if (!controller.signal.aborted) setPageError(error instanceof Error ? error.message : "无法读取政策原文。"); },
     ).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [reference.planid, offset]);
+  }, [reference.planid, reference.generation_id, reference.document_id, offset]);
 
   const navigate = (nextOffset: number) => {
     if (nextOffset < 0 || loading) return;
@@ -78,8 +78,10 @@ export function EvidenceOriginalReader({ source, onBack }: { source: Source; onB
     }
   };
   const codePointLength = page ? Array.from(page.text).length : 0;
-  const versionChanged = reference.generation_id && detail &&
-    reference.generation_id !== detail.dataset.generation_id;
+  const versionChanged = detail && (
+    (reference.generation_id && reference.generation_id !== (detail.policy.generation_id ?? detail.dataset.generation_id))
+    || (reference.source_hash && detail.policy.source_hash && reference.source_hash !== detail.policy.source_hash)
+  );
 
   return <main className="source-reader" aria-label="政策原文阅读">
     <button type="button" className="source-reader-back" onClick={onBack}><ArrowLeft size={17} /> 返回研究对话</button>

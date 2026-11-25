@@ -64,6 +64,7 @@ class ReadStore:
         if self.generation not in self.manifests:
             raise BackendError("当前发布尚未就绪")
         self.manifest = self.manifests[self.generation]
+        self.text_only = self.manifest.get("text_only", False)
         self.members = {}
         self.all_members = {}
         self.versions = {}
@@ -84,17 +85,26 @@ class ReadStore:
                 self.members[record["id"]] = {"record": record, "payload": payload}
         self.current_documents = self._release_document_ids(self.generation)
         self.by_planid = {}
+        self.document_records = {}
         for did in sorted(self.current_documents):
-            doc = self.document(did, self.generation)
-            if doc.data["planid"] in self.by_planid:
+            if self.text_only:
+                data = self._checked_data(self.connection.execute(
+                    "SELECT data,data_hash FROM documents WHERE id=?", (did,)).fetchone())
+                if data is None:
+                    raise BackendError("发布缺少文档记录")
+            else:
+                data = self.document(did, self.generation).data
+            if data["planid"] in self.by_planid:
                 raise BackendError("同一发布出现多个同planid版本")
-            self.by_planid[doc.data["planid"]] = did
-        for did in sorted(self.current_documents):
-            self._index_document(did, self.generation)
-        sources = {r["record"]["source_id"] for r in self.members.values()}
-        known = {c[2] for values in self.section_chunks.values() for c in values}
-        if not sources <= known:
-            raise BackendError("发布成员缺少原生块或章节定位")
+            self.by_planid[data["planid"]] = did
+            self.document_records[did] = data
+        if not self.text_only:
+            for did in sorted(self.current_documents):
+                self._index_document(did, self.generation)
+            sources = {r["record"]["source_id"] for r in self.members.values()}
+            known = {c[2] for values in self.section_chunks.values() for c in values}
+            if not sources <= known:
+                raise BackendError("发布成员缺少原生块或章节定位")
         signatures = {}
         for row in self.all_members.values():
             record, payload = row["record"], row["payload"]
@@ -159,6 +169,8 @@ class ReadStore:
             text = raw.decode("utf-8", errors="strict")
             self.documents[key] = Document(data, text, body_origin(text, data["body_start"]), generation)
             self.snapshot_loads += 1
+            if self.text_only and len(self.documents) > 4:
+                del self.documents[next(iter(self.documents))]
         return self.documents[key]
 
     def _objects(self, did, kind):
@@ -258,13 +270,16 @@ class ReadStore:
             row = self.connection.execute("SELECT record FROM representations WHERE document_id=? LIMIT 1", (data["id"],)).fetchone()
             version = json.loads(row[0])["document_version_id"] if row else None
             self.versions[data["id"]] = version
-        return dict(planid=data["planid"], title=m.get("title") or "", area=m.get("area_name") or None,
+        info = dict(planid=data["planid"], title=m.get("title") or "", area=m.get("area_name") or None,
                     fyp=m.get("fyp_name") or None, admin_level=m.get("admin_level") or None,
                     plantype_label=m.get("plantype_label") or None, document_id=data["id"],
                     document_version_id=version, source_hash=data["source_hash"], generation_id=doc.generation,
                     source_path=data["source_path"], snapshot=data["snapshot"], body_start=data["body_start"],
                     body_origin=doc.origin, section_id=section["id"] if section else None,
                     section_idx=self.section_indices[section["id"]] if section else None, section_path=path or "")
+        if self.text_only:
+            info["plan_stage"] = m.get("plan_stage") or None
+        return info
 
     def close(self):
         if getattr(self, "connection", None) is not None:
