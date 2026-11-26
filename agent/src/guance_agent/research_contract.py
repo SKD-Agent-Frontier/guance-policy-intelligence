@@ -60,11 +60,13 @@ class TaskContract(StrictModel):
         periods = list(getattr(decision, "fyps", ()))
         if task_type == "extract" and not dimensions:
             dimensions = list(DIMENSIONS)
+        named_ids = targets or list(decision.planids)
+        requested_count = len(set(named_ids)) or len(set(decision.titles))
         completion = CompletionRequirements(
             required_dimensions=dimensions if task_type in ("qa", "extract", "compare", "compare_plans") else [],
             min_documents=(2 if task_type in ("compare", "compare_plans") else
                            1 if task_type == "extract" else 0),
-            min_summarized_documents=2 if task_type == "organize" else 0,
+            min_summarized_documents=(requested_count or 2) if task_type == "organize" else 0,
             min_subjects=(2 if task_type in ("compare", "compare_plans")
                           else 1 if task_type == "extract" else 0),
             required_scheme_fields=(

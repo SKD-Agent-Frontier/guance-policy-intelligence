@@ -2,6 +2,7 @@
 import hashlib
 import json
 import sqlite3
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -784,3 +785,37 @@ def test_loader_does_not_expose_filesystem_paths(tmp_path):
                          ensure_ascii=False)
     assert str(project) not in payload
     assert "snapshots" not in payload and "prepared" not in payload
+
+
+def test_frozen_literal_index_keeps_matches_and_reads_only_visible_page(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[3] / "rag库/检索工程/src"))
+    from guance_rag.catalog_index import build_index
+
+    from app.policy_catalog import FrozenMarkdown, _load_project, _with_indexes
+
+    project = _make_project(tmp_path)
+    snapshot = _load_project(project, lazy=True)
+    baseline = PolicyCatalogService(snapshot)
+    queries = ["非命中词", "人", "人才", "。", "包含", "甲市", "数字经济"]
+    expected = {q: baseline.list_policies(q=q, page_size=1) for q in queries}
+    root = tmp_path / "index-root"
+    build_index(project, root)
+    indexed = PolicyCatalogService(_with_indexes(snapshot, root))
+    reads = []
+    read = FrozenMarkdown.read
+
+    def counted_read(doc):
+        reads.append(doc.document_id)
+        return read(doc)
+
+    monkeypatch.setattr(FrozenMarkdown, "read", counted_read)
+    for q in queries:
+        reads.clear()
+        assert indexed.list_policies(q=q, page_size=1) == expected[q]
+        assert len(reads) == len(expected[q]["items"])
+    assert indexed.list_policies(q="包含", area="乙市", page_size=1)["matched_documents"] == 1
+
+    # The indexed hit still goes through frozen source verification.
+    snapshot.records[0].frozen.path.write_bytes(b"changed")
+    with pytest.raises(CatalogUnavailable):
+        indexed.list_policies(q="包含")

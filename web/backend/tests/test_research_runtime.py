@@ -8,6 +8,7 @@ from guance_agent.research_planner import ResearchPlanner
 from guance_agent.schemas import TaskRequest
 
 from app.policy_catalog import CatalogSnapshot, PolicyCatalogService, PolicyRecord
+from app.preparation import ResearchPreparationService
 from app.research_runtime import discover_run_plan
 
 
@@ -327,3 +328,33 @@ async def test_collective_peer_gap_keeps_verified_anchor_and_reports_no_comparis
     assert discovery.plan.documents[0].source_verified
     assert discovery.plan.coverage.subject_gaps
     assert "不能据此得出跨地市比较结论" in discovery.message
+
+
+@pytest.mark.asyncio
+async def test_prepare_and_discover_single_named_policy():
+    title = "北京市大兴区养老服务专项规划"
+    question = f"请梳理《{title}》中的养老服务措施。"
+    prepared = await ResearchPreparationService().prepare({
+        "mode": "organize", "message": question, "autonomous": True})
+    assert prepared.request.question == question
+    selected = task("organize", None, question)
+    contract = TaskContract.from_task(selected)
+    assert contract.completion.min_summarized_documents == 1
+    discovery = await discover_run_plan(selected, contract, ResearchPlanner.initial(contract),
+                                        time.monotonic() + 10, catalog(record("26279", "北京市", title=title)))
+    assert discovery.status == "ready"
+    assert [doc.planid for doc in discovery.plan.documents] == ["26279"]
+    assert TaskContract.from_task(task("organize", ["a", "b", "c"])).completion.min_summarized_documents == 3
+
+
+@pytest.mark.asyncio
+async def test_named_organize_topic_can_be_replaced():
+    service = ResearchPreparationService()
+    first = await service.prepare({"mode": "organize", "autonomous": True,
+                                   "message": "梳理《北京市养老服务规划》"})
+    updated = await service.prepare({"mode": "organize", "autonomous": True,
+                                     "message": "研究主题改为《北京市教育工作规划》",
+                                     "state": {"state_id": first.state.state_id,
+                                               "revision": first.state.revision}})
+    assert "《北京市教育工作规划》" in updated.request.question
+    assert "养老服务规划" not in updated.request.question

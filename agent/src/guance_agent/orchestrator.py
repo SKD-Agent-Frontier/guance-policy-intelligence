@@ -382,7 +382,7 @@ async def _execute_research_capability(capability: str, state: ResearchState,
         raise BusinessError("INVALID_INPUT")
     # Search results never select the user's comparison objects.
     targets = list(task.targets or state.confirmed_targets or ()) or None
-    if requested_targets is not None and requested_targets != targets:
+    if requested_targets and set(requested_targets) != set(targets or ()):
         return {"needs_targets": True}
     if getattr(module, "requires_targets", True) and not targets:
         return {"needs_targets": True}
@@ -678,6 +678,8 @@ async def run_sdk_task(task: TaskRequest, s: Settings, rt: Runtime,
                         "revision": plan.revision + 1, "steps": steps,
                         "scope": plan.scope.model_copy(update={"target_planids": list(discovered)}),
                     }), "missing_document_coverage: " + ", ".join(plan.coverage.subject_gaps))
+                confirmed_targets = requested_ids or discovered
+            if task.task_type == "extract" and len(discovered) == 1:
                 confirmed_targets = requested_ids or discovered
             if decision.titles and task.targets is None:
                 ids = list(requested_ids)

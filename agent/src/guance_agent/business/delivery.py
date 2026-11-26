@@ -4,6 +4,16 @@ from .analysis import analysis_candidates
 from .compare.result import _comparability
 
 
+def extract_source_lines(claims, refs_by_id) -> str:
+    lines = []
+    for claim in claims:
+        if len(claim.chunk_ids) == len(claim.quotes) == 1:
+            ref = refs_by_id.get(claim.chunk_ids[0])
+            if ref and claim.quotes[0]:
+                lines.append(f"《{ref.title}》{ref.section_path or ''}：「{claim.quotes[0]}」")
+    return "\n".join(dict.fromkeys(lines))
+
+
 def project_business(task: TaskRequest, claims: list, refs_by_id: dict,
                          research_state=None, approved_blocks=()) -> dict | None:
     """Rebuild conservative business views solely from surviving claims/refs."""

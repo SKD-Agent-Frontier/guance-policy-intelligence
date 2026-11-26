@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from .business.delivery import business_notice, project_business
+from .business.delivery import business_notice, extract_source_lines, project_business
 from .qa_boundary import boundary_reply
 from .research_delivery import _render_structured_report
 from .review_receipts import fact_signature
@@ -278,6 +278,10 @@ async def finalize_public_delivery(result, task: TaskRequest, ctx, runtime, *,
             coverage["status"] = "partial"
         complete = (coverage.get("status") == "complete"
                     and (result.meta.get("research_quality") or {}).get("status") == "complete")
+        if task.task_type == "extract":
+            sources = extract_source_lines(claims, refs_by_id)
+            if sources:
+                result.answer += "\n\n" + sources
         if task.task_type != "qa":
             result.structured = project_business(task, claims, refs_by_id, research_state,
                                                  approved_blocks)

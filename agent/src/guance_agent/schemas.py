@@ -121,6 +121,7 @@ class Claim(BaseModel):
     quotes: list[str] = Field(default_factory=list)
     fact_ids: list[str] = Field(default_factory=list)
     content_period: str | None = None
+    fact_year: int | None = Field(default=None, ge=1000, le=9999)
     fact_status: Literal["achieved", "target", "ongoing", "unspecified"] = "unspecified"
     time_anchor: str | None = None
     # 要素提取时填；qa 时为 None。有了它，现有三层校验可以原样复用。

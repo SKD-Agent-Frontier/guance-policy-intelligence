@@ -24,9 +24,11 @@ from agents import (
     function_tool,
 )
 from agents.exceptions import MaxTurnsExceeded, ModelBehaviorError
+from agents.tool_context import ToolContext
 from pydantic import BaseModel, Field
 
 from .business.analysis import single_clause_proposal
+from .business.delivery import extract_source_lines
 from .client import thinking_off
 from .context import RunContext
 from .kb import normalize_fyp
@@ -36,7 +38,7 @@ from .research_requirements import parse_requirements
 from .review_receipts import ReviewReceipts
 from .routing import parse_fyps
 from .runtime import ToolBudgetExceeded
-from .schemas import Claim, Passage, ToolResult
+from .schemas import DIMENSIONS, Claim, Passage, ToolResult
 from .tools import _call, out_of_scope
 
 MAX_REQUIREMENTS = 128
@@ -46,6 +48,7 @@ MAX_MODEL_CALLS = 18
 MAX_QUERY_CHARS = 200
 MAX_READ_CHARS = 6000
 MAX_BATCH_READ_CHARS = 18000
+MAX_DRAFT_BLOCKS = 24
 MAX_QUOTE_HANDLE_CHARS = 320
 
 
@@ -62,9 +65,11 @@ class EvidenceCandidate(BaseModel):
     requirement_ids: list[str] = Field(max_length=MAX_REQUIREMENTS)
     content_period: str | None = Field(
         default=None,
-        description=("事实描述的时期；仅来源规划期或无法从原文确定时填null，"
+        description=("事实明确所属的五年规划期；公历年份填 fact_year。仅来源规划期或无法从原文确定时填null，"
                      "不得据来源规划期推测事实时期。"),
     )
+    fact_year: int | None = Field(default=None, ge=1000, le=9999,
+                                  description="事实发生或目标对应的公历年份，须由原文或同一章节标题直接支持。")
     fact_status: str = "unspecified"
     time_anchor: str | None = None
 
@@ -424,7 +429,7 @@ class ResearchState:
             "quote_checked_claims": [{
                 "fact_handle": self.fact_handles.get(fact_ids[0], ""),
                 "text": claim.text[:180], "dimension": claim.dimension,
-                "content_period": claim.content_period,
+                "content_period": claim.content_period, "fact_year": claim.fact_year,
                 "fact_status": claim.fact_status,
                 "time_anchor": claim.time_anchor,
                 "requirement_ids": self.claim_requirement_ids[index],
@@ -597,9 +602,14 @@ def _quote_is_read(state: ResearchState, chunk_id: str, quote: str) -> bool:
     )
 
 
-def _quote_context(state: ResearchState, chunk_id: str, quote: str) -> str:
+def _quote_context(state: ResearchState, chunk_id: str, quote: str, *,
+                   include_heading: bool = True) -> str:
     ref = state.run.evidence.get(chunk_id)
-    parts = [getattr(ref, "section_path", "") or ""]
+    heading = getattr(ref, "section_path", "") or ""
+    title = getattr(ref, "title", "") or ""
+    if title:
+        heading = heading.replace(title, "")
+    parts = [heading] if include_heading else []
     for text in state.read_text.get(chunk_id, []):
         index = text.find(quote)
         if index < 0:
@@ -617,9 +627,12 @@ def _check_summary(result: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(result, dict):
         return None
     gaps = result.get("gaps")
+    codes = list(gaps) if isinstance(gaps, list) else []
+    if result.get("error"):
+        codes.append(result["error"])
     return {"passed": result.get("passed") is True,
             "gap_count": len(gaps) if isinstance(gaps, list) else 0,
-            "error_codes": _safe_error_codes(gaps if isinstance(gaps, list) else [])}
+            "error_codes": _safe_error_codes(codes)}
 
 
 def _safe_error_codes(values: list[Any]) -> list[str]:
@@ -632,8 +645,9 @@ def _safe_error_codes(values: list[Any]) -> list[str]:
         "claim_or_requirement_invalid", "invalid_fact_status",
         "target_cannot_be_registered_as_achievement",
         "achievement_cannot_be_registered_as_target", "content_period_not_in_read_context",
+        "fact_year_not_in_read_context", "fact_year_mismatch",
         "time_anchor_not_in_read_context", "content_period_mismatch", "evidence_capacity",
-        "duplicate_candidate_id", "other",
+        "duplicate_candidate_id", "audit_invalid_format", "other",
     }
     codes = set()
     for value in values:
@@ -651,6 +665,8 @@ def _compact_evidence_outcome(outcome: dict[str, Any]) -> dict[str, Any]:
             compact["already_registered"] = True
     else:
         compact["error"] = _safe_error_codes([outcome.get("error")])[0]
+        if outcome.get("chunk_id"):
+            compact["chunk_id"] = outcome["chunk_id"]
     return compact
 
 
@@ -658,16 +674,14 @@ def _parse_audit(raw: str, requirement_ids: set[str], block_ids: set[str]) -> di
     try:
         data = json.loads(raw)
     except (TypeError, ValueError):
-        return {"passed": False, "gaps": sorted(requirement_ids),
-                "reason": "审查结果格式无法核验"}
+        data = None
     keys = ("covered_requirement_ids", "approved_block_ids", "gaps", "unsupported_claims")
-    if not isinstance(data, dict) or any(
-            not isinstance(data.get(key, []), list)
-            or any(not isinstance(item, str) for item in data[key])
-            for key in keys if key in data):
+    if (not isinstance(data, dict) or type(data.get("passed")) is not bool
+            or any(not isinstance(data.get(key), list)
+                   or not all(isinstance(item, str) for item in data[key]) for key in keys)):
         return {"passed": False, "gaps": sorted(requirement_ids),
                 "covered_requirement_ids": [], "approved_block_ids": [],
-                "reason": "审查结果格式无法核验"}
+                "error": "audit_invalid_format", "reason": "审查结果格式无法核验"}
     covered = sorted(set(data.get("covered_requirement_ids", [])) & requirement_ids)
     gaps = sorted(requirement_ids - set(covered))
     gaps.extend(item[:160] for item in data.get("gaps", []) if item not in gaps)
@@ -707,6 +721,11 @@ def _render_blocks(state: ResearchState, blocks: list[ResearchBlock]) -> str:
         text = _block_text(state, block)
         if text:
             lines.append(f"### {block.title}\n{text}")
+    if state.required_capability == "extract":
+        indexes = sorted({i for block in blocks for i in _claim_indexes_for_block(state, block)})
+        sources = extract_source_lines([state.claims[i] for i in indexes], state.run.evidence)
+        if sources:
+            lines.append(sources)
     return "\n\n".join(lines)
 
 
@@ -758,8 +777,23 @@ def _register_evidence(state: ResearchState, candidate: EvidenceCandidate, *,
         return {"accepted": False, "error": "achievement_cannot_be_registered_as_target",
                 "chunk_id": chunk_id}
     stated_periods = set(parse_fyps(context))
-    normalized_content_period = (normalize_fyp(candidate.content_period)
-                                 if candidate.content_period else None)
+    # Older clients may send a calendar year in the five-year-plan field.
+    period = candidate.content_period
+    legacy_year = re.fullmatch(r"(\d{4})年?", (period or "").strip())
+    fact_year = candidate.fact_year
+    if legacy_year:
+        old_year = int(legacy_year[1])
+        if fact_year is not None and fact_year != old_year:
+            return {"accepted": False, "error": "fact_year_mismatch", "chunk_id": chunk_id}
+        fact_year, period = old_year, None
+    if fact_year is not None:
+        year_pattern = r"(?<!\d)(\d{4})\s*年"
+        sentence = _quote_context(state, chunk_id, quote, include_heading=False)
+        years = (re.findall(year_pattern, quote) or re.findall(year_pattern, sentence)
+                 or re.findall(year_pattern, context))
+        if str(fact_year) not in years:
+            return {"accepted": False, "error": "fact_year_not_in_read_context", "chunk_id": chunk_id}
+    normalized_content_period = normalize_fyp(period) if period else None
     content_period = normalized_content_period or (
         next(iter(stated_periods)) if len(stated_periods) == 1 else None)
     if content_period and content_period not in stated_periods:
@@ -782,6 +816,8 @@ def _register_evidence(state: ResearchState, candidate: EvidenceCandidate, *,
         "content_period": content_period, "fact_status": candidate.fact_status,
         "time_anchor": candidate.time_anchor,
     }, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if fact_year is not None:
+        fact_payload += f"|fact_year={fact_year}"
     if dimension:
         fact_payload += json.dumps({"dimension": dimension}, ensure_ascii=False, sort_keys=True)
     fact_id = "fact_" + sha256(fact_payload.encode("utf-8")).hexdigest()[:20]
@@ -799,7 +835,7 @@ def _register_evidence(state: ResearchState, candidate: EvidenceCandidate, *,
                            "document_period": ref.fyp, "section": ref.section_path}}
     state.claims.append(Claim(text=claim, chunk_ids=[chunk_id], quotes=[quote],
                               fact_ids=[fact_id], dimension=dimension,
-                              content_period=content_period,
+                              content_period=content_period, fact_year=fact_year,
                               fact_status=candidate.fact_status,
                               time_anchor=candidate.time_anchor))
     state.claim_requirement_ids.append(ids)
@@ -836,6 +872,8 @@ def _import_capability_claims(state: ResearchState, capability: str,
     if root is None:
         return 0
     imported = 0
+    dimension_ids = {item.label: item.id for item in state.requirements
+                     if item.origin_question == state.question and item.label in DIMENSIONS}
     for index, claim in enumerate(claims):
         if len(state.claims) >= MAX_EVIDENCE:
             break
@@ -846,13 +884,16 @@ def _import_capability_claims(state: ResearchState, capability: str,
                 zip(claim.chunk_ids, claim.quotes, strict=True)):
             if not _quote_is_read(state, chunk_id, quote):
                 continue
+            requirement_ids = [root.id]
+            if capability == "extract" and claim.dimension in dimension_ids:
+                requirement_ids.append(dimension_ids[claim.dimension])
             candidate = EvidenceCandidate(
                 candidate_id=f"{capability}-{index}-{source_index}",
                 claim=claim.text,
                 quote=quote,
                 chunk_id=chunk_id,
-                requirement_ids=[root.id],
-                content_period=claim.content_period,
+                requirement_ids=list(dict.fromkeys(requirement_ids)),
+                content_period=claim.content_period, fact_year=claim.fact_year,
                 fact_status=claim.fact_status,
                 time_anchor=claim.time_anchor,
             )
@@ -879,7 +920,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
             "只研究original_question及不可删除requirements；授权planid范围不能由query改变。"
             "不得新增、删除或弱化冻结要求。引用只能从已读取的完整原文提出；"
             "每条事实标注内容时期、事实状态(achieved/target/ongoing/unspecified)和时间锚；"
-            "content_period只在原文明确事实时期时填写，仅知来源规划期或无法确定时填null。"
+            "content_period用于原文明确的五年规划期，fact_year用于原文或本章节明确支持的公历年份；不得用报告发布年推测事实年份。"
             "block kind仅可用fact或analysis：fact只呈现直接证据支持的事实；analysis须由至少两条已核事实支撑。"
             "区分来源规划期与事实描述时期，不可把规划目标说成已发生结果。"
             "优先用read_batch返回的evidence_handles提交evidence_handle，不要复制长引文或chunk_id；仅引用完整kb_read产生的唯一原文句。"
@@ -928,7 +969,10 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
                                "error_type": type(exc).__name__}, ensure_ascii=False)
         if isinstance(response, dict) and response.get("needs_targets"):
             return json.dumps({"status": "targets_required", "capability": capability,
-                               "message": "请先确定至少两个已授权的政策对象，再调用比较能力。"},
+                               "confirmed_targets": list(state.confirmed_targets or ()),
+                               "message": ("比较需要至少两个已确认对象。"
+                                           if capability in {"compare", "compare_plans"} else
+                                           "请使用已确认的研究对象；有已确认对象时可省略 targets。")},
                               ensure_ascii=False)
         state.capabilities_used.add(capability)
         claims = response.get("claims", []) if isinstance(response, dict) else []
@@ -1159,7 +1203,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
              {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
             max_tokens=min(2500, state.run.settings.llm_max_output_tokens),
             timeout=min(50, max(0, state.deadline - time.monotonic())),
-            purpose="research_core_final_audit",
+            purpose="research_core_final_audit", json_object=True,
         )
 
     async def check_state(state: ResearchState, *, reserve_final_call: bool = True) -> dict[str, Any]:
@@ -1209,7 +1253,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
         # facts attached to each requirement, not raw KB payloads.
         mapped = {requirement_id: [
             {"claim": state.claims[index].text, "quote": state.claims[index].quotes,
-             "content_period": state.claims[index].content_period,
+             "content_period": state.claims[index].content_period, "fact_year": state.claims[index].fact_year,
              "fact_status": state.claims[index].fact_status,
              "time_anchor": state.claims[index].time_anchor,
              "time_context": [_quote_context(state, chunk, quote)
@@ -1234,7 +1278,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
             state.model_usage[-1]["purpose"] = "final_audit"
         result = _parse_audit(raw, {item.id for item in state.requirements},
                                {block.id for block in state.draft_blocks})
-        result["audit_performed"] = True
+        result["audit_performed"] = "error" not in result
         state.approved_blocks = [block for block in state.draft_blocks
                                  if block.id in result.get("approved_block_ids", [])]
         # Only the auditor issues these receipts. The gateway checks them again
@@ -1292,7 +1336,7 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
             state.check_result = {"passed": False, "reason": "no_verified_evidence",
                                   "gaps": [item.id for item in state.requirements]}
             return json.dumps(state.check_result, ensure_ascii=False)
-        if not isinstance(blocks, list) or not blocks or len(blocks) > 24:
+        if not isinstance(blocks, list) or not blocks or len(blocks) > MAX_DRAFT_BLOCKS:
             return json.dumps({"passed": False, "gaps": ["blocks_required_or_limit"]})
         outcomes = []
         candidate_facts = {}
@@ -1453,6 +1497,38 @@ def build_research_core_agent(model, settings, runtime, *, audit=None,
     )
 
 
+async def _draft_scoped_extraction(agent, state, runtime):
+    """Run the two known SDK tools directly once the single document is confirmed."""
+    tools = {tool.name: tool for tool in agent.tools}
+
+    async def invoke(name, arguments):
+        tool = tools[name]
+        args = json.dumps(arguments, ensure_ascii=False)
+        ctx = ToolContext.from_agent_context(
+            RunContextWrapper(context=state), "scoped-extract-" + name,
+            agent=agent, tool_name=name, tool_arguments=args)
+        await runtime.hooks.on_tool_start(ctx, agent, tool)
+        result = None
+        try:
+            result = await tool.on_invoke_tool(ctx, args)
+        finally:
+            await runtime.hooks.on_tool_end(ctx, agent, tool, result)
+
+    dimensions = runtime.task.dimensions or list(DIMENSIONS)
+    await invoke("run_capability", {"capability": "extract", "targets": None,
+                                    "requirements": dimensions})
+    blocks = [
+        ResearchBlock(id=f"extract-{i + 1}", title=claim.dimension, kind="fact",
+                      evidence_ids=state.claim_fact_ids[i],
+                      requirement_ids=state.claim_requirement_ids[i]).model_dump()
+        for i, claim in enumerate(state.claims) if claim.dimension in dimensions
+    ]
+    # Oversized drafts stay with the existing SDK loop, which can group related facts.
+    if 0 < len(blocks) <= MAX_DRAFT_BLOCKS:
+        await invoke("submit_draft", {"blocks": blocks, "evidence_candidates": [],
+                                      "finish_if_partial": True})
+
+
 async def execute_research_core(agent: Agent[ResearchState], state: ResearchState,
                                runtime, *, max_cycles: int = MAX_MODEL_CALLS) -> str:
     """Run the SDK tool loop; resume after an unfinalized plain-text early exit."""
@@ -1466,6 +1542,16 @@ async def execute_research_core(agent: Agent[ResearchState], state: ResearchStat
     runtime.hooks.core_state = state
     try:
         async with asyncio.timeout_at(deadline):
+            if state.required_capability == "extract" and len(state.confirmed_targets or ()) == 1:
+                await _draft_scoped_extraction(agent, state, runtime)
+                if state.capability_error or state.capability_empty:
+                    return ""
+                if (state.check_result and not state.needs_analysis
+                        and all(req.label == state.question or req.label in DIMENSIONS
+                                for req in state.requirements)):
+                    # The scoped pass already extracted and audited the requested facets.
+                    # A missing or rejected facet stays missing in the public projection.
+                    return state.final_answer or _render_blocks(state, state.approved_blocks)
             for _ in range(min(max_cycles, call_limit)):
                 if state.final_answer:
                     return state.final_answer

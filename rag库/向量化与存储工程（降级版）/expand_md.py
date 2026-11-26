@@ -22,6 +22,7 @@ REPO = RAG.parent
 sys.path[:0] = [str(RAG / "切块工程"), str(RAG / "检索工程" / "src")]
 
 from filelock import FileLock
+from guance_rag.catalog_index import build_index, index_path
 from guance_rag.config import RuntimeOptions
 from guance_rag.expansion import (ExpansionRegistry, ExpansionRelease, current_documents, database_path,
                                   load_release, normalized, read_database)
@@ -584,6 +585,11 @@ def main():
                     log("shard_verified", count=len(selected), added_documents=len(occupied) - len(base_docs))
                 if args.action == "activate":
                     smoke_release(args.base, [args.root / shard for shard in selected], len(occupied))
+                    budget = DiskBudget(args.root, int(args.reserve_gib * GIB), int(args.cap_gib * GIB))
+                    index_dir = index_path(args.root, base_gen).parent
+                    budget.start_used -= bytes_used(index_dir) if index_dir.exists() else 0
+                    for project in [args.base, *(args.root / shard for shard in selected)]:
+                        build_index(project, args.root, lambda: budget.check(index_dir))
                     revision, generation = registry.activate(selected, base_revision)
                     results, conflicts = Counter(), Counter()
                     for _, summary in batches:

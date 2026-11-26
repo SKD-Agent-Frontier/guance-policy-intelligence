@@ -5,6 +5,7 @@ import pytest
 
 from guance_agent.business.contract import BusinessError, BusinessOutcome
 from guance_agent.business.extract import ExtractModule
+from guance_agent.extract import extraction_query
 from guance_agent.schemas import Hit, Passage, TaskRequest, ToolResult
 
 
@@ -141,3 +142,14 @@ async def test_extract_module_maps_unparseable_model_output_to_business_error():
         await ExtractModule()(_task(), _context(), services)
 
     assert error.value.code == "OUTPUT_PARSE"
+
+
+@pytest.mark.parametrize(("question", "dimensions", "expected"), [
+    ("从《某省年度报告》中提取当年为企业降低成本的量化目标，并引用原文。", ["量化目标"], "企业降低成本"),
+    ("请提取《服务业政策》中的2025年贷款贴息的期限，请给出原文依据。", ["期限"], "2025年贷款贴息"),
+    ("planid A123", ["适用对象", "期限"], "适用对象 期限"),
+    ("请提取为民服务的责任主体", ["责任主体"], "为民服务"),
+])
+def test_scoped_query_separates_document_identity_from_subject(question, dimensions, expected):
+    assert extraction_query(question, dimensions, scoped=True) == expected
+    assert extraction_query(question, dimensions, scoped=False) == question

@@ -256,3 +256,28 @@ async def test_search_candidates_cannot_select_or_replace_comparison_objects(env
     assert (await compare(["first", "second"]))["needs_targets"]
     state.confirmed_targets = ("second", "third")
     assert (await compare(["first", "third"]))["needs_targets"]
+
+
+@pytest.mark.asyncio
+async def test_extract_inherits_only_the_confirmed_policy(env):
+    settings, task = env
+    ctx = RunContext(settings, MockKB(settings.mock_kb_path), task.run_id, task.session_id)
+    state = ResearchState.create(ctx, task.question, time.monotonic() + 10)
+    state.confirmed_targets = ("selected",)
+    state.candidate_planids.update(["selected", "other"])
+    calls = []
+
+    async def extract(bound_task, bound_context, _services):
+        calls.append((bound_task.targets, bound_context.scope))
+        return BusinessOutcome(answer="")
+
+    runtime = Runtime(settings, task)
+    try:
+        for requested in (None, [], ["other"]):
+            result = await orchestrator._execute_research_capability(
+                "extract", state, requested, task, settings, runtime, ctx, decide(task.question),
+                state.deadline, {"extract": extract})
+            assert bool(result.get("needs_targets")) == (requested == ["other"])
+        assert calls == [(["selected"], ("selected",))] * 2
+    finally:
+        runtime.close()

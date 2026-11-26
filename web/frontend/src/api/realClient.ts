@@ -1,5 +1,5 @@
 import { REAL_REQUEST_TIMEOUT_MS } from "./config";
-import { API_REQUEST_TIMEOUT_MS, requestJson } from "./http";
+import { API_REQUEST_TIMEOUT_MS, ApiError, requestJson } from "./http";
 import { validatePreparationResponse } from "./validation";
 import type {
   PreparationResponse,
@@ -30,16 +30,25 @@ export const realClient = {
       { timeoutMs: API_REQUEST_TIMEOUT_MS },
     );
   },
-  submit(request: ResearchRequest): Promise<RunResult> {
-    return requestJson<RunResult>(
-      "/api/runs",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      },
-      { timeoutMs: REAL_REQUEST_TIMEOUT_MS },
-    );
+  async submit(request: ResearchRequest): Promise<RunResult> {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const requestId = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+    try {
+      return await requestJson<RunResult>(
+        "/api/runs",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Request-ID": requestId },
+          body: JSON.stringify(request),
+        },
+        { timeoutMs: REAL_REQUEST_TIMEOUT_MS },
+      );
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new ApiError(error.kind, error.message + "（请求编号 " + requestId + "）", error.status);
+      }
+      throw error;
+    }
   },
 
   prepare(request: ResearchPreparationRequest): Promise<PreparationResponse> {

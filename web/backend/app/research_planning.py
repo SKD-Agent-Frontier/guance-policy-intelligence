@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from guance_agent.routing import current_question, parse_fyps
+from guance_agent.routing import current_question, parse_fyps, parse_planids, parse_titles
 from pydantic import BaseModel, ConfigDict, Field
 
 from .compare_resolution import _DIMENSIONS, _PROVINCES, resolve_compare
@@ -24,8 +24,6 @@ class ResearchResolveRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
 
 
-PLANIDS = re.compile(r"planid\s*[:：=]?\s*([A-Za-z0-9_-]{1,64})", re.IGNORECASE)
-TITLES = re.compile(r"《([^《》]{3,120})》")
 ORDINAL = re.compile(r"(?:十一|十二|十三|十四|十五)五")
 EXPLICIT_PERIOD = re.compile(r"第(?:十[一二三四五]|十)个五年(?:规划|计划)")
 HISTORIC_SHORTHAND = re.compile(r"(?<!五)十五[’'\"“”‘’]?\s*(?:规划|计划)")
@@ -287,20 +285,14 @@ def _unperioded_comparison_coverage(question: str, catalog: PolicyCatalogService
 
 
 def _explicit_records(question: str, catalog: PolicyCatalogService) -> tuple[list[PolicyRecord], str | None]:
-    by_id = {r.planid: r for r in catalog.snapshot.records}
-    ids = list(dict.fromkeys(PLANIDS.findall(question)))
-    if ids:
-        missing = [value for value in ids if value not in by_id]
-        if missing:
-            return [], "指定的政策文献在当前发布库中未找到，请核对文献名称或研究范围。"
-        return [by_id[i] for i in ids], None
-    titles = list(dict.fromkeys(TITLES.findall(question)))
-    if not titles:
-        return [], None
     picked = []
-    for title in titles:
-        matches = [r for r in catalog.snapshot.records if r.title
-                   and (r.title == title or r.title.strip("“”") == title.strip("“”"))]
+    for planid in parse_planids(question):
+        record = catalog.record_by_id(planid)
+        if record is None:
+            return [], "指定的政策文献在当前发布库中未找到，请核对文献名称或研究范围。"
+        picked.append(record)
+    for title in parse_titles(question):
+        matches = catalog.records_by_title(title)
         if len(matches) != 1:
             return [], f"《{title}》无法唯一定位到当前发布文献；请补充更完整的政策名称。"
         if matches[0].planid not in {r.planid for r in picked}:
@@ -312,15 +304,14 @@ def resolve_research_internal(mode: Mode, question: str, catalog: PolicyCatalogS
     """基于自然语言做保守对象发现；绝不把研究主题等同于文献身份。"""
     period = _period(question)
     dimensions = _dimensions(question)
-    requested_ids = list(dict.fromkeys(PLANIDS.findall(question)))
-    by_id = {record.planid: record for record in catalog.snapshot.records}
-    if requested_ids and any(planid not in by_id for planid in requested_ids):
+    requested_ids = parse_planids(question)
+    if any(catalog.record_by_id(pid) is None for pid in requested_ids):
         return _insufficient("指定文献不在当前发布目录中，无法核验其来源身份。", "requested_document_missing")
     explicit, error = _explicit_records(question, catalog)
     if error:
         return _clarify(error)
     if explicit:
-        required = 1 if mode in ("qa", "extract") else 2
+        required = 2 if mode in ("compare", "compare_plans") else 1
         if not required <= len(explicit) <= (1 if mode == "extract" else 8):
             return _clarify("请在研究问题中说明需要处理的政策名称或方案；比较需至少两份不同文献。")
         return _ready(mode, question, explicit, dimensions)

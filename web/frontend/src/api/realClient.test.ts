@@ -108,6 +108,10 @@ describe("realClient", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).kind).toBe("network");
     expect(describeFailure(error)).toContain("无法连接研究服务");
+    const headers = new Headers(vi.mocked(fetch).mock.calls[0][1]?.headers);
+    const requestId = headers.get("X-Request-ID");
+    expect(requestId).toMatch(/^[a-f0-9]{32}$/);
+    expect(describeFailure(error)).toContain(requestId!);
   });
 
   it("reports malformed JSON instead of returning a fake result", async () => {
